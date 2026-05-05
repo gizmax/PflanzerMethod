@@ -14,6 +14,11 @@ dist/
 .next/
 build/
 
+# Web hub local artifacts
+tool/web/backend/.venv/
+tool/web/frontend/dist/
+tool/web/certs/
+
 # macOS
 .DS_Store
 
