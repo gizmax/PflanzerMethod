@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ../../data:/app/data:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend-build:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm ci && npm run build"
+    profiles: ["build"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/pflanzer.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/method:ro
+      - ./certs:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
