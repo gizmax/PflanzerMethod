@@ -1,0 +1,205 @@
+{
+  "version": "v0.2",
+  "source": "docs/methodology/02-role-catalog.md",
+  "roles": [
+    {
+      "idx": 1,
+      "label": "Zadavatel / Business owner",
+      "default_status": "mandatory",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "always",
+      "expert_agent": "zadavatel-expert"
+    },
+    {
+      "idx": 2,
+      "label": "Produkt manažer",
+      "default_status": "mandatory",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "always",
+      "expert_agent": "pm-expert"
+    },
+    {
+      "idx": 3,
+      "label": "Facilitátor (lidský + AI)",
+      "default_status": "mandatory",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "always",
+      "expert_agent": "facilitator"
+    },
+    {
+      "idx": 4,
+      "label": "Frontend / Vibe-coding lead",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "ui_changes",
+      "trigger_question": "Mění se UI nebo přidává se nový view?",
+      "expert_agent": "fe-vibe-coding-expert"
+    },
+    {
+      "idx": 5,
+      "label": "Backend / API lead",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "data_or_api",
+      "trigger_question": "Mění se data nebo API?",
+      "expert_agent": "be-api-expert"
+    },
+    {
+      "idx": 6,
+      "label": "UX / Designer",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "new_flow",
+      "trigger_question": "Vzniká nový user flow nebo přepracování core experience?",
+      "expert_agent": "ux-expert"
+    },
+    {
+      "idx": 7,
+      "label": "Security / Compliance",
+      "default_status": "mandatory_when_triggered",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "data_auth_integration",
+      "trigger_question": "Pracujeme s daty uživatelů, auth, integracemi nebo platbami?",
+      "mandatory_if_triggered": true,
+      "expert_agent": "security-expert"
+    },
+    {
+      "idx": 8,
+      "label": "QA / Test lead",
+      "default_status": "mandatory_when_triggered",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "release_intent",
+      "trigger_question": "Jakákoli zmínka 'produkce' nebo 'pilot' v output?",
+      "mandatory_if_triggered": true,
+      "expert_agent": "qa-expert"
+    },
+    {
+      "idx": 9,
+      "label": "Engineering manager",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "scope_2plus_sprints",
+      "trigger_question": "Bude scope déle než 2 sprinty / je to PI priority?",
+      "expert_agent": "em-expert"
+    },
+    {
+      "idx": 10,
+      "label": "Legal / GDPR / DPO",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "personal_data_marketing_ai_act",
+      "trigger_question": "Osobní data, marketing, novel AI use case (≥ Limited risk-tier), nebo regulovaný produkt (PSD2/MiFID)?",
+      "expert_agent": "legal-gdpr-expert"
+    },
+    {
+      "idx": 11,
+      "label": "Accessibility expert",
+      "default_status": "recommended_default_on",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "customer_facing_or_b2b_250",
+      "trigger_question": "Customer-facing nebo B2B nad 250 zaměstnanců?",
+      "default_on": true,
+      "opt_out_only": "pure internal admin tool < 250 zaměstnanců, žádný WCAG závazek",
+      "expert_agent": "a11y-expert"
+    },
+    {
+      "idx": 12,
+      "label": "Data / Analytics",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "release_intent_or_metrics",
+      "trigger_question": "Release intent (= ship plánován) nebo nové metriky / A/B test?",
+      "expert_agent": "data-analytics-expert"
+    },
+    {
+      "idx": 13,
+      "label": "Customer support proxy",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "customer_base_1000",
+      "trigger_question": "Customer base > 1000 active users + user-facing change?",
+      "expert_agent": "cs-proxy-expert"
+    },
+    {
+      "idx": 14,
+      "label": "End-user proxy / User research",
+      "default_status": "recommended_default_on",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "customer_facing_or_new_segment",
+      "trigger_question": "Customer-facing flow nebo nový segment?",
+      "default_on": true,
+      "opt_out_only": "fresh persona ≤ 3 měsíce + JTBD signed by PM (zdokumentovaný důvod)",
+      "expert_agent": "user-research-expert"
+    },
+    {
+      "idx": 15,
+      "label": "DevOps / Platform",
+      "default_status": "recommended",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "infra_changes",
+      "trigger_question": "Změny v infra / deploy / runtime / sandbox? (téměř vždy)",
+      "expert_agent": "devops-platform-expert"
+    },
+    {
+      "idx": 16,
+      "label": "UX writer / Content designer",
+      "default_status": "optional",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "user_facing_copy",
+      "trigger_question": "User-facing copy / marketing claims / error microcopy / B1-B2 plain language?",
+      "expert_agent": "ux-writer-expert"
+    },
+    {
+      "idx": 17,
+      "label": "Champion / Pilot lead",
+      "default_status": "optional",
+      "ai_proxy_mode": "mode_1",
+      "trigger": "second_plus_pilot",
+      "trigger_question": "Druhý+ pilot v BU, nebo scaling Pflanzeru ve společnosti?",
+      "bootstrap_if_first_pilot": true,
+      "expert_agent": "champion-expert"
+    },
+    {
+      "idx": 18,
+      "label": "Solution / Domain architect",
+      "default_status": "optional",
+      "ai_proxy_mode": "mode_2",
+      "trigger": "multi_team_or_complex_domain",
+      "trigger_question": "Multi-team scope (≥ 3 týmy) nebo komplexní doména (vyžaduje Event Storming) nebo regulovaný SDLC?",
+      "expert_agent": "solution-architect-expert"
+    }
+  ],
+  "ai_proxy_modes": {
+    "mode_1": {
+      "label": "Vlastnické a vetovací (vždy člověk)",
+      "description": "Tyto role nelze nahradit AI."
+    },
+    "mode_2": {
+      "label": "Konzultativní (AI proxy + human sign-off 24-48 h)",
+      "description": "AI připraví draft, člověk podepisuje."
+    },
+    "mode_3": {
+      "label": "Execution-heavy / context-light (AI vede)",
+      "description": "AI provádí samostatně, výstupy zaznamenávané do decision logu."
+    }
+  },
+  "moscow_profiles": {
+    "default": {
+      "description": "Greenfield, low-risk projekt",
+      "include": "MUST only"
+    },
+    "regulated": {
+      "description": "Data / integrace / AI Act limited",
+      "include": "MUST + SHOULD"
+    },
+    "audit-grade": {
+      "description": "High-risk AI Act, regulated SDLC",
+      "include": "MUST + SHOULD + COULD"
+    }
+  },
+  "sanity_checks": {
+    "max_people_in_room": 10,
+    "if_more_than_3_teams": "federovaný model nebo +Solution architect (#18)",
+    "if_audit_grade": "co-facilitator SHOULD (devil's advocate Útok 10)"
+  }
+}

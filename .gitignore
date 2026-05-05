@@ -22,13 +22,14 @@ build/
 .idea/
 *.swp
 
-# Tool runtime (fáze 2)
-data/
+# Tool runtime (fáze 2) — only root-level data/ (charters/triage/handoffs/db)
+/data/
 *.db
 *.sqlite
 *.sqlite3
 logs/
 *.log
+# Note: tool/data/ contains source-controlled config (role_catalog.json), NOT ignored.
 
 # Local config
 .claude/settings.local.json
