@@ -25,34 +25,31 @@ readout, reportuje do CoP. Bez championa metoda zhasne po druhém pilotu.
 
 ## Definition of Done pro handoff package
 
-Každá ze 7 sekcí níže musí mít před Session 2 closure stav **ano / ne /
-N/A s důvodem**. „N/A" vyžaduje větu proč (např. *„#6 Data handoff: N/A —
-internal tooling bez release intentu, instrumentation deferred"*). Bez
-explicitních checkboxů se handoff nepodepisuje a Session 2 končí ve
-stavu „iterate" [synthesis 02 bod 11].
+Každá ze sekcí níže musí mít před Session 2 closure stav **ano / ne /
+N/A s důvodem**. „N/A" vyžaduje větu proč (např. *„Data handoff: N/A —
+internal tooling bez release intentu"*). Bez explicitních checkboxů se
+handoff nepodepisuje a Session 2 končí ve stavu „iterate".
 
 ## Handoff Package — 7 + 1 sekcí
 
-### 1. Decision package (vlastní PM + Facilitátor)
+### 1. Decision package (PM + Facilitátor)
 
-- **Business Charter** finální verze: problém, segment, ARR impact,
-  success metric (lagging + 1+ leading), XYZ hypotéza, decider mandate
-  podepsaný CPO, throw-away/evolve flag [synthesis 02 § Business Charter].
-- **Decision log** se **lidskou atribucí** každého rozhodnutí (DORA, AI
-  Act čl. 14, GDPR čl. 22) [synthesis 01 osa C; perspektiva 03]. Formát:
-  `<rozhodnutí> | <kdo navrhl> | <kdo schválil> | <datum> | <rationale>`.
+- **Business Charter** finální: problém, segment, ARR impact, success
+  metric (lagging + ≥1 leading), XYZ hypotéza, decider mandate podepsaný
+  CPO, throw-away/evolve flag [synthesis 02].
+- **Decision log** s lidskou atribucí každého rozhodnutí (DORA, AI Act
+  čl. 14, GDPR čl. 22) [synthesis 01 osa C]. Formát: `<rozhodnutí> |
+  <kdo navrhl> | <kdo schválil> | <datum> | <rationale>`.
 - **ADR drafty** 3–5 kusů (API versioning, idempotency, transakční
   hranice, error model, sync vs eventy) [perspektiva 05].
-- **Parking lot rezoluce** — každý odložený bod má owner + due date,
-  jinak se vrací do Session 2 jako blocker.
-- **Score závaznosti per role** (1–5 Likert + rationale field, AI-only
-  feedback weight max 0.5) [synthesis 02 bod 5].
+- **Parking lot rezoluce** — každý odložený bod má owner + due date.
+- **Score závaznosti per role** (1–5 Likert + rationale, AI-only weight
+  max 0.5) [synthesis 02 bod 5].
 
-### 2. Backend handoff (vlastní BE lead) [perspektiva 05]
+### 2. Backend handoff (BE lead) [perspektiva 05]
 
 - **Lintovaný OpenAPI 3.1** finální varianty (Spectral clean, examples,
-  RFC 7807 errors, idempotency-key konvence). Žádný YAML export z UI nebo
-  PDF — raw spec v repu.
+  RFC 7807 errors, idempotency-key konvence). Raw spec v repu, ne PDF.
 - **ERD diff** + breaking-change registr per consumer:
 
   ```
@@ -60,34 +57,29 @@ stavu „iterate" [synthesis 02 bod 11].
   |----------------|-------|----------|-------|------------------|
   | /v1/orders.id  | UUID→ULID | mobile-app, billing | @ne... | 2 sprinty |
   ```
-- **Migration plan stub**: backfill strategy, dual-write window,
-  rollback plán, feature flag, odhad času (po 2-day capped spiku, ne
-  z místnosti) [synthesis 03, EM patch].
-- **Contract test skeleton** (Pact / Schemathesis) — názvy testů per
-  scénář, ne implementace.
-- **Observability checklist**: jaké metriky/traces/logs vznikají, kdo
-  vlastní dashboardy, alert thresholds, cardinality estimate (anti
-  Prometheus blow-up).
+- **Migration plan stub**: backfill, dual-write window, rollback,
+  feature flag, odhad po 2-day capped spiku [synthesis 03 EM patch].
+- **Contract test skeleton** (Pact / Schemathesis) — názvy testů.
+- **Observability checklist**: metriky/traces/logs, owner dashboardů,
+  alert thresholds, cardinality estimate.
 
-### 3. Frontend handoff (vlastní FE lead) [perspektivy 04, 06]
+### 3. Frontend handoff (FE lead) [perspektivy 04, 06]
 
-- **Component manifest delta**: každá obrazovka označená `reused /
-  new candidate / one-off`. Cíl pro evolve: >80 % reused, <10 % one-off.
-- **Design tokens diff** proti Style Dictionary export. Token compliance
-  report (% stylů z tokens vs hardcoded, cíl pro evolve >90 %).
-- **A11y baseline** = axe-core run + manuální keyboard test top 3
-  obrazovek. Critical/Serious = blocker pro „final" status [perspektiva
-  11; synthesis 03 #11 patch].
-- **Figma↔commit lineage**: každá Figma frame má git commit hash
-  implementační branch; každá komponenta v repu má Figma node ID. Dual
-  source of truth nepřijatelný — Figma vizuál, kód implementace, **oba
-  mapují na stejné tokeny** [perspektiva 06].
-- **Repo + git history** (ne ZIP). Code review startuje den 1 po Session 2.
+- **Component manifest delta**: každá obrazovka označená `reused / new
+  candidate / one-off`. Cíl pro evolve: >80 % reused, <10 % one-off.
+- **Design tokens diff** proti Style Dictionary export + token
+  compliance report (cíl pro evolve >90 %).
+- **A11y baseline** = axe-core + manual keyboard test top 3 obrazovek.
+  Critical/Serious = blocker pro „final" [perspektiva 11].
+- **Figma↔commit lineage**: každá Figma frame má git commit hash;
+  každá komponenta v repu má Figma node ID. Figma vizuál, kód
+  implementace, oba mapují na stejné tokeny [perspektiva 06].
+- **Repo + git history** (ne ZIP).
 
-### 4. QA handoff (vlastní QA lead) [perspektiva 08]
+### 4. QA handoff (QA lead) [perspektiva 08]
 
-- **3–5 BDD/Gherkin scénářů per accepted varianta**, **min. 1 ne-happy
-  path** per varianta:
+- **3–5 BDD/Gherkin scénářů per accepted varianta**, min. 1 ne-happy
+  path:
 
   ```gherkin
   Feature: Plan upgrade
@@ -97,11 +89,10 @@ stavu „iterate" [synthesis 02 bod 11].
       Then user sees retry CTA, not duplicate charge
       And idempotency-key prevents second charge on retry
   ```
-- **Test pyramide split** (70/20/10) s vlastníkem per vrstva (dev = unit
-  + integration; QA = E2E + exploratory).
+- **Test pyramide split** (70/20/10) s vlastníkem per vrstva.
 - **Contract test skeleton** synced s BE Pactem.
-- **Exploratory charter** pro post-handoff (90 min, mission + areas +
-  out-of-scope + deliverable).
+- **Exploratory charter** (90 min: mission + areas + out-of-scope +
+  deliverable).
 - **P2P (Prototype-to-Prod) checklist — 9 položek** [perspektiva 08]:
   1. Gherkin akceptace s ≥1 negative scenario per varianta.
   2. Test pyramide split + vlastník per vrstva.
