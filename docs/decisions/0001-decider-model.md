@@ -50,8 +50,67 @@ své rozhodnutí později popřít. Bez explicitního Decideru končí Pflanzer 
 
 **Mitigace:**
 - Charter (ADR-0004) povinně obsahuje sekci „Decider + mandát od X, datum Y, podpis Z".
-- Eskalační protokol: pokud Decider „neumí rozhodnout" v session 2, kill timer
-  48 h, jinak default = Iterate (max 1×, pak Kill).
+- **Kanonický Decider eskalační protokol** (viz níže) — jediný autoritativní zdroj;
+  všechny ostatní dokumenty (`06-session-2.md`, `08-edge-cases-a-rizika.md`,
+  Charter template) na něj odkazují, neduplikují text.
+
+## Kanonický Decider eskalační protokol
+
+> **Tento protokol je jediný autoritativní text.** Adresuje devil's advocate
+> Útok 3 (vnitřní rozpor mezi `06`, `08` a ADR-0001 v0.2). Předtím existovaly
+> tři odlišné varianty — způsobovalo by to silent project death.
+
+### Scenario A — Decider chybí v Session 2
+
+1. Session 2 **neprobíhá**. Facilitátor logguje stav.
+2. Session 2 se odkládá **max 5 pracovních dní**.
+3. Pokud Decider nemůže dorazit ani do 5 pracovních dní → eskalace na **CPO/sponzora**.
+   CPO má 5 pracovních dní k jedné z:
+   - Schválit nového Decideru s mandátem (Session 2 svolána s novým Deciderem).
+   - **Kill projektu** (sponsor explicit, do decision logu).
+4. Pokud CPO mlčí 5+5 = 10 pracovních dní → projekt **automaticky Kill**
+   (silent CPO = silent kill; chrání kapacitu týmu).
+
+### Scenario B — Decider přítomen v Session 2, ale „neumí rozhodnout"
+
+> Decider říká *„potřebuji víc času"* na konci Session 2.
+
+1. **T+0** (konec Session 2): Facilitátor logguje *„Decision pending: <Decider>
+   by <T+48h date>"* do decision logu. Session 2 **nekončí v limbu** — formálně
+   uzavřena s *„decision pending"* statusem.
+2. **T+0 → T+48 h**: Decider má 48 h doručit rozhodnutí **písemně do decision
+   logu** (Go / Iterate / Kill). E-mail nestačí — musí být v decision logu
+   se SSO atribucí.
+3. **T+48 h → T+72 h**: Pokud Decider mlčí, automatická eskalace na
+   **CPO/sponzora**. CPO má 24 h.
+4. **T+72 h**: Pokud CPO mlčí → projekt defaultuje na **Iterate (Session 3)**
+   s explicit write-up *„Decider+CPO silence triggered iterate default"*.
+   Sponzor musí **aktivně Kill**, ne pasivně.
+
+**Důvod „Iterate default" místo „Kill default"**: chrání před tichým úmrtím
+projektu, do kterého už týmy investovaly — Decider/CPO mají druhou šanci se
+ozvat v Session 3.
+
+### Scenario C — Iterate exhausted
+
+1. **Iterate má hard cap: max 1 další iterace** (Session 3).
+2. Session 3 musí skončit Go nebo Kill rozhodnutím.
+3. Pokud Session 3 končí znovu *„decision pending"* → automatický **Kill**
+   (žádný další iterate default).
+
+### Eskalační kontaktní řetězec
+
+Charter (ADR-0004) povinně obsahuje:
+- Decider + datum + podpis.
+- **CPO/sponzor** (eskalační kontakt) + datum + podpis.
+- **Backup Decider** (volitelné — pokud Decider PTO, automatická delegace).
+
+### Kde tento protokol najít
+
+- **Autoritativní zdroj:** tento ADR (0001), sekce „Kanonický Decider
+  eskalační protokol".
+- **Reference (bez duplikace textu):** `06-session-2.md` § Účastníci,
+  `08-edge-cases-a-rizika.md` edge case 12, ADR-0004 Charter template.
 
 ## Reference
 

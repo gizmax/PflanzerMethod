@@ -51,6 +51,12 @@ rolí**. Role catalog řeší dvě věci:
 - **Výstup:** facilitační notes, conflict log, decision log s lidskou atribucí.
 - **AI proxy:** ❌ Lidský facilitátor nutný — AI samotná konflikt mezi
   rolemi neureší.
+- **Co-facilitator / externí Facilitátor — SHOULD pro audit-grade profil
+  a high-stakes session** (devil's advocate Útok 10): single-facilitator
+  závislý na sponzoringu = paper authority při anti-HiPPO. Audit-grade
+  profil (regulated SDLC, AI Act high-risk) **vyžaduje** druhého
+  facilitátora — buď z jiné BU (neutrální vůči sponzor řetězci), nebo
+  externího coache (viz ADR-0006 bootstrap forma 1).
 
 ### 4. Frontend / Vibe-coding lead — DOPORUČENÁ pro UI fíčury
 - **Trigger pro povinnost:** projekt mění UI nebo přidává nový view.
@@ -319,6 +325,10 @@ AI provádí samostatně, výstupy zaznamenávané do decision logu:
 ### Pravidla cross-cutting
 
 - **Score deflation AI-only:** max 0.5 / 1.0 (z perspektivy 14).
+  **Pozor (devil's advocate Útok 6):** 0.5 je **heuristika, ne kalibrovaný
+  parametr**. Stejně tak default `commitment threshold = 70/100` v Charteru.
+  Pro v0.2 jsou advisory; v0.3+ má method-level Charter (ADR-0007) plánovat
+  evidence-based kalibraci přes T+90 readout.
 - **Decision log atribuuje vždy člověka** (DORA, AI Act čl. 14, GDPR čl. 22).
 - **Pre-launch human review je nedelegovatelný** pro #11 (A11y).
 

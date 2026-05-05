@@ -215,11 +215,13 @@ session odložena**, ne začata s improvizací.
 [ ] Discovery Readiness Gate ✅ (persona ≤ 6 mo, JTBD, OST v0)
 [ ] Discovery Debt Detector skóre ≤ 2 (≥ 7 = STOP)
 [ ] Data Classification Statement L1/L2/L3 podepsaný DPO (L4 = no session)
-[ ] AI Act risk-tier classification + DPIA trigger checklist
+[ ] AI Act risk-tier classification (provisional, re-assessed v Session 2 — viz devil's advocate Útok 4) + DPIA trigger checklist
 [ ] Approved AI Tool list potvrzen pro session (s DPA / SCC)
 [ ] Threat model lite (STRIDE) hotový
 [ ] Sandbox provisioned (Terraform modul, VPC, 24h TTL, audit logging)
-[ ] Capacity pre-sign-off od EM (písemně, max 8–10 person-days)
+[ ] **Prompt audit pipeline** active (devil's advocate Útok 8): vendor zero-retention DPA + corporate-side prompt custody chain (SIEM ingest, 7-letá retence, search by user@SSO + project tag); BEZ toho session = DORA non-compliant
+[ ] Capacity pre-sign-off od EM (písemně, **realistický odhad**: default ~10 PD, regulated ~14 PD, audit-grade ~18–22 PD — viz devil's advocate Útok 1; "8–10" je single-cycle baseline bez pre-flight, reinforcement a Champion bootstrap)
+[ ] **True Cost Worksheet** vyplněný — per-role person-days + reinforcement track T+7/30/60/90 + (bootstrap) Champion coach cost
 [ ] Vibe-brief: tech stack, tokens, component manifest, conventions
 [ ] Backend Context Pack: OpenAPI, ERD, NFR baseline, ADR archiv
 [ ] Demo data se správnou shape (synthetic L1/L2)

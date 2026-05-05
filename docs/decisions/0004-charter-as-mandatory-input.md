@@ -27,8 +27,12 @@ Charteru se Session 1 nekoná.
 Věříme, že [persona] s [JTBD] potřebuje [řešení],
 což měříme růstem [metric] o [delta] během [time window].
 
-## Decider + mandát
+## Decider + eskalační řetězec
 - Decider: <jméno>, role, mandát od <CPO/sponzor>, datum, podpis.
+- CPO / sponzor (eskalační kontakt dle ADR-0001 Scenario A/B): <jméno>, datum, podpis.
+- Backup Decider (volitelné, automatická delegace při PTO): <jméno>.
+- **Eskalační protokol**: aplikuje se **kanonický Decider eskalační protokol**
+  z `docs/decisions/0001-decider-model.md`. Charter ho neduplikuje, jen odkazuje.
 
 ## Success threshold
 - Primary lagging metric: <X po Y dnech>.

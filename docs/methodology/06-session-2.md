@@ -26,7 +26,8 @@ do 48 h.
 - **Stejní jako Session 1** (kontinuita interpretace; bez toho AI syntéza
   ztrácí kontext).
 - **Decider povinně přítomen** [perspektiva 01]. Bez Decidera Session 2
-  neprobíhá. Pokud nemůže, posunout o 1–3 dny.
+  **neprobíhá** — viz **kanonický Decider eskalační protokol v ADR-0001**
+  (Scenario A: posun max 5 pracovních dní, dál eskalace na CPO).
 - **Security on-call** + **Legal on-call** ve volných slotech (ne celé 3 h),
   triggered pokud Critical flag eskaluje. Pre-read jejich triage update
   z mezi-sessions povinný.

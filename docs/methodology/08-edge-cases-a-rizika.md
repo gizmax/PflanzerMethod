@@ -306,20 +306,22 @@ plánování Session 1 (≥10 dní předem).
 **Situace.** Session 2 je 3 h rozhodovací [perspektiva 03], ale Decider
 po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
 
-**Co dělat — kill timer 48 h:**
+**Co dělat.** Aplikuj **kanonický Decider eskalační protokol** v
+**`docs/decisions/0001-decider-model.md`**. Stručně:
 
-1. **Session 2 nekončí v limbu** — facilitátor logguje stav *„Decision
-   pending: <Decider> by <date+48h>"*.
-2. **Eskalační path explicit**: pokud Decider nerozhodne do 48 h,
-   eskalace na CPO/sponsoring exec (Decider's manager).
-3. **Default action**: pokud eskalace nezvedne do dalších 48 h, projekt
-   defaultuje na *„iterate — Session 3"* (žádný auto-kill, žádný
-   auto-go) — chrání před tichým úmrtím.
-4. **Rationale captured**: proč Decider neumí rozhodnout? Chybí
-   evidence, chybí mandate, chybí kapacita? Pattern detection napříč
-   projekty.
+- **Decider chybí v Session 2** (Scenario A): posun max 5 pracovních dní,
+  dál eskalace na CPO (5 dní), dál automatický Kill.
+- **Decider říká „potřebuju víc času"** (Scenario B): T+48 h písemné
+  rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
+  (chrání před tichým úmrtím).
+- **Iterate exhausted** (Scenario C): Session 3 hard cap, pak automatický Kill.
 
-**Kdo rozhoduje.** Decider má 48 h; pak CPO; pak iterate default.
+**Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
+ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,
+adresován devil's advocate Útok 3).
+
+**Kdo rozhoduje.** ADR-0001 protokol — Decider → CPO → automatický default
+podle scenario.
 
 **Mitigace.** Decider mandate podepsaný CPO písemně před Session 1
 [synthesis 03 #1 patch]; informed dictatorship explicitně v Charteru;
