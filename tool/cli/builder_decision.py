@@ -125,6 +125,13 @@ class DecisionInput:
     stack_hint: str | None = None  # "react", "nextjs", "vue", "node-fastapi", ...
     customer_facing: bool = False
     production_target: int = 0  # 0..100; >0 = optimize pro reusable code (Slice production-path)
+    prefer_hosted_preview: bool = False  # opt-in: tým chce Bolt/v0/Lovable (greenfield, designer-led)
+
+
+# In-repo CLI builders — default. Code rovnou v repu, žádný extract step.
+IN_REPO_BUILDERS = {"claude-code", "codex-cli", "cursor", "manual"}
+# Hosted SaaS — fallback, jen pokud prefer_hosted_preview=True nebo greenfield.
+HOSTED_BUILDERS = {"v0", "bolt", "lovable", "stitch", "figma-make"}
 
 
 def _eligible(b: str, di: DecisionInput) -> tuple[bool, str | None]:
@@ -135,8 +142,13 @@ def _eligible(b: str, di: DecisionInput) -> tuple[bool, str | None]:
         return False, "AI Act unacceptable — session blocked"
     if not di.has_sandbox and b != "manual":
         return False, "No approved sandbox (devil's advocate Útok 8)"
-    # evolve profil → AI builder výstup je stále throw-away,
-    # ale cursor je přirozenější (in-repo). Builder se nezakazuje.
+    # Hosted SaaS jen na vyžádání (default = in-repo CLI builders).
+    if b in HOSTED_BUILDERS and not di.prefer_hosted_preview:
+        return False, (
+            "Hosted SaaS builder — opt-in only. Default jsou in-repo CLI "
+            "(claude-code, codex-cli, cursor). Pro hosted preview spusť "
+            "s `prefer_hosted_preview=true` (greenfield / designer-led / UX showcase)."
+        )
     return True, None
 
 
@@ -236,22 +248,34 @@ def recommend(di: DecisionInput, top_n: int = 3) -> dict[str, Any]:
 
     ranked.sort(key=lambda r: r["score"], reverse=True)
 
+    # Diversity hint depends on whether we filtered to in-repo only
+    if di.prefer_hosted_preview:
+        diversity_hint = (
+            "Hosted SaaS opt-in mode. Vyber 1-3 builders s rozdílným stylem "
+            "(např. v0 + bolt + lovable) — různé aesthetic/interaction biasy. "
+            "Po session 1: Push to GitHub → /pflanzer-session-3 extract."
+        )
+    else:
+        diversity_hint = (
+            "In-repo CLI mode (default). 3× ten samý builder (claude-code) "
+            "s **3 různými angles** (happy-path / multi-step / smart defaults). "
+            "Tým otevře 3 git worktrees + 3 paralelní CC sessions. Žádný extract step."
+        )
+
     return {
         "blocked": False,
         "blocked_reason": None,
         "shortlist": ranked[:top_n],
         "excluded": excluded,
         "fallback": "manual",
-        "diversity_hint": (
-            "Vyber 1-3 builders s rozdílným stylem (např. v0 + bolt + cursor) "
-            "aby varianty měly jiné aesthetic/interaction biasy "
-            "(viz `docs/methodology/04-session-1.md` § AI vibe-coding kolo 1)."
-        ),
+        "diversity_hint": diversity_hint,
+        "mode": "hosted_preview" if di.prefer_hosted_preview else "in_repo_cli",
     }
 
 
 def recommend_for_slug(slug: str, stack_hint: str | None = None,
-                       customer_facing: bool = False) -> dict[str, Any]:
+                       customer_facing: bool = False,
+                       prefer_hosted_preview: bool = False) -> dict[str, Any]:
     """Load Charter + platform triage from DB and recommend."""
     with transaction() as conn:
         proj = conn.execute(
@@ -280,6 +304,7 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         stack_hint=stack_hint,
         customer_facing=customer_facing,
         production_target=production_target,
+        prefer_hosted_preview=prefer_hosted_preview,
     )
     return recommend(di)
 
@@ -289,9 +314,12 @@ def main() -> None:
     p.add_argument("--slug", required=True)
     p.add_argument("--stack-hint", default=None)
     p.add_argument("--customer-facing", action="store_true")
+    p.add_argument("--prefer-hosted", action="store_true",
+                   help="Opt-in pro hosted SaaS (Bolt/v0/Lovable). Default = jen in-repo CLI.")
     args = p.parse_args()
     print(json.dumps(
-        recommend_for_slug(args.slug, args.stack_hint, args.customer_facing),
+        recommend_for_slug(args.slug, args.stack_hint, args.customer_facing,
+                           prefer_hosted_preview=args.prefer_hosted),
         ensure_ascii=False, indent=2,
     ))
 

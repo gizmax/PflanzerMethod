@@ -104,42 +104,48 @@ do web hubu: `http://localhost:8000/<slug>`).
 
 ### KROK 4 — BUILDER PROMPTS (paralelní vibe-coding)
 
+**Default = 3× Claude Code v 3 git worktrees** (žádný browser tab, žádný extract).
+
 ```bash
 python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 ```
 
-→ JSON s 2-3 prompts. **Default builders pro production target = `claude-code`
-nebo `codex-cli`** (kód rovnou v repu, žádný export step). Bolt/v0/Lovable
-jen jako fallback pro UX showcase nebo greenfield bez repa.
+→ JSON s 3 prompts, všechny pro `claude-code`, **každý s jiným angle**:
+- A — happy-path minimum (1 obrazovka, 1 CTA)
+- B — guided multi-step (progress bar, validace per krok)
+- C — smart defaults (AI hádá inputy z kontextu)
 
-**Pro CC/Codex (in-repo flow):**
+**Setup (facilitátor, 1× per session, ~1 minuta):**
 
-```
-🤖 Variant A (claude-code) — happy-path minimum
-   Setup (1× per session, dělá facilitátor):
-     git worktree add ../proto-<slug>-A -b feat/<slug>-A
-     cd ../proto-<slug>-A
-     claude
-
-   Pak v Claude Code vlož prompt (z `prompts` JSON output).
-   Tým dvojice 1 → variant A, dvojice 2 → variant B, dvojice 3 → variant C.
+```bash
+SLUG=<your-slug>
+git worktree add ../proto-${SLUG}-A -b feat/${SLUG}-A
+git worktree add ../proto-${SLUG}-B -b feat/${SLUG}-B
+git worktree add ../proto-${SLUG}-C -b feat/${SLUG}-C
 ```
 
-**Pro hosted SaaS (Bolt/v0/Lovable) — pouze pokud `production_target == 0`:**
-
+**Tým rozdělí po dvojicích, každá:**
+```bash
+cd ../proto-${SLUG}-X     # X = A / B / C
+claude                    # otevře CC session v této worktree
+# Vloží prompt z output JSON-u, kóduje 30 min
+# Po dokončení: npm test && npm run lint && npm run build
+# Commit jako `feat(<slug>): variant X — <shrnutí>`
 ```
-🎨 Variant A (v0) — happy-path minimum
-   Otevři: https://v0.app, vlož prompt, počkej na build
-   → po buildu Push to GitHub a vlož repo URL: [_____]
-```
 
-Tým paralelně buildí **15-30 min**. Facilitátor (ty) hlídá čas — 30 min cap,
-pak voting bez ohledu na hotovost.
+> **Hosted SaaS opt-in** (jen pokud nemáš CC license / chceš UX showcase
+> pro non-tech sponsora / greenfield bez repa):
+>
+> ```bash
+> python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3 --prefer-hosted
+> ```
+>
+> → mix `claude-code + codex-cli + v0` s instrukcemi pro Push to GitHub.
 
-**Po skončení zeptej se přes `AskUserQuestion` per variant:**
+Facilitátor (ty) hlídá čas — **30 min cap**, pak voting bez ohledu na hotovost.
 
-- Pro CC/Codex: žádná otázka, branch je `feat/<slug>-A` (deterministicky).
-- Pro Bolt/v0: vlož preview URL nebo GitHub URL (pro session 3 extract).
+**Žádná AskUserQuestion za URL** — pro CC mode je branch deterministický
+(`feat/<slug>-A`). Voting v kroku 5 dostává branch path.
 
 ### KROK 5 — VOTING (silent dot voting)
 
