@@ -317,19 +317,87 @@ VARIANT_ANGLES = [
     ("C", "smart defaults", "Postav variantu, která hádá inputy z kontextu (recent activity / role) a uživatel jen potvrdí"),
 ]
 
+# Mob mode (per ADR-0011): sequential iterations, ne paralelní angles.
+# Synthesis konsenzus: 1 deep + 1 refinement default; 3rd iteration opt-in.
+MOB_ITERATION_ANGLES = [
+    ("iter1", "deep first stab",
+     "Postav nejdůležitější část flow. Mob driver/navigator rotation 8 min. "
+     "Tým všichni vidí každý keystroke."),
+    ("iter2", "refine or pivot",
+     "Z iterace 1: co fungovalo (drž), co ne (přepiš). Po obsahu druhé "
+     "iteraci voting nebo pokud jeste zbývá čas — opt-in iter3."),
+    ("iter3", "ambitious 3rd (opt-in, warning: degraded quality)",
+     "Pouze pokud iter1+2 hotové < 60 min. Risk: rushed, low quality."),
+]
+
+
+def recommend_mode(
+    *, production_target: int, risk_profile: str, room_size: int,
+    has_veto_role: bool = False, new_team: bool = False,
+    onboarding_member: bool = False, single_high_stakes: bool = False,
+) -> tuple[str, str]:
+    """Return (mode, rationale_for_decider) per ADR-0011 decision tree.
+
+    Default = parallel. Mob = explicit opt-in for narrow class.
+    """
+    # Hard blocks (production)
+    if production_target >= 70:
+        return "parallel", (
+            f"Production target {production_target} ≥ 70 — paralelní pro "
+            "% LOC reuse a per-variant audit trail. Mob = sunk-cost commitment."
+        )
+    if risk_profile == "production":
+        return "parallel", (
+            "Risk profile 'production' — 3 varianty dají Decideri real choice; "
+            "mob produces 1 artefact = no fallback."
+        )
+    # Hard blocks (room geometry per cognitive-load perspektiva)
+    if room_size > 5:
+        return "parallel", (
+            f"Tým má {room_size} lidí > 5 (Hunter Industries cap). "
+            "Mob breaks at 6+ — observer fatigue + 70/30 air-time inequity. "
+            "Paralelní škáluje přidáním dvojic; mob ne."
+        )
+    if has_veto_role and risk_profile != "throwaway":
+        return "parallel", (
+            "Veto role v týmu (Security/Legal/A11y) — paralelní umožňuje "
+            "veto registr per variant. V mobu jen 1 artefakt = veto = kill all."
+        )
+
+    # Mob-positive signals
+    if new_team or onboarding_member:
+        return "mob", (
+            "Nový tým / onboarding — mob's biggest win = shared mental "
+            "model + skill transfer (Hattie d≈0.55 peer learning effect)."
+        )
+    if single_high_stakes:
+        return "mob", (
+            "Single high-stakes decision — mob přinese cross-functional "
+            "alignment v 1 commit history (audit-grade trace)."
+        )
+
+    # Default
+    return "parallel", (
+        "Default paralelní — 3 angles dají Decideri exploration breadth. "
+        "Mob opt-in pro narrow case (új tým, single-stake decision, ≤ 5 lidí)."
+    )
+
 
 def builder_prompts(slug: str, hook: str, n_variants: int = 3,
-                    prefer_hosted: bool = False) -> dict[str, Any]:
-    """Generate 2-3 copy-paste prompts pro vibe-coding tools.
+                    prefer_hosted: bool = False,
+                    mode: str = "parallel") -> dict[str, Any]:
+    """Generate copy-paste prompts pro vibe-coding tools.
 
-    Default mode (in_repo_cli):
-    - Used **claude-code 3×** s 3 různými angles (happy-path / multi-step /
-      smart defaults). Tým otevře 3 git worktrees, v každé `claude` session.
-    - Diversity skrz prompty, ne skrz different builders.
+    Modes:
+    - **parallel** (default): 3× claude-code s VARIANT_ANGLES (A/B/C paralelně
+      v 3 worktrees). Diversity skrz prompty.
+    - **mob**: 2-3× claude-code s MOB_ITERATION_ANGLES (sequential iterations
+      v 1 worktree, ≤ 5 lidí u monitoru). Per ADR-0011.
 
-    Hosted mode (prefer_hosted=True):
-    - Vyber n_variants top hosted builders (v0 / bolt / lovable) s různými angles.
+    prefer_hosted (paralelní only): mix s Bolt/v0/Lovable.
     """
+    if mode not in ("parallel", "mob"):
+        raise ValueError(f"mode must be 'parallel' or 'mob', got '{mode}'")
     if not 1 <= n_variants <= 3:
         raise ValueError("n_variants must be 1..3")
 
@@ -366,16 +434,24 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             constraints.append("Evolve target — drž se design system tokenů, žádné inline styly")
     constraints.append("Žádné credentials v kódu, žádné .env. WCAG 2.2 AA.")
 
+    angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
+
     prompts: list[VariantPrompt] = []
-    for i, (item, (name, angle, brief)) in enumerate(zip(shortlist, VARIANT_ANGLES[:n_variants])):
+    for i, (item, (name, angle, brief)) in enumerate(zip(shortlist, angles[:n_variants])):
         builder = item["builder"]
-        prompt_text = _render_builder_prompt(hook, brief, constraints, builder,
-                                             slug=slug, variant=name)
-        # Pro CC/Codex placeholder URL = local branch, ne sandbox
-        if builder in ("claude-code", "codex-cli"):
-            placeholder_url = f"local://feat/{slug}-{name} (npm run dev)"
+        if mode == "mob" and builder == "claude-code":
+            prompt_text = _render_mob_iteration_prompt(
+                hook, brief, constraints, slug=slug, iteration=name,
+                iteration_idx=i, total_iterations=n_variants,
+            )
+            placeholder_url = f"local://pflanzer/{slug}-mob (npm run dev)"
         else:
-            placeholder_url = f"https://sandbox.invalid/{slug}/{name}"
+            prompt_text = _render_builder_prompt(hook, brief, constraints, builder,
+                                                 slug=slug, variant=name)
+            if builder in ("claude-code", "codex-cli"):
+                placeholder_url = f"local://feat/{slug}-{name} (npm run dev)"
+            else:
+                placeholder_url = f"https://sandbox.invalid/{slug}/{name}"
         prompts.append(VariantPrompt(
             name=name, builder=builder,
             builder_url=BUILDER_LANDINGS.get(builder, "n/a"),
@@ -386,6 +462,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     return {
         "blocked": False,
         "slug": slug,
+        "mode": mode,
         "diversity_hint": rec.get("diversity_hint", ""),
         "prompts": [
             {
@@ -396,6 +473,114 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             for p in prompts
         ],
     }
+
+
+def _render_mob_iteration_prompt(
+    hook: str, brief: str, constraints: list[str], *,
+    slug: str, iteration: str, iteration_idx: int, total_iterations: int,
+) -> str:
+    """Mob mode prompt — sequential iteration v 1 worktree.
+
+    Per ADR-0011 + synthesis konsenzus: 1 deep + 1 refinement default,
+    8-min driver rotation, observer-task assignment, single shared branch.
+    """
+    constraint_lines = "\n".join(f"- {c}" for c in constraints)
+
+    setup_block = ""
+    if iteration_idx == 0:
+        setup_block = f"""**SETUP (facilitátor, 1× per session):**
+
+```bash
+python tool/cli/worktree.py setup --slug {slug} --mode mob
+# → Naclonuje target_repo_url, vytvoří 1 worktree '<slug>-mob'
+# → Branch: pflanzer/{slug}-mob (single shared)
+```
+
+**Tým u 1 monitoru** (≤ 5 lidí; pokud 6+, force re-confirm v wizardu):
+
+```bash
+cd ~/.pflanzer/targets/{slug}-mob
+claude
+```
+
+**Driver/navigator/observer rotation** (per facilitator perspektiva):
+- Driver (kbd): 6 min active + 2 min handoff = 8 min cycle
+- Navigator: říká strategy nahlas (NE syntax)
+- Observers (3-4): explicit task per role
+  - Voice of Decider — připomíná XYZ hypotézu z Charteru
+  - Voice of UX — flag a11y / clarity issues
+  - Voice of Acceptance — sleduje tests/acceptance/{slug}.feature
+  - Voice of QA — flag missing test coverage
+- **Decider mute kontrakt**: nemluví během build, jen mid-checkpoint
+  (per facilitator perspektiva: HiPPO override mitigation)
+- **Hard break 25 min** (cognitive-load perspektiva: observer fatigue)
+"""
+    elif iteration_idx == 1:
+        setup_block = f"""**ITERATION 2 — refine or pivot** (po cca 25-30 min na iter1):
+
+Než začnete:
+1. **5-min pauza** — všichni zhluboka, voda, krátká procházka
+2. **Per-role rationale** (silent, 2 min): co fungovalo? co ne? — píší si poznámky
+3. **Decider quick check**: "ship iter1 jak je, refine to iter2, nebo pivot úplně?"
+
+V Claude Code (stejná session, stejný worktree):
+```
+Stejný cíl: {hook}
+
+Z iter1 mě podrž ZACHOVÁNO: <ručně doplň sekce co týmu líbil>
+Z iter1 ZAHODIT / přepsat: <co tým flagnul jako nefungující>
+
+Tato iterace = {brief}.
+
+Postup:
+1. Zachovej what works z iter1 (nepřepisuj working code).
+2. Refactor / přidej co tým flagnul.
+3. `npm test && npm run lint && npm run build` musí pass jako u iter1.
+4. Commit jako: `feat({slug}): mob iter2 — <co se mění oproti iter1>`
+```
+"""
+    else:
+        setup_block = f"""**ITERATION 3 (opt-in, ⚠ degraded quality risk)**:
+
+Pokud iter1+2 hotové < 60 min, můžete zkusit ambiciózní 3rd iteration.
+Jinak SKIP — jděte na voting + retrospektivu.
+
+```
+Tato iterace = {brief}.
+Riziko: rushed, low quality. Decider musí být connect: "máme čas pro
+jednu poslední iteraci, nebo voting?"
+```
+"""
+
+    return setup_block + f"""
+
+**Vlož do Claude Code (po setup):**
+
+```
+Cíl týmu: {hook}
+
+Tato iterace ({iteration}, {iteration_idx + 1}/{total_iterations}): {brief}
+
+POVINNÝ POSTUP (mob mode):
+1. **Read INTEGRATION_GUIDE.md** v root repa (1× per session).
+2. **Read tests/acceptance/{slug}.feature** — Decider's spec.
+3. **Read 3-5 existing components** podobného typu (find via glob).
+4. **Driver rotuje každých 8 min** — sebevědomé "pause" pro handoff.
+5. **Navigator říká nahlas** co píšeš (mob discipline — observer follows).
+6. Pre-commit hook: lint + types + tests.
+7. Commit s Conventional Commits:
+   `feat({slug}): mob {iteration} — <jednověté co iter dělá>`
+
+Constraints:
+{constraint_lines}
+
+Output:
+- Branch: pflanzer/{slug}-mob (sdílený, sequential commits)
+- Preview: `npm run dev` (port-forward na velký TV pro tým)
+- ČJ texty v UI, EN identifikátory v kódu
+- Acceptance scénáře pass rate ≥ 80 %
+```
+"""
 
 
 def _render_builder_prompt(
@@ -739,8 +924,10 @@ def main() -> None:
     p_prompts.add_argument("--slug", required=True)
     p_prompts.add_argument("--hook", required=True)
     p_prompts.add_argument("--n", type=int, default=3)
+    p_prompts.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
+                           help="parallel = 3 angles paralelně; mob = sequential iterations (per ADR-0011)")
     p_prompts.add_argument("--prefer-hosted", action="store_true",
-                           help="Opt-in pro Bolt/v0/Lovable. Default = claude-code 3×.")
+                           help="Opt-in pro Bolt/v0/Lovable (parallel only). Default = claude-code 3×.")
 
     p_vote = sub.add_parser("vote", help="Record voting + Decider's call")
     p_vote.add_argument("--spec", type=Path, required=True)
@@ -755,7 +942,8 @@ def main() -> None:
         out = bootstrap(**spec)
     elif args.cmd == "prompts":
         out = builder_prompts(args.slug, args.hook, args.n,
-                              prefer_hosted=args.prefer_hosted)
+                              prefer_hosted=args.prefer_hosted,
+                              mode=args.mode)
     elif args.cmd == "vote":
         spec = json.loads(args.spec.read_text(encoding="utf-8"))
         out = record_voting(**spec)
