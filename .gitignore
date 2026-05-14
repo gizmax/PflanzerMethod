@@ -29,6 +29,7 @@ tool/web/certs/
 
 # Tool runtime (fáze 2) — only root-level data/ (charters/triage/handoffs/db)
 /data/
+/extracted/
 *.db
 *.sqlite
 *.sqlite3
