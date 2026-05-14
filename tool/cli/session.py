@@ -31,7 +31,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 
 SESSIONS_DIR = REPO_ROOT / "data" / "sessions"
-ALLOWED_BUILDERS = {"v0", "bolt", "lovable", "stitch", "cursor", "figma-make", "manual"}
+ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
+                    "stitch", "cursor", "figma-make", "manual"}
 PREFERENCE_DIMS = ("user_value", "effort", "risk", "strategic_fit")
 
 # AI-only deflation cap per role-catalog v0.2 (#14) + synthesis 02:

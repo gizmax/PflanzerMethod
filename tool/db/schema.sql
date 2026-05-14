@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS extracted_code (
   source_repo_url TEXT,                 -- builder GitHub URL (pokud exportováno)
   local_path TEXT NOT NULL,             -- extracted/<slug>/<variant>/
   extraction_method TEXT NOT NULL
-    CHECK (extraction_method IN ('git_clone','manual_paste','builder_api','skeleton')),
+    CHECK (extraction_method IN ('git_clone','manual_paste','builder_api','skeleton','in_repo_branch')),
   files_count INTEGER DEFAULT 0,
   total_loc INTEGER DEFAULT 0,
   extracted_by TEXT NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS variants (
   session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   name TEXT NOT NULL,                   -- A, B, C
   builder TEXT NOT NULL
-    CHECK (builder IN ('v0','bolt','lovable','stitch','cursor','figma-make','manual')),
+    CHECK (builder IN ('claude-code','codex-cli','cursor','v0','bolt','lovable','stitch','figma-make','manual')),
   prototype_url TEXT NOT NULL,
   description_md TEXT,
   preference_score REAL,                -- 0..1, AI-only deflated max 0.5

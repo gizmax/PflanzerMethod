@@ -283,11 +283,13 @@ class VariantPrompt:
 
 
 BUILDER_LANDINGS = {
+    "claude-code": "lokální terminál — `claude` v git worktree",
+    "codex-cli": "lokální terminál — `codex` v git worktree",
+    "cursor": "https://cursor.com (lokální app, otevři repo)",
     "v0": "https://v0.app",
     "bolt": "https://bolt.new",
     "lovable": "https://lovable.dev",
     "stitch": "https://stitch.withgoogle.com",
-    "cursor": "https://cursor.com",
     "figma-make": "https://www.figma.com/make",
     "manual": "n/a — pair-program in repo",
 }
@@ -342,12 +344,18 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3) -> dict[str, Any]
     prompts: list[VariantPrompt] = []
     for i, (item, (name, angle, brief)) in enumerate(zip(shortlist, VARIANT_ANGLES[:n_variants])):
         builder = item["builder"]
-        prompt_text = _render_builder_prompt(hook, brief, constraints, builder)
+        prompt_text = _render_builder_prompt(hook, brief, constraints, builder,
+                                             slug=slug, variant=name)
+        # Pro CC/Codex placeholder URL = local branch, ne sandbox
+        if builder in ("claude-code", "codex-cli"):
+            placeholder_url = f"local://feat/{slug}-{name} (npm run dev)"
+        else:
+            placeholder_url = f"https://sandbox.invalid/{slug}/{name}"
         prompts.append(VariantPrompt(
             name=name, builder=builder,
             builder_url=BUILDER_LANDINGS.get(builder, "n/a"),
             angle=angle, prompt_text=prompt_text,
-            placeholder_url=f"https://sandbox.invalid/{slug}/{name}",
+            placeholder_url=placeholder_url,
         ))
 
     return {
@@ -367,11 +375,85 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3) -> dict[str, Any]
 
 def _render_builder_prompt(
     hook: str, brief: str, constraints: list[str], builder: str,
+    slug: str | None = None, variant: str | None = None,
 ) -> str:
-    """Render a copy-paste prompt block."""
+    """Render a copy-paste prompt block per builder type."""
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
+    slug = slug or "<slug>"
+    variant = variant or "X"
+
+    # In-repo CLI builders (Claude Code, Codex CLI) → git worktree protocol
+    if builder == "claude-code":
+        return f"""**Otevři terminál v git worktree pro variant {variant}** (žádný browser tab):
+
+```bash
+# První session 1× per repo:
+git worktree add ../proto-{slug}-{variant} -b feat/{slug}-{variant}
+cd ../proto-{slug}-{variant}
+claude     # spustí Claude Code v této worktree
+```
+
+Pak v Claude Code vlož:
+
+```
+Cíl týmu: {hook}
+
+Postav v tomto repu: {brief}.
+
+Postup:
+1. Read existing src/ structure, tsconfig.json, .eslintrc, design tokens.
+2. Postav variant {variant} jako feature branch — žádné new app, ale extension repa.
+3. Constraints:
+{constraint_lines}
+4. Po dokončení: `npm test && npm run lint && npm run build` musí passing.
+5. Commit jako `feat({slug}): variant {variant} — <jednověté shrnutí>`.
+
+Output:
+- Branch: feat/{slug}-{variant}
+- Preview: `npm run dev` na localhost (sdílím přes ngrok / port-forward na velký TV)
+- ČJ texty v UI, EN identifikátory v kódu
+```
+"""
+
+    if builder == "codex-cli":
+        return f"""**Otevři terminál v git worktree pro variant {variant}**:
+
+```bash
+git worktree add ../proto-{slug}-{variant} -b feat/{slug}-{variant}
+cd ../proto-{slug}-{variant}
+codex      # spustí OpenAI Codex CLI
+```
+
+Pak v Codex CLI vlož:
+
+```
+Cíl týmu: {hook}
+
+Postav v tomto repu: {brief}.
+
+Postup:
+1. Pochop existující src/ + design system + test setup.
+2. Postav variant {variant} jako feature branch.
+3. Constraints:
+{constraint_lines}
+4. Po dokončení: `npm test && npm run lint && npm run build` musí passing.
+5. Commit jako `feat({slug}): variant {variant}`.
+
+Output:
+- Branch: feat/{slug}-{variant}
+- Preview: `npm run dev` na localhost
+- ČJ texty v UI, EN identifikátory v kódu
+```
+"""
+
+    # Hosted SaaS builders (Bolt/v0/Lovable) — original flow
     if builder == "manual":
         intro = "Pair-program v repu (žádný online builder potřeba):"
+    elif builder == "cursor":
+        intro = (
+            f"Otevři **Cursor** ({BUILDER_LANDINGS[builder]}) a v repu vytvoř "
+            f"branch `feat/{slug}-{variant}`, pak vlož prompt:"
+        )
     else:
         intro = f"Otevři **{builder}** ({BUILDER_LANDINGS[builder]}) a vlož tento prompt:"
     return f"""{intro}
@@ -388,6 +470,7 @@ Output:
 - Funkční preview URL (sdílíme na velkém TV)
 - 1 obrazovka stačí
 - ČJ texty v UI, EN identifikátory v kódu
+- Po dokončení: **Push to GitHub** → vlož repo URL do session 3 (production hardening)
 ```
 """
 

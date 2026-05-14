@@ -33,12 +33,41 @@ from tool.cli.db import transaction  # noqa: E402
 # Approved builders — keep in sync with .claude/agents/security-triage.md
 # § Approved AI Tool list and tool/db/schema.sql variants.builder CHECK.
 APPROVED_BUILDERS: dict[str, dict[str, Any]] = {
+    "claude-code": {
+        "tier": "Anthropic Enterprise / Pro",
+        "good_for": [
+            "in-repo commits", "brownfield s existujícím DS", "TypeScript/Python strict",
+            "test scaffolding", "ESLint zero-config", "tým s CC license",
+        ],
+        "weak_for": [
+            "non-tech stakeholder demo", "hosted preview URL bez deploy",
+            "designer bez terminálu",
+        ],
+        "allows_export": True,
+        "exportable_score": 1.00,  # Code rovnou v repu — zero friction
+        "in_room_protocol": "git worktree per variant + claude session per worktree",
+    },
+    "codex-cli": {
+        "tier": "OpenAI Enterprise",
+        "good_for": [
+            "in-repo commits", "OpenAI-licensed orgs", "Python-heavy stacks",
+            "test generation", "tým s ChatGPT Team/Enterprise",
+        ],
+        "weak_for": [
+            "non-tech stakeholder demo", "hosted preview URL",
+        ],
+        "allows_export": True,
+        "exportable_score": 1.00,  # Code rovnou v repu
+        "in_room_protocol": "git worktree per variant + codex CLI per worktree",
+    },
     "v0": {
         "tier": "Team",
-        "good_for": ["UI mockup", "marketing page", "design-system aware"],
-        "weak_for": ["complex BE", "auth", "stateful flows"],
+        "good_for": ["UI mockup", "marketing page", "design-system aware",
+                     "non-tech stakeholder showcase"],
+        "weak_for": ["complex BE", "auth", "stateful flows", "brownfield"],
         "allows_export": True,
         "exportable_score": 0.85,  # GitHub export + copy-paste components
+        "in_room_protocol": "browser tab + GitHub push po skončení",
     },
     "bolt": {
         "tier": "Pro",
@@ -46,6 +75,7 @@ APPROVED_BUILDERS: dict[str, dict[str, Any]] = {
         "weak_for": ["regulated data", "complex SSO"],
         "allows_export": True,
         "exportable_score": 0.95,  # Full project download + GitHub push
+        "in_room_protocol": "browser tab + GitHub push po skončení",
     },
     "lovable": {
         "tier": "Team",
@@ -114,6 +144,11 @@ def _score(b: str, di: DecisionInput) -> float:
     """Simple suitability score 0..1."""
     meta = APPROVED_BUILDERS[b]
     score = 0.5
+
+    # CC/Codex jsou universal-good in-repo CLI builders — boost vždy
+    # (zero export friction, brownfield aware, tests/lint default).
+    if b in ("claude-code", "codex-cli"):
+        score += 0.35
 
     if di.throwaway_or_evolve == "evolve":
         if b == "cursor":
@@ -232,7 +267,9 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         ).fetchone()
 
     has_sandbox = bool(platform and platform[0] in ("ok", "deferred"))
-    production_target = int(proj[4] or 0) if proj[3] == "evolve" else 0
+    # production_target je aktivní pokud je nastaven (>0). Throwaway projekt
+    # může mít target=0 (nezáleží na export). Pilot/production typicky 70+.
+    production_target = int(proj[4] or 0)
 
     di = DecisionInput(
         slug=slug,

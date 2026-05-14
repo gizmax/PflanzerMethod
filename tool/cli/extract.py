@@ -37,7 +37,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 
 EXTRACTED_DIR = REPO_ROOT / "extracted"
-SUPPORTED_BUILDERS = {"v0", "bolt", "lovable", "cursor", "manual", "stitch", "figma-make"}
+SUPPORTED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
+                      "cursor", "manual", "stitch", "figma-make"}
 
 
 # --------------------------------------------------------------------------
@@ -372,6 +373,9 @@ def extract(
     # Decide extraction method
     if method_override:
         method = method_override
+    elif builder in ("claude-code", "codex-cli"):
+        # Code už je v repu (worktree feat branch). Jen ho zaregistrujeme.
+        method = "in_repo_branch"
     elif repo_url and _validate_github_url(repo_url):
         method = "git_clone"
     elif builder in ("stitch", "figma-make"):
@@ -384,7 +388,30 @@ def extract(
     dest = EXTRACTED_DIR / slug / variant_name
 
     notes = []
-    if method == "git_clone":
+    if method == "in_repo_branch":
+        # Code is already in repo's feat branch (CC/Codex psali přímo).
+        # Default branch convention: feat/<slug>-<variant>. User může override
+        # přes repo_url (formát: 'branch:feat/...' nebo abs path).
+        branch_name = repo_url.replace("branch:", "") if repo_url and repo_url.startswith("branch:") else f"feat/{slug}-{variant_name}"
+        # Try git worktree at sibling path
+        worktree = REPO_ROOT.parent / f"proto-{slug}-{variant_name}"
+        if worktree.exists():
+            dest = worktree  # Real on-disk path
+            files, loc = _count_files(dest)
+            notes.append(
+                f"Registered in-repo branch `{branch_name}` at {dest} "
+                "(worktree). Code napsali Claude Code / Codex CLI přímo."
+            )
+        else:
+            # Fallback: branch v hlavním repu
+            dest = REPO_ROOT
+            files, loc = (0, 0)
+            notes.append(
+                f"Branch `{branch_name}` registrován jako in-repo. "
+                f"Worktree {worktree} neexistuje — code je na branchi v hlavním repu. "
+                "Quality gates poběží na celém repu (může mít hluk)."
+            )
+    elif method == "git_clone":
         files, loc = _git_clone(repo_url, dest, force=force)
         notes.append(f"Cloned from {repo_url}" if force or not dest.exists() else f"Reused existing {dest}")
     elif method == "skeleton":

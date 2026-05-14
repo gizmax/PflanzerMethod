@@ -108,34 +108,38 @@ do web hubu: `http://localhost:8000/<slug>`).
 python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 ```
 
-→ JSON s 2-3 prompts. **Vyhoď je týmu na velký TV** v tomto formátu:
+→ JSON s 2-3 prompts. **Default builders pro production target = `claude-code`
+nebo `codex-cli`** (kód rovnou v repu, žádný export step). Bolt/v0/Lovable
+jen jako fallback pro UX showcase nebo greenfield bez repa.
+
+**Pro CC/Codex (in-repo flow):**
+
+```
+🤖 Variant A (claude-code) — happy-path minimum
+   Setup (1× per session, dělá facilitátor):
+     git worktree add ../proto-<slug>-A -b feat/<slug>-A
+     cd ../proto-<slug>-A
+     claude
+
+   Pak v Claude Code vlož prompt (z `prompts` JSON output).
+   Tým dvojice 1 → variant A, dvojice 2 → variant B, dvojice 3 → variant C.
+```
+
+**Pro hosted SaaS (Bolt/v0/Lovable) — pouze pokud `production_target == 0`:**
 
 ```
 🎨 Variant A (v0) — happy-path minimum
-   Otevři: https://v0.app
-   Prompt: ```
-   <prompt_text>
-   ```
-   → po buildu vlož preview URL: [_____]
-
-🎨 Variant B (bolt) — guided multi-step
-   Otevři: https://bolt.new
-   Prompt: ```...```
-   → preview URL: [_____]
-
-🎨 Variant C (cursor) — smart defaults
-   Pair-program v repu / Cursor (pokud máš)
-   Prompt: ```...```
-   → preview URL: [_____]
+   Otevři: https://v0.app, vlož prompt, počkej na build
+   → po buildu Push to GitHub a vlož repo URL: [_____]
 ```
 
-Tým si **rozdělí 3 variants po dvojicích**, paralelně buildují **15-30 min**.
-Facilitátor (ty) hlídá čas — 30 min cap, pak voting bez ohledu na hotovost.
+Tým paralelně buildí **15-30 min**. Facilitátor (ty) hlídá čas — 30 min cap,
+pak voting bez ohledu na hotovost.
 
-Po skončení zeptej se přes `AskUserQuestion` per variant:
+**Po skončení zeptej se přes `AskUserQuestion` per variant:**
 
-> **Variant A — vlož preview URL** [text]
-> *(pokud nehotové, vlož `none` — varianta vyhnání z votingu)*
+- Pro CC/Codex: žádná otázka, branch je `feat/<slug>-A` (deterministicky).
+- Pro Bolt/v0: vlož preview URL nebo GitHub URL (pro session 3 extract).
 
 ### KROK 5 — VOTING (silent dot voting)
 
