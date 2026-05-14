@@ -158,22 +158,76 @@ tool/
 └── agents/              # 23 sub-agentů (1 facilitator + 17 role experts + 5 triage)
 ```
 
-## Setup (lokálně)
+## Install — co si tým musí stáhnout
+
+### Pro tebe (one-time, ~30 sekund)
 
 ```bash
-# Inicializace DB
-python3 tool/db/migrate.py
+curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
+```
 
-# Web hub (volitelně, pro async mezi-session feedback)
+Co se stane:
+1. Naclonuje plugin do `~/.claude/plugins/pflanzer/` (slash commands + agents + tool/cli)
+2. Vytvoří `~/.pflanzer/` runtime dir + sdílenou SQLite DB (audit log per všechny tvoje projekty)
+3. Symlink `pflanzer` do `~/.local/bin/` (CLI wrapper pro `pflanzer init`, `pflanzer extract`, …)
+4. Ověří: `git`, `python3.10+`, `node 20+`, `claude` v PATH
+
+### Pro každý cílový repo (one-time, ~1 minuta)
+
+```bash
+cd /path/to/your/repo
+pflanzer init
+```
+
+Co se stane:
+1. Vyrobí `docs/INTEGRATION_GUIDE.md` (template — tým ručně vyplní auth pattern, API client, state lib, logger, feature flags, folder layout, test runner).
+2. Vyrobí `.pflanzer/project.toml` (pre-populated `target_repo_url` z `git remote get-url origin`).
+3. Vytvoří `tests/acceptance/` složku (Charter wizard tam píše `.feature` soubory per session).
+4. Update `.gitignore` (`extracted/`, `.pflanzer/local/`).
+
+**Pak commit oba soubory** a tým je ready. V Claude Code:
+
+```
+/pflanzer "co dnes řešíme"
+```
+
+### Co vlastně tým stahuje?
+
+| Komponenta | Velikost | Kde |
+|------------|----------|-----|
+| Plugin (slash commands + agents + Python) | ~700 KB | `~/.claude/plugins/pflanzer/` |
+| INTEGRATION_GUIDE.md template | ~3 KB | `docs/` v target repu |
+| `.pflanzer/project.toml` | ~500 B | per target repo |
+| Skeleton (per session) | ~30-50 MB | `~/.pflanzer/targets/<repo>/` (cached) |
+| node_modules (per worktree) | ~150 MB × 3 | `~/.pflanzer/targets/<slug>-{A,B,C}/node_modules/` |
+
+**Předpoklady na lokálu:**
+- `git` (jakákoliv verze)
+- `python3 ≥ 3.10`
+- `node ≥ 20.11` (LTS)
+- Claude Code (`claude` v PATH)
+
+### Update / Uninstall
+
+```bash
+pflanzer update    # = git pull v ~/.claude/plugins/pflanzer/
+rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
+```
+
+### Dev setup (pokud přispíváš do metody)
+
+```bash
+git clone https://github.com/pflanzer-method/PflanzerMethod
+cd PflanzerMethod
+python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
+# Web hub (volitelně, pro async feedback dev):
 cd tool/web/backend && uvicorn main:app --reload --port 8000 &
 cd tool/web/frontend && npm install && npm run dev
 ```
 
-Pak stačí v Claude Code:
-
-```
-/pflanzer "tvůj problém v jedné větě"
-```
+> DB lokace: pokud `~/.pflanzer/` existuje, použije se `~/.pflanzer/pflanzer.db`
+> (installed plugin mode). Jinak `<repo>/data/pflanzer.db` (dev mode).
+> Override: `export PFLANZER_DB=/path/to/db.sqlite`.
 
 ## Plán fáze 2 (full)
 
