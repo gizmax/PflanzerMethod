@@ -55,6 +55,30 @@ Zeptej se 2 otázkami v jedné AskUserQuestion zprávě (paralelně):
 Volitelně (jen pokud je tým > 6 lidí, jinak skipni): **Kdo zastává jakou roli?**
 (text per role, jméno).
 
+### KROK 2.5 — MODE SELECT (paralelní vs mob, per ADR-0011)
+
+Před risk profile zeptej se týmu na working mode. Auto-recommend signál
+získáš z `recommend_mode()` v `tool/cli/quick_session.py` (volá se po
+KROK 2 kdy už víme room_size).
+
+```
+AskUserQuestion: "Jak budete dnes pracovat?"
+description: "Auto-recommend: <{recommended_mode}>. Důvod: {rationale}"
+options:
+  - "Paralelně (3 dvojice, 3 worktrees, A/B/C angles)" — default majority cases
+  - "Mob (1 obrazovka, sequential iterations, ≤ 5 lidí)" — opt-in pro
+    nový tým / onboarding / single high-stakes decision
+  - "Hybrid (mob → split → review)" — disabled, v3 coming
+```
+
+**Hard-block guards** (force re-confirm s warning pokud user vybere mob):
+- `production_readiness_target ≥ 70` → "Production target — paralelní dá Decideri 3 fallback options. Mob = sunk-cost commitment. Pokračovat s mobem? rationale POVINNÝ."
+- `room_size > 5` → "Tým má > 5 lidí. Mob breaks at 6+ (cognitive load + air-time inequity). Doporučuji paralelní nebo split team."
+- veto role povinná (Security/Legal) → "Veto role v týmu. Mob = jediný artefakt = veto = kill all. Paralelní lépe."
+
+Result se persistuje jako `projects.session_mode = 'parallel' | 'mob'`
+(volitelný field, default 'parallel').
+
 ### KROK 3 — RISK PROFILE + PRODUCTION TARGET (rozsah dopadu)
 
 ```

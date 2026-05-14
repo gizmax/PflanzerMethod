@@ -120,10 +120,16 @@ def _ensure_target_clone(target_repo_url: str, target_branch: str) -> Path:
 
 def _create_worktrees(
     target_clone: Path, slug: str, base_branch: str,
+    mode: str = "parallel",
 ) -> list[Path]:
-    """Create 3 worktrees A/B/C as siblings of target clone."""
+    """Create worktrees per mode.
+
+    - parallel (default): 3 worktrees A/B/C as siblings.
+    - mob (per ADR-0011): 1 worktree '<slug>-mob', single shared branch.
+    """
     worktrees: list[Path] = []
-    for variant in ("A", "B", "C"):
+    variants = ("A", "B", "C") if mode == "parallel" else ("mob",)
+    for variant in variants:
         wt_path = target_clone.parent / f"{slug}-{variant}"
         feat_branch = f"pflanzer/{slug}-{variant}"
 
@@ -179,12 +185,20 @@ def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]
     return results
 
 
-def setup(slug: str, *, install_deps: bool = True) -> WorktreeSetup:
-    """Setup 3 worktrees for in-room session pro `slug` projekt.
+def setup(slug: str, *, install_deps: bool = True,
+          mode: str = "parallel") -> WorktreeSetup:
+    """Setup worktrees for in-room session pro `slug` projekt.
+
+    Args:
+        slug: project slug.
+        install_deps: auto npm/pnpm/yarn install per worktree.
+        mode: 'parallel' (3 worktrees A/B/C — default) | 'mob' (1 worktree).
 
     Reads `projects.target_repo_url` + `target_branch` z DB.
     Vrátí WorktreeSetup s konkrétními paths které facilitátor použije.
     """
+    if mode not in ("parallel", "mob"):
+        raise ValueError(f"mode must be 'parallel' or 'mob', got '{mode}'")
     with transaction() as conn:
         proj = conn.execute(
             "SELECT id, target_repo_url, target_branch, throwaway_or_evolve "
@@ -212,8 +226,8 @@ def setup(slug: str, *, install_deps: bool = True) -> WorktreeSetup:
     target_clone = _ensure_target_clone(target_url, target_branch)
     print(f"[setup] target clone at {target_clone}", file=sys.stderr)
 
-    worktrees = _create_worktrees(target_clone, slug, target_branch)
-    print(f"[setup] created {len(worktrees)} worktrees: "
+    worktrees = _create_worktrees(target_clone, slug, target_branch, mode=mode)
+    print(f"[setup] mode={mode} → created {len(worktrees)} worktree(s): "
           f"{[w.name for w in worktrees]}", file=sys.stderr)
 
     pm = _detect_package_manager(target_clone)
@@ -234,6 +248,7 @@ def setup(slug: str, *, install_deps: bool = True) -> WorktreeSetup:
             payload={
                 "slug": slug, "target_repo_url": target_url,
                 "target_branch": target_branch,
+                "mode": mode,
                 "worktrees": [str(w) for w in worktrees],
                 "package_manager": pm,
                 "install_ok": sum(1 for r in install_results
@@ -277,8 +292,10 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_setup = sub.add_parser("setup", help="Clone target + create 3 worktrees")
+    p_setup = sub.add_parser("setup", help="Clone target + create worktrees")
     p_setup.add_argument("--slug", required=True)
+    p_setup.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
+                         help="parallel = 3 worktrees A/B/C (default); mob = 1 worktree (per ADR-0011)")
     p_setup.add_argument("--no-install", action="store_true",
                          help="Skip package-manager install (faster, ale gates skipnou)")
 
@@ -289,18 +306,29 @@ def main() -> None:
     args = p.parse_args()
 
     if args.cmd == "setup":
-        s = setup(args.slug, install_deps=not args.no_install)
+        s = setup(args.slug, install_deps=not args.no_install, mode=args.mode)
+        if args.mode == "mob":
+            next_steps = [
+                f"cd {s.worktrees[0]} && claude  # MOB session — všech 6 lidí "
+                "u 1 monitoru (per ADR-0011)",
+                "Driver/navigator rotation: 8 min cycle, 25 min hard break",
+                "Iteration timing: 25 min iter1 + 25 min iter2 + 15 min "
+                "review/decide (90 min cap)",
+            ]
+        else:
+            next_steps = [
+                f"cd {w} && claude  # variant {chr(ord('A')+i)}"
+                for i, w in enumerate(s.worktrees)
+            ]
         print(json.dumps({
             "slug": s.slug,
+            "mode": args.mode,
             "target_repo_url": s.target_repo_url,
             "target_clone_path": str(s.target_clone_path),
             "worktrees": [str(w) for w in s.worktrees],
             "package_manager": s.package_manager,
             "install_results": s.install_results,
-            "next_steps": [
-                f"cd {w} && claude  # variant {chr(ord('A')+i)}"
-                for i, w in enumerate(s.worktrees)
-            ],
+            "next_steps": next_steps,
         }, ensure_ascii=False, indent=2))
     else:
         ok, msg = verify_cwd_in_target(args.slug, Path(args.cwd).resolve())
