@@ -53,6 +53,9 @@ SKELETON_FILES: dict[str, str] = {
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -60,24 +63,36 @@ SKELETON_FILES: dict[str, str] = {
     "format": "prettier --write \\"src/**/*.{ts,tsx,css}\\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:acceptance": "playwright test tests/acceptance",
+    "preview": "vite preview",
+    "prepare": "lefthook install || true"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@faker-js/faker": "^9.0.0",
+    "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
+    "@testing-library/user-event": "^14.5.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^1.4.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jest-axe": "^9.0.0",
     "jsdom": "^24.0.0",
+    "lefthook": "^1.7.0",
+    "msw": "^2.4.0",
     "prettier": "^3.2.0",
     "typescript": "^5.4.0",
     "vite": "^5.2.0",
@@ -195,10 +210,9 @@ export default function App() {
   );
 }
 """,
-    "src/test/setup.ts": """import '@testing-library/jest-dom';
-""",
-    "src/App.test.tsx": """import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+    "src/App.test.tsx": """import { describe, expect, it } from 'vitest';
+import { screen } from '@testing-library/react';
+import { render } from './test/render';
 import App from './App';
 
 describe('App skeleton', () => {
@@ -211,7 +225,171 @@ describe('App skeleton', () => {
     render(<App />);
     expect(screen.getByRole('button', { name: /začít/i })).toBeInTheDocument();
   });
+
+  // Negative path — POVINNÉ per qa-test-architect perspektiva
+  it('handles missing data gracefully (negative path)', () => {
+    render(<App />);
+    // Skeleton: button click neházet error
+    expect(() => {
+      const btn = screen.getByRole('button', { name: /začít/i });
+      btn.click();
+    }).not.toThrow();
+  });
 });
+""",
+    "src/test/render.tsx": """/**
+ * Sdílený render helper. Tým rozšiřuje o providers (router, query client,
+ * theme, auth context) podle target repa INTEGRATION_GUIDE.md.
+ */
+import { render as rtlRender, RenderOptions } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ReactElement } from 'react';
+
+export function render(ui: ReactElement, options?: RenderOptions) {
+  return {
+    user: userEvent.setup(),
+    ...rtlRender(ui, options),
+  };
+}
+
+export * from '@testing-library/react';
+""",
+    "src/test/factories.ts": """/**
+ * Test data factories — používej `faker` místo hardcoded fixtures
+ * (perspektiva 04 anti-pattern: hardcoded test@test.com regex bounce).
+ */
+import { faker } from '@faker-js/faker';
+
+export const userFactory = (overrides: Partial<User> = {}): User => ({
+  id: faker.string.uuid(),
+  email: faker.internet.email(),
+  name: faker.person.fullName(),
+  createdAt: faker.date.past().toISOString(),
+  ...overrides,
+});
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+}
+""",
+    "src/test/server.ts": """/**
+ * MSW server pro testy — místo Pact (perspektiva 04 conflict resolution).
+ * Sdílí handlers napříč unit + integration tests.
+ */
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
+
+export const server = setupServer(...handlers);
+""",
+    "src/test/handlers.ts": """import { http, HttpResponse } from 'msw';
+import { userFactory } from './factories';
+
+export const handlers = [
+  http.get('/api/me', () => HttpResponse.json(userFactory())),
+  // Tým doplní endpoints per INTEGRATION_GUIDE.md API client patterns.
+];
+""",
+    "src/test/setup.ts": """import '@testing-library/jest-dom';
+import { afterAll, afterEach, beforeAll } from 'vitest';
+import { server } from './server';
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+""",
+    "tests/acceptance/example.feature": """# Acceptance kritéria pro {slug} variant {variant}.
+# Tento soubor zapisuje Decider v Charter wizardu PŘED session 1.
+# AI variants implementují TENTO spec, ne vlastní výmysl.
+# Per autoresearch synthesis T2 + ADR-0010 (acceptance gate).
+
+Feature: {slug} core flow
+
+  Scenario: Happy path — uživatel projde primary flow
+    Given valid input z persona
+    When uživatel projde flow
+    Then primary lagging metric event je zaznamenán
+
+  Scenario: Negative path — invalid input
+    Given invalid input
+    When uživatel zkusí submit
+    Then UI vrátí actionable error (B1/B2 plain language)
+    And žádná data nejsou persisted
+
+  Scenario: Edge case — pomalé BE
+    Given valid input
+    When BE response > 5s
+    Then UI ukáže loading state, pak fallback graceful
+""",
+    "tests/acceptance/example.spec.ts": """/**
+ * Playwright runner pro acceptance scénáře.
+ * `quality_gates.py gate_acceptance` čte JSON output odsud.
+ *
+ * Pro reálnou implementaci nahradit hard-coded scénáře parserem .feature
+ * souboru přes @cucumber/cucumber. MVP: 1 spec = 1 feature scenario.
+ */
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test.describe('{slug} core flow', () => {
+  test('Happy path — primary flow accessible', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /začít/i })).toBeVisible();
+  });
+
+  test('A11y — no critical violations on landing', async ({ page }) => {
+    await page.goto('/');
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+      .analyze();
+    const critical = results.violations.filter(v => v.impact === 'critical');
+    expect(critical).toEqual([]);
+  });
+});
+""",
+    "playwright.config.ts": """import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  reporter: [['list'], ['json', { outputFile: 'playwright-report.json' }]],
+  use: {
+    baseURL: 'http://localhost:5173',
+    trace: 'retain-on-failure',
+  },
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 60_000,
+  },
+});
+""",
+    "lefthook.yml": """# Pre-commit gates per worktree.
+# Per autoresearch perspektiva 03 (devex) #2 — broken commits never reach git.
+# Per perspektiva 04 — fail-fast pro tým u stolu, ne post-hoc CI surprise.
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{ts,tsx,js,jsx}"
+      run: npx eslint --max-warnings 0 {staged_files}
+    types:
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit
+    tests:
+      glob: "*.{ts,tsx}"
+      run: npm test -- --changed --reporter=dot
+""",
+    ".nvmrc": """20.11
+""",
+    ".npmrc": """save-exact=true
+engine-strict=true
 """,
     "README.md": """# {slug} — varianta {variant}
 

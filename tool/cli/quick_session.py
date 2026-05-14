@@ -144,6 +144,8 @@ def bootstrap(
     role_owners: dict[int, str] | None = None,
     target_repo_url: str | None = None,
     acceptance_criteria_md: str | None = None,
+    target_branch_owner: str | None = None,
+    shadow_pm: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -214,10 +216,12 @@ def bootstrap(
         conn.execute(
             "UPDATE projects SET target_repo_url = ?, "
             "production_readiness_target = ?, "
-            "acceptance_criteria_md = COALESCE(?, acceptance_criteria_md) "
+            "acceptance_criteria_md = COALESCE(?, acceptance_criteria_md), "
+            "target_branch_owner = COALESCE(?, target_branch_owner), "
+            "shadow_pm = COALESCE(?, shadow_pm) "
             "WHERE id = ?",
             (target_repo_url, profile.get("production_readiness_target", 0),
-             acceptance_criteria_md, project_id),
+             acceptance_criteria_md, target_branch_owner, shadow_pm, project_id),
         )
         audit(
             conn,

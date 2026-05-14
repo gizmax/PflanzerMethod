@@ -67,17 +67,30 @@ options:
 
 → mapuje se na `RISK_PROFILES` v `tool/cli/quick_session.py`.
 
-**Pokud Pilot nebo Production**: zeptej se navíc:
+**Pokud Pilot nebo Production**: zeptej se navíc (3 otázky v jednom AskUserQuestion):
 
 ```
-AskUserQuestion: "Máš target git repo, kam má kód jít?"
-options:
-  - "Ano, vlož URL" [text → https://github.com/<org>/<repo>]
-  - "Ne, kód zůstane v sandboxu (rozhodne se po session 3)"
+AskUserQuestion (3 otázky):
+1. "Target git repo URL?" [text → https://github.com/<org>/<repo>]
+   → projects.target_repo_url (POVINNÝ pro pilot/production — bez něj
+     bootstrap raise ValueError per ADR-0009)
+2. "Branch owner / kdo merguje PR?" [text → GitHub handle, např. @petra]
+   → projects.target_branch_owner (auto-fills `gh pr create --reviewer`
+     v SHIP.md per ADR-0010)
+3. "Shadow PM (kdo babysittuje code mezi-session)?" [text → jméno]
+   → projects.shadow_pm (per perspektiva 02 vibe-product C5 — bez named
+     ownera mezi-session work dies)
 ```
 
-Toto se uloží do `projects.target_repo_url` a použije v `/pflanzer-session-3`
-+ handoff package pro generování PR commands.
+Pokud risk_profile = throwaway, tyto 3 otázky se přeskočí.
+
+**Acceptance criteria** (per ADR-0010 = nejvyšší leverage gate):
+```
+AskUserQuestion: "Acceptance kritéria pro winning variantu (3-5 Gherkin scénářů)?"
+  - Decider napíše 1 happy + 2 negative + 1 edge case
+  - Persistne do projects.acceptance_criteria_md
+  - Per worktree zapíše tests/acceptance/<slug>.feature (AI implementuje aby projela)
+```
 
 **Bootstrap call** (po krocích 1-3):
 
