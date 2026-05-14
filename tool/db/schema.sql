@@ -117,6 +117,29 @@ CREATE TABLE IF NOT EXISTS variants (
 CREATE INDEX IF NOT EXISTS idx_variants_session ON variants(session_id);
 
 -- ==========================================================================
+-- role_preferences (Session 1 — preference matrix per role × variant)
+-- 4 dimenze: user_value, effort, risk, strategic_fit (0..1 normalized).
+-- commitment_level 0–3 per role (0 = neúčastnit se mezi-session, 3 = co-creation).
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS role_preferences (
+  id INTEGER PRIMARY KEY,
+  variant_id INTEGER NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  user_value REAL CHECK (user_value BETWEEN 0 AND 1),
+  effort REAL CHECK (effort BETWEEN 0 AND 1),
+  risk REAL CHECK (risk BETWEEN 0 AND 1),
+  strategic_fit REAL CHECK (strategic_fit BETWEEN 0 AND 1),
+  commitment_level INTEGER CHECK (commitment_level BETWEEN 0 AND 3),
+  rationale TEXT NOT NULL,
+  is_ai_only INTEGER NOT NULL DEFAULT 0 CHECK (is_ai_only IN (0, 1)),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (variant_id, role_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_role_pref_variant ON role_preferences(variant_id);
+CREATE INDEX IF NOT EXISTS idx_role_pref_role ON role_preferences(role_id);
+
+-- ==========================================================================
 -- feedback (scored per variant per role)
 -- ==========================================================================
 CREATE TABLE IF NOT EXISTS feedback (
