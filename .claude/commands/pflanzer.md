@@ -55,17 +55,29 @@ Zeptej se 2 otázkami v jedné AskUserQuestion zprávě (paralelně):
 Volitelně (jen pokud je tým > 6 lidí, jinak skipni): **Kdo zastává jakou roli?**
 (text per role, jméno).
 
-### KROK 3 — RISK PROFILE (rozsah dopadu)
+### KROK 3 — RISK PROFILE + PRODUCTION TARGET (rozsah dopadu)
 
 ```
 AskUserQuestion: "Co je dnešní cíl tohoto prototypu?"
 options:
   - "Throwaway proto" — interní demo, žádná produkce, žádná real data
   - "Pilot s 5-20 reálnými uživateli" — limited AI Act, L2 data
-  - "Production launch" — limited AI Act, L3 data, regulated profile
+  - "Production launch" — limited AI Act, L3 data, regulated profile, kód → repo
 ```
 
 → mapuje se na `RISK_PROFILES` v `tool/cli/quick_session.py`.
+
+**Pokud Pilot nebo Production**: zeptej se navíc:
+
+```
+AskUserQuestion: "Máš target git repo, kam má kód jít?"
+options:
+  - "Ano, vlož URL" [text → https://github.com/<org>/<repo>]
+  - "Ne, kód zůstane v sandboxu (rozhodne se po session 3)"
+```
+
+Toto se uloží do `projects.target_repo_url` a použije v `/pflanzer-session-3`
++ handoff package pro generování PR commands.
 
 **Bootstrap call** (po krocích 1-3):
 
@@ -214,6 +226,23 @@ Klíčové sekce:
 - Kill criteria
 - ⚠ Pre-production TODO (triage deferred — re-run před pilotem)
 - Co dál (5 akčních bodů)
+
+### KROK 8 — Production path hint (pokud risk_profile != throwaway)
+
+Pokud tým chce **kód reálně použít**:
+
+```
+> 🚀 Production path:
+> 1. Sběr feedbacku (5-7 dní) přes web hub: /pflanzer-feedback-pull <slug>
+> 2. Decisional session: /pflanzer-session-2 <slug>  (Decider Go/Iterate/Kill)
+> 3. Production hardening: /pflanzer-session-3 <slug>
+>    → extract code z buildru → 7 quality gates → score 0-100
+>    → pokud >= 80, většina kódu je ready k mergi
+> 4. Handoff: /pflanzer-handoff <slug>
+>    → per-role package s odkazy na soubory + open-PR commands
+```
+
+Tento blok **vyhoď do handoff MD** — tým má roadmap k production.
 
 ## Co tento command NEDĚLÁ
 

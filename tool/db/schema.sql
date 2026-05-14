@@ -39,8 +39,54 @@ CREATE TABLE IF NOT EXISTS projects (
   reinforcement_t30 TEXT,
   reinforcement_t60 TEXT,
   reinforcement_t90 TEXT,
-  reinforcement_budget_pd REAL
+  reinforcement_budget_pd REAL,
+  -- Production-ready fields (3-session path) ---------------------------------
+  target_repo_url TEXT,                  -- git URL kam exportujeme kód
+  target_branch TEXT DEFAULT 'main',     -- výchozí branch (vetvy se feat/<slug>-...)
+  production_readiness_target INTEGER DEFAULT 80
+    CHECK (production_readiness_target BETWEEN 0 AND 100),
+  -- gate score 0..100; pod tímto = nejít do prod, jen pilot
+  gate_score_latest INTEGER DEFAULT 0
+    CHECK (gate_score_latest BETWEEN 0 AND 100)
 );
+
+-- ==========================================================================
+-- extracted_code (z vibe-coding tools do našeho repa)
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS extracted_code (
+  id INTEGER PRIMARY KEY,
+  variant_id INTEGER NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+  source_url TEXT NOT NULL,             -- Bolt/v0/Lovable preview URL
+  source_repo_url TEXT,                 -- builder GitHub URL (pokud exportováno)
+  local_path TEXT NOT NULL,             -- extracted/<slug>/<variant>/
+  extraction_method TEXT NOT NULL
+    CHECK (extraction_method IN ('git_clone','manual_paste','builder_api','skeleton')),
+  files_count INTEGER DEFAULT 0,
+  total_loc INTEGER DEFAULT 0,
+  extracted_by TEXT NOT NULL,
+  extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  notes_md TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_extracted_variant ON extracted_code(variant_id);
+
+-- ==========================================================================
+-- quality_gates (production-ready gate runs per variant)
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS quality_gates (
+  id INTEGER PRIMARY KEY,
+  extracted_id INTEGER NOT NULL REFERENCES extracted_code(id) ON DELETE CASCADE,
+  gate_type TEXT NOT NULL
+    CHECK (gate_type IN ('lint','types','tests','security','a11y','build','observability')),
+  status TEXT NOT NULL
+    CHECK (status IN ('pass','warn','fail','skipped','unsupported')),
+  details_md TEXT,
+  metric_value REAL,                    -- coverage %, error count, etc.
+  ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ran_by TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_quality_extracted ON quality_gates(extracted_id);
 
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 

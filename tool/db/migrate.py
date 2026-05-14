@@ -15,6 +15,29 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import DB_PATH, SCHEMA_PATH, audit, get_connection  # noqa: E402
 
+# Additive ALTER TABLE migrations — applied AFTER executescript so they
+# work even when the table already exists (CREATE TABLE IF NOT EXISTS skips
+# new columns added to existing tables).
+ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "projects": [
+        ("target_repo_url", "TEXT"),
+        ("target_branch", "TEXT DEFAULT 'main'"),
+        ("production_readiness_target", "INTEGER DEFAULT 80"),
+        ("gate_score_latest", "INTEGER DEFAULT 0"),
+    ],
+}
+
+
+def _apply_additive(conn) -> list[str]:
+    applied: list[str] = []
+    for table, cols in ADDITIVE_COLUMNS.items():
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        for name, type_ in cols:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {type_}")
+                applied.append(f"{table}.{name}")
+    return applied
+
 
 def apply_schema(reset: bool = False) -> None:
     if reset and DB_PATH.exists():
@@ -25,6 +48,9 @@ def apply_schema(reset: bool = False) -> None:
     conn = get_connection()
     try:
         conn.executescript(schema_sql)
+        applied_alters = _apply_additive(conn)
+        if applied_alters:
+            print(f"[migrate] applied additive columns: {', '.join(applied_alters)}")
         audit(
             conn,
             action="migrate.apply",

@@ -38,42 +38,49 @@ APPROVED_BUILDERS: dict[str, dict[str, Any]] = {
         "good_for": ["UI mockup", "marketing page", "design-system aware"],
         "weak_for": ["complex BE", "auth", "stateful flows"],
         "allows_export": True,
+        "exportable_score": 0.85,  # GitHub export + copy-paste components
     },
     "bolt": {
         "tier": "Pro",
         "good_for": ["fullstack prototyp", "Node/Vite stacks", "rapid iteration"],
         "weak_for": ["regulated data", "complex SSO"],
         "allows_export": True,
+        "exportable_score": 0.95,  # Full project download + GitHub push
     },
     "lovable": {
         "tier": "Team",
         "good_for": ["fullstack TS", "Supabase BE", "rapid"],
         "weak_for": ["custom infra", "no Supabase orgs"],
         "allows_export": True,
+        "exportable_score": 0.90,  # GitHub sync built-in
     },
     "stitch": {
         "tier": "Pro",
         "good_for": ["mobile-first UI mockup", "design exploration"],
         "weak_for": ["functional logic", "BE"],
         "allows_export": False,
+        "exportable_score": 0.20,  # Design only — žádný runnable kód
     },
     "cursor": {
         "tier": "Business",
         "good_for": ["brownfield", "evolve profil", "in-repo edits", "tests"],
         "weak_for": ["greenfield from scratch (slower)"],
         "allows_export": True,
+        "exportable_score": 1.00,  # Code je už v repu — zero export friction
     },
     "figma-make": {
         "tier": "Enterprise",
         "good_for": ["design-tokens lock-in", "Figma-first orgs"],
         "weak_for": ["BE", "rapid pivots"],
         "allows_export": False,
+        "exportable_score": 0.30,  # Design tokens, ne komponenty
     },
     "manual": {
         "tier": "n/a",
         "good_for": ["fallback when all builders excluded", "L3 data with veto"],
         "weak_for": ["speed"],
         "allows_export": True,
+        "exportable_score": 0.70,  # Tým píše kód = vždy použitelný, ale pomalejší
     },
 }
 
@@ -87,6 +94,7 @@ class DecisionInput:
     has_sandbox: bool          # from platform triage
     stack_hint: str | None = None  # "react", "nextjs", "vue", "node-fastapi", ...
     customer_facing: bool = False
+    production_target: int = 0  # 0..100; >0 = optimize pro reusable code (Slice production-path)
 
 
 def _eligible(b: str, di: DecisionInput) -> tuple[bool, str | None]:
@@ -138,6 +146,12 @@ def _score(b: str, di: DecisionInput) -> float:
     if di.customer_facing and b in ("v0", "lovable"):
         score += 0.05
 
+    # Production-ready boost: pokud target > 0, weight exportable_score
+    # ratio nepřímo úměrný targetu (target=100 → exportability je 30 % skóre).
+    if di.production_target > 0:
+        weight = min(0.30, di.production_target / 333)  # max 0.30 boost
+        score += weight * meta["exportable_score"]
+
     return min(score, 1.0)
 
 
@@ -182,6 +196,7 @@ def recommend(di: DecisionInput, top_n: int = 3) -> dict[str, Any]:
             "good_for": meta["good_for"],
             "weak_for": meta["weak_for"],
             "allows_export": meta["allows_export"],
+            "exportable_score": meta["exportable_score"],
         })
 
     ranked.sort(key=lambda r: r["score"], reverse=True)
@@ -205,7 +220,8 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
     """Load Charter + platform triage from DB and recommend."""
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT id, data_class, ai_act_tier, throwaway_or_evolve "
+            "SELECT id, data_class, ai_act_tier, throwaway_or_evolve, "
+            "production_readiness_target "
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
@@ -216,6 +232,8 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         ).fetchone()
 
     has_sandbox = bool(platform and platform[0] in ("ok", "deferred"))
+    production_target = int(proj[4] or 0) if proj[3] == "evolve" else 0
+
     di = DecisionInput(
         slug=slug,
         data_class=proj[1] or "L2",
@@ -224,6 +242,7 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         has_sandbox=has_sandbox,
         stack_hint=stack_hint,
         customer_facing=customer_facing,
+        production_target=production_target,
     )
     return recommend(di)
 

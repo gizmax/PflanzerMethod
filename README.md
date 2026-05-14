@@ -8,30 +8,40 @@
 
 V korporátu typicky cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
 s produktem, produkt s vývojem, schvalovací kola, security audit, atd. Metoda to
-zkracuje na **jednu in-room session** (60–90 min) — tým se sejde, společně
-provibe-koduje 2–3 varianty, hned se rozhodne. Žádné kolečka iterací mezi sessions.
+zkracuje na **2–3 sezení** — tým se sejde, společně provibe-koduje 2–3 varianty,
+rozhodne, kód projde production gates, ven jde **PR připravený k mergi**.
 
-## Quick start (in-room session, 60–90 min)
+**Většina kódu z vibe-coding session je použitelná**, ne jen reference pro re-implementaci.
 
-Sednete si s týmem (4–6 lidí, jeden notebook na velkém TV) a v Claude Code spustíte:
+## Quick start (3 sezení = ship to production)
 
 ```
-/pflanzer "chceme zlepšit X"
+Session 1: Explore (in-room, 60-90 min)
+  /pflanzer "chceme zlepšit onboarding"
+  → 2-3 paralelně postavené varianty v Bolt/v0/Lovable
+  → silent voting + Decider's shortlist
+  → 1-page handoff MD
+
+Session 2: Decide (3 h)
+  /pflanzer-feedback-pull <slug>     # async feedback od stakeholderů
+  /pflanzer-session-2 <slug>         # Decider's Go/Iterate/Kill
+
+Session 3: Ship (1-2 h)
+  /pflanzer-session-3 <slug>         # extract → 7 quality gates → score 0-100
+  /pflanzer-handoff <slug>           # PR-ready package s odkazy na soubory
 ```
 
-Wizard provede 5 kroky:
+**Po session 3 dostane tým**:
+- Funkční kód v `extracted/<slug>/<winner>/` (Vite + React + TS, ESLint, Vitest)
+- Quality gate score (lint + types + tests + security + a11y + build + observability)
+- Per-role handoff balíčky s **odkazy na skutečné soubory** (ne TBD placeholders)
+- Open-PR-ready commit message do `target_repo_url` z Charteru
 
-1. **HOOK** — co dnes řešíte? (1 věta)
-2. **DECIDER + ROOM** — kdo má hlas? Decider single-select + 5–6 rolí multi-select.
-3. **RISK PROFILE** — Throwaway proto / Pilot / Production. Jeden klik.
-4. **BUILD** — AI vyplivne 2–3 copy-paste prompts pro Bolt / v0 / Cursor.
-   Tým se rozdělí po dvojicích a paralelně buildí 15–30 min.
-5. **VOTE + DECIDER's CALL** — silent dot voting + Decider rozhoduje shortlist.
-6. **HANDOFF** — 1-page MD: kdo / co / do kdy / kill criteria. Vyhoď na TV.
+Cílem je `gate_score >= 80/100` = většina kódu se dá použít v produkci.
 
-Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision +
-preference matrix s AI-only deflation + audit log s DORA 7-letou retencí.
-**Sofistikovanost zachovaná, UX zjednodušeno.**
+Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision
+optimalizovaná na exportable code + preference matrix s AI-only deflation +
+audit log s DORA 7-letou retencí. **Sofistikovanost zachovaná, UX zjednodušeno.**
 
 ## Plný flow (pokud potřebuješ celé)
 
@@ -64,10 +74,12 @@ Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog
 - Slice 3 ✅ Pre-flight triage (4 paralelní agents)
 - Slice 4 ✅ Web hub MVP (FastAPI + React + Vite + nginx)
 - Slice 5 ✅ Session 1 orchestrator (facilitator + 17 role experts)
+- Slice 6 ✅ Mezi-session feedback collection + discovery-debt-detector
+- Slice 7 ✅ Session 2 (decisional) + conflict resolver
+- Slice 8 ✅ Handoff package generator (8 per-role artefakty)
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
-- Slice 6 ⏳ Mezi-session feedback collection
-- Slice 7 ⏳ Session 2 (decisional)
-- Slice 8 ⏳ Handoff package generator
+- **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
+  → kód po 3 sezeních ready k mergi (gate_score 0-100)
 
 ## Struktura repa
 

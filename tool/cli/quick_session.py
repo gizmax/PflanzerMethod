@@ -54,17 +54,19 @@ RISK_PROFILES: dict[str, dict[str, Any]] = {
         "kill_criteria": "demo není přesvědčivý → kill po 1 týdnu",
         "needs_security_triage": False,
         "needs_legal_triage": False,
+        "production_readiness_target": 0,  # Throwaway = nejde do prod
     },
     "pilot": {
         "label": "Pilot s 5-20 reálnými uživateli",
         "ai_act_tier": "limited",
         "data_class": "L2",
-        "throwaway_or_evolve": "throwaway",
+        "throwaway_or_evolve": "evolve",  # Pilot kód má jít dál
         "capacity_profile": "default",
         "capacity_person_days": 10,
         "kill_criteria": "po 4 týdnech pilotu žádný měřitelný lift v leading metric",
         "needs_security_triage": True,
         "needs_legal_triage": False,
+        "production_readiness_target": 70,  # Pilot tolerantnější
     },
     "production": {
         "label": "Production launch (ošetřená data, regulated)",
@@ -76,6 +78,7 @@ RISK_PROFILES: dict[str, dict[str, Any]] = {
         "kill_criteria": "guardrail metric breach po 2 sprintech post-launch",
         "needs_security_triage": True,
         "needs_legal_triage": True,
+        "production_readiness_target": 85,  # Strict
     },
 }
 
@@ -139,6 +142,7 @@ def bootstrap(
     *, hook: str, decider_name: str, room_role_idx: list[int],
     risk_profile: str, slug: str | None = None,
     role_owners: dict[int, str] | None = None,
+    target_repo_url: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -195,7 +199,14 @@ def bootstrap(
     # 3. Triage — deferred (with follow-up flag)
     _set_triage_deferred(project_id, profile)
 
+    # 4. Production-path fields
     with transaction() as conn:
+        conn.execute(
+            "UPDATE projects SET target_repo_url = ?, "
+            "production_readiness_target = ? "
+            "WHERE id = ?",
+            (target_repo_url, profile.get("production_readiness_target", 0), project_id),
+        )
         audit(
             conn,
             action="quick.bootstrap",
@@ -204,6 +215,8 @@ def bootstrap(
             payload={
                 "slug": slug, "decider": decider_name,
                 "risk_profile": risk_profile, "roles": room_role_idx,
+                "target_repo_url": target_repo_url,
+                "production_readiness_target": profile.get("production_readiness_target", 0),
             },
         )
 
@@ -213,6 +226,8 @@ def bootstrap(
         "name": name,
         "risk_profile": risk_profile,
         "roles_count": len(selected),
+        "production_readiness_target": profile.get("production_readiness_target", 0),
+        "target_repo_url": target_repo_url,
         "defer_note": (
             "Triage deferred (in-room mode). Před pilotem/production spusť "
             f"`/pflanzer-triage {slug}`."

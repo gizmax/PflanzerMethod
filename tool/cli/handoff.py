@@ -117,6 +117,32 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             (project_id,),
         ).fetchone()
 
+        # Extracted code per variant (Slice production-path)
+        extracted_rows = list(conn.execute(
+            """
+            SELECT v.name, e.id, e.local_path, e.extraction_method,
+                   e.files_count, e.total_loc, e.source_url, e.source_repo_url
+            FROM extracted_code e
+            JOIN variants v ON v.id = e.variant_id
+            JOIN sessions s ON s.id = v.session_id
+            WHERE s.project_id = ? AND s.type = 1
+            """,
+            (project_id,),
+        ).fetchall())
+        extracted_by_variant = {
+            row[0]: {
+                "extracted_id": row[1], "local_path": row[2],
+                "method": row[3], "files_count": row[4], "total_loc": row[5],
+                "source_url": row[6], "source_repo_url": row[7],
+            } for row in extracted_rows
+        }
+
+        # Latest gate score
+        gate_score = conn.execute(
+            "SELECT gate_score_latest, production_readiness_target "
+            "FROM projects WHERE id = ?", (project_id,),
+        ).fetchone()
+
     return {
         "project": dict(proj) if hasattr(proj, "keys") else None,
         "project_tuple": proj,
@@ -142,6 +168,9 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             "ai_only": feedback_summary[2] or 0,
         },
         "handoff_decision_ts": handoff_decision[0] if handoff_decision else None,
+        "extracted_by_variant": extracted_by_variant,
+        "gate_score": int(gate_score[0]) if gate_score and gate_score[0] is not None else 0,
+        "production_readiness_target": int(gate_score[1]) if gate_score and gate_score[1] else 80,
     }
 
 
@@ -181,6 +210,7 @@ def render_be(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top_variant = ctx["variants"][0] if ctx["variants"] else None
     var_block = ""
+    extracted_block = ""
     if top_variant:
         var_block = (
             f"### Top varianta\n\n"
@@ -188,13 +218,25 @@ def render_be(ctx: dict[str, Any]) -> str:
             f"- Preview: {top_variant['prototype_url']}\n"
             f"- Score: {top_variant['preference_score']:.2f}\n"
         )
+        ext = ctx["extracted_by_variant"].get(top_variant["name"])
+        if ext:
+            extracted_block = (
+                f"\n### 🚀 Extracted code\n\n"
+                f"- Local path: `{ext['local_path']}`\n"
+                f"- Method: `{ext['method']}`\n"
+                f"- Files: {ext['files_count']} · LOC: {ext['total_loc']}\n"
+                f"- Source repo: {ext['source_repo_url'] or '(none — skeleton/manual)'}\n"
+                f"- Gate score: **{ctx['gate_score']}/{ctx['production_readiness_target']}**\n\n"
+                f"BE folder (typicky): `{ext['local_path']}/server/` nebo `/api/`. "
+                f"Pokud chybí — tým pair-programuje na backendu, FE už máme.\n"
+            )
 
     return f"""# Backend handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
 > Per `02-role-catalog.md` § 5 (Backend / API lead).
 
-{var_block}
+{var_block}{extracted_block}
 
 ## OpenAPI 3.1 stub
 
@@ -248,6 +290,43 @@ schema migration plán. Použij dbml/erdantic.
 def render_fe(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top = ctx["variants"][0] if ctx["variants"] else None
+    ext = ctx["extracted_by_variant"].get(top["name"]) if top else None
+    extracted_section = ""
+    if ext:
+        extracted_section = f"""
+
+## 🚀 Extracted code (PRODUCTION-READY-ish)
+
+- **Local path**: `{ext['local_path']}`
+- **Method**: `{ext['method']}`
+- **Files**: {ext['files_count']} ({ext['total_loc']} LOC)
+- **Gate score**: **{ctx['gate_score']}/{ctx['production_readiness_target']}**
+  ({'✅ ready' if ctx['gate_score'] >= ctx['production_readiness_target'] else '⚠ pilot-only'})
+
+### Co s tím dál
+
+```bash
+cd {ext['local_path']}
+npm install        # pokud ještě ne
+npm run lint       # ESLint zero warnings (target)
+npm run build      # TypeScript strict mode passes
+npm test           # Vitest suite
+```
+
+Quality gate per-gate detail: `data/handoffs/{p[2]}/quality-{top['name']}.md`.
+
+### Open PR
+
+```bash
+git checkout -b feat/{p[2]}
+cp -r {ext['local_path']}/* path/to/your/target_repo/
+cd path/to/your/target_repo
+git add . && git commit -m "feat({p[2]}): import vibe-coding output (variant {top['name']})"
+git push -u origin feat/{p[2]}
+gh pr create --title "feat({p[2]}): {p[1]}" --body "Pflanzer session output, gate score {ctx['gate_score']}/100"
+```
+"""
+
     return f"""# Frontend handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -258,6 +337,7 @@ def render_fe(ctx: dict[str, Any]) -> str:
 **`{p[10]}`** (per Charter, ADR-0005)
 
 {'⚠ EVOLVE: vyžaduje code review s podpisem FE + EM + Security před merge do prod repo.' if p[10] == 'evolve' else 'Throw-away: prototype zůstává v sandboxu, do prod repa NEPŘENÁŠET. Použij jako reference pro greenfield implementaci.'}
+{extracted_section}
 
 ## Vítězná varianta
 
