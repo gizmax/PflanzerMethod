@@ -14,9 +14,28 @@ from pathlib import Path
 from typing import Any, Iterator
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = REPO_ROOT / "data" / "pflanzer.db"
 SCHEMA_PATH = REPO_ROOT / "tool" / "db" / "schema.sql"
 DORA_RETENTION = timedelta(days=365 * 7 + 2)  # 7 years + leap days buffer
+
+
+def _resolve_db_path() -> Path:
+    """Resolve DB location.
+
+    Order:
+    1. PFLANZER_DB env var (explicit override)
+    2. ~/.pflanzer/pflanzer.db if ~/.pflanzer/ exists (installed plugin path)
+    3. <repo>/data/pflanzer.db (dev mode — running from cloned source)
+    """
+    import os
+    if env := os.environ.get("PFLANZER_DB"):
+        return Path(env).expanduser()
+    user_dir = Path.home() / ".pflanzer"
+    if user_dir.exists():
+        return user_dir / "pflanzer.db"
+    return REPO_ROOT / "data" / "pflanzer.db"
+
+
+DB_PATH = _resolve_db_path()
 
 
 def get_connection() -> sqlite3.Connection:
