@@ -115,22 +115,29 @@ python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 - B — guided multi-step (progress bar, validace per krok)
 - C — smart defaults (AI hádá inputy z kontextu)
 
-**Setup (facilitátor, 1× per session, ~1 minuta):**
+**Setup (facilitátor, 1× per session, ~1-3 minuty):**
 
 ```bash
-SLUG=<your-slug>
-git worktree add ../proto-${SLUG}-A -b feat/${SLUG}-A
-git worktree add ../proto-${SLUG}-B -b feat/${SLUG}-B
-git worktree add ../proto-${SLUG}-C -b feat/${SLUG}-C
+# 1. Pflanzer naclonuje target repo do ~/.pflanzer/targets/<repo-slug>/
+#    a vyrobí 3 worktree A/B/C jako siblings + spustí pnpm/yarn/npm install
+python tool/cli/worktree.py setup --slug <your-slug>
 ```
+
+> ⚠ **KRITICKÉ (ADR-0009 P0 fix)**: Tento command spawne worktree v
+> **target zákazníkově repu**, ne v PflanzerMethod meta-repu. Jinak by
+> CC kódoval do tohoto toolu a reuse by byl 0 %.
+>
+> Vyžaduje `projects.target_repo_url` (settnut v Charteru pro pilot/production).
 
 **Tým rozdělí po dvojicích, každá:**
 ```bash
-cd ../proto-${SLUG}-X     # X = A / B / C
-claude                    # otevře CC session v této worktree
-# Vloží prompt z output JSON-u, kóduje 30 min
-# Po dokončení: npm test && npm run lint && npm run build
-# Commit jako `feat(<slug>): variant X — <shrnutí>`
+cd ~/.pflanzer/targets/<your-slug>-X     # X = A / B / C
+claude                                    # otevře CC session v target worktree
+# 1. Read INTEGRATION_GUIDE.md + tests/acceptance/<slug>.feature (POVINNÉ)
+# 2. Vlož prompt z `quick_session.py prompts` output
+# 3. Kóduje 30 min, drží se conventions target repa
+# 4. Pre-commit hook spustí lint+types+tests
+# 5. Commit jako `feat(<slug>): variant X — <shrnutí>`
 ```
 
 > **Hosted SaaS opt-in** (jen pokud nemáš CC license / chceš UX showcase

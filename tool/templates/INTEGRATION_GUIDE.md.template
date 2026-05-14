@@ -1,0 +1,109 @@
+# INTEGRATION_GUIDE.md — pro vibe-coding session v tomto repu
+
+> **Tento soubor čte Claude Code / Codex CLI jako PRVNÍ věc** v každé Pflanzer
+> session. Bez něj AI píše code idiomaticky pro generic React app, ne pro
+> konkrétní conventions tohoto repa. Updatuj při velkých změnách architektury.
+
+## Auth pattern
+
+```ts
+// PŘÍKLAD — replace s realitou tohoto repa
+import { useAuth } from '@/lib/auth';
+const { user, login, logout } = useAuth();
+```
+
+- Provider: <Cognito | Auth0 | NextAuth | custom>
+- Token storage: <httpOnly cookie | localStorage | Redux>
+- Protected route helper: `<RequireAuth>` v `src/components/auth/`
+
+## API client
+
+```ts
+// PŘÍKLAD
+import { api } from '@/lib/api';
+const data = await api.users.getProfile();
+```
+
+- HTTP lib: <react-query + fetch | axios | SWR | tRPC>
+- Generated SDK: `<openapi-typescript-codegen | trpc | none>`
+- Error handling: <RFC 7807 Problem Details | custom>
+- Retry: <built-in | none>
+
+## State management
+
+- Local state: `useState` / `useReducer`
+- Global state: `<Redux Toolkit | Zustand | Jotai | Context>`
+- Server state: `react-query` v5
+- Form state: `react-hook-form` + zod
+
+## Logger / observability
+
+```ts
+import { logger } from '@/lib/logger';
+logger.info('user.login', { userId, source });
+```
+
+- Žádné `console.log` v production code (lint enforced)
+- Structured logs: `{ event: 'object_action', ...payload }`
+- OTel traces: <true | false>
+
+## Feature flags
+
+```ts
+import { useFlag } from '@/lib/flags';
+const showNewFlow = useFlag('new-onboarding-2026');
+if (!showNewFlow) return <OldFlow />;
+```
+
+- Provider: <LaunchDarkly | Unleash | Hypertune | env-based>
+- All new features MUST be flagged.
+
+## Folder layout
+
+```
+src/
+├── components/      # shared UI primitives (Button, Input, Modal)
+│   └── ui/          # design system components — re-use, neopisovat!
+├── features/        # feature-scoped code
+│   └── <slug>/      # Pflanzer variants land HERE
+│       ├── components/
+│       ├── hooks/
+│       ├── api/
+│       └── index.ts
+├── lib/             # cross-cutting helpers (auth, api, logger, flags)
+├── routes/          # routing (react-router / next pages)
+└── test/            # shared test fixtures, render helpers, MSW
+```
+
+## Styling
+
+- <Tailwind 3.4 | CSS Modules + tokens | styled-components>
+- Design tokens v `src/lib/tokens.ts` (NEKÓDUJ inline barvy ani spacing)
+- Brand voice: <link na brand guidelines>
+
+## Testing
+
+- Test runner: <Vitest 1.x | Jest 29>
+- React tests: `@testing-library/react` + custom `render` z `src/test/render.tsx`
+- API mocking: MSW v `src/test/server.ts`
+- E2E: <Playwright | Cypress | none>
+- Coverage threshold: 80 % branch (CI gate)
+
+## Database / migrations (pokud relevantní)
+
+- ORM: <Prisma | Drizzle | TypeORM>
+- Migration tool: <Prisma migrate | Alembic | atlas>
+- **Vibe-coded varianty NESMÍ generovat migrace** — DB changes do separate PR
+  s `db-migration` label.
+
+## CI / pre-commit
+
+- `lefthook` runs lint + types + unit tests pre-commit
+- Big PR test suite + Playwright runs in CI per push
+- All gates must pass for merge to `main`
+
+## Folder for Pflanzer artefakty
+
+Pflanzer session artefakty (Charter, handoffs) drží v `docs/pflanzer/<slug>/`,
+ne v root. Kód varianty v `src/features/<slug>/`. Po session 2 winner branche
+se merguje, ostatní se mažou.
