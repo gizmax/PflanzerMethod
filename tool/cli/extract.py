@@ -389,27 +389,61 @@ def extract(
 
     notes = []
     if method == "in_repo_branch":
-        # Code is already in repo's feat branch (CC/Codex psali přímo).
-        # Default branch convention: feat/<slug>-<variant>. User může override
-        # přes repo_url (formát: 'branch:feat/...' nebo abs path).
-        branch_name = repo_url.replace("branch:", "") if repo_url and repo_url.startswith("branch:") else f"feat/{slug}-{variant_name}"
-        # Try git worktree at sibling path
-        worktree = REPO_ROOT.parent / f"proto-{slug}-{variant_name}"
-        if worktree.exists():
-            dest = worktree  # Real on-disk path
+        # Code je v target repo worktree (po Sprint 1 P0 fix přes worktree.py).
+        # Default convention: pflanzer/<slug>-<variant>. Worktree je sibling
+        # cached target clone (~/.pflanzer/targets/<repo-slug>-<variant>/).
+        from tool.cli.worktree import TARGETS_CACHE, _slugify_repo, verify_cwd_in_target
+
+        # Get target_repo_url for this project
+        with transaction() as conn:
+            row = conn.execute(
+                "SELECT target_repo_url FROM projects WHERE id = "
+                "(SELECT project_id FROM sessions WHERE id = "
+                "(SELECT session_id FROM variants WHERE id = ?))",
+                (variant_id,),
+            ).fetchone()
+        target_url = row[0] if row else None
+
+        branch_name = (
+            repo_url.replace("branch:", "") if repo_url and repo_url.startswith("branch:")
+            else f"pflanzer/{slug}-{variant_name}"
+        )
+
+        # Look for worktree in expected location (per worktree.py setup)
+        candidate_worktrees: list[Path] = []
+        if target_url:
+            try:
+                repo_slug = _slugify_repo(target_url)
+                wt = TARGETS_CACHE / f"{slug}-{variant_name}"
+                if wt.exists():
+                    candidate_worktrees.append(wt)
+            except ValueError:
+                pass
+        # Legacy fallback: ../proto-<slug>-<variant>
+        legacy_wt = REPO_ROOT.parent / f"proto-{slug}-{variant_name}"
+        if legacy_wt.exists():
+            candidate_worktrees.append(legacy_wt)
+
+        if candidate_worktrees:
+            dest = candidate_worktrees[0]
+            # Pre-flight: cwd remote must match target_repo_url
+            ok, msg = verify_cwd_in_target(slug, dest) if target_url else (True, "no target_url to check")
+            if not ok and target_url:
+                notes.append(f"⚠ PRE-FLIGHT FAIL: {msg}")
             files, loc = _count_files(dest)
             notes.append(
-                f"Registered in-repo branch `{branch_name}` at {dest} "
-                "(worktree). Code napsali Claude Code / Codex CLI přímo."
+                f"Registered in-repo branch `{branch_name}` at {dest}. "
+                f"Code napsali Claude Code / Codex CLI přímo do target repa."
             )
         else:
-            # Fallback: branch v hlavním repu
-            dest = REPO_ROOT
+            # Worktree missing → tým ještě nespustil worktree.py setup
+            dest = REPO_ROOT  # fallback so handoff doesn't crash
             files, loc = (0, 0)
             notes.append(
-                f"Branch `{branch_name}` registrován jako in-repo. "
-                f"Worktree {worktree} neexistuje — code je na branchi v hlavním repu. "
-                "Quality gates poběží na celém repu (může mít hluk)."
+                f"⚠ Branch `{branch_name}` registrován, ale worktree neexistuje. "
+                f"Tým musí spustit `python tool/cli/worktree.py setup --slug {slug}` "
+                f"PŘED Session 1. Bez toho je reuse 0 % (code v meta-repu, "
+                f"ne v target repu '{target_url or 'unset'}')."
             )
     elif method == "git_clone":
         files, loc = _git_clone(repo_url, dest, force=force)

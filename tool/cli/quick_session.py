@@ -143,6 +143,7 @@ def bootstrap(
     risk_profile: str, slug: str | None = None,
     role_owners: dict[int, str] | None = None,
     target_repo_url: str | None = None,
+    acceptance_criteria_md: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -158,6 +159,15 @@ def bootstrap(
     """
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
+
+    # Sprint 1 — Mandatory target_repo_url pro pilot/production
+    # (per autoresearch synthesis ADR candidate 1, P0 fix).
+    if risk_profile in ("pilot", "production") and not target_repo_url:
+        raise ValueError(
+            f"target_repo_url je povinný pro risk_profile='{risk_profile}'. "
+            "Bez něj /pflanzer-session-3 vyrobí worktree v meta-repu = reuse 0 %. "
+            "Příklad: target_repo_url='https://github.com/yourorg/yourapp'."
+        )
 
     # 1. Charter — minimal but valid per ADR-0004 schema
     name = hook[:80] if len(hook) <= 80 else hook[:77] + "…"
@@ -203,9 +213,11 @@ def bootstrap(
     with transaction() as conn:
         conn.execute(
             "UPDATE projects SET target_repo_url = ?, "
-            "production_readiness_target = ? "
+            "production_readiness_target = ?, "
+            "acceptance_criteria_md = COALESCE(?, acceptance_criteria_md) "
             "WHERE id = ?",
-            (target_repo_url, profile.get("production_readiness_target", 0), project_id),
+            (target_repo_url, profile.get("production_readiness_target", 0),
+             acceptance_criteria_md, project_id),
         )
         audit(
             conn,
@@ -393,34 +405,53 @@ def _render_builder_prompt(
 
     # In-repo CLI builders (Claude Code, Codex CLI) → git worktree protocol
     if builder == "claude-code":
-        return f"""**Otevři terminál v git worktree pro variant {variant}** (žádný browser tab):
+        return f"""**Setup worktree (1× per session, dělá facilitátor):**
 
 ```bash
-# První session 1× per repo:
-git worktree add ../proto-{slug}-{variant} -b feat/{slug}-{variant}
-cd ../proto-{slug}-{variant}
-claude     # spustí Claude Code v této worktree
+python tool/cli/worktree.py setup --slug {slug}
+# → Naclonuje target_repo_url do ~/.pflanzer/targets/<repo-slug>/
+# → Vyrobí 3 worktree A/B/C jako siblings + pnpm/npm install
 ```
 
-Pak v Claude Code vlož:
+**Tvoje dvojice (variant {variant}):**
+
+```bash
+cd ~/.pflanzer/targets/{slug}-{variant}
+claude
+```
+
+Vlož v Claude Code:
 
 ```
 Cíl týmu: {hook}
 
-Postav v tomto repu: {brief}.
+Postav variantu {variant} v tomto repu: {brief}.
 
-Postup:
-1. Read existing src/ structure, tsconfig.json, .eslintrc, design tokens.
-2. Postav variant {variant} jako feature branch — žádné new app, ale extension repa.
-3. Constraints:
+POVINNÝ POSTUP (NEKÓDUJ DOKUD KROKY 1-3 NEHOTOVÉ):
+1. **Read INTEGRATION_GUIDE.md** v root repa. Pokud chybí, halt
+   a zeptej se týmu na auth pattern, API client, state lib, logger,
+   feature flags, folder layout, test runner.
+2. **Read tests/acceptance/{slug}.feature** (Gherkin scenarios) — to JE
+   specifikace. Tvoje implementace musí projet všemi scénáři.
+3. **Read 3-5 existing components** podobného typu (find via glob).
+   Použij stejné patterns: imports, props, error handling, styling.
+
+PAK kóduj:
+4. {brief}
+5. Žádné new files mimo `src/features/{slug}/` (drž se folder layout repa).
+6. Žádné nové libraries — použij to, co je v package.json.
+7. Constraints:
 {constraint_lines}
-4. Po dokončení: `npm test && npm run lint && npm run build` musí passing.
-5. Commit jako `feat({slug}): variant {variant} — <jednověté shrnutí>`.
+8. Pre-commit hook spustí lint+types+tests automaticky.
+   Pokud failuje, fix je tvoje práce před commitem.
+9. Commit s Conventional Commits formátem:
+   `feat({slug}): variant {variant} — <jednověté co se mění>`
 
 Output:
-- Branch: feat/{slug}-{variant}
-- Preview: `npm run dev` na localhost (sdílím přes ngrok / port-forward na velký TV)
-- ČJ texty v UI, EN identifikátory v kódu
+- Branch: pflanzer/{slug}-{variant} (v target repu)
+- Preview: `npm run dev` v target worktree (sdílíme přes port-forward na TV)
+- ČJ texty v UI, EN identifikátory v kódu, JSDoc/komentáře EN
+- Acceptance scénáře z .feature file = pass rate ≥ 80 %
 ```
 """
 

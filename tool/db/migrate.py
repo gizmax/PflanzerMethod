@@ -24,6 +24,13 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("target_branch", "TEXT DEFAULT 'main'"),
         ("production_readiness_target", "INTEGER DEFAULT 80"),
         ("gate_score_latest", "INTEGER DEFAULT 0"),
+        # Autoresearch Sprint 1 (T2): acceptance criteria jako Charter input
+        ("acceptance_criteria_md", "TEXT"),
+        # Autoresearch Sprint 1 (T3): INTEGRATION_GUIDE.md path
+        ("integration_guide_path", "TEXT"),
+        # Autoresearch Sprint 3 (perspektiva 02): ship contract fields
+        ("target_branch_owner", "TEXT"),
+        ("shadow_pm", "TEXT"),
     ],
 }
 
