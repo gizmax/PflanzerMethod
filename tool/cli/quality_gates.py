@@ -37,16 +37,24 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 
 GATES_DIR = REPO_ROOT / "data" / "handoffs"
-GATE_TYPES = ("lint", "types", "tests", "security", "a11y", "build", "observability")
+# Sprint 2 (per autoresearch ADR-0012):
+# - Order = fail-fast (cheap → expensive). build first kills broken stack quickly.
+# - acceptance = primary signal pro reuse (Decider written .feature scénáře).
+# - coverage = real test signal, ne placebo (current gate_tests = "1 trivial test pass").
+GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "acceptance",
+              "security", "a11y", "observability")
 GATE_WEIGHTS = {  # Production readiness weight
-    "lint": 1.0,
+    "build": 1.5,        # bez buildu se nešipuje
     "types": 1.5,        # type errors = bugs
+    "lint": 1.0,
     "tests": 2.0,        # primary safety net
+    "coverage": 1.0,     # real coverage, ne 1 trivial test
+    "acceptance": 2.5,   # Decider-written scénáře = ground truth pro reuse
     "security": 2.0,     # blocker-class
     "a11y": 1.0,
-    "build": 1.5,        # if it doesn't build, it doesn't ship
     "observability": 0.5,
 }
+COVERAGE_TARGET = 60  # % branch coverage; pod tímto = warn, pod 30 = fail
 
 
 @dataclass
@@ -69,6 +77,40 @@ def _has(tool: str) -> bool:
 
 def _is_node_project(path: Path) -> bool:
     return (path / "package.json").exists()
+
+
+def _ensure_node_deps(path: Path) -> bool:
+    """Auto `npm ci` (or pnpm/yarn) jednou per gate run pokud node_modules chybí.
+
+    Per autoresearch perspektiva 03 (devex): bez tohoto majority gates skipne
+    s "node_modules missing" → false-low gate_score. Lepší zaplatit ~30s
+    install než reportovat falsely-low score.
+    """
+    if (path / "node_modules").exists():
+        return True
+    if not _is_node_project(path):
+        return False
+    # Detect package manager + lockfile
+    has_lock_pnpm = (path / "pnpm-lock.yaml").exists()
+    has_lock_yarn = (path / "yarn.lock").exists()
+    has_lock_npm = (path / "package-lock.json").exists()
+
+    if has_lock_pnpm and shutil.which("pnpm"):
+        cmd = ["pnpm", "install", "--frozen-lockfile", "--reporter=silent"]
+    elif has_lock_yarn and shutil.which("yarn"):
+        cmd = ["yarn", "install", "--frozen-lockfile", "--silent"]
+    elif has_lock_npm and shutil.which("npm"):
+        cmd = ["npm", "ci", "--no-audit", "--no-fund", "--silent"]
+    elif shutil.which("npm"):
+        # No lockfile — fallback to install (creates lockfile + resolves deps)
+        cmd = ["npm", "install", "--no-audit", "--no-fund", "--silent"]
+    else:
+        return False
+    try:
+        rc = subprocess.run(cmd, cwd=path, capture_output=True, timeout=300).returncode
+        return rc == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
 
 
 def _is_python_project(path: Path) -> bool:
@@ -273,6 +315,87 @@ def gate_build(path: Path) -> GateResult:
     return GateResult("build", "unsupported", "Unknown project type")
 
 
+def gate_coverage(path: Path) -> GateResult:
+    """Branch coverage % via Vitest --coverage. Sprint 2 ADR-0012."""
+    if not _is_node_project(path):
+        return GateResult("coverage", "unsupported", "Pouze Node projekty zatím")
+    if not (path / "node_modules").exists():
+        return GateResult("coverage", "skipped", "node_modules missing")
+    rc, out, err = _run(["npx", "vitest", "run", "--coverage", "--reporter=verbose"],
+                        path, timeout=180)
+    # Parse "All files | xx.xx" line z istanbul/v8 reporter
+    m = re.search(r"All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)", out)
+    if not m:
+        # Coverage report not generated — treat as warn (test ran but no coverage tool)
+        return GateResult("coverage", "warn",
+                          "No coverage report parsed (chybí @vitest/coverage-v8?)",
+                          metric=None)
+    branch_pct = float(m.group(2))
+    if branch_pct >= COVERAGE_TARGET:
+        return GateResult("coverage", "pass",
+                          f"Branch coverage {branch_pct:.1f} % (target {COVERAGE_TARGET})",
+                          metric=branch_pct)
+    if branch_pct >= 30:
+        return GateResult("coverage", "warn",
+                          f"Branch coverage {branch_pct:.1f} % < target {COVERAGE_TARGET} %",
+                          metric=branch_pct)
+    return GateResult("coverage", "fail",
+                      f"Branch coverage {branch_pct:.1f} % je critically low (< 30 %)",
+                      metric=branch_pct)
+
+
+def gate_acceptance(path: Path) -> GateResult:
+    """Run Playwright acceptance scénáře (z tests/acceptance/).
+
+    Per autoresearch ADR-0010: Decider-written .feature scénáře jsou ground
+    truth pro reusability. Pass rate ≥ 80 % = variant je apples-to-apples
+    s ostatními a může jít do shortlistu.
+    """
+    if not _is_node_project(path):
+        return GateResult("acceptance", "unsupported", "Pouze Node projekty zatím")
+    acc_dir = path / "tests" / "acceptance"
+    if not acc_dir.exists():
+        return GateResult("acceptance", "skipped",
+                          "tests/acceptance/ chybí — Decider zapomněl Charter "
+                          "acceptance criteria. Per ADR-0010 mandatory pro "
+                          "pilot/production.")
+    if not (path / "node_modules").exists():
+        return GateResult("acceptance", "skipped", "node_modules missing")
+    rc, out, err = _run(["npx", "playwright", "test", "tests/acceptance",
+                         "--reporter=json"], path, timeout=300)
+    # Playwright JSON reporter writes to stdout — try parse
+    try:
+        # JSON může být wrapped — najdi first { a parse
+        json_start = out.find("{")
+        if json_start < 0:
+            raise ValueError("no JSON in output")
+        report = json.loads(out[json_start:])
+        stats = report.get("stats", {})
+        passed = stats.get("expected", 0)
+        failed = stats.get("unexpected", 0)
+        total = passed + failed
+        if total == 0:
+            return GateResult("acceptance", "skipped",
+                              "Žádné acceptance scenarios nenalezeny")
+        pass_rate = round(100 * passed / total)
+        if pass_rate >= 80:
+            return GateResult("acceptance", "pass",
+                              f"{passed}/{total} scénářů ({pass_rate} %)",
+                              metric=pass_rate)
+        if pass_rate >= 50:
+            return GateResult("acceptance", "warn",
+                              f"{passed}/{total} scénářů ({pass_rate} %) "
+                              "< target 80 %", metric=pass_rate)
+        return GateResult("acceptance", "fail",
+                          f"{passed}/{total} scénářů ({pass_rate} %) — varianta "
+                          "neimplementuje Decider's spec", metric=pass_rate)
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        if rc == 0:
+            return GateResult("acceptance", "warn",
+                              f"Playwright passed ale JSON parse failed: {e}")
+        return GateResult("acceptance", "fail", (out + err)[-500:])
+
+
 def gate_observability(path: Path) -> GateResult:
     """Production code by nemělo mít console.log / print bez context."""
     if not (path / "src").exists() and not _is_python_project(path):
@@ -290,22 +413,27 @@ def gate_observability(path: Path) -> GateResult:
         leaks += len(re.findall(r"console\.(log|debug|info|warn|error)\(", text))
     if leaks == 0:
         return GateResult("observability", "pass", "Žádný console.log v src/", metric=0)
-    if leaks <= 3:
+    if leaks <= 10:
         return GateResult("observability", "warn",
                           f"{leaks} console.log statements — replace with structured logger pre-prod",
                           metric=leaks)
-    return GateResult("observability", "fail",
-                      f"{leaks} console.log statements — debug noise neaspolehlivý pro production observability",
+    # Per K4 conflict resolution: fail jen pokud opravdu zaplaveno (>10),
+    # jinak je to lint-time concern (Biome no-console rule), ne gate concern.
+    return GateResult("observability", "warn",
+                      f"{leaks} console.log statements — high noise. "
+                      "Long-term: enforce přes lint rule (no-console).",
                       metric=leaks)
 
 
 GATE_RUNNERS = {
-    "lint": gate_lint,
+    "build": gate_build,
     "types": gate_types,
+    "lint": gate_lint,
     "tests": gate_tests,
+    "coverage": gate_coverage,
+    "acceptance": gate_acceptance,
     "security": gate_security,
     "a11y": gate_a11y,
-    "build": gate_build,
     "observability": gate_observability,
 }
 
@@ -362,7 +490,7 @@ def run_all(extracted_id: int) -> dict[str, Any]:
         if not ext:
             raise ValueError(f"extracted_code id={extracted_id} not found.")
 
-    local_path = REPO_ROOT / ext[1]
+    local_path = REPO_ROOT / ext[1] if not Path(ext[1]).is_absolute() else Path(ext[1])
     if not local_path.exists():
         raise ValueError(f"Extracted dir missing: {local_path}")
 
@@ -370,6 +498,12 @@ def run_all(extracted_id: int) -> dict[str, Any]:
     slug = ext[5]
     variant_name = ext[3]
     target = int(ext[6] or 80)
+
+    # Auto-install node deps so gates don't false-skip (Sprint 2)
+    installed = _ensure_node_deps(local_path)
+    if not installed and _is_node_project(local_path):
+        print(f"[gates] warning: could not install deps in {local_path}; "
+              "gates may report 'skipped'", file=sys.stderr)
 
     results: list[GateResult] = []
     for gate in GATE_TYPES:

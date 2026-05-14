@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS quality_gates (
   id INTEGER PRIMARY KEY,
   extracted_id INTEGER NOT NULL REFERENCES extracted_code(id) ON DELETE CASCADE,
   gate_type TEXT NOT NULL
-    CHECK (gate_type IN ('lint','types','tests','security','a11y','build','observability')),
+    CHECK (gate_type IN ('lint','types','tests','coverage','acceptance','security','a11y','build','observability')),
   status TEXT NOT NULL
     CHECK (status IN ('pass','warn','fail','skipped','unsupported')),
   details_md TEXT,

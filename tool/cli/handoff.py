@@ -795,6 +795,11 @@ def generate(slug: str) -> dict[str, Any]:
         path.write_text(fn(ctx), encoding="utf-8")
         written.append(str(path))
 
+    # Sprint 3: primary artefakt = SHIP.md (per ADR-0010 + perspektiva 02 C7)
+    from tool.cli.handoff_pr import write_ship  # local import to avoid cycle
+    ship_path = write_ship(slug)
+    written.insert(0, str(ship_path))  # SHIP.md first in list = primary
+
     metrics_entry = update_method_metrics(slug, ctx)
 
     with transaction() as conn:
