@@ -43,6 +43,42 @@ Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision
 optimalizovaná na exportable code + preference matrix s AI-only deflation +
 audit log s DORA 7-letou retencí. **Sofistikovanost zachovaná, UX zjednodušeno.**
 
+## Volba builderu — kdy CC/Codex CLI vs hosted SaaS
+
+**Default = `claude-code` nebo `codex-cli`** (in-repo, code rovnou v feat branchi):
+
+| Vlastnost | Claude Code / Codex CLI | Bolt / v0 / Lovable |
+|-----------|-------------------------|---------------------|
+| Kde vzniká kód | Tvůj repo, feat branch | SaaS sandbox |
+| Extract step | Žádný — rovnou commit | `git clone` z buildru |
+| Brownfield (existující repo) | Vidí ESLint, tokens, komponenty | Vyrobí "new app", ignoruje DS |
+| Security/audit | Lokální, žádný leak | Prompt history u třetí strany |
+| Cena | Žádná navíc (CC/OpenAI license) | Per-seat license |
+| Preview URL pro tým | `npm run dev` + ngrok / port-forward | Hosted ✓ |
+| Non-tech stakeholder UX showcase | ❌ vyžaduje terminál | ✅ klikni-vidíš |
+
+**In-room protocol pro CC/Codex** (3 paralelní varianty):
+
+```bash
+# Setup (facilitátor, 1 minuta):
+git worktree add ../proto-<slug>-A -b feat/<slug>-A
+git worktree add ../proto-<slug>-B -b feat/<slug>-B
+git worktree add ../proto-<slug>-C -b feat/<slug>-C
+
+# Tým se rozdělí po dvojicích, každá:
+cd ../proto-<slug>-X && claude    # nebo `codex`
+# vloží prompt, kóduje 30 min, npm run dev pro preview na local + ngrok pro TV
+```
+
+**Použij Bolt/v0/Lovable když:**
+- Greenfield bez existujícího repa (žádný ESLint/tokens k zachování)
+- Non-tech sponsor / designer u stolu nemá CC zaintegrované
+- UX showcase pro management — důležitá je hosted URL
+- Throw-away prototype (`production_readiness_target = 0` v Charteru)
+
+`builder_decision.py` automaticky preferuje CC/Codex pokud Charter má
+`production_readiness_target > 0` (per `exportable_score = 1.00`).
+
 ## Plný flow (pokud potřebuješ celé)
 
 Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
