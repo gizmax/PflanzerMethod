@@ -302,25 +302,34 @@ VARIANT_ANGLES = [
 ]
 
 
-def builder_prompts(slug: str, hook: str, n_variants: int = 3) -> dict[str, Any]:
+def builder_prompts(slug: str, hook: str, n_variants: int = 3,
+                    prefer_hosted: bool = False) -> dict[str, Any]:
     """Generate 2-3 copy-paste prompts pro vibe-coding tools.
 
-    Strategie:
-    - Vyber n_variants top builderů z builder_decision.recommend.
-    - Pro každý builder dosaď VARIANT_ANGLES[i] jako diferenciaci.
-    - Prompt template = ČJ-friendly brief + role-aware hint.
+    Default mode (in_repo_cli):
+    - Used **claude-code 3×** s 3 různými angles (happy-path / multi-step /
+      smart defaults). Tým otevře 3 git worktrees, v každé `claude` session.
+    - Diversity skrz prompty, ne skrz different builders.
+
+    Hosted mode (prefer_hosted=True):
+    - Vyber n_variants top hosted builders (v0 / bolt / lovable) s různými angles.
     """
     if not 1 <= n_variants <= 3:
         raise ValueError("n_variants must be 1..3")
 
-    rec = recommend_for_slug(slug)
+    rec = recommend_for_slug(slug, prefer_hosted_preview=prefer_hosted)
     if rec["blocked"]:
         return {"blocked": True, "reason": rec["blocked_reason"], "prompts": []}
 
-    shortlist = rec["shortlist"][:n_variants]
-    if len(shortlist) < n_variants:
-        # Pad with manual fallback (always allowed unless project blocked)
-        shortlist += [{"builder": "manual", "score": 0.0}] * (n_variants - len(shortlist))
+    if not prefer_hosted:
+        # In-repo default: 3× claude-code (or codex-cli if user prefers).
+        # Diversity je v promptu (angle), ne v builderu.
+        top_builder = rec["shortlist"][0]["builder"] if rec["shortlist"] else "claude-code"
+        shortlist = [{"builder": top_builder}] * n_variants
+    else:
+        shortlist = rec["shortlist"][:n_variants]
+        if len(shortlist) < n_variants:
+            shortlist += [{"builder": "manual"}] * (n_variants - len(shortlist))
 
     # Load Charter context for richer prompts
     with transaction() as conn:
@@ -695,6 +704,8 @@ def main() -> None:
     p_prompts.add_argument("--slug", required=True)
     p_prompts.add_argument("--hook", required=True)
     p_prompts.add_argument("--n", type=int, default=3)
+    p_prompts.add_argument("--prefer-hosted", action="store_true",
+                           help="Opt-in pro Bolt/v0/Lovable. Default = claude-code 3×.")
 
     p_vote = sub.add_parser("vote", help="Record voting + Decider's call")
     p_vote.add_argument("--spec", type=Path, required=True)
@@ -708,7 +719,8 @@ def main() -> None:
         spec = json.loads(args.spec.read_text(encoding="utf-8"))
         out = bootstrap(**spec)
     elif args.cmd == "prompts":
-        out = builder_prompts(args.slug, args.hook, args.n)
+        out = builder_prompts(args.slug, args.hook, args.n,
+                              prefer_hosted=args.prefer_hosted)
     elif args.cmd == "vote":
         spec = json.loads(args.spec.read_text(encoding="utf-8"))
         out = record_voting(**spec)

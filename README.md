@@ -43,41 +43,60 @@ Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision
 optimalizovaná na exportable code + preference matrix s AI-only deflation +
 audit log s DORA 7-letou retencí. **Sofistikovanost zachovaná, UX zjednodušeno.**
 
-## Volba builderu — kdy CC/Codex CLI vs hosted SaaS
+## Volba builderu — Claude Code default, hosted SaaS opt-in
 
-**Default = `claude-code` nebo `codex-cli`** (in-repo, code rovnou v feat branchi):
+**Standardně používej Claude Code** (nebo Codex CLI, podle preference týmu).
+3× CC v 3 git worktrees, paralelně. Bolt/v0/Lovable jen na **explicit
+opt-in** přes `--prefer-hosted`.
 
-| Vlastnost | Claude Code / Codex CLI | Bolt / v0 / Lovable |
-|-----------|-------------------------|---------------------|
-| Kde vzniká kód | Tvůj repo, feat branch | SaaS sandbox |
-| Extract step | Žádný — rovnou commit | `git clone` z buildru |
-| Brownfield (existující repo) | Vidí ESLint, tokens, komponenty | Vyrobí "new app", ignoruje DS |
-| Security/audit | Lokální, žádný leak | Prompt history u třetí strany |
-| Cena | Žádná navíc (CC/OpenAI license) | Per-seat license |
-| Preview URL pro tým | `npm run dev` + ngrok / port-forward | Hosted ✓ |
-| Non-tech stakeholder UX showcase | ❌ vyžaduje terminál | ✅ klikni-vidíš |
-
-**In-room protocol pro CC/Codex** (3 paralelní varianty):
+### In-room protocol (default)
 
 ```bash
-# Setup (facilitátor, 1 minuta):
-git worktree add ../proto-<slug>-A -b feat/<slug>-A
-git worktree add ../proto-<slug>-B -b feat/<slug>-B
-git worktree add ../proto-<slug>-C -b feat/<slug>-C
+# 1. Facilitátor (1 minuta):
+SLUG=<your-slug>
+git worktree add ../proto-${SLUG}-A -b feat/${SLUG}-A
+git worktree add ../proto-${SLUG}-B -b feat/${SLUG}-B
+git worktree add ../proto-${SLUG}-C -b feat/${SLUG}-C
 
-# Tým se rozdělí po dvojicích, každá:
-cd ../proto-<slug>-X && claude    # nebo `codex`
-# vloží prompt, kóduje 30 min, npm run dev pro preview na local + ngrok pro TV
+# 2. Tým se rozdělí po dvojicích, každá v jednom worktree:
+cd ../proto-${SLUG}-X && claude
+# Vloží prompt (z `quick_session.py prompts` output) → 30 min koduje
+# → npm test && npm run lint && npm run build → commit
+
+# 3. Po skončení: 3 feature branche v repu, gate-scored přes session 3
 ```
 
-**Použij Bolt/v0/Lovable když:**
-- Greenfield bez existujícího repa (žádný ESLint/tokens k zachování)
-- Non-tech sponsor / designer u stolu nemá CC zaintegrované
-- UX showcase pro management — důležitá je hosted URL
-- Throw-away prototype (`production_readiness_target = 0` v Charteru)
+Diversity skrz **3 různé prompty** (happy-path / multi-step / smart defaults),
+ne skrz 3 různé builders. Tým má všechny konvence repa, žádný extract step,
+žádná SaaS license navíc, žádný leak prompt history.
 
-`builder_decision.py` automaticky preferuje CC/Codex pokud Charter má
-`production_readiness_target > 0` (per `exportable_score = 1.00`).
+### Kdy opt-in pro hosted SaaS
+
+```bash
+python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --prefer-hosted
+```
+
+Použij **jen** v jednom z těchto případů:
+- Greenfield: žádný existující repo, hackathon weekend
+- Designer / non-tech sponsor u stolu (chce klikni-vidíš UX showcase)
+- Marketing landing page (one-off, hosted preview = okamžitý sdílení)
+- Throw-away interní demo (`production_readiness_target = 0`)
+
+V opt-in módu dostane shortlist mix: `claude-code + codex-cli + v0`
+(stále preferuje in-repo + 1 hosted pro showcase).
+
+### Srovnávací tabulka
+
+| Vlastnost | CC / Codex CLI (default) | Bolt / v0 / Lovable (opt-in) |
+|-----------|---------------------------|-------------------------------|
+| Kde vzniká kód | Tvůj repo, feat branch | SaaS sandbox |
+| Extract step | Žádný — rovnou commit | `git clone` z buildru po Push to GitHub |
+| Brownfield (existující repo) | Vidí ESLint, tokens, komponenty | Vyrobí "new app", ignoruje DS |
+| Security / audit | Lokální, žádný leak | Prompt history u třetí strany |
+| Cena | Žádná navíc | Per-seat license |
+| Preview URL | `npm run dev` + ngrok | Hosted ✓ |
+| Non-tech stakeholder UX showcase | ❌ vyžaduje terminál | ✅ klikni-vidíš |
+| Production code defaults | ✅ testy, strict types, lint | ⚠ často chybí |
 
 ## Plný flow (pokud potřebuješ celé)
 
