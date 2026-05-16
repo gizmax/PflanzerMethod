@@ -339,6 +339,7 @@ session odložena**, ne začata s improvizací.
 [ ] **Prompt audit pipeline** active (devil's advocate Útok 8): vendor zero-retention DPA + corporate-side prompt custody chain (SIEM ingest, 7-letá retence, search by user@SSO + project tag); BEZ toho session = DORA non-compliant
 [ ] Capacity pre-sign-off od EM (písemně, **realistický odhad**: default ~10 PD, regulated ~14 PD, audit-grade ~18–22 PD — viz devil's advocate Útok 1; "8–10" je single-cycle baseline bez pre-flight, reinforcement a Champion bootstrap)
 [ ] **True Cost Worksheet** vyplněný a podepsaný (EM + sponzor + Method Steward) — per-role person-days × phase + reinforcement track T+7/30/60/90 + (bootstrap) Champion coach cost. Šablona: Krok 1a výše.
+[ ] **Pre-registration document** (per ADR-0013) podepsaný Champion + Method Steward + Method Decider PŘED Session 1 — fit criteria binary checklist + Charter version pinned + statistical test pre-specified. Šablona: `tool/templates/pre-registration.yaml.template`.
 [ ] Vibe-brief: tech stack, tokens, component manifest, conventions
 [ ] Backend Context Pack: OpenAPI, ERD, NFR baseline, ADR archiv
 [ ] Demo data se správnou shape (synthetic L1/L2)

@@ -1,8 +1,36 @@
 # ADR-0007 — Method-level Charter (Pflanzer si nárokuje vlastní disciplínu)
 
-**Status:** Accepted
-**Date:** 2026-05-05
-**Context source:** devil's advocate review Útok 12 (method bez vlastního falsifying criterion)
+**Status:** Accepted (v0.2.1) — **partially superseded v0.3** (viz ADR-0011, ADR-0012, ADR-0013 níže)
+**Date:** 2026-05-05 (original); 2026-05-16 (v0.3 supersession addendum)
+**Context source:** devil's advocate review Útok 12 (method bez vlastního falsifying criterion); autoresearch round „method-falsifiability" (`docs/research/method-falsifiability/`)
+
+## v0.3 supersession addendum
+
+Autoresearch round s 4 perspektivami (Method Steward, Data analyst, Skeptický VP,
+Akademik) identifikoval **3 fatální problémy** s původní ADR-0007 formulací:
+
+1. **Decider profile** (*„CPO/DoE"*) — politicky exponovaný, tenure 2.3y, sunk-cost
+   asymmetry → metoda zombifikuje. → **Supersedes** ADR-0011 (Method Decider =
+   VP Engineering Effectiveness, 2 levely pod CTO).
+2. **Steward role** (*„10 % FTE, EM bez headcount"*) — budget vapor, conflict
+   of interest (advocate-as-measurer). → **Supersedes** ADR-0012 (0.5-0.7 FTE
+   dedikovaný Senior PM, €100-150k OPEX, blind acceptance review delegated
+   na external EM panel).
+3. **Falsifiability** — fit criteria post-hoc redefinovatelné, statistický
+   test nepre-registered, drift / fork nedetekovatelný. → **Addendum**
+   ADR-0013 (Pre-registration discipline + Pflanzer Compliance Score).
+
+Method Charter (`docs/methodology/method-charter.md`) v0.3 reflektuje výše uvedené.
+Structure of this ADR (Kontext, Rozhodnutí, Důsledky níže) zůstává jako historický
+záznam original v0.2.1 myšlenky; superseded částí jsou označené v textu.
+
+**Dodatečné v0.3 changes mimo supersession:**
+- **Practitioner vs Academic track** explicitně rozlišeny (charter `method-charter.md`
+  § Practitioner vs Academic track).
+- **Causal model (Theory of Why)** — kauzální diagram interventions → mediators →
+  outcomes (z Akademik perspective, Akademik Gap 3).
+- **Time-bounded kill criteria** (N + T+X mo whichever first; default Sunset po T+18 mo).
+- **Stopping for harm rule** (kill immediately pokud ≥ 25 % handoff collapse).
 
 ## Kontext
 

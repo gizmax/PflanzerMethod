@@ -28,13 +28,12 @@
 | 9 | Pre-mortem TRIZ moc brzy | **DEFERRED v0.3** | Útok přesný — `04-session-1.md` má 15-min pre-mortem v 10:00 před vznikem variant. v0.3 plánuje **dvoufázový pre-mortem**: 5-min charter-level před Crazy 8s + 20-min variant-level po vibe-coding kola 1. Zatím akceptováno; facilitátor může v praxi odložit pre-mortem k 14:00 podle uvážení. |
 | 10 | Anti-HiPPO bez external co-facilitator = paper authority | **FIX v0.2.1** | `02-role-catalog.md` role #3 Facilitátor dostal sekci *„Co-facilitator / externí Facilitátor — SHOULD pro audit-grade profil a high-stakes session; single-facilitator závislý na sponzoringu = paper authority"*. Audit-grade profil **vyžaduje** druhého facilitátora (z jiné BU nebo externí coach). |
 | 11 | Reinforcement track bez budget commit | **FULL FIX v0.3** | ADR-0004 Charter sekce **„Reinforcement track — explicit budget commit"** s tabulkou per-readout (T+7/30/60/90: vlastník, min PD, akceptační kritérium, sankce za vynechání), Σ min 6 PD souhrnně default profil. Zrcadlově v `method-charter.md` § Reinforcement track (method-level + per-pilot). Audit-dotaz: M/N < 0.7 utilization → pilot „incomplete reinforcement", nezapočítaný do success rate per ADR-0007. |
-| 12 | Method-level falsifying criterion | **FIX v0.2.1** | **ADR-0007** + nový dokument **`docs/methodology/method-charter.md`** — XYZ hypotéza, success threshold (per-pilot + agregát), kill criteria po 3/6/10 pilotech, Method Steward role, T+6/T+12 review cyklus. |
+| 12 | Method-level falsifying criterion | **FULL FIX v0.3** (povýšeno z v0.2.1 FIX po autoresearch round) | **ADR-0007** + `docs/methodology/method-charter.md` v0.3 (structural rewrite) + 3 nové ADR-y: **ADR-0011** (Decider profile = VP Eng Effectiveness, NE CPO; Default Sunset po T+18 mo bez explicit Keep memo), **ADR-0012** (Steward = 0.5-0.7 FTE dedikovaný Senior PM, €100-150k OPEX; blind acceptance delegated na external EM panel; advocate-vs-measurer separation), **ADR-0013** (Pre-registration discipline ex-ante: fit criteria signed, statistical test α=0.10/power=0.80/MDE=0.5 pre-specified, Charter version pinned; Pflanzer Compliance Score 12 elementů ex-post; pilot < 10/12 = „Pflanzer-inspired", nezapočítává se do success metrics). Practitioner vs Academic track explicitně rozlišeny. Time-bounded kill criteria (N + T+X mo whichever first). Stopping-for-harm rule (≥ 25 % handoff collapse = kill immediately). Causal model (Theory of Why) explicitně artikulovaný. Detail v `docs/research/method-falsifiability/`. |
 
 ## Souhrn
 
-- **6 FIX v0.2.1** (kritické): 2, 3, 6, 8, 10, 12.
-- **3 FULL FIX v0.3** (povýšeno z PARTIAL FIX): 1, 4, 11 — kompletní textová
-  revize hotová, šablony existují, audit dotazy formulované.
+- **5 FIX v0.2.1** (kritické, zůstávají v0.2.1 fixed): 2, 3, 6, 8, 10.
+- **4 FULL FIX v0.3** (povýšeno z v0.2.1 status): 1, 4, 11 (z PARTIAL FIX), 12 (z FIX → structural rewrite).
 - **3 DEFERRED v0.3** (akceptované známé limitace): 5, 7, 9.
 - **0 REJECTED** — žádný útok jsme neodmítli jako nerelevantní.
 
@@ -49,17 +48,56 @@
   § Reinforcement track + `docs/methodology/method-charter.md`
   § Reinforcement track (method-level + per-pilot).
 
-### v0.3 pokračování — autoresearch round (method falsifiability)
+### v0.3 — autoresearch round resolution (Útok 12 → FULL FIX)
 
 Devil's advocate Útok 12 měl status FIX v0.2.1 (ADR-0007 + method-charter).
-V0.3 odstartoval **autoresearch round** na method falsifiability —
-4 perspectives v `docs/research/method-falsifiability/`:
-- 01 Method Steward (operacionalizace)
-- 02 Data analyst (statistická rigor)
-- 03 Skeptický VP (corporate-reality)
-- 04 Akademický researcher (peer-review standard)
+Autoresearch round s 4 perspectives v `docs/research/method-falsifiability/`
+(01 Method Steward, 02 Data analyst, 03 Skeptický VP, 04 Akademik)
+identifikoval **3 fatální slabiny** původní v0.2.1 formulace:
 
-Synthesis a navazující ADR rozšíření v0.3+ (separátní PR).
+1. **Decider profile** (CPO/DoE) — politicky exponovaný, tenure 2.3y, sunk-cost
+   asymmetry → metoda zombifikuje.
+2. **Steward role** (10 % FTE, EM bez headcount) — budget vapor, conflict
+   of interest (advocate-as-measurer).
+3. **Falsifiability** — fit criteria post-hoc redefinovatelné, statistický
+   test nepre-registered, drift nedetekovatelný.
+
+**v0.3 changes** (povýšení Útok 12 na FULL FIX):
+
+- **ADR-0011** — Method Decider = VP Eng Effectiveness (2 levely pod CTO),
+  tenure 3+ let; **Default Sunset po T+18 mo** bez explicit Keep memo;
+  Method Steward early-kill veto; stopping-for-harm rule.
+- **ADR-0012** — Method Steward = 0.5-0.7 FTE dedikovaný Senior PM,
+  €100-150k OPEX/rok, Engineering Excellence CoE; **separation of advocate
+  and measurer** (blind external EM panel pro acceptance); selekční kritéria
+  + conflict-of-interest disclosure.
+- **ADR-0013** — **Pre-registration protocol** (fit criteria + statistical
+  test signed pre-Session 1, Charter version pinned) + **Pflanzer Compliance
+  Score** (12 elementů, ex-post Steward audit; < 10/12 = pilot není Pflanzer
+  pilot).
+- **`method-charter.md` v0.3 structural rewrite:**
+  - Practitioner vs Academic track explicitně rozlišeny.
+  - Time-bounded kill criteria (N=3/T+9 mo, N=8/T+15 mo, N=12/T+18 mo default Sunset).
+  - Causal model (5 interventions → 5 mediators → 4 outcomes) explicitně
+    artikulovaný.
+  - Success threshold tabulka s instrumentation columns (start/end events,
+    data source, cadence).
+  - Comparison baseline: full population mining + survival analysis +
+    propensity matching + Project Class Taxonomy.
+- **Synthesis docs** v `docs/research/method-falsifiability/`:
+  - `05-conflict-matrix.md` — top 7 konfliktů mezi perspectives + resolutions.
+  - `06-key-themes.md` — 8 cross-cutting themes.
+  - `07-recommendations.md` — P0-P3 priority backlog (24 action items).
+- **Template:** `tool/templates/pre-registration.yaml.template` (OSF-style).
+
+**Out-of-scope tohoto PR (P1-P3 follow-ups):**
+- ADR-0014 (Composite PflanzerIndex finalized formula).
+- ADR-0015 (Fork governance).
+- ADR-0010 (Method post-mortem disclosure).
+- `docs/methodology/baseline-collection-playbook.md`, `per-pilot-instrumentation.md`,
+  `leading-indicators.md`, `method-dashboard-template.md`, `method-steward-raci.md`,
+  `acceptance-review-protocol.md`.
+- Academic track instrument validation, IRB review, multi-org replication.
 
 ## Co devil's advocate hodnotil POZITIVNĚ
 
