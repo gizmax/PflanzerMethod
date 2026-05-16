@@ -45,6 +45,12 @@ accountu, bez prod credentials.
 - **Ticket prediction worksheet** per varianta.
 - **Deploy footprint estimate** (TCO sheet).
 - **Risk register** + veto registr ze Session 1.
+- **AI Act Fáze B — Interim review** (dvoufázový protokol v0.3, Útok 4):
+  DPO znovu klasifikuje risk-tier proti **konkrétnímu** variantu (data flow,
+  downstream decision, intended user) — ne proti Charteru. Output:
+  ratified tier + delta vs Fáze A. Pokud upgrade (např. Limited → High-risk),
+  Session 2 dostává **mandatory Conflict bod** pro Decider's call.
+  Fáze C (final) se podepisuje až v Session 2 / handoff.
 - **Decision log Session 1** s lidskou atribucí.
 - **Acceptance criteria seed** (Gherkin, ≥ 1 negative scenario per varianta).
 - **Feedback formulář link** (viz níže).

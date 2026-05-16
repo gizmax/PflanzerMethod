@@ -1,0 +1,133 @@
+# Pflanzer Pre-Registration Document
+# Per ADR-0013. Signed PŘED Session 1. Immutable po podpisu (kromě signed amendments).
+
+pilot_id: P-NNNN
+project_slug: <project-slug>
+charter_version_pinned: v0.3.0  # method-charter.md commit SHA (preferred) NEBO semantic verze
+signed_at: <YYYY-MM-DD>
+signed_by:
+  - role: Champion (#17)
+    name: <name>
+    git_commit_by: <git-email>
+  - role: Method Steward
+    name: <name>
+    git_commit_by: <git-email>
+  - role: Method Decider
+    name: <name>
+    git_commit_by: <git-email>
+
+# === FIT CRITERIA (ex-ante kvalifikace) ===
+# 7 kritérií z 01-filozofie-a-kdy-pouzit.md. Binary signed.
+fit_criteria:
+  applies_pflanzer:
+    validated_problem: <yes/no>           # JTBD + persona research existuje
+    cross_functional_decision_needed: <yes/no>  # 3+ rolí musí align
+    corporate_org_context: <yes/no>       # ne early-stage startup
+    ai_vibe_coding_tools_available: <yes/no>  # přístup k v0/Cursor/Bolt/Claude
+    non_throwaway_safety_floor: <yes/no>  # ne mission-critical safety system
+    sponzor_exists: <yes/no>              # decider mandate existuje
+    champion_exists: <yes/no>             # interní champion identifikovaný
+  anti_patterns_checked:
+    rotten_persona: <pass/fail>           # pass = persona NEEXISTUJE jako stale assumption
+    single_team_scope: <pass/fail>        # pass = NENÍ single-team (Pflanzer needs cross-fn)
+    stakeholders_without_mandate: <pass/fail>  # pass = mandate IS in place
+    regulated_no_sandbox_path: <pass/fail>  # pass = sandbox path EXISTS
+    vendor_outage_dependency: <pass/fail>  # pass = backup builder identified
+  qualification: <PILOT/EXCLUDED>          # binary, signed
+
+# === STATISTICAL TEST PRE-REGISTRATION (per ADR-0013 § A) ===
+statistical_test_preregistered:
+  primary_hypothesis:
+    H0: "median(PflanzerIndex) <= 1.0"
+    H1: "median(PflanzerIndex) > 1.0"
+  test: "one-sided Mann-Whitney U vs propensity-matched baseline"
+  alpha: 0.10
+  power_target: 0.80
+  minimum_detectable_effect: 0.5  # shift in PflanzerIndex
+  sample_size_target_method_level: 12  # NE per pilot — across method
+  multiplicity_correction: "Bonferroni for secondary endpoints (×3)"
+
+# === PRIMARY METRIC SPECIFICATION ===
+primary_metric:
+  composite_pflanzerindex_formula:  # finalized v ADR-0014 (P1 TBD)
+    time_ratio_weight: 0.40
+    acceptance_weight: 0.30
+    rework_weight: 0.20
+    nps_weight: 0.10
+  time_ratio_definition:
+    start_event: "signed Charter timestamp v projekt repo"
+    end_event: "first commit s #handoff tag v target dev repo"
+    data_source: "Pflanzer tool DB + Git API"
+  acceptance_definition:
+    operational_signal: "EM dev týmu T+30 form (6 artifact types × {used/used-with-mods/not-used})"
+    blind_signal: "3 EMs z jiných BU, Likert 0-100, stripped metadata"
+    primary_for_index: "blind average (anti-Goodhart)"
+  rework_definition:
+    metric: "Code churn ratio T+0..T+90"
+    formula: "LOC changed in feature files / LOC initially committed"
+    data_source: "git log --numstat + Jira labels"
+  nps_definition:
+    instrument: "11-point Net Promoter, stakeholder survey T+30"
+    threshold: "+20 aggregated, response rate ≥ 50 %"
+
+# === SECONDARY ENDPOINTS (pre-registered) ===
+secondary_endpoints_preregistered:
+  - blind_acceptance_external_panel:
+      metric: "Average Likert score across 3 blind EM reviewers"
+      threshold: 60
+  - rework_percent_t90:
+      metric: "Code churn ratio T+90 alone (not in composite)"
+      threshold: "≤ baseline current state for matched project class"
+  - npsl_stakeholder:
+      metric: "Standalone NPS reported (not in composite)"
+      threshold: "+20"
+
+# === PROTOCOL DEVIATIONS (vyplnit při / po pilot completion) ===
+protocol_deviations: []
+# Example entry:
+# - date: 2026-XX-XX
+#   description: "Champion absent for Session 2 due to medical leave; backup Champion stepped in"
+#   impact_on_metrics: "May affect compliance score elements #7, #8"
+#   amendment_signed: false
+
+# === AMENDMENTS (signed mid-pilot changes) ===
+amendments: []
+# Example entry:
+# - date: 2026-XX-XX
+#   description: "Sample size extended from N=10 to N=15 due to power re-calculation after interim analysis"
+#   signed_by: [Method Steward, Method Decider]
+#   rationale: "Conditional power at N=6 was 0.65; extending to N=15 to retain 0.80 power"
+
+# === POST-PILOT REPORTING (vyplnit T+30, T+90) ===
+post_pilot_observed:
+  t30:
+    handoff_acceptance_operational: null  # float 0-100
+    handoff_acceptance_blind_panel: null  # float 0-100
+    nps_stakeholder: null  # -100 to +100
+    handoff_collapse_flag: false  # true = stopping-for-harm trigger
+  t90:
+    rework_percent: null
+    pflanzerindex_composite: null
+    decision: null  # Go / Iterate / Kill
+    decision_adr_link: null
+
+# === COMPLIANCE SCORE (per ADR-0013 § B, audited by Method Steward ex-post) ===
+compliance_score:
+  audited_at: null  # YYYY-MM-DD
+  audited_by: <Method Steward name>
+  score: null  # 0-12
+  status: null  # "Pflanzer pilot" / "Pflanzer-inspired" / "Disqualified"
+  elements:
+    1_discovery_readiness_gate_signed: null
+    2_security_data_triage_signed: null
+    3_platform_triage_signed: null
+    4_pre_registration_signed_pre_s1: null
+    5_charter_signed_pre_s1: null
+    6_s1_attendance_above_70pct: null
+    7_silent_voting_used_in_s1: null
+    8_decider_voted_last_in_s2: null
+    9_severity_hierarchy_used: null
+    10_throwaway_default_or_evolve_signed: null
+    11_handoff_package_6_artifacts: null
+    12_ai_act_phase_c_signed: null
+  audit_report_link: null

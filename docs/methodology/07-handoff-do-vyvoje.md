@@ -170,9 +170,14 @@ handoff nepodepisuje a Session 2 končí ve stavu „iterate".
   závaznosti, retence 7 let dle DORA).
 - **RoPA update** — Record of Processing Activities, nový/změněný
   záznam pro feature.
-- **AI Act risk-tier classification entry** v risk registru
-  (Unacceptable / High-risk / Limited / Minimal). Pro high-risk +
-  Annex IV tech doc skeleton.
+- **AI Act risk-tier classification entry — Fáze C (final)** v risk registru
+  (Unacceptable / High-risk / Limited / Minimal). Podepsáno DPO v Session 2
+  per **dvoufázový protokol v0.3** (Útok 4 resolution; viz
+  `03-pre-session-priprava.md` § Legal & Privacy Triage). Mandatory součásti
+  Fáze C: data flow diagram, intended-use statement, human-oversight design
+  (čl. 14), Annex IV technická dokumentace skeleton (high-risk). Provisional
+  flag (Fáze A) **není validní** pro handoff package — pokud Fáze C chybí,
+  pilot není kompletní a nezapočítává se do method-level success rate (ADR-0007).
 - **DPIA artefakt** (čl. 35 GDPR) podepsaný DPO, pokud feature spadá
   do triggerů (osobní data, profiling, ADM, special categories,
   novel AI use).
@@ -200,7 +205,7 @@ bodů merge nemožný.
 [ ] SLO baseline definovaný + runbook v on-call wiki
 [ ] On-call rotation assigned, alert thresholds nastaveny
 [ ] Change advisory approval (per CAB process)
-[ ] DPIA podepsán (pokud aplikabilní), AI Act tech doc skeleton hotový
+[ ] DPIA podepsán (pokud aplikabilní), AI Act **Fáze C final classification** podepsaná DPO + Annex IV tech doc skeleton hotový
 [ ] A11y human review pre-launch (screen reader UX, focus management) —
     AI proxy NESTAČÍ pro EAA atestaci [perspektiva 11]
 [ ] Support readiness D-2: KB live, makra live, training proběhlý

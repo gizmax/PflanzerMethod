@@ -1,0 +1,92 @@
+# True Cost Worksheet — <project-slug>
+
+> Šablona pro per-pilot rozpočet Pflanzerova cyklu. Vyplň v gitu, sign-off
+> před Session 1. Referenční dokumentace:
+> `docs/methodology/03-pre-session-priprava.md` Krok 1a.
+
+## Header
+
+| Pole | Hodnota |
+|------|---------|
+| Pilot ID | `<P-NNNN>` |
+| Project slug | `<project-slug>` |
+| Charter ref | `charters/<slug>.md` commit `<sha>` |
+| Profile | `default` / `regulated` / `audit-grade` |
+| Profile sign-off | EM `<name>` + Legal `<name>` — datum |
+| Cycle start | `<YYYY-MM-DD>` (Session 1 datum) |
+| Method Steward (review) | `<name>` |
+
+## Per-role × per-phase rozpočet
+
+> Vyplň reálná čísla, ne typické. PD = person-day á 8 h.
+> Empty cell = role neúčastní této fáze. Phasy:
+> Pre-flight / S1 / Mezi / S2 / Handoff / Reinforcement-Total.
+
+| Role | Pre-flight | S1 | Mezi | S2 | Handoff | T+7 | T+30 | T+60 | T+90 | **Total PD** |
+|------|-----------|----|----|----|---------|-----|------|------|------|-------------|
+| Zadavatel (#1) | | | | | | | | | | |
+| PM (#2) | | | | | | | | | | |
+| Facilitátor (#3) | | | | | | | | | | |
+| FE / Vibe-coding (#4) | | | | | | | | | | |
+| BE / API (#5) | | | | | | | | | | |
+| UX (#6) | | | | | | | | | | |
+| Security (#7) | | | | | | | | | | |
+| QA (#8) | | | | | | | | | | |
+| EM (#9) | | | | | | | | | | |
+| Legal / DPO (#10) | | | | | | | | | | |
+| A11y (#11) | | | | | | | | | | |
+| UX writer (#12) | | | | | | | | | | |
+| Data / Analytics (#13) | | | | | | | | | | |
+| Solution architect (#14) | | | | | | | | | | |
+| DevOps / Platform (#15) | | | | | | | | | | |
+| CS proxy / User research (#16) | | | | | | | | | | |
+| Champion (#17) | | | | | | | | | | |
+| Co-facilitator (audit-grade) | | | | | | | | | | |
+| External compliance auditor | | | | | | | | | | |
+| Method Steward (org-shared, amortizovaný) | | | | | | | | | | |
+| **Total PD** | | | | | | | | | | **Σ** |
+
+## Hourly rate & monetární odhad
+
+| Položka | Hodnota |
+|---------|---------|
+| Interní blended PD rate (org-specifický) | `<CZK / EUR>` |
+| Σ PD × rate | `<částka>` |
+| Externí cost (coach, auditor, vendor) | `<částka>` |
+| **Total estimovaný cost cyklu** | `<částka>` |
+
+## Reinforcement track — explicit commit
+
+| Readout | Plánované PD | Owner | Akceptační kritérium | Trigger pro flag |
+|---------|--------------|-------|---------------------|-------------------|
+| T+7 | | Champion (#17) | Handoff přijatý dev týmem, SHIP.md status updatovaný | Pokud Champion nedodá 0.5 PD = flag do T+30 retro |
+| T+30 | | PM + EM + Champion | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Pokud acceptance < 80 % nebo retro vynechán = data feed Method Steward |
+| T+60 | | PM + Champion | Scope creep audit, Method Steward 1-pager | Pokud Method Steward update vynechán = method-level warning |
+| T+90 | | Decider + PM + EM + Champion | Guardrail metric (re-work %), Go/Iterate/Kill rozhodnutí per pilot | Pokud rozhodnutí není v ADR formě = silence-triggered Kill (ADR-0001 Scenario B) |
+
+**Σ Reinforcement PD: `<celkem>` — minimální 6 PD (default profil).**
+
+## Variance tracking
+
+Po skončení cyklu vyplnit (T+90):
+
+| Metric | Plán | Skutečnost | Odchylka % | Důvod |
+|--------|------|-----------|-----------|-------|
+| Total PD | | | | |
+| Reinforcement PD | | | | |
+| Cycle duration (calendar days, Session 1 → T+90) | | | | |
+| Roles invited but absent (count) | | | | |
+
+**Pravidlo:** Skutečnost / Plán > 1.3 = mandatory flag v Method Steward T+6 reportu.
+Sub-trigger pro ADR-0007 method-level Kill criteria evaluace.
+
+## Sign-off
+
+| Role | Jméno | Podpis (git commit by) | Datum |
+|------|-------|------------------------|-------|
+| EM (#9) | | | |
+| Sponzor (#1) | | | |
+| Method Steward | | | |
+
+> Bez všech tří sign-off Worksheet **není platný**. Pre-flight checklist
+> řádek „True Cost Worksheet podepsaný" = ✗.
