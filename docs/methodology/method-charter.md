@@ -53,14 +53,30 @@ projektů, manuální estimace nebo project tracker analysis).
 - Late-stage veto count (security/legal po > 50 % effortu)
 - Stakeholder NPS (post-launch survey nebo pulse)
 
-## Reinforcement track (method-level)
+## Reinforcement track (method-level + per-pilot)
 
-- **T+30 per pilot:** per-pilot retro (ADR-0004 reinforcement budget).
-  Owner: Champion #17.
-- **T+6 měsíců method-level:** agregace metrik napříč 3+ piloty.
-  Method Steward publikuje report do CoP / Confluence.
-- **T+12 měsíců method-level:** review — keep / iterate / sunset rozhodnutí.
-  Owner: Method Decider (CPO/DoE).
+> Útok 11 v0.3 resolution: reinforcement track má **explicit budget commit**
+> v Charteru projektovém (ADR-0004) a v True Cost Worksheet
+> (`03-pre-session-priprava.md` Krok 1a). Bez podepsaného rozpočtu T+7/30/60/90
+> Session 1 neodstartuje. Tabulka níže je method-level agregát.
+
+| Readout | Scope | Owner | Min. PD per pilot | Co se musí stát |
+|---------|-------|-------|-------------------|------------------|
+| T+7 | per pilot | Champion (#17) | 0.5 | Handoff přijatý dev týmem, SHIP.md aktualizovaný |
+| T+30 | per pilot | PM + EM + Champion | 2.0 (souhrnně) | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min |
+| T+60 | per pilot | PM + Champion | 1.0 | Scope creep audit, 1-page update do Method Steward inboxu |
+| T+90 | per pilot | Decider + PM + EM + Champion | 2.5 | Guardrail metric (re-work %), Go/Iterate/Kill **v ADR** per ADR-0001 |
+| T+6 mo | **method-level** | Method Steward | 2 PD/report + 0.25 PD/měsíc průběžně | Agregace metrik napříč 3+ piloty, CoP publikace |
+| T+12 mo | **method-level** | Method Decider (CPO/DoE) | review session 4 h + prep | Keep / iterate / sunset rozhodnutí, ADR commit |
+
+**Σ per-pilot reinforcement commit:** min 6 PD souhrnně (default profil).
+Sponzor a EM ho podepisují v Charteru. Bez podpisu pilot neodstartuje.
+
+**Method-level escalation:** pokud u 2+ za sebou jdoucích pilotů
+M(skutečnost) / N(plán) < 0.7 reinforcement utilization → automatický
+warning v Method Steward T+6 reportu + flag pro Method Decider, že
+**method-level Kill criteria nemohou být obhájena** (success/failure
+data jsou unreliable).
 
 ## Validační loop & sunset
 

@@ -53,10 +53,27 @@ což měříme růstem [metric] o [delta] během [time window].
 - Data classification: <L1/L2/L3>.
 - Throw-away vs evolve prototype: <volba s důvodem (viz ADR-0005)>.
 
-## Reinforcement track
-- T+30: <kdo měří co>.
-- T+60: <kdo měří co>.
-- T+90: <kdo měří co + Go/Iterate/Kill review>.
+## Reinforcement track — explicit budget commit (v0.3, Útok 11 resolution)
+Charter podpisem sponzor a EM commitují **rozpočet a vlastníky** každého
+readoutu. Bez tohoto commitu Session 1 neodstartuje. Detail viz
+`docs/methodology/03-pre-session-priprava.md` Krok 1a (True Cost Worksheet).
+
+| Readout | Vlastník | Min. PD | Akceptační kritérium | Sankce za vynechání |
+|---------|----------|---------|---------------------|---------------------|
+| T+7 | Champion (#17) | 0.5 PD | Handoff přijatý dev týmem, SHIP.md status řádek aktualizovaný | Flag do T+30 retro, Method Steward data feed |
+| T+30 | PM + EM + Champion | 2.0 PD | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Method Steward warning, audit-grade pilot disqualified |
+| T+60 | PM + Champion | 1.0 PD | Scope creep audit, Method Steward 1-page update | Method-level T+6 report flaguje pilot „incomplete reinforcement" |
+| T+90 | Decider + PM + EM + Champion | 2.5 PD | Guardrail metric (re-work %) vyhodnocen, **Go / Iterate / Kill rozhodnutí formálně v ADR** per ADR-0001 protokolu | Silence = Kill (ADR-0001 Scenario B) |
+
+**Σ Reinforcement commit (default profil): min 6 PD souhrnně.**
+Zdroj rozpočtu (cost center / BU budget line) musí být uveden v sign-off
+sekci Charteru, ne jen „dohodneme se".
+
+**Audit dotaz po pilotu** (Method Steward T+6 method-level report):
+> *„Z plánovaných N reinforcement PD bylo skutečně utraceno M. Pokud
+> M/N < 0.7, T+90 Go-rozhodnutí má warning: reinforcement neproběhl,
+> success claim není falsifikovatelný; per ADR-0007 method-level
+> pilot není započítán do success rate."*
 ```
 
 ### Vlastnictví a podpisy

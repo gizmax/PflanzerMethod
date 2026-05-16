@@ -47,7 +47,7 @@ do 48 h.
 | 10:15–10:30 | **Break** | Pulsní check-in (1–5 prst) | — |
 | 10:30–11:15 | **AI návrhy zapracování + variant convergence** | AI prezentuje, **jak** zapracovat top feedback do preferované varianty: konkrétní změny v UI, OpenAPI, A11y mitigations, ticket prediction adjustments. Panel reaguje, ne re-designuje | AI první draft, Facilitátor + role validují |
 | 11:15–11:45 | **Decider's call: go / iterate / kill** | Decider rozhoduje s commitment indexem (0–100) z scoring window. Threshold definován v Charteru | **Decider** |
-| 11:45–12:00 | **Handoff package preview** | Recap artefaktů, sign-off check, P2P gate stav, eskalace items | Facilitátor + AI |
+| 11:45–12:00 | **Handoff package preview + AI Act Fáze C sign-off** | Recap artefaktů, sign-off check, P2P gate stav, eskalace items. **DPO podepisuje AI Act final classification** (Fáze C dvoufázového protokolu — viz `03-pre-session-priprava.md` § Legal & Privacy Triage) s data flow diagramem, Annex IV skeletonem a human-oversight designem (per čl. 14). Bez Fáze C podpisu handoff package **není kompletní**. | Facilitátor + AI + DPO |
 | **12:00** | **Konec** | — | — |
 
 ## Conflict-resolution playbook (top 3 sporné body)
