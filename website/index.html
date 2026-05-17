@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method — Sázíme AI do rigidních procesů</title>
+<meta name="description" content="Metoda, která sází AI do korporátních procesů. 6 lidí, 2 sezení, kód do produkce za 14 dní. Pflanzerova metoda v0.3." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+<style>
+  /* ─────── Tokens ─────── */
+  :root {
+    --bone:      #F4EFE6;
+    --paper:     #EBE5D7;
+    --ink:       #1A2418;
+    --moss:      #2F4A2F;
+    --punch:     #C7E84A;
+    --punch-dim: #E2EDB8;
+    --gray:      #7A7264;
+    --line:      rgba(26, 36, 24, 0.14);
+    --line-bold: rgba(26, 36, 24, 0.36);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bone);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* paper grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.14 0 0 0 0 0.1 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    z-index: 100;
+  }
+
+  ::selection { background: var(--punch); color: var(--ink); }
+
+  /* ─────── Typography ─────── */
+  .display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 144;
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.86;
+  }
+  .display em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .display b {
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  .h-section {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 96;
+    font-weight: 400;
+    font-size: clamp(2.4rem, 5.5vw, 4.6rem);
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+  }
+
+  .h-sub {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 48;
+    font-weight: 500;
+    font-size: clamp(1.25rem, 1.9vw, 1.85rem);
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+  }
+
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--gray);
+    font-weight: 500;
+  }
+
+  .num-tag {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(3.2rem, 6.5vw, 5.2rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--moss);
+  }
+
+  .pullquote {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+  }
+
+  p { max-width: 60ch; }
+  p + p { margin-top: 1em; }
+  p strong { font-weight: 600; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: all 0.18s ease;
+  }
+  a.link-underline {
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 1px;
+  }
+  a.link-underline:hover {
+    background: var(--punch);
+    border-bottom-color: transparent;
+  }
+
+  /* ─────── Layout ─────── */
+  .wrap {
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+    position: relative;
+  }
+
+  section { padding-block: clamp(4rem, 9vw, 8rem); }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 0;
+  }
+
+  hr.rule-bold {
+    border: none;
+    border-top: 1.5px solid var(--ink);
+    margin: 0;
+  }
+
+  /* ─────── Top frame ─────── */
+  .frame {
+    position: fixed;
+    pointer-events: none;
+    z-index: 60;
+    color: var(--gray);
+  }
+  .frame-top, .frame-bottom {
+    left: 0; right: 0;
+    height: 1.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 clamp(0.9rem, 2vw, 1.6rem);
+    background: var(--bone);
+    border-color: var(--line);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .frame-top { top: 0; border-bottom: 1px solid var(--line); }
+  .frame-bottom { bottom: 0; border-top: 1px solid var(--line); }
+  .frame-bottom a:hover { color: var(--ink); }
+
+  /* ─────── Hero ─────── */
+  header.hero {
+    padding: 5.5rem 0 5rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: end;
+    padding-bottom: 2.5rem;
+  }
+  .hero-meta > * { grid-column: span 3; }
+  .hero-meta > .stretch { grid-column: span 12; }
+
+  .wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 144;
+    font-weight: 400;
+    font-size: clamp(4.2rem, 17vw, 16rem);
+    line-height: 0.82;
+    letter-spacing: -0.05em;
+    margin-top: 1rem;
+  }
+  .wordmark .row-1 { display: block; }
+  .wordmark .row-2 {
+    display: block;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--moss);
+    margin-left: clamp(1rem, 8vw, 6rem);
+  }
+
+  .hero-tag {
+    margin-top: clamp(2rem, 4vw, 3rem);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  .hero-tag .punchmark {
+    grid-column: 1 / span 1;
+    align-self: start;
+    margin-top: 0.4rem;
+  }
+  .hero-tag .h-sub {
+    grid-column: 2 / span 7;
+  }
+  .hero-tag .cta-stack {
+    grid-column: 9 / span 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .punchmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: var(--punch);
+    border-radius: 50%;
+  }
+  .punchmark svg { width: 18px; height: 18px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--bone);
+    border: 1.5px solid var(--ink);
+    transition: all 0.18s ease;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--punch);
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+  }
+  .btn.ghost:hover {
+    background: var(--ink);
+    color: var(--bone);
+  }
+  .btn .arrow { display: inline-block; transition: transform 0.18s ease; }
+  .btn:hover .arrow { transform: translateX(4px); }
+
+  .scroll-cue {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1rem;
+  }
+  .scroll-cue .label { font-size: 10.5px; }
+
+  /* ─────── Section header ─────── */
+  .section-head {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: end;
+    padding-bottom: clamp(2rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+  .section-head .num-tag { grid-column: span 2; }
+  .section-head .h-section { grid-column: 3 / span 8; }
+  .section-head .label-meta {
+    grid-column: 11 / span 2;
+    text-align: right;
+  }
+
+  /* ─────── Manifesto ─────── */
+  .manifesto-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .manifesto-grid .body {
+    grid-column: 1 / span 7;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .manifesto-grid .body p { max-width: 56ch; }
+  .manifesto-grid .stat-block {
+    grid-column: 9 / span 4;
+    border-left: 1.5px solid var(--ink);
+    padding-left: 1.5rem;
+    align-self: start;
+    position: sticky;
+    top: 4rem;
+  }
+  .stat-num {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 144;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .stat-num + .label { margin-top: 0.5rem; }
+  .stat-block .stat + .stat { margin-top: 1.6rem; padding-top: 1.6rem; border-top: 1px solid var(--line); }
+
+  .pull-wrap {
+    margin-top: 3rem;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    padding: 2.5rem 0;
+    grid-column: 1 / -1;
+  }
+
+  /* ─────── Botanical flow ─────── */
+  .flow-frame {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .flow-frame .flow-meta {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.4rem;
+  }
+  .flow-frame .flow-meta span { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gray); }
+  .flow-svg-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -0.5rem;
+    padding: 1rem 0.5rem;
+  }
+  .flow-svg-wrap svg {
+    display: block;
+    min-width: 800px;
+    width: 100%;
+    height: auto;
+  }
+
+  .flow-stages {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    column-gap: 1rem;
+    margin-top: 1.5rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.2rem;
+  }
+  .flow-stages > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .flow-stages .day {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--moss);
+    font-weight: 600;
+  }
+  .flow-stages .stage-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .flow-stages .stage-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--gray);
+  }
+
+  /* ─────── USPs ─────── */
+  .usp-list { display: flex; flex-direction: column; }
+  .usp-row {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: start;
+    padding-block: clamp(2rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .usp-row:first-child { border-top: 1.5px solid var(--ink); }
+  .usp-row:last-child { border-bottom: 1.5px solid var(--ink); }
+  .usp-row .num { grid-column: span 1; }
+  .usp-row .num span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+  }
+  .usp-row .h-sub { grid-column: 2 / span 5; }
+  .usp-row .desc {
+    grid-column: 8 / span 5;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .usp-row .desc strong { font-weight: 600; }
+  .usp-row .desc p + p { margin-top: 0.7rem; }
+  .usp-row .tag-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .usp-row .tag-list span {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--line-bold);
+    background: var(--bone);
+    color: var(--moss);
+  }
+
+  /* ─────── Field notes ─────── */
+  .field-notes {
+    background: var(--ink);
+    color: var(--bone);
+    padding: clamp(2rem, 5vw, 4rem);
+    border: 1.5px solid var(--ink);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .field-notes .stamp {
+    grid-column: span 12;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(244, 239, 230, 0.2);
+    padding-bottom: 1.4rem;
+    margin-bottom: 2rem;
+  }
+  .field-notes .stamp .label { color: var(--punch); }
+  .field-notes .stamp .label.dim { color: rgba(244, 239, 230, 0.5); }
+  .field-notes .quote-body {
+    grid-column: 1 / span 7;
+  }
+  .field-notes .quote-body .pullquote {
+    color: var(--bone);
+    margin-bottom: 1.8rem;
+  }
+  .field-notes .quote-body .pullquote em { color: var(--punch); font-style: italic; }
+  .field-notes .quote-body p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(244, 239, 230, 0.78);
+    max-width: 52ch;
+  }
+  .field-notes .quote-body p + p { margin-top: 0.9rem; }
+  .field-notes .receipts {
+    grid-column: 9 / span 4;
+    border-left: 1px solid rgba(244, 239, 230, 0.18);
+    padding-left: 1.5rem;
+  }
+  .receipts .label { color: rgba(244, 239, 230, 0.5); }
+  .receipts .receipt {
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px dashed rgba(244, 239, 230, 0.18);
+  }
+  .receipts .receipt:first-of-type { border-top: none; padding-top: 0; margin-top: 0.6rem; }
+  .receipts .receipt-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(244, 239, 230, 0.85);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .receipts .receipt-line .v { color: var(--punch); font-weight: 600; }
+
+  /* ─────── CTA ─────── */
+  .cta-wrap {
+    text-align: left;
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+  .cta-wrap .h-section {
+    max-width: 18ch;
+    margin-bottom: 2rem;
+  }
+  .cta-wrap .h-section em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+  }
+  .cta-wrap .row {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+
+  .why-now {
+    border-top: 1.5px solid var(--ink);
+    padding-top: 2rem;
+    margin-top: 4rem;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .why-now .label { grid-column: span 2; }
+  .why-now .body {
+    grid-column: 3 / span 8;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .why-now .body strong { background: var(--punch); padding: 0 4px; font-weight: 500; }
+
+  /* ─────── Footer ─────── */
+  footer {
+    background: var(--ink);
+    color: var(--bone);
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+    margin-bottom: 1.6rem; /* room for frame-bottom */
+  }
+  footer .wrap { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 1.5rem; row-gap: 2rem; align-items: end; }
+  footer .footer-mark { grid-column: span 6; font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'SOFT' 100, 'opsz' 96; font-weight: 400; font-size: clamp(2rem, 5vw, 3.6rem); line-height: 0.95; letter-spacing: -0.035em; }
+  footer .footer-mark em { font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96; font-style: italic; font-weight: 300; color: var(--punch); }
+  footer .footer-meta { grid-column: span 3; }
+  footer .footer-meta .label { color: rgba(244, 239, 230, 0.5); margin-bottom: 0.6rem; display: block; }
+  footer .footer-meta p { font-size: 13px; color: rgba(244, 239, 230, 0.85); }
+  footer .footer-meta a { color: var(--punch); }
+  footer .footer-meta a:hover { background: var(--punch); color: var(--ink); padding: 0 4px; }
+  footer .footer-foot { grid-column: span 12; border-top: 1px solid rgba(244, 239, 230, 0.18); padding-top: 1.5rem; display: flex; justify-content: space-between; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(244, 239, 230, 0.45); }
+
+  /* ─────── Responsive ─────── */
+  @media (max-width: 840px) {
+    .hero-meta { grid-template-columns: repeat(2, 1fr); }
+    .hero-meta > * { grid-column: span 1; }
+    .hero-meta > .stretch { grid-column: 1 / -1; }
+    .hero-tag { grid-template-columns: 1fr; }
+    .hero-tag .punchmark, .hero-tag .h-sub, .hero-tag .cta-stack { grid-column: 1; }
+    .hero-tag .cta-stack { align-items: flex-start; text-align: left; margin-top: 1rem; flex-direction: column; }
+
+    .section-head { grid-template-columns: 1fr; row-gap: 0.8rem; }
+    .section-head .num-tag, .section-head .h-section, .section-head .label-meta { grid-column: 1; text-align: left; }
+
+    .manifesto-grid { grid-template-columns: 1fr; row-gap: 2.5rem; }
+    .manifesto-grid .body, .manifesto-grid .stat-block { grid-column: 1; }
+    .manifesto-grid .stat-block { position: static; }
+
+    .flow-stages { grid-template-columns: 1fr; row-gap: 1rem; }
+
+    .usp-row { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .usp-row .num, .usp-row .h-sub, .usp-row .desc { grid-column: 1; }
+
+    .field-notes { grid-template-columns: 1fr; row-gap: 1.5rem; }
+    .field-notes .quote-body, .field-notes .receipts { grid-column: 1; }
+    .field-notes .receipts { border-left: none; border-top: 1px solid rgba(244, 239, 230, 0.18); padding-left: 0; padding-top: 1.4rem; }
+
+    footer .wrap { grid-template-columns: 1fr; row-gap: 1.6rem; }
+    footer .footer-mark, footer .footer-meta, footer .footer-foot { grid-column: 1; }
+
+    .why-now { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .why-now .label, .why-now .body { grid-column: 1; }
+
+    .frame-top, .frame-bottom { font-size: 9px; }
+    .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
+  }
+
+  /* ─────── Entrance ─────── */
+  @keyframes rise {
+    from { transform: translateY(28px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  .rise-1 { animation: rise 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-2 { animation: rise 0.9s 0.15s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-3 { animation: rise 0.9s 0.30s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-4 { animation: rise 0.9s 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-5 { animation: rise 0.9s 0.60s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────── FIXED FRAMES ─────── -->
+<div class="frame frame-top">
+  <span>Pflanzer Method &nbsp;·&nbsp; v0.3</span>
+  <span class="hide-sm">Manuál pro sázení AI do rigidních procesů</span>
+  <span>Est. 2026</span>
+</div>
+
+<!-- ─────── HERO ─────── -->
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-meta rise-1">
+      <div>
+        <div class="label">Subjekt</div>
+        <div style="margin-top:0.4rem;">Korporát · 5–5000+ FTE</div>
+      </div>
+      <div>
+        <div class="label">Vstup</div>
+        <div style="margin-top:0.4rem;">Nápad bez plánu</div>
+      </div>
+      <div>
+        <div class="label">Výstup</div>
+        <div style="margin-top:0.4rem;">Kód v produkci</div>
+      </div>
+      <div>
+        <div class="label">Délka cyklu</div>
+        <div style="margin-top:0.4rem;">~14 dní calendar</div>
+      </div>
+    </div>
+
+    <h1 class="display wordmark rise-2" aria-label="Pflanzer Method">
+      <span class="row-1">Pflanzer</span>
+      <span class="row-2"><em>Method.</em></span>
+    </h1>
+
+    <div class="hero-tag">
+      <div class="punchmark rise-3" aria-hidden="true">
+        <!-- sprout icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1A2418" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21V11"/>
+          <path d="M12 11 C 12 7, 9 5, 5 5 C 5 9, 8 11, 12 11 Z"/>
+          <path d="M12 11 C 12 8, 14 6, 18 6 C 18 9, 16 11, 12 11 Z"/>
+        </svg>
+      </div>
+      <p class="h-sub rise-3">
+        Sázíme AI do korporátních procesů, kde sériový handoff zabíjí měsíce.
+        6 lidí, 2 sezení, většina kódu jde rovnou do produkce.
+      </p>
+      <div class="cta-stack rise-4">
+        <a href="#zacni" class="btn">
+          <span>Začít s 1-pagerem</span>
+          <span class="arrow">→</span>
+        </a>
+        <a href="https://github.com/" class="btn ghost" target="_blank" rel="noreferrer">
+          <span>GitHub</span>
+          <span class="arrow">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="scroll-cue rise-5" style="margin-top:auto;">
+      <span class="label">Čti dál ↓</span>
+      <span class="label">00 — 04</span>
+    </div>
+  </div>
+</header>
+
+<!-- ─────── 00 MANIFESTO ─────── -->
+<section id="proc">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">00</div>
+      <h2 class="h-section">
+        Korporátní handoff hell. <em>Tohle vznikla, aby ho prolomila.</em>
+      </h2>
+      <div class="label-meta label">Manifest</div>
+    </div>
+
+    <div class="manifesto-grid">
+      <div class="body">
+        <p>
+          V korporátu cesta od nápadu k funkční fíčuře typicky trvá 6 až 9 měsíců.
+          Zadavatel pinká s produktem, produkt s vývojem, vývoj se security, security s legal,
+          legal s deploy týmem. Mezitím nápad zestárne, kontext se ztratí v emailech
+          a rozhodnutí se dělají na PowerPointu, ne na funkčním artefaktu.
+        </p>
+        <p>
+          <strong>AI to mění.</strong> Vibe-coding tooly dnes umí v reálném čase
+          vytáhnout z verbálního inputu týmu funkční prototyp — ne wireframe v Figmě,
+          ne mockup v Sketch, ale klikatelný web s API skeletonem.
+        </p>
+        <p>
+          Pflanzerova metoda je odpověď na otázku: <em>„Jak ten skok přinést do korporátu?"</em>
+          Bez toho, aby z toho byl další SAFe roll-out, který zaklesne v procesní vrstvě,
+          nebo Design Sprint, který produkuje krásné Figmy, jež nikdo nepřevezme.
+        </p>
+        <p>
+          Místo toho dostáváme do jedné místnosti 6 lidí napříč celým workflow,
+          dáme jim 3 hodiny společného vajbování s AI, a na konci mají
+          <strong>3 funkční weby</strong>, ke kterým se mohou vyjádřit. Po jednom týdnu
+          ladění a druhém 3hodinovém setkání jde většina kódu rovnou do produkce.
+        </p>
+
+        <div class="pull-wrap">
+          <p class="pullquote">
+            Nejde o rychlejší výrobu mockupů. Jde o <em>cross-funkční alignment
+            na funkčním artefaktu</em>, ne na slidu.
+          </p>
+        </div>
+
+        <p>
+          Pflanzer = německy „pěstitel, sazeč". Metoda se nesnaží AI do firem
+          násilím nasadit jako transformaci. <strong>Sází.</strong> Pilot po pilotu,
+          tým po týmu. Co se uchytí, roste. Co ne, vidí každý hned, ne až za rok.
+        </p>
+      </div>
+
+      <aside class="stat-block">
+        <div class="stat">
+          <div class="stat-num">~6–9</div>
+          <div class="label">měsíců · klasický sériový handoff</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">~14</div>
+          <div class="label">dní · Pflanzer default profil</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">~10×</div>
+          <div class="label">zrychlení v cyklu od nápadu k prod kódu</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">6</div>
+          <div class="label">lidí v místnosti — celé workflow</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 01 BOTANICAL FLOW ─────── -->
+<section id="recept" style="background: linear-gradient(180deg, var(--bone) 0%, var(--paper) 100%);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">01</div>
+      <h2 class="h-section">
+        Jak metoda <em>roste.</em>
+      </h2>
+      <div class="label-meta label">5 fází · 14 dní</div>
+    </div>
+
+    <div class="flow-frame">
+      <div class="flow-meta">
+        <span>Fig. 01 — Pflanzer cyklus, default profil</span>
+        <span>Verze v0.3 · 2026</span>
+      </div>
+
+      <div class="flow-svg-wrap" aria-label="Botanická vizualizace cyklu: semínko, výhonek, list, stonek, květ">
+        <svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pflanzer growth stages">
+          <defs>
+            <style>
+              .stroke-ink { stroke: #1A2418; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+              .stroke-moss { stroke: #2F4A2F; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+              .stroke-thin { stroke: #1A2418; fill: none; stroke-width: 1; stroke-linecap: round; }
+              .stroke-dash { stroke: #1A2418; fill: none; stroke-width: 1; stroke-dasharray: 3 4; }
+              .fill-punch { fill: #C7E84A; }
+              .fill-ink { fill: #1A2418; }
+              .fill-moss { fill: #2F4A2F; }
+              .label-svg { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; fill: #1A2418; font-weight: 600; }
+              .label-day { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
+            </style>
+          </defs>
+
+          <!-- Earth baseline -->
+          <line x1="40" y1="200" x2="960" y2="200" class="stroke-ink"/>
+          <!-- Earth texture (hatch) -->
+          <g class="stroke-thin">
+            <line x1="40" y1="208" x2="44" y2="214"/>
+            <line x1="60" y1="208" x2="64" y2="214"/>
+            <line x1="80" y1="208" x2="84" y2="214"/>
+            <line x1="100" y1="208" x2="104" y2="214"/>
+            <line x1="120" y1="208" x2="124" y2="214"/>
+            <line x1="140" y1="208" x2="144" y2="214"/>
+            <line x1="160" y1="208" x2="164" y2="214"/>
+            <line x1="180" y1="208" x2="184" y2="214"/>
+            <line x1="200" y1="208" x2="204" y2="214"/>
+            <line x1="220" y1="208" x2="224" y2="214"/>
+            <line x1="240" y1="208" x2="244" y2="214"/>
+            <line x1="260" y1="208" x2="264" y2="214"/>
+            <line x1="280" y1="208" x2="284" y2="214"/>
+            <line x1="300" y1="208" x2="304" y2="214"/>
+            <line x1="320" y1="208" x2="324" y2="214"/>
+            <line x1="340" y1="208" x2="344" y2="214"/>
+            <line x1="360" y1="208" x2="364" y2="214"/>
+            <line x1="380" y1="208" x2="384" y2="214"/>
+            <line x1="400" y1="208" x2="404" y2="214"/>
+            <line x1="420" y1="208" x2="424" y2="214"/>
+            <line x1="440" y1="208" x2="444" y2="214"/>
+            <line x1="460" y1="208" x2="464" y2="214"/>
+            <line x1="480" y1="208" x2="484" y2="214"/>
+            <line x1="500" y1="208" x2="504" y2="214"/>
+            <line x1="520" y1="208" x2="524" y2="214"/>
+            <line x1="540" y1="208" x2="544" y2="214"/>
+            <line x1="560" y1="208" x2="564" y2="214"/>
+            <line x1="580" y1="208" x2="584" y2="214"/>
+            <line x1="600" y1="208" x2="604" y2="214"/>
+            <line x1="620" y1="208" x2="624" y2="214"/>
+            <line x1="640" y1="208" x2="644" y2="214"/>
+            <line x1="660" y1="208" x2="664" y2="214"/>
+            <line x1="680" y1="208" x2="684" y2="214"/>
+            <line x1="700" y1="208" x2="704" y2="214"/>
+            <line x1="720" y1="208" x2="724" y2="214"/>
+            <line x1="740" y1="208" x2="744" y2="214"/>
+            <line x1="760" y1="208" x2="764" y2="214"/>
+            <line x1="780" y1="208" x2="784" y2="214"/>
+            <line x1="800" y1="208" x2="804" y2="214"/>
+            <line x1="820" y1="208" x2="824" y2="214"/>
+            <line x1="840" y1="208" x2="844" y2="214"/>
+            <line x1="860" y1="208" x2="864" y2="214"/>
+            <line x1="880" y1="208" x2="884" y2="214"/>
+            <line x1="900" y1="208" x2="904" y2="214"/>
+            <line x1="920" y1="208" x2="924" y2="214"/>
+            <line x1="940" y1="208" x2="944" y2="214"/>
+            <line x1="960" y1="208" x2="964" y2="214"/>
+          </g>
+
+          <!-- STAGE 1: SEED (Den 0) -->
+          <g transform="translate(110, 190)">
+            <!-- seed underground -->
+            <ellipse cx="0" cy="14" rx="9" ry="6" class="fill-ink"/>
+            <!-- root hairs -->
+            <path d="M -6 18 Q -10 24 -12 28" class="stroke-moss"/>
+            <path d="M 0 20 Q 0 26 -2 32" class="stroke-moss"/>
+            <path d="M 6 18 Q 10 24 12 28" class="stroke-moss"/>
+            <!-- small upward signal -->
+            <line x1="0" y1="6" x2="0" y2="-2" class="stroke-ink"/>
+          </g>
+          <text x="110" y="248" text-anchor="middle" class="label-day">Den 0</text>
+          <text x="110" y="262" text-anchor="middle" class="label-svg">Sazba</text>
+
+          <!-- STAGE 2: SPROUT (Den 5) -->
+          <g transform="translate(290, 200)">
+            <!-- stem -->
+            <path d="M 0 0 Q 0 -30 -2 -60" class="stroke-ink"/>
+            <!-- 3 sprouts = 3 variants -->
+            <g class="stroke-moss">
+              <path d="M -2 -55 Q -20 -68 -32 -60" />
+              <path d="M -2 -55 Q -2 -78 -2 -88" />
+              <path d="M -2 -55 Q 16 -68 28 -60" />
+            </g>
+            <!-- leaf tips -->
+            <circle cx="-32" cy="-60" r="3" class="fill-moss"/>
+            <circle cx="-2" cy="-88" r="3" class="fill-moss"/>
+            <circle cx="28" cy="-60" r="3" class="fill-moss"/>
+            <!-- ground line for plant -->
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="290" y="248" text-anchor="middle" class="label-day">Den 5</text>
+          <text x="290" y="262" text-anchor="middle" class="label-svg">Session 1 · 3h</text>
+
+          <!-- Connector -->
+          <line x1="160" y1="180" x2="240" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 3: LEAF EXPANSION (Den 6-9) -->
+          <g transform="translate(490, 200)">
+            <path d="M 0 0 Q 0 -50 0 -110" class="stroke-ink"/>
+            <!-- side leaves grown out -->
+            <g class="stroke-moss">
+              <!-- left leaf -->
+              <path d="M 0 -50 Q -20 -55 -38 -48 Q -32 -38 -16 -36 Q 0 -38 0 -50 Z"/>
+              <!-- right leaf -->
+              <path d="M 0 -70 Q 22 -75 40 -68 Q 32 -56 16 -54 Q 0 -56 0 -70 Z"/>
+              <!-- veins -->
+              <path d="M 0 -50 L -28 -45" class="stroke-thin"/>
+              <path d="M 0 -70 L 30 -64" class="stroke-thin"/>
+            </g>
+            <!-- top -->
+            <circle cx="0" cy="-110" r="3" class="fill-moss"/>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="490" y="248" text-anchor="middle" class="label-day">Den 6–9</text>
+          <text x="490" y="262" text-anchor="middle" class="label-svg">Iterace · async</text>
+
+          <!-- Connector -->
+          <line x1="340" y1="180" x2="440" y2="180" class="stroke-dash"/>
+          <line x1="540" y1="180" x2="640" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 4: STEM HEIGHT (Den 10) -->
+          <g transform="translate(700, 200)">
+            <path d="M 0 0 Q 0 -60 0 -130" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -40 Q -22 -45 -42 -36 Q -34 -24 -16 -22 Q 0 -26 0 -40 Z"/>
+              <path d="M 0 -65 Q 24 -70 44 -60 Q 36 -48 16 -46 Q 0 -50 0 -65 Z"/>
+              <path d="M 0 -100 Q -20 -106 -38 -98 Q -30 -86 -14 -84 Q 0 -88 0 -100 Z"/>
+              <!-- bud -->
+              <ellipse cx="0" cy="-130" rx="4" ry="6" class="fill-moss"/>
+              <!-- veins -->
+              <path d="M 0 -40 L -34 -32" class="stroke-thin"/>
+              <path d="M 0 -65 L 36 -56" class="stroke-thin"/>
+              <path d="M 0 -100 L -32 -92" class="stroke-thin"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="700" y="248" text-anchor="middle" class="label-day">Den 10</text>
+          <text x="700" y="262" text-anchor="middle" class="label-svg">Session 2 · 3h</text>
+
+          <!-- Connector -->
+          <line x1="740" y1="180" x2="840" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 5: BLOOM (Den 14) -->
+          <g transform="translate(900, 200)">
+            <path d="M 0 0 Q 0 -60 0 -140" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -38 Q -22 -43 -42 -34 Q -34 -22 -16 -20 Q 0 -24 0 -38 Z"/>
+              <path d="M 0 -68 Q 24 -73 44 -63 Q 36 -51 16 -49 Q 0 -53 0 -68 Z"/>
+              <path d="M 0 -100 Q -22 -106 -42 -98 Q -34 -86 -16 -84 Q 0 -88 0 -100 Z"/>
+            </g>
+            <!-- flower (the prod) -->
+            <g transform="translate(0, -142)">
+              <!-- petals -->
+              <circle cx="0" cy="-8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="-9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="0" cy="8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <!-- center -->
+              <circle cx="0" cy="0" r="5" class="fill-ink"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="900" y="248" text-anchor="middle" class="label-day">Den 14</text>
+          <text x="900" y="262" text-anchor="middle" class="label-svg">Kód v produkci</text>
+
+        </svg>
+      </div>
+
+      <div class="flow-stages">
+        <div>
+          <div class="day">Den 0 · 60 min</div>
+          <div class="stage-name">Sazba</div>
+          <div class="stage-desc">Kávový meeting. Sponzor + 5 lidí napříč workflow. Problém v jedné větě, success threshold ve dvou.</div>
+        </div>
+        <div>
+          <div class="day">Den 5 · 3 h</div>
+          <div class="stage-name">Session 1 · vibe</div>
+          <div class="stage-desc">In-room vibe-coding. 3 paralelní weby v Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</div>
+        </div>
+        <div>
+          <div class="day">Den 6–9 · async</div>
+          <div class="stage-name">Mezi-session</div>
+          <div class="stage-desc">Stakeholdeři klikají, builder lead aplikuje feedback. Cross-fn alignment roste, ne degraduje.</div>
+        </div>
+        <div>
+          <div class="day">Den 10 · 3 h</div>
+          <div class="stage-name">Session 2 · rozhodnutí</div>
+          <div class="stage-desc">AI moderuje feedback per role. Decider hlasuje poslední (anti-HiPPO). Scope locked.</div>
+        </div>
+        <div>
+          <div class="day">Den 11–14 · 1–2 d</div>
+          <div class="stage-name">Ship to prod</div>
+          <div class="stage-desc">Quality gates score ≥ 80/100. Per-role handoff s odkazy na soubory. PR-ready commit. Deploy.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 02 USPs ─────── -->
+<section id="proc-pflanzer">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">02</div>
+      <h2 class="h-section">
+        Tři věci, které <em>jiné metody neumí.</em>
+      </h2>
+      <div class="label-meta label">USP · diferenciace</div>
+    </div>
+
+    <div class="usp-list">
+
+      <div class="usp-row">
+        <div class="num"><span>01 →</span></div>
+        <h3 class="h-sub">Funkční kód místo Figmy.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Stakeholdeři klikají reálné weby. Ne mockupy.</em></h3>
+        <div class="desc">
+          <p>
+            Design Sprint končí Figmou. Pflanzer končí <strong>třemi nasazenými prototypy</strong>
+            v sandboxu, ke kterým má každý stakeholder produkční URL.
+          </p>
+          <p>
+            Komentáře jsou ke konkrétnímu chování (klik, latence, edge case), ne k vizuálu.
+            Feedback je o 10× konkrétnější, protože je o reálné věci.
+          </p>
+          <div class="tag-list">
+            <span>Bolt</span><span>v0</span><span>Lovable</span><span>Claude Code</span><span>Cursor</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>02 →</span></div>
+        <h3 class="h-sub">Anti-HiPPO Decider.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Sponzor hlasuje poslední.</em></h3>
+        <div class="desc">
+          <p>
+            Klasický workshop selhává v okamžiku, kdy si VP otevře pusu jako první.
+            Pflanzer ho nutí <strong>hlasovat poslední</strong> — silent vote týmu nejdřív,
+            sponzor vidí výsledek a teprve pak rozhoduje.
+          </p>
+          <p>
+            Tým má reálný vliv. VP má tie-breaker. Žádný rubber-stamp.
+            Žádný „shrnu, co jsem chtěl od začátku".
+          </p>
+          <div class="tag-list">
+            <span>Silent voting</span><span>Decider mandate</span><span>Hierarchie závaznosti</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>03 →</span></div>
+        <h3 class="h-sub">Šest lidí napříč workflow.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Nikdo se nepředává.</em></h3>
+        <div class="desc">
+          <p>
+            Klasika: zadavatel → produkt → vývoj → security → deploy. <strong>Pět hand-offů, pět ztracených kontextů.</strong>
+          </p>
+          <p>
+            Pflanzer dává všech 6 rolí <strong>do stejné místnosti od minuty 0</strong>.
+            Vývojář vidí, proč zadavatel chce X. Security vidí, kde je risk surface,
+            když to ještě jde levně změnit.
+          </p>
+          <div class="tag-list">
+            <span>Zadavatel</span><span>PM</span><span>FE / BE</span><span>UX</span><span>EM</span><span>+ Sec/Legal jen v regulated</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 03 FIELD NOTES — e-shop ─────── -->
+<section id="field">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">03</div>
+      <h2 class="h-section">
+        Z terénu. <em>e-shop · 2026.</em>
+      </h2>
+      <div class="label-meta label">Případ · default profil</div>
+    </div>
+
+    <div class="field-notes">
+      <div class="stamp">
+        <span class="label">Field Notes &nbsp;·&nbsp; Pilot P-001</span>
+        <span class="label dim">e-commerce · ~7M MAU · CZ/SK/PL</span>
+      </div>
+
+      <div class="quote-body">
+        <p class="pullquote">
+          „Dali jsme dohromady 6 lidí. Tři hodiny <em>vajbili</em>.
+          Měli jsme tři funkční weby. Při dalším setkání jsme dva doladili.
+          Na konci jde většina kódu rovnou do produkce."
+        </p>
+        <p>
+          E-commerce platforma. Klasický rigidní workflow: zadavatel → produkt → UX →
+          vývoj, jeden cyklus měsíce. Cíl pilotu: nasadit vibe-coding tak,
+          aby cesta od první alignment session k produktivnímu kódu trvala
+          <strong style="color:var(--punch);">týdny, ne měsíce</strong>.
+        </p>
+        <p>
+          Zatímco klasický Design Sprint dělá v ten samý čas Figmu, kterou pak někdo
+          re-implementuje za další 2 měsíce, Pflanzer cyklus skončí s kódem,
+          který lead developer mergne za 1–2 dny.
+        </p>
+      </div>
+
+      <div class="receipts">
+        <div class="label">Receipty</div>
+        <div class="receipt">
+          <div class="receipt-line"><span>Účastníci</span><span class="v">6</span></div>
+          <div class="receipt-line"><span>Setkání</span><span class="v">2 × 3h</span></div>
+          <div class="receipt-line"><span>Mezi-session</span><span class="v">5 dní async</span></div>
+          <div class="receipt-line"><span>Varianty</span><span class="v">3 prototyp</span></div>
+          <div class="receipt-line"><span>Cyklus total</span><span class="v">~14 dní</span></div>
+        </div>
+        <div class="receipt">
+          <div class="receipt-line"><span>Profil</span><span class="v">default</span></div>
+          <div class="receipt-line"><span>Method Steward</span><span class="v">—</span></div>
+          <div class="receipt-line"><span>Compliance score</span><span class="v">—</span></div>
+          <div class="receipt-line"><span>AI Act tier</span><span class="v">limited</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 04 CTA ─────── -->
+<section id="zacni">
+  <div class="wrap cta-wrap">
+    <div class="section-head" style="border-bottom-color: transparent; padding-bottom: 0; margin-bottom: 1.5rem;">
+      <div class="num-tag">04</div>
+      <h2 class="h-section">
+        Začni <em>sázet.</em>
+      </h2>
+      <div class="label-meta label">Jak dál</div>
+    </div>
+
+    <p style="font-size:15px; line-height:1.7; max-width: 56ch;">
+      Pflanzerova metoda existuje ve dvou profilech. <strong>Default</strong>
+      (e-shop-style, ~80 % korporátních case-ů) ti stačí jeden 1-pager.
+      <strong>Audit-grade</strong> (banky, AI Act High-risk, DORA) přidává
+      Method Steward, pre-registration a compliance score — ale jen pokud
+      to skutečně potřebuješ.
+    </p>
+
+    <div class="row">
+      <a href="https://github.com/" class="btn">
+        <span>1-pager · Lean Pflanzer</span>
+        <span class="arrow">→</span>
+      </a>
+      <a href="https://github.com/" class="btn ghost">
+        <span>Tool na GitHubu</span>
+        <span class="arrow">↗</span>
+      </a>
+      <a href="mailto:tom@gizmax.cz" class="btn ghost">
+        <span>Mluvit s autorem</span>
+        <span class="arrow">↗</span>
+      </a>
+    </div>
+
+    <div class="why-now">
+      <div class="label">Proč teď</div>
+      <div class="body">
+        <p>
+          AI vibe-coding tooly v roce 2026 dosáhly bodu, kdy <strong>verbální input
+          týmu generuje funkční artefakt v reálném čase</strong>. To je pákový moment,
+          který se v korporátu zatím využívá nesystematicky — jeden tým si v Cursor
+          udělá prototyp, ostatní o tom neví, nebo to musí re-implementovat.
+        </p>
+        <p style="margin-top:0.6rem;">
+          Pflanzer dává tomu pákovému momentu <strong>operační rámec</strong>:
+          jak ho použít cross-funkčně, jak handoffovat, jak rozhodnout, kdy přestat.
+          Bez toho rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── FOOTER ─────── -->
+<footer>
+  <div class="wrap">
+    <div class="footer-mark">
+      Pflanzer<br/><em>Method.</em>
+    </div>
+    <div class="footer-meta">
+      <span class="label">Zdroj</span>
+      <p><a class="link-underline" href="https://github.com/" target="_blank" rel="noreferrer">github.com</a></p>
+      <p style="margin-top:0.4rem;"><a class="link-underline" href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></p>
+    </div>
+    <div class="footer-meta">
+      <span class="label">Verze</span>
+      <p>v0.3 · 2026</p>
+      <p style="margin-top:0.4rem;">MIT License<br/>Czech &amp; English</p>
+    </div>
+    <div class="footer-foot">
+      <span>© 2026 Tom Pflanzer · GiZMaX</span>
+      <span>Pestujeme AI v korporátu od roku 2026.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer Method</span>
+  <span class="hide-sm">Manual · ne manifesto</span>
+  <span><a href="#" style="color:inherit;">↑ nahoru</a></span>
+</div>
+
+</body>
+</html>
