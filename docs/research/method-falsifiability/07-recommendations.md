@@ -22,12 +22,12 @@
 
 | # | Action | Where | Effort | New ADR |
 |---|--------|-------|--------|---------|
-| P1-1 | **Composite PflanzerIndex** — formule kombinující time ratio, acceptance, re-work, NPS s váhami. | `method-charter.md` § Success threshold | 4 h | ADR-0014 |
+| P1-1 | ✅ **DONE (2026-05-17)** — Composite PflanzerIndex formula + edge cases v **ADR-0014** + reference v `method-charter.md` § Success threshold. | ADR-0014, method-charter | done | ADR-0014 |
 | P1-2 | **Blind external EM acceptance panel** — 3 EMs z jiných BU, average Likert + numerical, ~12 h/pilot. | new file `docs/methodology/acceptance-review-protocol.md` | 8 h | ADR-0014 (joint) |
 | P1-3 | **Baseline collection playbook** — full population mining (Jira/Azure), survival analysis (censored), propensity matching design. | new file `docs/methodology/baseline-collection-playbook.md` | 16 h (~2 days) | — |
 | P1-4 | **Per-pilot instrumentation spec** — 7-row artefakt tabulka, form templates (T+30 acceptance survey, T+90 NPS form). | new file `docs/methodology/per-pilot-instrumentation.md` | 8 h | — |
 | P1-5 | **Project Class Taxonomy A/B/C/D** s explicit definicemi, baseline collected per class. | new section v `01-filozofie-a-kdy-pouzit.md` nebo new file | 4 h | — |
-| P1-6 | **Leading indicators dashboard** — 5 metrik v horizontu T+30 (gate rejection rate, S1→S2 churn, Champion overload, Decider tie-breaker freq, throwaway→evolve slip) s threshold a action. | new file `docs/methodology/leading-indicators.md` | 4 h | — |
+| P1-6 | ✅ **DONE (2026-05-17)** — Leading indicators dashboard (LI-1 až LI-5) + threshold + veto trigger workflow v `docs/methodology/leading-indicators.md`. Reference z method-charter.md § Validační loop. | `docs/methodology/leading-indicators.md` | done | — |
 | P1-7 | **Method Dashboard template** — Confluence / Notion table spec (10 polí), query examples. | new file `docs/methodology/method-dashboard-template.md` | 3 h | — |
 | P1-8 | **Re-work shadow ledger** — Jira labels schema, audited quarterly. | included v P1-4 (instrumentation spec) | — | — |
 
