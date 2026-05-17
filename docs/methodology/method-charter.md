@@ -64,11 +64,12 @@ Tabulka s **instrumentation** sloupci (per Method Steward perspective bod #1).
 | Leading — Handoff acceptance (**blind external**) | ≥ 60 % per 3-EM panel | Stripped metadata artefakty + Likert 0-100 estimate per 3 EMs z jiných BU | Blind panel form, Steward aggregates | T+30 per pilot | Method Steward (orchestrace) |
 | Guardrail — Re-work % T+90 | ≤ baseline current state | Code churn ratio T+0..T+90 (LOC changed in feature files / LOC initially committed) via `git log --numstat` | Git API + Jira labels (`rework`, `defect_fix`) | T+90 per pilot | Method Steward (automated query) |
 | Stakeholder NPS | ≥ +20 (aggregated, N≥30, response rate ≥ 50 %) | Post-pilot survey T+30, 11-point scale + open-ended | Survey tool (typeform / similar) | T+30 per pilot, aggregated quarterly | Method Steward |
-| **Composite PflanzerIndex** (P1, ADR-0014 TBD) | > 1.0 (vs propensity-matched baseline) | Weighted: 0.4 × time_ratio + 0.3 × acceptance + 0.2 × (1-rework) + 0.1 × NPS_normalized | Computed by Method Steward dashboard | Per pilot completion | Method Steward |
+| **Composite PflanzerIndex** (per ADR-0014) | > 1.0 (vs propensity-matched baseline) | `0.40 × TimeRatio_norm + 0.30 × Acceptance_blind_norm + 0.20 × (1 − ReworkRate_norm) + 0.10 × NPS_norm` (clamps + missing data handling v ADR-0014) | Computed by Method Steward dashboard | Per pilot completion (interim T+30, final T+90) | Method Steward |
 
-**Note on PflanzerIndex:** P1 follow-up (ADR-0014). Současný Charter v0.3 udává
-4 base metriky; composite formula bude finalized v ADR-0014 s váhami + edge
-cases (missing data, censored observations).
+**Note on PflanzerIndex:** Formula a edge cases finalized v **ADR-0014**.
+Pre-registration template (`tool/templates/pre-registration.yaml.template`)
+zachycuje váhy per pilot — změna váh = signed amendment, aplikuje se pouze
+na future piloty.
 
 ## Kill criteria (Practitioner track)
 
@@ -234,6 +235,10 @@ data jsou unreliable).
   - **Navrhnout** method-level Kill / Sunset (per Charter section *„Kill criteria"*).
   - **Svolat emergency review** (early-kill veto, per ADR-0011) pokud 2+ leading
     indicators porušují threshold > 60 dní nebo stopping-for-harm rule triggers.
+  - **Operacionální definice leading indicators** v `docs/methodology/leading-indicators.md`
+    (LI-1 pre-flight rejection rate, LI-2 S1→S2 churn, LI-3 Champion overload,
+    LI-4 Decider override rate, LI-5 throwaway→evolve slip) — dashboard +
+    threshold + veto trigger workflow.
 - **Method Decider** rozhoduje Keep / Iterate / Sunset.
 - **Default Sunset po T+18 mo** bez explicit Keep memo.
 - Sunset = projekty v progress doběhnou, nové se nestartují, role catalog freeze.
