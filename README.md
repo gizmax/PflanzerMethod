@@ -4,6 +4,14 @@
 > tím, že se všechny zainteresované role sejdou v jedné místnosti s AI co-pilotem
 > a společně provibekódují 1–3 funkční prototypy.
 
+## Začni tady (default profil — ~80 % use casů)
+
+- **`docs/methodology/00-lean-pflanzer.md`** — 1-pager pro default profil (~6 lidí, 2 sezení, ~14 dní, ~10 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
+- **`docs/case-studies/eshop-2026.md`** — reálný průběh e-shop pilotu (3h vibe, 3 weby, ship to prod).
+- Quick start níže (`/pflanzer ...` commands).
+
+**Audit-grade overhead** (Method Steward, pre-registration, compliance score, AI Act Fáze A/B/C, DORA prompt audit pipeline) → relevantní jen pro regulated industries (banky, pojišťovny EU, AI Act High-risk). Viz `method-charter.md` + ADR-0011/0012/0013/0014. e-shop-style projekt tohle **nepotřebuje**.
+
 ## Co řeší
 
 V korporátu typicky cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
