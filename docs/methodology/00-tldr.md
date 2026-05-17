@@ -1,6 +1,10 @@
 # Pflanzerova metoda — TL;DR pro management
 
 > 1-pager pro VP+. Kdo nemá 3 minuty, nepotřebuje rozhodovat.
+>
+> **Hledáš jak metodu používat, ne prodávat?** → `00-lean-pflanzer.md`
+> (default profil, ~6 lidí, 2 sezení, prod kód). Tento dokument je pro
+> management decision, ne pro praktika.
 
 ## Co Pflanzer řeší
 
