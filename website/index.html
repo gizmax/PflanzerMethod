@@ -609,6 +609,72 @@
     .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
   }
 
+  /* ─────── Persona cards ─────── */
+  .persona-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .persona-card {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    padding: 1.5rem 1.6rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.18s ease;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .persona-card:hover {
+    background: var(--paper);
+    transform: translateY(-2px);
+  }
+  .persona-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--moss);
+    margin-bottom: 0.9rem;
+    font-weight: 600;
+  }
+  .persona-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.2rem;
+    line-height: 1.15;
+    letter-spacing: -0.014em;
+    margin-bottom: 0.9rem;
+  }
+  .persona-body {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 1rem;
+    flex: 1;
+    max-width: none;
+  }
+  .persona-body strong { font-weight: 600; }
+  .persona-cta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--moss);
+    font-weight: 600;
+    border-top: 1px solid var(--line);
+    padding-top: 0.7rem;
+    transition: color 0.18s ease;
+  }
+  .persona-card:hover .persona-cta {
+    color: var(--ink);
+  }
+
+  @media (max-width: 840px) {
+    .persona-grid { grid-template-columns: 1fr; }
+  }
+
   /* ─────── i18n ─────── */
   html:not([lang="en"]) .lang-en { display: none !important; }
   html[lang="en"] .lang-cs { display: none !important; }
@@ -709,12 +775,12 @@
         </svg>
       </div>
       <p class="h-sub rise-3 lang-cs">
-        Sázíme AI do korporátních procesů, kde sériový handoff zabíjí měsíce.
-        6 lidí, 2 sezení, většina kódu jde rovnou do produkce.
+        Sázíme AI do korporátu. 6 lidí, 2 sezení, kód v produkci za 14 dní —
+        místo 9 měsíců sériového handoffu.
       </p>
       <p class="h-sub rise-3 lang-en">
-        We plant AI into corporate processes where serial handoff kills months.
-        6 people, 2 sessions, most code ships straight to production.
+        We plant AI inside the enterprise. 6 people, 2 sessions, code in
+        production in 14 days — instead of 9 months of serial handoff.
       </p>
       <div class="cta-stack rise-4">
         <a href="#zacni" class="btn">
@@ -722,8 +788,9 @@
           <span class="lang-en">Start with the 1-pager</span>
           <span class="arrow">→</span>
         </a>
-        <a href="https://github.com/" class="btn ghost" target="_blank" rel="noreferrer">
-          <span>GitHub</span>
+        <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20early%20access" class="btn ghost">
+          <span class="lang-cs">Early access</span>
+          <span class="lang-en">Early access</span>
           <span class="arrow">↗</span>
         </a>
       </div>
@@ -742,10 +809,10 @@
     <div class="section-head">
       <div class="num-tag">00</div>
       <h2 class="h-section lang-cs">
-        Korporátní handoff hell. <em>Tohle vznikla, aby ho prolomila.</em>
+        Korporátní handoff hell. <em>Metoda, která ho prolomí.</em>
       </h2>
       <h2 class="h-section lang-en">
-        Corporate handoff hell. <em>This was made to break it.</em>
+        Corporate handoff hell. <em>Here's how to break out.</em>
       </h2>
       <div class="label-meta label"><span class="lang-cs">Manifest</span><span class="lang-en">Manifesto</span></div>
     </div>
@@ -754,10 +821,10 @@
       <div class="body">
         <div class="lang-cs">
           <p>
-            V korporátu cesta od nápadu k funkční fíčuře typicky trvá 6 až 9 měsíců.
-            Zadavatel pinká s produktem, produkt s vývojem, vývoj se security, security s legal,
-            legal s deploy týmem. Mezitím nápad zestárne, kontext se ztratí v emailech
-            a rozhodnutí se dělají na PowerPointu, ne na funkčním artefaktu.
+            V korporátu trvá cesta od nápadu k funkční fíčuře 6 až 9 měsíců.
+            Nápad pinká mezi produktem, vývojem, security a legal. Kontext umírá
+            v email threadech. Rozhodnutí se dělají na PowerPointu — ne na
+            funkčním artefaktu.
           </p>
           <p>
             <strong>AI to mění.</strong> Vibe-coding tooly dnes umí v reálném čase
@@ -791,11 +858,10 @@
         </div>
         <div class="lang-en">
           <p>
-            In a corporate, the path from an idea to a working feature typically takes
-            6 to 9 months. The sponsor pings product, product pings engineering,
-            engineering pings security, security pings legal, legal pings the deploy team.
-            Meanwhile the idea ages, context gets lost in emails, and decisions
-            are made on PowerPoint, not on a working artifact.
+            Inside a corporate, an idea takes 6 to 9 months to become a working
+            feature. It bounces between product, engineering, security, and legal.
+            Context dies in email threads. Decisions get made on PowerPoint slides —
+            not on working artifacts.
           </p>
           <p>
             <strong>AI is changing that.</strong> Vibe-coding tools today can pull
@@ -823,10 +889,10 @@
           </div>
 
           <p>
-            Pflanzer = German for „planter, one who sows". The method doesn't force AI
-            into companies as a transformation. <strong>It plants.</strong> Pilot by
-            pilot, team by team. What takes root, grows. What doesn't, everyone sees
-            right away — not in a year.
+            Pflanzer is German for „planter". The method doesn't force AI into
+            companies as a transformation. <strong>It plants it.</strong> Pilot by
+            pilot, team by team. What takes root, grows. What doesn't — you see it
+            that week, not next year.
           </p>
         </div>
       </div>
@@ -842,13 +908,78 @@
         </div>
         <div class="stat">
           <div class="stat-num">~10×</div>
-          <div class="label"><span class="lang-cs">zrychlení v cyklu od nápadu k prod kódu</span><span class="lang-en">speedup from idea to prod code</span></div>
+          <div class="label"><span class="lang-cs">zrychlení cyklu od nápadu k prod kódu<sup style="font-size: 8px; opacity: 0.6;"> ¹</sup></span><span class="lang-en">speedup from idea to prod code<sup style="font-size: 8px; opacity: 0.6;"> ¹</sup></span></div>
         </div>
         <div class="stat">
           <div class="stat-num">6</div>
           <div class="label"><span class="lang-cs">lidí v místnosti — celé workflow</span><span class="lang-en">people in the room — entire workflow</span></div>
         </div>
+        <p style="margin-top: 1.4rem; font-size: 10.5px; line-height: 1.5; color: var(--gray); max-width: none;">
+          <sup>¹</sup> <span class="lang-cs">Baseline e-shop pilot, default profil. Tvůj cyklus bude jiný — zavolej.</span><span class="lang-en">Baseline from e-shop pilot, default profile. Your cycle will differ — let's talk.</span>
+        </p>
       </aside>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── PERSONA ROUTING ─────── -->
+<section id="komu" style="padding-block: clamp(3rem, 6vw, 5rem);">
+  <div class="wrap">
+    <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
+      <span class="label"><span class="lang-cs">Komu Pflanzer pomáhá</span><span class="lang-en">Who Pflanzer is for</span></span>
+      <span style="font-size: 12px; color: var(--gray);"><span class="lang-cs">→ vyber, co tě pálí nejvíc</span><span class="lang-en">→ pick the pain that's loudest</span></span>
+    </div>
+    <div class="persona-grid">
+      <a href="#proc-pflanzer" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">01 · Regulovaná firma</span><span class="lang-en">01 · Regulated company</span></div>
+        <div class="persona-title lang-cs">AI CoE Lead v bance / pojišťovně / telco.</div>
+        <div class="persona-title lang-en">AI CoE Lead in banking / insurance / telco.</div>
+        <p class="persona-body lang-cs">
+          CEO chce AI v Q1 2027. Compliance nechce ani pilot bez audit trailu.
+          Pflanzer ti dodá <strong>14denní pilot s podpisem od security a legal</strong> —
+          stejný den, ne v sprintu 4.
+        </p>
+        <p class="persona-body lang-en">
+          The CEO wants AI by Q1 2027. Compliance won't sign off on a pilot
+          without an audit trail. Pflanzer gives you a <strong>14-day pilot with
+          security and legal already signed</strong> — the same day, not at sprint 4.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Viz 5 pilířů ↓</span><span class="lang-en">See the 5 pillars ↓</span></span>
+      </a>
+      <a href="#field" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">02 · Digital-native firma</span><span class="lang-en">02 · Digital-native company</span></div>
+        <div class="persona-title lang-cs">VP Engineering v eshopu / SaaS / scale-up.</div>
+        <div class="persona-title lang-en">VP Engineering at an e-commerce / SaaS / scale-up.</div>
+        <p class="persona-body lang-cs">
+          Board chce vidět AI fíčury v prod, ne v Cursoru. Pflanzer doručí
+          <strong>6 lidí, 2 sezení, kód do produkce za 14 dní</strong> — stejně, jak to
+          udělalo e-shop v Q1 2026.
+        </p>
+        <p class="persona-body lang-en">
+          The board wants to see AI features in prod, not in Cursor. Pflanzer
+          delivers <strong>6 people, 2 sessions, code in production in 14 days</strong> —
+          the way e-shop did it in Q1 2026.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Viz e-shop case ↓</span><span class="lang-en">See the e-shop case ↓</span></span>
+      </a>
+      <a href="#zacni" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">03 · Facilitátor / konzultant</span><span class="lang-en">03 · Facilitator / consultant</span></div>
+        <div class="persona-title lang-cs">Hledáš sellable IP pro klienta.</div>
+        <div class="persona-title lang-en">Looking for sellable IP for a client.</div>
+        <p class="persona-body lang-cs">
+          Pflanzer je <strong>open-source rámec, který můžeš ohnout pod své jméno</strong>:
+          MIT license, playbook, šablony, role catalog. Začneš jako free DIY,
+          škáluješ na facilitated nebo audit-grade.
+        </p>
+        <p class="persona-body lang-en">
+          Pflanzer is an <strong>open-source frame you can bend under your own
+          brand</strong>: MIT license, playbook, templates, role catalog. Start as
+          free DIY, scale to facilitated or audit-grade.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Jak začít ↓</span><span class="lang-en">How to start ↓</span></span>
+      </a>
     </div>
   </div>
 </section>
@@ -1108,17 +1239,17 @@
       <div class="label-meta label"><span class="lang-cs">USP · diferenciace</span><span class="lang-en">USP · differentiation</span></div>
     </div>
 
-    <p class="lang-cs" style="font-size: 13px; color: var(--gray); margin-bottom: 2.5rem; max-width: 70ch;">
-      Competitive research May 2026 (3 nezávislí experti) potvrdil: vibe-coding samotný už není
-      Pflanzer differentiator (Lovable + Bolt + Cursor = 2026 mainstream). Reálná protected pozice
-      je <strong style="color: var(--ink);">5 pilířů, které dohromady nikdo jiný v 2026 nedělá</strong>
-      — ani AWS AI-DLC, ani McKinsey QuantumBlack, ani AJ&amp;Smart Sprint 2.0.
+    <p class="lang-cs" style="font-size: 14px; line-height: 1.65; margin-bottom: 2.5rem; max-width: 64ch;">
+      Vibe-coding samotný už není diferenciátor — v 2026 to umí každý.
+      Diferenciátor je, <strong>jak ho dostat do firmy tak, aby ho podepsala
+      security, legal i procurement</strong>. Tady je pět věcí, které dohromady
+      nikdo jiný nedělá.
     </p>
-    <p class="lang-en" style="font-size: 13px; color: var(--gray); margin-bottom: 2.5rem; max-width: 70ch;">
-      Competitive research May 2026 (3 independent experts) confirmed: vibe-coding alone is no longer
-      Pflanzer's differentiator (Lovable + Bolt + Cursor = 2026 mainstream). The real protected position
-      is <strong style="color: var(--ink);">5 pillars that, together, no one else does in 2026</strong>
-      — not AWS AI-DLC, not McKinsey QuantumBlack, not AJ&amp;Smart Sprint 2.0.
+    <p class="lang-en" style="font-size: 14px; line-height: 1.65; margin-bottom: 2.5rem; max-width: 64ch;">
+      Vibe-coding itself is no longer the moat — in 2026 everyone can do it.
+      The moat is <strong>shipping it inside the enterprise so that security,
+      legal, and procurement all sign off</strong>. Here are five things no one
+      else does together.
     </p>
 
     <div class="usp-list">
@@ -1130,28 +1261,29 @@
         <div class="desc">
           <div class="lang-cs">
             <p>
-              AWS AI-DLC „mob" = jen engineering. Design Sprint = jen produktový tým.
-              Pflanzer audit-grade profil dává <strong>Security, Legal/DPO, A11y, UX writer
-              a CS proxy do primary session</strong>.
+              V AWS „mob mode" sedí jen vývojáři. V Design Sprintu jen produktový
+              tým. U Pflanzera sedí Security, Legal, DPO a UX writer
+              <strong>od minuty 0 ve stejné místnosti</strong>, na stejném artefaktu.
             </p>
             <p>
-              Late-stage veto eliminované. Security flag risk surface na minutě 240,
-              ne v sprintu 4.
+              <strong>Co tím získáš:</strong> na security audit narazíš v hodině 4,
+              ne v sprintu 4. Žádné „v poslední fázi nám compliance řekne, že to neprojde".
             </p>
           </div>
           <div class="lang-en">
             <p>
-              AWS AI-DLC „mob" = engineering only. Design Sprint = product team only.
-              Pflanzer's audit-grade profile puts <strong>Security, Legal/DPO, A11y, UX writer
-              and CS proxy into the primary session</strong>.
+              In AWS „mob mode" only engineers sit at the table. In Design Sprint,
+              only the product team. In Pflanzer, Security, Legal, DPO and the
+              UX writer are there <strong>from minute zero, in the same room</strong>,
+              on the same artifact.
             </p>
             <p>
-              Late-stage veto eliminated. Security flags the risk surface at minute 240,
-              not in sprint 4.
+              <strong>What you get:</strong> you hit the security audit at hour 4,
+              not at sprint 4. No more „in the last phase compliance told us it won't pass".
             </p>
           </div>
           <div class="tag-list">
-            <span><span class="lang-cs">Organizační moat</span><span class="lang-en">Organizational moat</span></span><span>Security in room</span><span>Legal/DPO in room</span>
+            <span><span class="lang-cs">Žádné late-stage veto</span><span class="lang-en">No late-stage veto</span></span><span><span class="lang-cs">Security od minuty 0</span><span class="lang-en">Security from minute 0</span></span>
           </div>
         </div>
       </div>
@@ -1163,151 +1295,169 @@
         <div class="desc">
           <div class="lang-cs">
             <p>
-              McKinsey i BCG dělají AI Act compliance jako <strong>custom deliverable</strong>
-              v $1M+ engagementu. Pflanzer ho má <strong>native v Charter template</strong>:
-              decision log s human attribution, dvoufázový AI Act protokol (Fáze A/B/C),
-              DORA-grade 7-letá retence audit logů.
+              McKinsey ti AI Act compliance dodá jako <strong>custom deliverable
+              v engagementu za $1M+</strong>. Pflanzer ji má zadarmo přibalený:
+              každé rozhodnutí má jmennou atribuci k člověku, audit log běží 7 let
+              (DORA-grade), AI Act klasifikuje riziko ještě před první session.
             </p>
             <p>
-              Externí validace: Martinelli paper 2026 kritizuje Spec Kit/BMAD/Kiro
-              za chybějící stakeholder alignment + audit trail. Jeho critique pointy
-              jsou doslova Pflanzer USPs.
+              <strong>Co tím získáš:</strong> až si tě regulátor zavolá za 14 měsíců
+              na audit, máš co ukázat — jméno, datum, rationale. Nemusíš to
+              rekonstruovat z emailů.
             </p>
           </div>
           <div class="lang-en">
             <p>
-              McKinsey and BCG do AI Act compliance as a <strong>custom deliverable</strong>
-              in $1M+ engagements. Pflanzer has it <strong>native in the Charter template</strong>:
-              decision log with human attribution, two-phase AI Act protocol (Phase A/B/C),
-              DORA-grade 7-year retention of audit logs.
+              McKinsey will deliver your AI Act compliance as a <strong>custom
+              deliverable inside a $1M+ engagement</strong>. Pflanzer ships it bundled
+              in: every decision has a named human attribution, the audit log runs
+              7 years (DORA-grade), AI Act classifies risk before session one.
             </p>
             <p>
-              External validation: Martinelli's 2026 paper criticizes Spec Kit/BMAD/Kiro
-              for missing stakeholder alignment + audit trail. His critique points are
-              literally Pflanzer's USPs.
+              <strong>What you get:</strong> when the regulator calls you in for an
+              audit 14 months from now, you have something to show — name, date,
+              rationale. No reconstructing it from emails.
             </p>
           </div>
           <div class="tag-list">
-            <span><span class="lang-cs">Regulatorní moat</span><span class="lang-en">Regulatory moat</span></span><span><span class="lang-cs">AI Act čl. 14</span><span class="lang-en">AI Act art. 14</span></span><span>DORA 7y</span><span>Procurement-ready</span>
+            <span><span class="lang-cs">Compliance ready</span><span class="lang-en">Compliance-ready</span></span><span><span class="lang-cs">AI Act čl. 14</span><span class="lang-en">AI Act art. 14</span></span><span>DORA 7y</span>
           </div>
         </div>
       </div>
 
       <div class="usp-row">
         <div class="num"><span>03 →</span></div>
-        <h3 class="h-sub lang-cs">Score závaznosti per role.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">„Líbí se mi" vs „commitnu" — Pflanzer to měří.</em></h3>
-        <h3 class="h-sub lang-en">Per-role commitment score.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">„Like it" vs „commit" — Pflanzer measures the gap.</em></h3>
+        <h3 class="h-sub lang-cs">Mezi „líbí se mi" a „commitnu".<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Stupnice se zdůvodněním. Veto má jen 4 role.</em></h3>
+        <h3 class="h-sub lang-en">Between „I like it" and „I commit".<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">A scored scale with a reason. Veto belongs to 4 roles.</em></h3>
         <div class="desc">
           <div class="lang-cs">
             <p>
-              LDJ dot voting řeší „líbí se mi". DS Decider řeší binární „go/no-go".
-              Pflanzer řeší <strong>hranici mezi nimi</strong> — 1-5 Likert s rationale field,
-              hierarchie závaznosti Critical / Yellow / Score, AI-only feedback deflated 0.5/1.0.
+              Většina workshop metod měří „líbí se mi" — palečky, samolepky, dot
+              voting. Design Sprint Decider udělá binární go/no-go. A pak týden
+              po sprintu ti člověk z compliance řekne, že se mu to vlastně nelíbí.
             </p>
             <p>
-              Workshop methodology expert confirmation: <strong>žádný direct competitor v 2026</strong>.
-              12-měsíční náskok.
+              Pflanzer má <strong>1–5 stupnici s povinným důvodem</strong>
+              (proč jsi dal 3, ne 5?) plus binární <strong>veto-právo
+              pro 4 role: Security, Legal, A11y, Decider</strong>. Sponzor hlasuje
+              poslední — vidí výsledek silent vote týmu, pak rozhoduje.
             </p>
           </div>
           <div class="lang-en">
             <p>
-              LDJ dot voting handles „I like it". Design Sprint's Decider handles binary „go/no-go".
-              Pflanzer handles <strong>the line between</strong> — 1-5 Likert with a rationale field,
-              severity hierarchy Critical / Yellow / Score, AI-only feedback deflated to 0.5/1.0.
+              Most workshop methods only measure „I like it" — thumbs, stickies,
+              dot voting. Design Sprint's Decider makes a binary go/no-go. Then a
+              week later compliance tells you they actually didn't like it.
             </p>
             <p>
-              Workshop methodology expert confirmation: <strong>no direct competitor in 2026</strong>.
-              12-month lead.
+              Pflanzer uses a <strong>1–5 scale with a mandatory reason</strong>
+              (why a 3, not a 5?) plus binary <strong>veto rights for 4 roles:
+              Security, Legal, A11y, Decider</strong>. The sponsor votes last —
+              sees the team's silent-vote result first, then decides.
             </p>
           </div>
           <div class="tag-list">
-            <span>Decision moat</span><span>Anti-HiPPO</span><span>AI deflation</span>
+            <span><span class="lang-cs">Anti-HiPPO</span><span class="lang-en">Anti-HiPPO</span></span><span><span class="lang-cs">Silent voting</span><span class="lang-en">Silent voting</span></span><span><span class="lang-cs">Důvod, ne emotikon</span><span class="lang-en">Reason, not emoji</span></span>
           </div>
         </div>
       </div>
 
       <div class="usp-row">
         <div class="num"><span>04 →</span></div>
-        <h3 class="h-sub lang-cs">Pre-flight triage 4 tracků.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">48–72h před session, async, MUST gate.</em></h3>
-        <h3 class="h-sub lang-en">Pre-flight triage on 4 tracks.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">48–72h before session, async, MUST gate.</em></h3>
+        <h3 class="h-sub lang-cs">48 hodin před Session 1.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Čtyři role si přečtou check-list. Bez podpisů nezačínáme.</em></h3>
+        <h3 class="h-sub lang-en">48 hours before Session 1.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Four roles read a checklist. No signatures — no session.</em></h3>
         <div class="desc">
           <div class="lang-cs">
             <p>
-              Discovery Readiness Gate + Security &amp; Data + Legal &amp; Privacy + Platform Triage.
-              <strong>Bez 4 podpisů Session 1 neodstartuje.</strong> Discovery Debt Detector,
-              Sandbox spec, AI Act tier Fáze A, Approved AI Tool list.
+              48 hodin před Session 1 dostane každá ze 4 rolí (Discovery, Security,
+              Legal, Platform) krátký async check-list. <strong>Bez 4 podpisů Session 1
+              neodstartuje.</strong>
             </p>
             <p>
-              Žádný direct competitor nemá 48-72h async pre-read jako MUST gate.
-              AI-DLC, Sprint 2.0, AJ&amp;Smart startují bez explicit pre-flight discipline.
+              <strong>Co tím získáš:</strong> žádné „my jsme to nevěděli" v hodině 3 —
+              protože tu informaci si přečetli den předtím v posteli. AWS AI-DLC,
+              AJ&amp;Smart Sprint 2.0 ani Thoughtworks tohle nemají.
             </p>
           </div>
           <div class="lang-en">
             <p>
-              Discovery Readiness Gate + Security &amp; Data + Legal &amp; Privacy + Platform Triage.
-              <strong>Without 4 signatures, Session 1 doesn't start.</strong> Discovery Debt Detector,
-              Sandbox spec, AI Act tier Phase A, Approved AI Tool list.
+              48 hours before Session 1, each of 4 roles (Discovery, Security,
+              Legal, Platform) gets a short async checklist. <strong>Without 4
+              signatures, Session 1 doesn't start.</strong>
             </p>
             <p>
-              No direct competitor has a 48-72h async pre-read as a MUST gate.
-              AI-DLC, Sprint 2.0, AJ&amp;Smart start without explicit pre-flight discipline.
+              <strong>What you get:</strong> no „we didn't know" at hour 3 —
+              because they read it the night before in bed. AWS AI-DLC, AJ&amp;Smart
+              Sprint 2.0 and Thoughtworks don't do this.
             </p>
           </div>
           <div class="tag-list">
-            <span>Governance moat</span><span>Discovery gate</span><span>Sandbox-first</span>
+            <span><span class="lang-cs">Async pre-read</span><span class="lang-en">Async pre-read</span></span><span><span class="lang-cs">4 podpisy</span><span class="lang-en">4 signatures</span></span><span><span class="lang-cs">Sandbox-first</span><span class="lang-en">Sandbox-first</span></span>
           </div>
         </div>
       </div>
 
       <div class="usp-row">
         <div class="num"><span>05 →</span></div>
-        <h3 class="h-sub lang-cs">14 dní + reinforcement.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">2 sezení s týdenním asyncem. Ne 90 dní, ne 5 dní non-stop.</em></h3>
-        <h3 class="h-sub lang-en">14 days + reinforcement.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">2 sessions with a week of async. Not 90 days, not 5 days non-stop.</em></h3>
+        <h3 class="h-sub lang-cs">2 × 3 hodiny. Mezi tím týden.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Žádných 5 dní v kuse. Žádných 90 dní.</em></h3>
+        <h3 class="h-sub lang-en">2 × 3 hours. A week in between.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">No 5-day block. No 90-day program.</em></h3>
         <div class="desc">
           <div class="lang-cs">
             <p>
-              AWS AI-DLC = continuous bolts (no async window). Thoughtworks „3-3-3" = 90 dní.
-              Design Sprint = 5 dní non-stop (corporate stakeholder unavailable).
-              Pflanzer = <strong>2 sezení s 5-7d asyncem + T+7/30/60/90 reinforcement</strong>.
+              AWS AI-DLC běží non-stop, bez async pauzy. Thoughtworks „3-3-3" trvá
+              90 dní. Design Sprint chce 5 dní v kuse — což stakeholder z compliance
+              v korporátu nikdy nedá. <strong>Pflanzer to rozsekne: 2 × 3 hodiny,
+              mezi tím týden.</strong>
             </p>
             <p>
-              Corporate stakeholder availability. Context retention pod 7 dní. Reinforcement
-              kalibrace per Method Charter v0.3 (ADR-0011 default Sunset T+18 mo).
+              <strong>Bonus:</strong> po Session 2 jsou checkpointy v T+7, T+30,
+              T+60 a T+90 dní. Pilot se nepředá do vakua. Když po 6 měsících
+              metoda nevykazuje hodnotu, sunset.
             </p>
           </div>
           <div class="lang-en">
             <p>
-              AWS AI-DLC = continuous bolts (no async window). Thoughtworks „3-3-3" = 90 days.
-              Design Sprint = 5 days non-stop (corporate stakeholder unavailable).
-              Pflanzer = <strong>2 sessions with 5-7d async + T+7/30/60/90 reinforcement</strong>.
+              AWS AI-DLC runs non-stop, no async pause. Thoughtworks „3-3-3"
+              takes 90 days. Design Sprint demands 5 days in a row — which the
+              compliance stakeholder will never give. <strong>Pflanzer splits it:
+              2 × 3 hours, a week in between.</strong>
             </p>
             <p>
-              Corporate stakeholder availability. Context retention under 7 days. Reinforcement
-              calibration per Method Charter v0.3 (ADR-0011 default Sunset at T+18 months).
+              <strong>Bonus:</strong> checkpoints at T+7, T+30, T+60, T+90 days
+              after Session 2. The pilot doesn't ship into a vacuum. If the method
+              shows no value after 6 months — sunset.
             </p>
           </div>
           <div class="tag-list">
-            <span>Operational moat</span><span><span class="lang-cs">14 dní default</span><span class="lang-en">14-day default</span></span><span>T+7/30/60/90</span>
+            <span><span class="lang-cs">14 dní default</span><span class="lang-en">14-day default</span></span><span>T+7/30/60/90</span><span><span class="lang-cs">Async-friendly</span><span class="lang-en">Async-friendly</span></span>
           </div>
         </div>
       </div>
 
     </div>
 
-    <div style="margin-top: 3rem; padding: 1.6rem 1.8rem; border: 1.5px solid var(--ink); background: var(--paper);">
-      <span class="label" style="display: block; margin-bottom: 0.6rem;"><span class="lang-cs">Co Pflanzer NENÍ</span><span class="lang-en">What Pflanzer is NOT</span></span>
+    <div style="margin-top: 3rem; padding: 1.8rem 2rem; border: 1.5px solid var(--ink); background: var(--paper);">
+      <span class="label" style="display: block; margin-bottom: 0.8rem;"><span class="lang-cs">Co Pflanzer NENÍ — a co je</span><span class="lang-en">What Pflanzer is NOT — and what it is</span></span>
+      <p class="lang-cs" style="font-size: 14px; line-height: 1.65; max-width: none; margin-bottom: 0.9rem;">
+        <strong>NENÍ to další workshop metoda.</strong> Hřbitov těch je plný —
+        Sprint 2.0, Innovation Days, Lean Startup workshopy, „AI Adoption Framework"
+        od poradenské firmy XY.
+      </p>
       <p class="lang-cs" style="font-size: 14px; line-height: 1.65; max-width: none;">
-        Pflanzer <strong>není „yet another workshop methodology"</strong> — to je hřbitov, ze kterého většina
-        metod nevyšla. Pflanzer je <strong>operating-cadence layer pro AI Center of Excellence</strong>:
-        opakovatelná, certifikovatelná, procurement-ready pilot fixture v mezeře mezi
-        $1M+ McKinsey transformations a $0 hackathon frameworks. Tu mezeru zatím nikdo nezaplnil.
+        Pflanzer <strong>JE operating layer pro tvoje AI Center of Excellence</strong> —
+        opakovatelný, certifikovatelný, procurement-ready. Cenově sedí mezi
+        McKinsey transformací za $1M+ a hackathonem za $0. Tu mezeru zatím
+        nikdo nezaplnil.
+      </p>
+      <p class="lang-en" style="font-size: 14px; line-height: 1.65; max-width: none; margin-bottom: 0.9rem;">
+        <strong>It's NOT another workshop method.</strong> The graveyard is full
+        of those — Sprint 2.0, Innovation Days, Lean Startup workshops,
+        „AI Adoption Frameworks" from consultancy XY.
       </p>
       <p class="lang-en" style="font-size: 14px; line-height: 1.65; max-width: none;">
-        Pflanzer is <strong>not „yet another workshop methodology"</strong> — that's the graveyard
-        most methods never returned from. Pflanzer is an <strong>operating-cadence layer for the
-        AI Center of Excellence</strong>: a repeatable, certifiable, procurement-ready pilot fixture
-        in the gap between $1M+ McKinsey transformations and $0 hackathon frameworks.
-        No one has filled that gap yet.
+        Pflanzer <strong>IS the operating layer for your AI Center of Excellence</strong> —
+        repeatable, certifiable, procurement-ready. Priced between McKinsey's
+        $1M+ transformation and the $0 hackathon. No one has filled that gap yet.
       </p>
     </div>
   </div>
@@ -1412,7 +1562,7 @@
 
     <p class="lang-cs" style="font-size:15px; line-height:1.7; max-width: 56ch;">
       Pflanzerova metoda existuje ve dvou profilech. <strong>Default</strong>
-      (e-shop-style, ~80 % korporátních case-ů) ti stačí jeden 1-pager.
+      (e-shop-style, ~80 % korporátních případů) ti stačí jeden 1-pager.
       <strong>Audit-grade</strong> (banky, AI Act High-risk, DORA) přidává
       Method Steward, pre-registration a compliance score — ale jen pokud
       to skutečně potřebuješ.
@@ -1426,19 +1576,19 @@
     </p>
 
     <div class="row">
-      <a href="https://github.com/" class="btn">
-        <span class="lang-cs">1-pager · Lean Pflanzer</span>
-        <span class="lang-en">1-pager · Lean Pflanzer</span>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%201-pager%20request" class="btn">
+        <span class="lang-cs">Stáhnout 1-pager (PDF)</span>
+        <span class="lang-en">Get the 1-pager (PDF)</span>
+        <span class="arrow">↓</span>
+      </a>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call" class="btn ghost">
+        <span class="lang-cs">30min call s autorem</span>
+        <span class="lang-en">30 min with the author</span>
         <span class="arrow">→</span>
       </a>
-      <a href="https://github.com/" class="btn ghost">
-        <span class="lang-cs">Tool na GitHubu</span>
-        <span class="lang-en">Tool on GitHub</span>
-        <span class="arrow">↗</span>
-      </a>
-      <a href="mailto:tom@gizmax.cz" class="btn ghost">
-        <span class="lang-cs">Mluvit s autorem</span>
-        <span class="lang-en">Talk to the author</span>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20early%20access" class="btn ghost">
+        <span class="lang-cs">Early access do repa</span>
+        <span class="lang-en">Repo early access</span>
         <span class="arrow">↗</span>
       </a>
     </div>
@@ -1448,28 +1598,26 @@
       <div class="body">
         <div class="lang-cs">
           <p>
-            AI vibe-coding tooly v roce 2026 dosáhly bodu, kdy <strong>verbální input
-            týmu generuje funkční artefakt v reálném čase</strong>. To je pákový moment,
-            který se v korporátu zatím využívá nesystematicky — jeden tým si v Cursor
-            udělá prototyp, ostatní o tom neví, nebo to musí re-implementovat.
+            V Q1 2027 ti CEO bude chtít vidět tři AI fíčury v produkci.
+            Ne tři piloty v Cursor, ne tři PowerPointy z Innovation Day —
+            <strong>tři věci, které používají reální zákazníci</strong>.
           </p>
           <p style="margin-top:0.6rem;">
-            Pflanzer dává tomu pákovému momentu <strong>operační rámec</strong>:
-            jak ho použít cross-funkčně, jak handoffovat, jak rozhodnout, kdy přestat.
-            Bez toho rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat.
+            Pflanzer je rámec, kterým je tam dostaneš za 6 týdnů místo 6 měsíců.
+            Bez rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat —
+            a CEO ti to v Q2 spočítá.
           </p>
         </div>
         <div class="lang-en">
           <p>
-            By 2026, AI vibe-coding tools have reached the point where <strong>a team's verbal
-            input generates a working artifact in real time</strong>. That's a leverage moment
-            corporates use unsystematically — one team builds a prototype in Cursor,
-            others don't know about it, or have to re-implement it.
+            By Q1 2027 your CEO will want three AI features in production.
+            Not three Cursor prototypes, not three Innovation Day decks —
+            <strong>three things real customers actually use</strong>.
           </p>
           <p style="margin-top:0.6rem;">
-            Pflanzer gives that leverage moment an <strong>operating frame</strong>:
-            how to use it cross-functionally, how to hand off, how to decide, when to stop.
-            Without that frame, AI in the corporate stays a solo activity of a few early birds.
+            Pflanzer is the frame that gets you there in 6 weeks instead of 6 months.
+            Without it, AI inside the enterprise stays a solo gig for a handful of
+            early birds — and your CEO will notice in Q2.
           </p>
         </div>
       </div>
@@ -1485,7 +1633,7 @@
     </div>
     <div class="footer-meta">
       <span class="label"><span class="lang-cs">Zdroj</span><span class="lang-en">Source</span></span>
-      <p><a class="link-underline" href="https://github.com/" target="_blank" rel="noreferrer">github.com</a></p>
+      <p><span class="lang-cs"><a class="link-underline" href="mailto:tom@gizmax.cz?subject=Pflanzer%20repo">repo · early access</a></span><span class="lang-en"><a class="link-underline" href="mailto:tom@gizmax.cz?subject=Pflanzer%20repo">repo · early access</a></span></p>
       <p style="margin-top:0.4rem;"><a class="link-underline" href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></p>
     </div>
     <div class="footer-meta">
@@ -1495,7 +1643,7 @@
     </div>
     <div class="footer-foot">
       <span>© 2026 Tom Pflanzer · GiZMaX</span>
-      <span><span class="lang-cs">Pestujeme AI v korporátu od roku 2026.</span><span class="lang-en">Planting AI in corporate since 2026.</span></span>
+      <span><span class="lang-cs">Pestujeme AI v korporátu od roku 2026.</span><span class="lang-en">Planting AI inside the enterprise. Since 2026.</span></span>
     </div>
   </div>
 </footer>
