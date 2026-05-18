@@ -3,6 +3,10 @@
 Single-page distinctive marketing site pro Pflanzerovu metodu. Žádný build step,
 žádný framework, pure HTML + CSS + jeden inline SVG diagram.
 
+**Bilingual:** CS (default) + EN. Switcher v top-right rohu, persistuje přes
+`localStorage`. URL param `?lang=en` přepíše. Implementováno přes
+`.lang-cs` / `.lang-en` CSS visibility toggle — žádný build, žádná i18n knihovna.
+
 ## Aesthetic
 
 **Editorial Botanical Brutalism** — manuscript-style typography, hard grid,
