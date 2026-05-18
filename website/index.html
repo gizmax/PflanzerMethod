@@ -609,6 +609,115 @@
     .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
   }
 
+  /* ─────── Honest Limitations ─────── */
+  .limitations {
+    margin-top: 3rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.5rem;
+  }
+  .limitations-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1.2rem;
+    margin-bottom: 1.4rem;
+    flex-wrap: wrap;
+  }
+  .limitations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.7rem;
+  }
+  .limit-card {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .limit-fact {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  .limit-src {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+    font-weight: 600;
+  }
+  .limit-fix {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    border-top: 1px solid var(--line);
+    padding-top: 0.6rem;
+  }
+  .limit-fix strong { font-weight: 600; }
+
+  @media (max-width: 840px) {
+    .limitations-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─────── Evidence cards ─────── */
+  .evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.7rem;
+  }
+  .evidence-card {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    padding: 1.1rem 1rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.18s ease;
+  }
+  .evidence-card:hover {
+    background: var(--punch);
+    transform: translateY(-2px);
+  }
+  .evidence-stat {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 60;
+    font-weight: 500;
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 0.2rem;
+  }
+  .evidence-cite {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink);
+    flex: 1;
+  }
+  .evidence-src {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+    font-weight: 600;
+    border-top: 1px solid var(--line);
+    padding-top: 0.5rem;
+  }
+
+  @media (max-width: 840px) {
+    .evidence-grid { grid-template-columns: 1fr 1fr; }
+    .evidence-card:nth-child(5) { grid-column: 1 / -1; }
+  }
+
   /* ─────── Persona cards ─────── */
   .persona-grid {
     display: grid;
@@ -1460,6 +1569,47 @@
         $1M+ transformation and the $0 hackathon. No one has filled that gap yet.
       </p>
     </div>
+
+    <!-- EVIDENCE ROW -->
+    <div style="margin-top: 3rem;">
+      <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.4rem; flex-wrap: wrap; border-top: 1.5px solid var(--ink); padding-top: 1.5rem;">
+        <span class="label"><span class="lang-cs">Důkazy · 2024–2026</span><span class="lang-en">Evidence · 2024–2026</span></span>
+        <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Pflanzer claim nestojí na vlastním hlasu. Tady je, co publikovaly Anthropic, AWS, Stripe, MIT, EU a peer-review žurnály.</span><span class="lang-en">Pflanzer claims don't rest on our own voice. Here's what Anthropic, AWS, Stripe, MIT, the EU, and peer-reviewed journals have published.</span></span>
+      </div>
+
+      <div class="evidence-grid">
+        <a href="https://anthropic.com/research/building-effective-agents" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">+90.2 %</div>
+          <div class="evidence-cite lang-cs">Multi-agent výkon vs single-agent.</div>
+          <div class="evidence-cite lang-en">Multi-agent performance vs single-agent.</div>
+          <div class="evidence-src">Anthropic · 06/2025</div>
+        </a>
+        <a href="https://aws.amazon.com/blogs/devops/" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">7×</div>
+          <div class="evidence-cite lang-cs">Amazon Bedrock: 18 měsíců / 30 vývojářů → 76 dní / 6 inženýrů.</div>
+          <div class="evidence-cite lang-en">Amazon Bedrock: 18 months / 30 devs → 76 days / 6 engineers.</div>
+          <div class="evidence-src">AWS AI-DLC · re:Invent 2025</div>
+        </a>
+        <a href="https://stripe.com/blog" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">12×</div>
+          <div class="evidence-cite lang-cs">Stripe Scala→Java migrace: 10 týdnů → 4 dny. 1 300 PRs/týden od AI agentů.</div>
+          <div class="evidence-cite lang-en">Stripe Scala→Java migration: 10 weeks → 4 days. 1,300 PRs/week from AI agents.</div>
+          <div class="evidence-src">Stripe Engineering · Q1 2026</div>
+        </a>
+        <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">2 · 8 · 2026</div>
+          <div class="evidence-cite lang-cs">EU AI Act čl. 14 enforcement: každé rozhodnutí timestamp + operator ID. 70 % firem nemá.</div>
+          <div class="evidence-cite lang-en">EU AI Act art. 14 enforcement: every decision needs timestamp + operator ID. 70 % of firms don't.</div>
+          <div class="evidence-src">EU · enforcement start</div>
+        </a>
+        <a href="https://doi.org/10.1109/TSE.2002.1019481" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">2×</div>
+          <div class="evidence-cite lang-cs">Co-located týmy: dvojnásobná produktivita + vyšší kvalita vs distribuované.</div>
+          <div class="evidence-cite lang-en">Co-located teams: 2× productivity + higher quality vs distributed.</div>
+          <div class="evidence-src">Teasley et al. · IEEE TSE 2002</div>
+        </a>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1591,6 +1741,31 @@
         <span class="lang-en">Repo early access</span>
         <span class="arrow">↗</span>
       </a>
+    </div>
+
+    <!-- HONEST LIMITATIONS -->
+    <div class="limitations">
+      <div class="limitations-head">
+        <span class="label"><span class="lang-cs">Co Pflanzer NEDOKÁŽE</span><span class="lang-en">What Pflanzer CAN'T do</span></span>
+        <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Žádná metoda v 2026 není silver bullet. Tady je, co může selhat — a jak to Pflanzer obchází.</span><span class="lang-en">No method in 2026 is a silver bullet. Here's what can break — and how Pflanzer routes around it.</span></span>
+      </div>
+      <div class="limitations-grid">
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">95 % enterprise GenAI pilotů má zero ROI.</span><span class="lang-en">95 % of enterprise GenAI pilots show zero ROI.</span></div>
+          <div class="limit-src">MIT NANDA · Q3/2025</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">Systematizuje to, co dělá 5 % winning — quality gates ≥ 80/100, cross-fn alignment pre-build, audit trail od dne 0.</span><span class="lang-en">Systematizes what the winning 5 % do — quality gates ≥ 80/100, cross-fn alignment pre-build, audit trail from day 0.</span></div>
+        </div>
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">Zkušení vývojáři s AI jsou 19 % POMALEJŠÍ na legacy kódu (RCT).</span><span class="lang-en">Experienced devs with AI are 19 % SLOWER on legacy code (RCT).</span></div>
+          <div class="limit-src">METR · 07/2025 · n=16</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">Greenfield use case (Peng 2023: +56 % rychlejší). Pro brownfield refactor doporučení = Pflanzer NEpoužít.</span><span class="lang-en">Greenfield use case (Peng 2023: +56 % faster). For brownfield refactor we recommend NOT using Pflanzer.</span></div>
+        </div>
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">Klarna: 67 % AI automation → částečný rollback po CSAT degradaci.</span><span class="lang-en">Klarna: 67 % AI automation → partial rollback after CSAT drop.</span></div>
+          <div class="limit-src">Klarna · 2024–2026</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">T+7/T+30/T+60/T+90 reinforcement track je explicit answer — kdyby Klarna ho měla, rollback by zachytili v T+30.</span><span class="lang-en">T+7/30/60/90 reinforcement is the explicit answer — Klarna would have caught the rollback at T+30.</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="why-now">
