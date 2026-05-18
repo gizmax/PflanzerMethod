@@ -609,6 +609,36 @@
     .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
   }
 
+  /* ─────── i18n ─────── */
+  html:not([lang="en"]) .lang-en { display: none !important; }
+  html[lang="en"] .lang-cs { display: none !important; }
+
+  .lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    line-height: 1;
+  }
+  .lang-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gray);
+    padding: 0.2rem 0.35rem;
+    transition: all 0.15s ease;
+  }
+  .lang-toggle:hover { color: var(--ink); }
+  .lang-toggle.active {
+    color: var(--ink);
+    background: var(--punch);
+    font-weight: 600;
+  }
+  .lang-sep { color: var(--gray); font-size: 10px; }
+
   /* ─────── Entrance ─────── */
   @keyframes rise {
     from { transform: translateY(28px); opacity: 0; }
@@ -630,8 +660,16 @@
 <!-- ─────── FIXED FRAMES ─────── -->
 <div class="frame frame-top">
   <span>Pflanzer Method &nbsp;·&nbsp; v0.3</span>
-  <span class="hide-sm">Manuál pro sázení AI do rigidních procesů</span>
-  <span>Est. 2026</span>
+  <span class="hide-sm lang-cs">Manuál pro sázení AI do rigidních procesů</span>
+  <span class="hide-sm lang-en">Manual for planting AI in rigid processes</span>
+  <span style="display:inline-flex; align-items:center; gap:1rem;">
+    <span class="hide-sm" style="color:var(--gray);">Est. 2026</span>
+    <span class="lang-switch" style="pointer-events:auto;">
+      <button class="lang-toggle active" data-lang="cs" type="button" aria-label="Čeština">CS</button>
+      <span class="lang-sep">·</span>
+      <button class="lang-toggle" data-lang="en" type="button" aria-label="English">EN</button>
+    </span>
+  </span>
 </div>
 
 <!-- ─────── HERO ─────── -->
@@ -639,20 +677,20 @@
   <div class="wrap">
     <div class="hero-meta rise-1">
       <div>
-        <div class="label">Subjekt</div>
-        <div style="margin-top:0.4rem;">Korporát · 5–5000+ FTE</div>
+        <div class="label"><span class="lang-cs">Subjekt</span><span class="lang-en">Subject</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Korporát · 5–5000+ FTE</span><span class="lang-en">Corporate · 5–5,000+ FTE</span></div>
       </div>
       <div>
-        <div class="label">Vstup</div>
-        <div style="margin-top:0.4rem;">Nápad bez plánu</div>
+        <div class="label"><span class="lang-cs">Vstup</span><span class="lang-en">Input</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Nápad bez plánu</span><span class="lang-en">Idea without a plan</span></div>
       </div>
       <div>
-        <div class="label">Výstup</div>
-        <div style="margin-top:0.4rem;">Kód v produkci</div>
+        <div class="label"><span class="lang-cs">Výstup</span><span class="lang-en">Output</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Kód v produkci</span><span class="lang-en">Code in production</span></div>
       </div>
       <div>
-        <div class="label">Délka cyklu</div>
-        <div style="margin-top:0.4rem;">~14 dní calendar</div>
+        <div class="label"><span class="lang-cs">Délka cyklu</span><span class="lang-en">Cycle length</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">~14 dní calendar</span><span class="lang-en">~14 calendar days</span></div>
       </div>
     </div>
 
@@ -670,13 +708,18 @@
           <path d="M12 11 C 12 8, 14 6, 18 6 C 18 9, 16 11, 12 11 Z"/>
         </svg>
       </div>
-      <p class="h-sub rise-3">
+      <p class="h-sub rise-3 lang-cs">
         Sázíme AI do korporátních procesů, kde sériový handoff zabíjí měsíce.
         6 lidí, 2 sezení, většina kódu jde rovnou do produkce.
       </p>
+      <p class="h-sub rise-3 lang-en">
+        We plant AI into corporate processes where serial handoff kills months.
+        6 people, 2 sessions, most code ships straight to production.
+      </p>
       <div class="cta-stack rise-4">
         <a href="#zacni" class="btn">
-          <span>Začít s 1-pagerem</span>
+          <span class="lang-cs">Začít s 1-pagerem</span>
+          <span class="lang-en">Start with the 1-pager</span>
           <span class="arrow">→</span>
         </a>
         <a href="https://github.com/" class="btn ghost" target="_blank" rel="noreferrer">
@@ -687,7 +730,7 @@
     </div>
 
     <div class="scroll-cue rise-5" style="margin-top:auto;">
-      <span class="label">Čti dál ↓</span>
+      <span class="label"><span class="lang-cs">Čti dál ↓</span><span class="lang-en">Read on ↓</span></span>
       <span class="label">00 — 04</span>
     </div>
   </div>
@@ -698,67 +741,112 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num-tag">00</div>
-      <h2 class="h-section">
+      <h2 class="h-section lang-cs">
         Korporátní handoff hell. <em>Tohle vznikla, aby ho prolomila.</em>
       </h2>
-      <div class="label-meta label">Manifest</div>
+      <h2 class="h-section lang-en">
+        Corporate handoff hell. <em>This was made to break it.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Manifest</span><span class="lang-en">Manifesto</span></div>
     </div>
 
     <div class="manifesto-grid">
       <div class="body">
-        <p>
-          V korporátu cesta od nápadu k funkční fíčuře typicky trvá 6 až 9 měsíců.
-          Zadavatel pinká s produktem, produkt s vývojem, vývoj se security, security s legal,
-          legal s deploy týmem. Mezitím nápad zestárne, kontext se ztratí v emailech
-          a rozhodnutí se dělají na PowerPointu, ne na funkčním artefaktu.
-        </p>
-        <p>
-          <strong>AI to mění.</strong> Vibe-coding tooly dnes umí v reálném čase
-          vytáhnout z verbálního inputu týmu funkční prototyp — ne wireframe v Figmě,
-          ne mockup v Sketch, ale klikatelný web s API skeletonem.
-        </p>
-        <p>
-          Pflanzerova metoda je odpověď na otázku: <em>„Jak ten skok přinést do korporátu?"</em>
-          Bez toho, aby z toho byl další SAFe roll-out, který zaklesne v procesní vrstvě,
-          nebo Design Sprint, který produkuje krásné Figmy, jež nikdo nepřevezme.
-        </p>
-        <p>
-          Místo toho dostáváme do jedné místnosti 6 lidí napříč celým workflow,
-          dáme jim 3 hodiny společného vajbování s AI, a na konci mají
-          <strong>3 funkční weby</strong>, ke kterým se mohou vyjádřit. Po jednom týdnu
-          ladění a druhém 3hodinovém setkání jde většina kódu rovnou do produkce.
-        </p>
+        <div class="lang-cs">
+          <p>
+            V korporátu cesta od nápadu k funkční fíčuře typicky trvá 6 až 9 měsíců.
+            Zadavatel pinká s produktem, produkt s vývojem, vývoj se security, security s legal,
+            legal s deploy týmem. Mezitím nápad zestárne, kontext se ztratí v emailech
+            a rozhodnutí se dělají na PowerPointu, ne na funkčním artefaktu.
+          </p>
+          <p>
+            <strong>AI to mění.</strong> Vibe-coding tooly dnes umí v reálném čase
+            vytáhnout z verbálního inputu týmu funkční prototyp — ne wireframe v Figmě,
+            ne mockup v Sketch, ale klikatelný web s API skeletonem.
+          </p>
+          <p>
+            Pflanzerova metoda je odpověď na otázku: <em>„Jak ten skok přinést do korporátu?"</em>
+            Bez toho, aby z toho byl další SAFe roll-out, který zaklesne v procesní vrstvě,
+            nebo Design Sprint, který produkuje krásné Figmy, jež nikdo nepřevezme.
+          </p>
+          <p>
+            Místo toho dostáváme do jedné místnosti 6 lidí napříč celým workflow,
+            dáme jim 3 hodiny společného vajbování s AI, a na konci mají
+            <strong>3 funkční weby</strong>, ke kterým se mohou vyjádřit. Po jednom týdnu
+            ladění a druhém 3hodinovém setkání jde většina kódu rovnou do produkce.
+          </p>
 
-        <div class="pull-wrap">
-          <p class="pullquote">
-            Nejde o rychlejší výrobu mockupů. Jde o <em>cross-funkční alignment
-            na funkčním artefaktu</em>, ne na slidu.
+          <div class="pull-wrap">
+            <p class="pullquote">
+              Nejde o rychlejší výrobu mockupů. Jde o <em>cross-funkční alignment
+              na funkčním artefaktu</em>, ne na slidu.
+            </p>
+          </div>
+
+          <p>
+            Pflanzer = německy „pěstitel, sazeč". Metoda se nesnaží AI do firem
+            násilím nasadit jako transformaci. <strong>Sází.</strong> Pilot po pilotu,
+            tým po týmu. Co se uchytí, roste. Co ne, vidí každý hned, ne až za rok.
           </p>
         </div>
+        <div class="lang-en">
+          <p>
+            In a corporate, the path from an idea to a working feature typically takes
+            6 to 9 months. The sponsor pings product, product pings engineering,
+            engineering pings security, security pings legal, legal pings the deploy team.
+            Meanwhile the idea ages, context gets lost in emails, and decisions
+            are made on PowerPoint, not on a working artifact.
+          </p>
+          <p>
+            <strong>AI is changing that.</strong> Vibe-coding tools today can pull
+            a working prototype from a team's verbal input in real time — not a Figma
+            wireframe, not a Sketch mockup, but a clickable web app with an API skeleton.
+          </p>
+          <p>
+            Pflanzer Method answers the question: <em>„How do we bring that leap
+            into the corporate?"</em> Without it becoming another SAFe roll-out that
+            gets stuck in the process layer, or a Design Sprint that produces beautiful
+            Figmas no one ever picks up.
+          </p>
+          <p>
+            Instead, we get 6 people from across the entire workflow into one room,
+            give them 3 hours of vibe-coding with AI, and at the end they have
+            <strong>3 working web apps</strong> to respond to. After a week of refinement
+            and a second 3-hour session, most of the code ships straight to production.
+          </p>
 
-        <p>
-          Pflanzer = německy „pěstitel, sazeč". Metoda se nesnaží AI do firem
-          násilím nasadit jako transformaci. <strong>Sází.</strong> Pilot po pilotu,
-          tým po týmu. Co se uchytí, roste. Co ne, vidí každý hned, ne až za rok.
-        </p>
+          <div class="pull-wrap">
+            <p class="pullquote">
+              It's not about faster mockups. It's about <em>cross-functional alignment
+              on a working artifact</em>, not on a slide.
+            </p>
+          </div>
+
+          <p>
+            Pflanzer = German for „planter, one who sows". The method doesn't force AI
+            into companies as a transformation. <strong>It plants.</strong> Pilot by
+            pilot, team by team. What takes root, grows. What doesn't, everyone sees
+            right away — not in a year.
+          </p>
+        </div>
       </div>
 
       <aside class="stat-block">
         <div class="stat">
           <div class="stat-num">~6–9</div>
-          <div class="label">měsíců · klasický sériový handoff</div>
+          <div class="label"><span class="lang-cs">měsíců · klasický sériový handoff</span><span class="lang-en">months · classic serial handoff</span></div>
         </div>
         <div class="stat">
           <div class="stat-num">~14</div>
-          <div class="label">dní · Pflanzer default profil</div>
+          <div class="label"><span class="lang-cs">dní · Pflanzer default profil</span><span class="lang-en">days · Pflanzer default profile</span></div>
         </div>
         <div class="stat">
           <div class="stat-num">~10×</div>
-          <div class="label">zrychlení v cyklu od nápadu k prod kódu</div>
+          <div class="label"><span class="lang-cs">zrychlení v cyklu od nápadu k prod kódu</span><span class="lang-en">speedup from idea to prod code</span></div>
         </div>
         <div class="stat">
           <div class="stat-num">6</div>
-          <div class="label">lidí v místnosti — celé workflow</div>
+          <div class="label"><span class="lang-cs">lidí v místnosti — celé workflow</span><span class="lang-en">people in the room — entire workflow</span></div>
         </div>
       </aside>
     </div>
@@ -772,19 +860,22 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num-tag">01</div>
-      <h2 class="h-section">
+      <h2 class="h-section lang-cs">
         Jak metoda <em>roste.</em>
       </h2>
-      <div class="label-meta label">5 fází · 14 dní</div>
+      <h2 class="h-section lang-en">
+        How the method <em>grows.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">5 fází · 14 dní</span><span class="lang-en">5 stages · 14 days</span></div>
     </div>
 
     <div class="flow-frame">
       <div class="flow-meta">
-        <span>Fig. 01 — Pflanzer cyklus, default profil</span>
-        <span>Verze v0.3 · 2026</span>
+        <span><span class="lang-cs">Fig. 01 — Pflanzer cyklus, default profil</span><span class="lang-en">Fig. 01 — Pflanzer cycle, default profile</span></span>
+        <span><span class="lang-cs">Verze v0.3 · 2026</span><span class="lang-en">Version v0.3 · 2026</span></span>
       </div>
 
-      <div class="flow-svg-wrap" aria-label="Botanická vizualizace cyklu: semínko, výhonek, list, stonek, květ">
+      <div class="flow-svg-wrap" aria-label="Botanical visualization of the cycle: seed, sprout, leaf, stem, bloom">
         <svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pflanzer growth stages">
           <defs>
             <style>
@@ -864,8 +955,10 @@
             <!-- small upward signal -->
             <line x1="0" y1="6" x2="0" y2="-2" class="stroke-ink"/>
           </g>
-          <text x="110" y="248" text-anchor="middle" class="label-day">Den 0</text>
-          <text x="110" y="262" text-anchor="middle" class="label-svg">Sazba</text>
+          <text x="110" y="248" text-anchor="middle" class="label-day lang-cs">Den 0</text>
+          <text x="110" y="248" text-anchor="middle" class="label-day lang-en">Day 0</text>
+          <text x="110" y="262" text-anchor="middle" class="label-svg lang-cs">Sazba</text>
+          <text x="110" y="262" text-anchor="middle" class="label-svg lang-en">Sowing</text>
 
           <!-- STAGE 2: SPROUT (Den 5) -->
           <g transform="translate(290, 200)">
@@ -884,7 +977,8 @@
             <!-- ground line for plant -->
             <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
           </g>
-          <text x="290" y="248" text-anchor="middle" class="label-day">Den 5</text>
+          <text x="290" y="248" text-anchor="middle" class="label-day lang-cs">Den 5</text>
+          <text x="290" y="248" text-anchor="middle" class="label-day lang-en">Day 5</text>
           <text x="290" y="262" text-anchor="middle" class="label-svg">Session 1 · 3h</text>
 
           <!-- Connector -->
@@ -907,8 +1001,10 @@
             <circle cx="0" cy="-110" r="3" class="fill-moss"/>
             <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
           </g>
-          <text x="490" y="248" text-anchor="middle" class="label-day">Den 6–9</text>
-          <text x="490" y="262" text-anchor="middle" class="label-svg">Iterace · async</text>
+          <text x="490" y="248" text-anchor="middle" class="label-day lang-cs">Den 6–9</text>
+          <text x="490" y="248" text-anchor="middle" class="label-day lang-en">Day 6–9</text>
+          <text x="490" y="262" text-anchor="middle" class="label-svg lang-cs">Iterace · async</text>
+          <text x="490" y="262" text-anchor="middle" class="label-svg lang-en">Iteration · async</text>
 
           <!-- Connector -->
           <line x1="340" y1="180" x2="440" y2="180" class="stroke-dash"/>
@@ -930,7 +1026,8 @@
             </g>
             <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
           </g>
-          <text x="700" y="248" text-anchor="middle" class="label-day">Den 10</text>
+          <text x="700" y="248" text-anchor="middle" class="label-day lang-cs">Den 10</text>
+          <text x="700" y="248" text-anchor="middle" class="label-day lang-en">Day 10</text>
           <text x="700" y="262" text-anchor="middle" class="label-svg">Session 2 · 3h</text>
 
           <!-- Connector -->
@@ -956,37 +1053,39 @@
             </g>
             <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
           </g>
-          <text x="900" y="248" text-anchor="middle" class="label-day">Den 14</text>
-          <text x="900" y="262" text-anchor="middle" class="label-svg">Kód v produkci</text>
+          <text x="900" y="248" text-anchor="middle" class="label-day lang-cs">Den 14</text>
+          <text x="900" y="248" text-anchor="middle" class="label-day lang-en">Day 14</text>
+          <text x="900" y="262" text-anchor="middle" class="label-svg lang-cs">Kód v produkci</text>
+          <text x="900" y="262" text-anchor="middle" class="label-svg lang-en">Code in production</text>
 
         </svg>
       </div>
 
       <div class="flow-stages">
         <div>
-          <div class="day">Den 0 · 60 min</div>
-          <div class="stage-name">Sazba</div>
-          <div class="stage-desc">Kávový meeting. Sponzor + 5 lidí napříč workflow. Problém v jedné větě, success threshold ve dvou.</div>
+          <div class="day"><span class="lang-cs">Den 0 · 60 min</span><span class="lang-en">Day 0 · 60 min</span></div>
+          <div class="stage-name"><span class="lang-cs">Sazba</span><span class="lang-en">Sowing</span></div>
+          <div class="stage-desc"><span class="lang-cs">Kávový meeting. Sponzor + 5 lidí napříč workflow. Problém v jedné větě, success threshold ve dvou.</span><span class="lang-en">Coffee meeting. Sponsor + 5 people across the workflow. Problem in one sentence, success threshold in two.</span></div>
         </div>
         <div>
-          <div class="day">Den 5 · 3 h</div>
-          <div class="stage-name">Session 1 · vibe</div>
-          <div class="stage-desc">In-room vibe-coding. 3 paralelní weby v Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</div>
+          <div class="day"><span class="lang-cs">Den 5 · 3 h</span><span class="lang-en">Day 5 · 3 h</span></div>
+          <div class="stage-name"><span class="lang-cs">Session 1 · vibe</span><span class="lang-en">Session 1 · vibe</span></div>
+          <div class="stage-desc"><span class="lang-cs">In-room vibe-coding. 3 paralelní weby v Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</span><span class="lang-en">In-room vibe-coding. 3 parallel web apps in Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</span></div>
         </div>
         <div>
-          <div class="day">Den 6–9 · async</div>
-          <div class="stage-name">Mezi-session</div>
-          <div class="stage-desc">Stakeholdeři klikají, builder lead aplikuje feedback. Cross-fn alignment roste, ne degraduje.</div>
+          <div class="day"><span class="lang-cs">Den 6–9 · async</span><span class="lang-en">Day 6–9 · async</span></div>
+          <div class="stage-name"><span class="lang-cs">Mezi-session</span><span class="lang-en">Between sessions</span></div>
+          <div class="stage-desc"><span class="lang-cs">Stakeholdeři klikají, builder lead aplikuje feedback. Cross-fn alignment roste, ne degraduje.</span><span class="lang-en">Stakeholders click, builder lead applies feedback. Cross-fn alignment grows, doesn't degrade.</span></div>
         </div>
         <div>
-          <div class="day">Den 10 · 3 h</div>
-          <div class="stage-name">Session 2 · rozhodnutí</div>
-          <div class="stage-desc">AI moderuje feedback per role. Decider hlasuje poslední (anti-HiPPO). Scope locked.</div>
+          <div class="day"><span class="lang-cs">Den 10 · 3 h</span><span class="lang-en">Day 10 · 3 h</span></div>
+          <div class="stage-name"><span class="lang-cs">Session 2 · rozhodnutí</span><span class="lang-en">Session 2 · decision</span></div>
+          <div class="stage-desc"><span class="lang-cs">AI moderuje feedback per role. Decider hlasuje poslední (anti-HiPPO). Scope locked.</span><span class="lang-en">AI moderates feedback per role. Decider votes last (anti-HiPPO). Scope locked.</span></div>
         </div>
         <div>
-          <div class="day">Den 11–14 · 1–2 d</div>
-          <div class="stage-name">Ship to prod</div>
-          <div class="stage-desc">Quality gates score ≥ 80/100. Per-role handoff s odkazy na soubory. PR-ready commit. Deploy.</div>
+          <div class="day"><span class="lang-cs">Den 11–14 · 1–2 d</span><span class="lang-en">Day 11–14 · 1–2 d</span></div>
+          <div class="stage-name"><span class="lang-cs">Ship to prod</span><span class="lang-en">Ship to prod</span></div>
+          <div class="stage-desc"><span class="lang-cs">Quality gates score ≥ 80/100. Per-role handoff s odkazy na soubory. PR-ready commit. Deploy.</span><span class="lang-en">Quality gates score ≥ 80/100. Per-role handoff with file links. PR-ready commit. Deploy.</span></div>
         </div>
       </div>
     </div>
@@ -1000,74 +1099,127 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num-tag">02</div>
-      <h2 class="h-section">
+      <h2 class="h-section lang-cs">
         Pět věcí, které <em>nikdo jiný nedělá.</em>
       </h2>
-      <div class="label-meta label">USP · diferenciace</div>
+      <h2 class="h-section lang-en">
+        Five things <em>no one else does.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">USP · diferenciace</span><span class="lang-en">USP · differentiation</span></div>
     </div>
 
-    <p style="font-size: 13px; color: var(--gray); margin-bottom: 2.5rem; max-width: 70ch;">
+    <p class="lang-cs" style="font-size: 13px; color: var(--gray); margin-bottom: 2.5rem; max-width: 70ch;">
       Competitive research May 2026 (3 nezávislí experti) potvrdil: vibe-coding samotný už není
       Pflanzer differentiator (Lovable + Bolt + Cursor = 2026 mainstream). Reálná protected pozice
       je <strong style="color: var(--ink);">5 pilířů, které dohromady nikdo jiný v 2026 nedělá</strong>
       — ani AWS AI-DLC, ani McKinsey QuantumBlack, ani AJ&amp;Smart Sprint 2.0.
+    </p>
+    <p class="lang-en" style="font-size: 13px; color: var(--gray); margin-bottom: 2.5rem; max-width: 70ch;">
+      Competitive research May 2026 (3 independent experts) confirmed: vibe-coding alone is no longer
+      Pflanzer's differentiator (Lovable + Bolt + Cursor = 2026 mainstream). The real protected position
+      is <strong style="color: var(--ink);">5 pillars that, together, no one else does in 2026</strong>
+      — not AWS AI-DLC, not McKinsey QuantumBlack, not AJ&amp;Smart Sprint 2.0.
     </p>
 
     <div class="usp-list">
 
       <div class="usp-row">
         <div class="num"><span>01 →</span></div>
-        <h3 class="h-sub">Non-tech v místnosti.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Security, Legal, DPO, A11y od minuty 0.</em></h3>
+        <h3 class="h-sub lang-cs">Non-tech v místnosti.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Security, Legal, DPO, A11y od minuty 0.</em></h3>
+        <h3 class="h-sub lang-en">Non-tech in the room.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Security, Legal, DPO, A11y from minute zero.</em></h3>
         <div class="desc">
-          <p>
-            AWS AI-DLC „mob" = jen engineering. Design Sprint = jen produktový tým.
-            Pflanzer audit-grade profil dává <strong>Security, Legal/DPO, A11y, UX writer
-            a CS proxy do primary session</strong>.
-          </p>
-          <p>
-            Late-stage veto eliminované. Security flag risk surface na minutě 240,
-            ne v sprintu 4.
-          </p>
+          <div class="lang-cs">
+            <p>
+              AWS AI-DLC „mob" = jen engineering. Design Sprint = jen produktový tým.
+              Pflanzer audit-grade profil dává <strong>Security, Legal/DPO, A11y, UX writer
+              a CS proxy do primary session</strong>.
+            </p>
+            <p>
+              Late-stage veto eliminované. Security flag risk surface na minutě 240,
+              ne v sprintu 4.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              AWS AI-DLC „mob" = engineering only. Design Sprint = product team only.
+              Pflanzer's audit-grade profile puts <strong>Security, Legal/DPO, A11y, UX writer
+              and CS proxy into the primary session</strong>.
+            </p>
+            <p>
+              Late-stage veto eliminated. Security flags the risk surface at minute 240,
+              not in sprint 4.
+            </p>
+          </div>
           <div class="tag-list">
-            <span>Organizační moat</span><span>Security in room</span><span>Legal/DPO in room</span>
+            <span><span class="lang-cs">Organizační moat</span><span class="lang-en">Organizational moat</span></span><span>Security in room</span><span>Legal/DPO in room</span>
           </div>
         </div>
       </div>
 
       <div class="usp-row">
         <div class="num"><span>02 →</span></div>
-        <h3 class="h-sub">Native AI Act compliance.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Decision log per čl. 14, ne custom deliverable.</em></h3>
+        <h3 class="h-sub lang-cs">Native AI Act compliance.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Decision log per čl. 14, ne custom deliverable.</em></h3>
+        <h3 class="h-sub lang-en">Native AI Act compliance.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Decision log per art. 14, not a custom deliverable.</em></h3>
         <div class="desc">
-          <p>
-            McKinsey i BCG dělají AI Act compliance jako <strong>custom deliverable</strong>
-            v $1M+ engagementu. Pflanzer ho má <strong>native v Charter template</strong>:
-            decision log s human attribution, dvoufázový AI Act protokol (Fáze A/B/C),
-            DORA-grade 7-letá retence audit logů.
-          </p>
-          <p>
-            Externí validace: Martinelli paper 2026 kritizuje Spec Kit/BMAD/Kiro
-            za chybějící stakeholder alignment + audit trail. Jeho critique pointy
-            jsou doslova Pflanzer USPs.
-          </p>
+          <div class="lang-cs">
+            <p>
+              McKinsey i BCG dělají AI Act compliance jako <strong>custom deliverable</strong>
+              v $1M+ engagementu. Pflanzer ho má <strong>native v Charter template</strong>:
+              decision log s human attribution, dvoufázový AI Act protokol (Fáze A/B/C),
+              DORA-grade 7-letá retence audit logů.
+            </p>
+            <p>
+              Externí validace: Martinelli paper 2026 kritizuje Spec Kit/BMAD/Kiro
+              za chybějící stakeholder alignment + audit trail. Jeho critique pointy
+              jsou doslova Pflanzer USPs.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              McKinsey and BCG do AI Act compliance as a <strong>custom deliverable</strong>
+              in $1M+ engagements. Pflanzer has it <strong>native in the Charter template</strong>:
+              decision log with human attribution, two-phase AI Act protocol (Phase A/B/C),
+              DORA-grade 7-year retention of audit logs.
+            </p>
+            <p>
+              External validation: Martinelli's 2026 paper criticizes Spec Kit/BMAD/Kiro
+              for missing stakeholder alignment + audit trail. His critique points are
+              literally Pflanzer's USPs.
+            </p>
+          </div>
           <div class="tag-list">
-            <span>Regulatorní moat</span><span>AI Act čl. 14</span><span>DORA 7y</span><span>Procurement-ready</span>
+            <span><span class="lang-cs">Regulatorní moat</span><span class="lang-en">Regulatory moat</span></span><span><span class="lang-cs">AI Act čl. 14</span><span class="lang-en">AI Act art. 14</span></span><span>DORA 7y</span><span>Procurement-ready</span>
           </div>
         </div>
       </div>
 
       <div class="usp-row">
         <div class="num"><span>03 →</span></div>
-        <h3 class="h-sub">Score závaznosti per role.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">„Líbí se mi" vs „commitnu" — Pflanzer to měří.</em></h3>
+        <h3 class="h-sub lang-cs">Score závaznosti per role.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">„Líbí se mi" vs „commitnu" — Pflanzer to měří.</em></h3>
+        <h3 class="h-sub lang-en">Per-role commitment score.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">„Like it" vs „commit" — Pflanzer measures the gap.</em></h3>
         <div class="desc">
-          <p>
-            LDJ dot voting řeší „líbí se mi". DS Decider řeší binární „go/no-go".
-            Pflanzer řeší <strong>hranici mezi nimi</strong> — 1-5 Likert s rationale field,
-            hierarchie závaznosti Critical / Yellow / Score, AI-only feedback deflated 0.5/1.0.
-          </p>
-          <p>
-            Workshop methodology expert confirmation: <strong>žádný direct competitor v 2026</strong>.
-            12-měsíční náskok.
-          </p>
+          <div class="lang-cs">
+            <p>
+              LDJ dot voting řeší „líbí se mi". DS Decider řeší binární „go/no-go".
+              Pflanzer řeší <strong>hranici mezi nimi</strong> — 1-5 Likert s rationale field,
+              hierarchie závaznosti Critical / Yellow / Score, AI-only feedback deflated 0.5/1.0.
+            </p>
+            <p>
+              Workshop methodology expert confirmation: <strong>žádný direct competitor v 2026</strong>.
+              12-měsíční náskok.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              LDJ dot voting handles „I like it". Design Sprint's Decider handles binary „go/no-go".
+              Pflanzer handles <strong>the line between</strong> — 1-5 Likert with a rationale field,
+              severity hierarchy Critical / Yellow / Score, AI-only feedback deflated to 0.5/1.0.
+            </p>
+            <p>
+              Workshop methodology expert confirmation: <strong>no direct competitor in 2026</strong>.
+              12-month lead.
+            </p>
+          </div>
           <div class="tag-list">
             <span>Decision moat</span><span>Anti-HiPPO</span><span>AI deflation</span>
           </div>
@@ -1076,17 +1228,31 @@
 
       <div class="usp-row">
         <div class="num"><span>04 →</span></div>
-        <h3 class="h-sub">Pre-flight triage 4 tracků.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">48–72h před session, async, MUST gate.</em></h3>
+        <h3 class="h-sub lang-cs">Pre-flight triage 4 tracků.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">48–72h před session, async, MUST gate.</em></h3>
+        <h3 class="h-sub lang-en">Pre-flight triage on 4 tracks.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">48–72h before session, async, MUST gate.</em></h3>
         <div class="desc">
-          <p>
-            Discovery Readiness Gate + Security &amp; Data + Legal &amp; Privacy + Platform Triage.
-            <strong>Bez 4 podpisů Session 1 neodstartuje.</strong> Discovery Debt Detector,
-            Sandbox spec, AI Act tier Fáze A, Approved AI Tool list.
-          </p>
-          <p>
-            Žádný direct competitor nemá 48-72h async pre-read jako MUST gate.
-            AI-DLC, Sprint 2.0, AJ&amp;Smart startují bez explicit pre-flight discipline.
-          </p>
+          <div class="lang-cs">
+            <p>
+              Discovery Readiness Gate + Security &amp; Data + Legal &amp; Privacy + Platform Triage.
+              <strong>Bez 4 podpisů Session 1 neodstartuje.</strong> Discovery Debt Detector,
+              Sandbox spec, AI Act tier Fáze A, Approved AI Tool list.
+            </p>
+            <p>
+              Žádný direct competitor nemá 48-72h async pre-read jako MUST gate.
+              AI-DLC, Sprint 2.0, AJ&amp;Smart startují bez explicit pre-flight discipline.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              Discovery Readiness Gate + Security &amp; Data + Legal &amp; Privacy + Platform Triage.
+              <strong>Without 4 signatures, Session 1 doesn't start.</strong> Discovery Debt Detector,
+              Sandbox spec, AI Act tier Phase A, Approved AI Tool list.
+            </p>
+            <p>
+              No direct competitor has a 48-72h async pre-read as a MUST gate.
+              AI-DLC, Sprint 2.0, AJ&amp;Smart start without explicit pre-flight discipline.
+            </p>
+          </div>
           <div class="tag-list">
             <span>Governance moat</span><span>Discovery gate</span><span>Sandbox-first</span>
           </div>
@@ -1095,19 +1261,33 @@
 
       <div class="usp-row">
         <div class="num"><span>05 →</span></div>
-        <h3 class="h-sub">14 dní + reinforcement.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">2 sezení s týdenním asyncem. Ne 90 dní, ne 5 dní non-stop.</em></h3>
+        <h3 class="h-sub lang-cs">14 dní + reinforcement.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">2 sezení s týdenním asyncem. Ne 90 dní, ne 5 dní non-stop.</em></h3>
+        <h3 class="h-sub lang-en">14 days + reinforcement.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">2 sessions with a week of async. Not 90 days, not 5 days non-stop.</em></h3>
         <div class="desc">
-          <p>
-            AWS AI-DLC = continuous bolts (no async window). Thoughtworks „3-3-3" = 90 dní.
-            Design Sprint = 5 dní non-stop (corporate stakeholder unavailable).
-            Pflanzer = <strong>2 sezení s 5-7d asyncem + T+7/30/60/90 reinforcement</strong>.
-          </p>
-          <p>
-            Corporate stakeholder availability. Context retention pod 7 dní. Reinforcement
-            kalibrace per Method Charter v0.3 (ADR-0011 default Sunset T+18 mo).
-          </p>
+          <div class="lang-cs">
+            <p>
+              AWS AI-DLC = continuous bolts (no async window). Thoughtworks „3-3-3" = 90 dní.
+              Design Sprint = 5 dní non-stop (corporate stakeholder unavailable).
+              Pflanzer = <strong>2 sezení s 5-7d asyncem + T+7/30/60/90 reinforcement</strong>.
+            </p>
+            <p>
+              Corporate stakeholder availability. Context retention pod 7 dní. Reinforcement
+              kalibrace per Method Charter v0.3 (ADR-0011 default Sunset T+18 mo).
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              AWS AI-DLC = continuous bolts (no async window). Thoughtworks „3-3-3" = 90 days.
+              Design Sprint = 5 days non-stop (corporate stakeholder unavailable).
+              Pflanzer = <strong>2 sessions with 5-7d async + T+7/30/60/90 reinforcement</strong>.
+            </p>
+            <p>
+              Corporate stakeholder availability. Context retention under 7 days. Reinforcement
+              calibration per Method Charter v0.3 (ADR-0011 default Sunset at T+18 months).
+            </p>
+          </div>
           <div class="tag-list">
-            <span>Operational moat</span><span>14 dní default</span><span>T+7/30/60/90</span>
+            <span>Operational moat</span><span><span class="lang-cs">14 dní default</span><span class="lang-en">14-day default</span></span><span>T+7/30/60/90</span>
           </div>
         </div>
       </div>
@@ -1115,12 +1295,19 @@
     </div>
 
     <div style="margin-top: 3rem; padding: 1.6rem 1.8rem; border: 1.5px solid var(--ink); background: var(--paper);">
-      <span class="label" style="display: block; margin-bottom: 0.6rem;">Co Pflanzer NENÍ</span>
-      <p style="font-size: 14px; line-height: 1.65; max-width: none;">
+      <span class="label" style="display: block; margin-bottom: 0.6rem;"><span class="lang-cs">Co Pflanzer NENÍ</span><span class="lang-en">What Pflanzer is NOT</span></span>
+      <p class="lang-cs" style="font-size: 14px; line-height: 1.65; max-width: none;">
         Pflanzer <strong>není „yet another workshop methodology"</strong> — to je hřbitov, ze kterého většina
         metod nevyšla. Pflanzer je <strong>operating-cadence layer pro AI Center of Excellence</strong>:
         opakovatelná, certifikovatelná, procurement-ready pilot fixture v mezeře mezi
         $1M+ McKinsey transformations a $0 hackathon frameworks. Tu mezeru zatím nikdo nezaplnil.
+      </p>
+      <p class="lang-en" style="font-size: 14px; line-height: 1.65; max-width: none;">
+        Pflanzer is <strong>not „yet another workshop methodology"</strong> — that's the graveyard
+        most methods never returned from. Pflanzer is an <strong>operating-cadence layer for the
+        AI Center of Excellence</strong>: a repeatable, certifiable, procurement-ready pilot fixture
+        in the gap between $1M+ McKinsey transformations and $0 hackathon frameworks.
+        No one has filled that gap yet.
       </p>
     </div>
   </div>
@@ -1133,10 +1320,13 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num-tag">03</div>
-      <h2 class="h-section">
+      <h2 class="h-section lang-cs">
         Z terénu. <em>e-shop · 2026.</em>
       </h2>
-      <div class="label-meta label">Případ · default profil</div>
+      <h2 class="h-section lang-en">
+        From the field. <em>e-shop · 2026.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Případ · default profil</span><span class="lang-en">Case · default profile</span></div>
     </div>
 
     <div class="field-notes">
@@ -1146,35 +1336,55 @@
       </div>
 
       <div class="quote-body">
-        <p class="pullquote">
+        <p class="pullquote lang-cs">
           „Dali jsme dohromady 6 lidí. Tři hodiny <em>vajbili</em>.
           Měli jsme tři funkční weby. Při dalším setkání jsme dva doladili.
           Na konci jde většina kódu rovnou do produkce."
         </p>
-        <p>
-          E-commerce platforma. Klasický rigidní workflow: zadavatel → produkt → UX →
-          vývoj, jeden cyklus měsíce. Cíl pilotu: nasadit vibe-coding tak,
-          aby cesta od první alignment session k produktivnímu kódu trvala
-          <strong style="color:var(--punch);">týdny, ne měsíce</strong>.
+        <p class="pullquote lang-en">
+          „We pulled together 6 people. Three hours of <em>vibing</em>.
+          We had three working web apps. At the next session we polished two.
+          Most of the code shipped straight to production."
         </p>
-        <p>
-          Zatímco klasický Design Sprint dělá v ten samý čas Figmu, kterou pak někdo
-          re-implementuje za další 2 měsíce, Pflanzer cyklus skončí s kódem,
-          který lead developer mergne za 1–2 dny.
-        </p>
+        <div class="lang-cs">
+          <p>
+            E-commerce platforma. Klasický rigidní workflow: zadavatel → produkt → UX →
+            vývoj, jeden cyklus měsíce. Cíl pilotu: nasadit vibe-coding tak,
+            aby cesta od první alignment session k produktivnímu kódu trvala
+            <strong style="color:var(--punch);">týdny, ne měsíce</strong>.
+          </p>
+          <p>
+            Zatímco klasický Design Sprint dělá v ten samý čas Figmu, kterou pak někdo
+            re-implementuje za další 2 měsíce, Pflanzer cyklus skončí s kódem,
+            který lead developer mergne za 1–2 dny.
+          </p>
+        </div>
+        <div class="lang-en">
+          <p>
+            E-commerce platform. Classic rigid workflow: sponsor → product → UX →
+            engineering, one cycle = months. Pilot goal: deploy vibe-coding so the
+            path from the first alignment session to production code takes
+            <strong style="color:var(--punch);">weeks, not months</strong>.
+          </p>
+          <p>
+            While a classic Design Sprint produces a Figma in the same time
+            that someone then re-implements over 2 more months, the Pflanzer cycle
+            ends with code the lead developer merges in 1–2 days.
+          </p>
+        </div>
       </div>
 
       <div class="receipts">
-        <div class="label">Receipty</div>
+        <div class="label"><span class="lang-cs">Receipty</span><span class="lang-en">Receipts</span></div>
         <div class="receipt">
-          <div class="receipt-line"><span>Účastníci</span><span class="v">6</span></div>
-          <div class="receipt-line"><span>Setkání</span><span class="v">2 × 3h</span></div>
-          <div class="receipt-line"><span>Mezi-session</span><span class="v">5 dní async</span></div>
-          <div class="receipt-line"><span>Varianty</span><span class="v">3 prototyp</span></div>
-          <div class="receipt-line"><span>Cyklus total</span><span class="v">~14 dní</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Účastníci</span><span class="lang-en">Participants</span></span><span class="v">6</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Setkání</span><span class="lang-en">Sessions</span></span><span class="v">2 × 3h</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Mezi-session</span><span class="lang-en">Between</span></span><span class="v"><span class="lang-cs">5 dní async</span><span class="lang-en">5 days async</span></span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Varianty</span><span class="lang-en">Variants</span></span><span class="v"><span class="lang-cs">3 prototyp</span><span class="lang-en">3 prototypes</span></span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Cyklus total</span><span class="lang-en">Cycle total</span></span><span class="v"><span class="lang-cs">~14 dní</span><span class="lang-en">~14 days</span></span></div>
         </div>
         <div class="receipt">
-          <div class="receipt-line"><span>Profil</span><span class="v">default</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Profil</span><span class="lang-en">Profile</span></span><span class="v">default</span></div>
           <div class="receipt-line"><span>Method Steward</span><span class="v">—</span></div>
           <div class="receipt-line"><span>Compliance score</span><span class="v">—</span></div>
           <div class="receipt-line"><span>AI Act tier</span><span class="v">limited</span></div>
@@ -1191,49 +1401,77 @@
   <div class="wrap cta-wrap">
     <div class="section-head" style="border-bottom-color: transparent; padding-bottom: 0; margin-bottom: 1.5rem;">
       <div class="num-tag">04</div>
-      <h2 class="h-section">
+      <h2 class="h-section lang-cs">
         Začni <em>sázet.</em>
       </h2>
-      <div class="label-meta label">Jak dál</div>
+      <h2 class="h-section lang-en">
+        Start <em>planting.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Jak dál</span><span class="lang-en">What's next</span></div>
     </div>
 
-    <p style="font-size:15px; line-height:1.7; max-width: 56ch;">
+    <p class="lang-cs" style="font-size:15px; line-height:1.7; max-width: 56ch;">
       Pflanzerova metoda existuje ve dvou profilech. <strong>Default</strong>
       (e-shop-style, ~80 % korporátních case-ů) ti stačí jeden 1-pager.
       <strong>Audit-grade</strong> (banky, AI Act High-risk, DORA) přidává
       Method Steward, pre-registration a compliance score — ale jen pokud
       to skutečně potřebuješ.
     </p>
+    <p class="lang-en" style="font-size:15px; line-height:1.7; max-width: 56ch;">
+      Pflanzer Method comes in two profiles. <strong>Default</strong>
+      (e-shop-style, ~80 % of corporate cases) needs just one 1-pager.
+      <strong>Audit-grade</strong> (banks, AI Act High-risk, DORA) adds
+      a Method Steward, pre-registration, and a compliance score — but
+      only if you actually need it.
+    </p>
 
     <div class="row">
       <a href="https://github.com/" class="btn">
-        <span>1-pager · Lean Pflanzer</span>
+        <span class="lang-cs">1-pager · Lean Pflanzer</span>
+        <span class="lang-en">1-pager · Lean Pflanzer</span>
         <span class="arrow">→</span>
       </a>
       <a href="https://github.com/" class="btn ghost">
-        <span>Tool na GitHubu</span>
+        <span class="lang-cs">Tool na GitHubu</span>
+        <span class="lang-en">Tool on GitHub</span>
         <span class="arrow">↗</span>
       </a>
       <a href="mailto:tom@gizmax.cz" class="btn ghost">
-        <span>Mluvit s autorem</span>
+        <span class="lang-cs">Mluvit s autorem</span>
+        <span class="lang-en">Talk to the author</span>
         <span class="arrow">↗</span>
       </a>
     </div>
 
     <div class="why-now">
-      <div class="label">Proč teď</div>
+      <div class="label"><span class="lang-cs">Proč teď</span><span class="lang-en">Why now</span></div>
       <div class="body">
-        <p>
-          AI vibe-coding tooly v roce 2026 dosáhly bodu, kdy <strong>verbální input
-          týmu generuje funkční artefakt v reálném čase</strong>. To je pákový moment,
-          který se v korporátu zatím využívá nesystematicky — jeden tým si v Cursor
-          udělá prototyp, ostatní o tom neví, nebo to musí re-implementovat.
-        </p>
-        <p style="margin-top:0.6rem;">
-          Pflanzer dává tomu pákovému momentu <strong>operační rámec</strong>:
-          jak ho použít cross-funkčně, jak handoffovat, jak rozhodnout, kdy přestat.
-          Bez toho rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat.
-        </p>
+        <div class="lang-cs">
+          <p>
+            AI vibe-coding tooly v roce 2026 dosáhly bodu, kdy <strong>verbální input
+            týmu generuje funkční artefakt v reálném čase</strong>. To je pákový moment,
+            který se v korporátu zatím využívá nesystematicky — jeden tým si v Cursor
+            udělá prototyp, ostatní o tom neví, nebo to musí re-implementovat.
+          </p>
+          <p style="margin-top:0.6rem;">
+            Pflanzer dává tomu pákovému momentu <strong>operační rámec</strong>:
+            jak ho použít cross-funkčně, jak handoffovat, jak rozhodnout, kdy přestat.
+            Bez toho rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat.
+          </p>
+        </div>
+        <div class="lang-en">
+          <p>
+            By 2026, AI vibe-coding tools have reached the point where <strong>a team's verbal
+            input generates a working artifact in real time</strong>. That's a leverage moment
+            corporates use unsystematically — one team builds a prototype in Cursor,
+            others don't know about it, or have to re-implement it.
+          </p>
+          <p style="margin-top:0.6rem;">
+            Pflanzer gives that leverage moment an <strong>operating frame</strong>:
+            how to use it cross-functionally, how to hand off, how to decide, when to stop.
+            Without that frame, AI in the corporate stays a solo activity of a few early birds.
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -1246,27 +1484,62 @@
       Pflanzer<br/><em>Method.</em>
     </div>
     <div class="footer-meta">
-      <span class="label">Zdroj</span>
+      <span class="label"><span class="lang-cs">Zdroj</span><span class="lang-en">Source</span></span>
       <p><a class="link-underline" href="https://github.com/" target="_blank" rel="noreferrer">github.com</a></p>
       <p style="margin-top:0.4rem;"><a class="link-underline" href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></p>
     </div>
     <div class="footer-meta">
-      <span class="label">Verze</span>
+      <span class="label"><span class="lang-cs">Verze</span><span class="lang-en">Version</span></span>
       <p>v0.3 · 2026</p>
       <p style="margin-top:0.4rem;">MIT License<br/>Czech &amp; English</p>
     </div>
     <div class="footer-foot">
       <span>© 2026 Tom Pflanzer · GiZMaX</span>
-      <span>Pestujeme AI v korporátu od roku 2026.</span>
+      <span><span class="lang-cs">Pestujeme AI v korporátu od roku 2026.</span><span class="lang-en">Planting AI in corporate since 2026.</span></span>
     </div>
   </div>
 </footer>
 
 <div class="frame frame-bottom">
   <span>↳ Pflanzer Method</span>
-  <span class="hide-sm">Manual · ne manifesto</span>
-  <span><a href="#" style="color:inherit;">↑ nahoru</a></span>
+  <span class="hide-sm"><span class="lang-cs">Manuál · ne manifesto</span><span class="lang-en">Manual · not manifesto</span></span>
+  <span><a href="#" style="color:inherit;"><span class="lang-cs">↑ nahoru</span><span class="lang-en">↑ top</span></a></span>
 </div>
+
+<script>
+  (function () {
+    const KEY = 'pflanzer-lang';
+    const html = document.documentElement;
+
+    function setLang(lang) {
+      if (lang !== 'cs' && lang !== 'en') lang = 'cs';
+      html.lang = lang;
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+      document.querySelectorAll('.lang-toggle').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+        btn.setAttribute('aria-pressed', btn.dataset.lang === lang ? 'true' : 'false');
+      });
+    }
+
+    // Init: ?lang=en > localStorage > html lang > default cs
+    const params = new URLSearchParams(window.location.search);
+    let initial = null;
+    if (params.get('lang') === 'en' || params.get('lang') === 'cs') {
+      initial = params.get('lang');
+    } else {
+      try { initial = localStorage.getItem(KEY); } catch (e) {}
+    }
+    if (!initial) initial = html.lang === 'en' ? 'en' : 'cs';
+    setLang(initial);
+
+    document.addEventListener('click', function (e) {
+      const t = e.target.closest('.lang-toggle');
+      if (!t) return;
+      e.preventDefault();
+      setLang(t.dataset.lang);
+    });
+  })();
+</script>
 
 </body>
 </html>
