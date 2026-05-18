@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method · 1-pager</title>
+<meta name="description" content="Pflanzer Method — 14denní AI cyklus pro korporát. 1-pager A4." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bone:      #F4EFE6;
+    --paper:     #EBE5D7;
+    --ink:       #1A2418;
+    --moss:      #2F4A2F;
+    --punch:     #C7E84A;
+    --gray:      #7A7264;
+    --line:      rgba(26, 36, 24, 0.16);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: #c8c2b3;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5pt;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    padding: 1.5rem 0;
+  }
+
+  ::selection { background: var(--punch); color: var(--ink); }
+
+  /* ─── A4 SHEET ─── */
+  .sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 1.5rem;
+    padding: 16mm 18mm 14mm;
+    background: var(--bone);
+    box-shadow: 0 14px 50px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+  }
+  .sheet::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.14 0 0 0 0 0.1 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+  }
+  .sheet > * { position: relative; z-index: 1; }
+
+  /* ─── HEADER ─── */
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'opsz' 96;
+    font-weight: 400;
+    font-size: 30pt;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+  }
+  .wordmark em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+  }
+  .head-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--gray);
+    text-align: right;
+    line-height: 1.5;
+  }
+  .head-meta strong { color: var(--ink); font-weight: 600; }
+
+  /* ─── TAGLINE ─── */
+  .tagline {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 60;
+    font-weight: 500;
+    font-size: 18pt;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.7rem;
+    max-width: 90%;
+  }
+  .tagline em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 60;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+  }
+  .lede {
+    font-size: 10pt;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 1rem;
+    max-width: 95%;
+  }
+  .lede strong { font-weight: 600; }
+
+  /* ─── 2-COL GRID ─── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 0.9rem;
+  }
+  .two-col > div { min-width: 0; }
+
+  /* ─── SECTION ─── */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--moss);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-label::before {
+    content: '';
+    width: 12px;
+    height: 1.5px;
+    background: var(--moss);
+    display: inline-block;
+  }
+
+  .h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 36;
+    font-weight: 500;
+    font-size: 12pt;
+    line-height: 1.18;
+    letter-spacing: -0.012em;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ─── RECIPE TIMELINE ─── */
+  .recipe {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 0.7rem 0.85rem;
+    margin-bottom: 0.9rem;
+  }
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.6rem;
+  }
+  .recipe-step {
+    border-left: 1.5px solid var(--ink);
+    padding-left: 0.5rem;
+  }
+  .recipe-step:first-child {
+    border-left: none;
+    padding-left: 0;
+  }
+  .recipe-day {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--moss);
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .recipe-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 24;
+    font-weight: 500;
+    font-size: 10pt;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.25rem;
+  }
+  .recipe-desc {
+    font-size: 8pt;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+
+  /* ─── USP LIST ─── */
+  .usp-list {
+    border-top: 1px solid var(--line);
+  }
+  .usp {
+    display: grid;
+    grid-template-columns: 18mm 1fr;
+    gap: 0.6rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+  }
+  .usp-num {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 36;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 13pt;
+    color: var(--moss);
+    line-height: 1;
+  }
+  .usp-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 24;
+    font-weight: 500;
+    font-size: 10pt;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.15rem;
+  }
+  .usp-desc {
+    font-size: 8.5pt;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .usp-desc strong { font-weight: 600; }
+
+  /* ─── PROFILE BIFURCATION ─── */
+  .profiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+  }
+  .profile {
+    border: 1.5px solid var(--ink);
+    padding: 0.5rem 0.7rem;
+  }
+  .profile.alt {
+    background: var(--ink);
+    color: var(--bone);
+  }
+  .profile-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 36;
+    font-weight: 500;
+    font-size: 11pt;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+  .profile.alt .profile-name { color: var(--punch); }
+  .profile-when {
+    font-size: 8pt;
+    line-height: 1.4;
+    color: var(--gray);
+    margin-bottom: 0.35rem;
+  }
+  .profile.alt .profile-when { color: rgba(244,239,230,0.6); }
+  .profile-spec {
+    font-size: 8pt;
+    line-height: 1.45;
+  }
+  .profile-spec strong { font-weight: 600; }
+
+  /* ─── ROLE MIX ─── */
+  .roles {
+    background: var(--bone);
+    border-left: 3px solid var(--punch);
+    padding: 0.5rem 0.7rem;
+    font-size: 8.5pt;
+    line-height: 1.5;
+    margin-top: 0.5rem;
+  }
+  .roles strong { font-weight: 600; }
+
+  /* ─── FOOTER ─── */
+  .foot {
+    margin-top: 0.9rem;
+    padding-top: 0.6rem;
+    border-top: 1.5px solid var(--ink);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--gray);
+  }
+  .foot a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--ink); padding-bottom: 1px; }
+  .foot a:hover { background: var(--punch); border-bottom-color: transparent; }
+  .foot .cta {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 8.5pt;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ─── LANG SWITCH ─── */
+  html:not([lang="en"]) .lang-en { display: none !important; }
+  html[lang="en"] .lang-cs { display: none !important; }
+
+  .controls {
+    position: fixed;
+    top: 1rem;
+    right: 1.2rem;
+    z-index: 10;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    background: var(--bone);
+    padding: 0.4rem 0.7rem;
+    border: 1.5px solid var(--ink);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .controls .lang-sep { color: var(--gray); }
+  .controls button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    color: var(--gray);
+    padding: 0.15rem 0.3rem;
+    transition: all 0.15s ease;
+  }
+  .controls button:hover { color: var(--ink); }
+  .controls button.active {
+    color: var(--ink);
+    background: var(--punch);
+    font-weight: 600;
+  }
+  .controls .print-btn {
+    background: var(--ink);
+    color: var(--bone);
+    padding: 0.3rem 0.6rem;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-left: 0.4rem;
+  }
+  .controls .print-btn:hover { background: var(--moss); }
+  .controls .back-link {
+    color: var(--gray);
+    text-decoration: none;
+    font-size: 10px;
+    margin-right: 0.4rem;
+  }
+  .controls .back-link:hover { color: var(--ink); }
+
+  /* ─── PRINT ─── */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  @media print {
+    body { background: white; padding: 0; }
+    .sheet { box-shadow: none; margin: 0; padding: 14mm 16mm; min-height: 297mm; }
+    .sheet::before { opacity: 0.3; }
+    .controls { display: none; }
+  }
+
+  @media (max-width: 720px) {
+    .sheet { width: 100%; padding: 1.4rem; min-height: 0; }
+    .two-col, .profiles, .recipe-grid { grid-template-columns: 1fr; }
+    .recipe-step { border-left: none; border-top: 1.5px solid var(--ink); padding-left: 0; padding-top: 0.5rem; }
+    .recipe-step:first-child { border-top: none; padding-top: 0; }
+    .controls { top: auto; bottom: 1rem; right: 1rem; }
+    .wordmark { font-size: 22pt; }
+    .tagline { font-size: 14pt; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls" aria-label="Controls">
+  <a href="index.html" class="back-link" aria-label="Back to main site">← <span class="lang-cs">web</span><span class="lang-en">web</span></a>
+  <button class="lang-toggle active" data-lang="cs" type="button" aria-label="Čeština">CS</button>
+  <span class="lang-sep">·</span>
+  <button class="lang-toggle" data-lang="en" type="button" aria-label="English">EN</button>
+  <button class="print-btn" onclick="window.print()" type="button"><span class="lang-cs">Tisk / PDF</span><span class="lang-en">Print / PDF</span></button>
+</div>
+
+<article class="sheet">
+
+  <!-- HEADER -->
+  <header class="head">
+    <h1 class="wordmark" aria-label="Pflanzer Method">
+      Pflanzer&nbsp;<em>Method.</em>
+    </h1>
+    <div class="head-meta">
+      <div><strong>1-pager</strong></div>
+      <div>v0.3 · 2026</div>
+      <div><span class="lang-cs">Default profil</span><span class="lang-en">Default profile</span></div>
+    </div>
+  </header>
+
+  <!-- TAGLINE -->
+  <p class="tagline lang-cs">
+    Sázíme AI do korporátu. 6 lidí, 2 sezení, <em>kód v produkci za 14 dní.</em>
+  </p>
+  <p class="tagline lang-en">
+    We plant AI inside the enterprise. 6 people, 2 sessions, <em>code in production in 14 days.</em>
+  </p>
+
+  <p class="lede lang-cs">
+    Cesta od nápadu k AI fíčuře v korporátu trvá 6–9 měsíců sériového handoffu.
+    Pflanzer ji zkracuje na <strong>~14 dní</strong> tím, že dá všech 6 rolí napříč
+    workflow do jedné místnosti od minuty 0 — s AI vibe-coding tools, score
+    závaznosti per role a anti-HiPPO Decider protokolem. Většina kódu jde
+    rovnou do produkce.
+  </p>
+  <p class="lede lang-en">
+    In a corporate, an idea takes 6–9 months of serial handoff to become an AI
+    feature. Pflanzer cuts that to <strong>~14 days</strong> by putting all 6 workflow
+    roles in one room from minute zero — with AI vibe-coding tools, per-role
+    commitment scoring, and an anti-HiPPO Decider protocol. Most of the code
+    ships straight to production.
+  </p>
+
+  <!-- RECIPE -->
+  <div class="section-label">
+    <span class="lang-cs">Recept · 14 dní</span><span class="lang-en">Recipe · 14 days</span>
+  </div>
+  <div class="recipe">
+    <div class="recipe-grid">
+      <div class="recipe-step">
+        <div class="recipe-day"><span class="lang-cs">Den 0 · 60 min</span><span class="lang-en">Day 0 · 60 min</span></div>
+        <div class="recipe-name"><span class="lang-cs">Sazba</span><span class="lang-en">Sowing</span></div>
+        <div class="recipe-desc"><span class="lang-cs">Kávový meeting. Sponzor + 5 lidí napříč workflow.</span><span class="lang-en">Coffee meeting. Sponsor + 5 people across the workflow.</span></div>
+      </div>
+      <div class="recipe-step">
+        <div class="recipe-day"><span class="lang-cs">Den 5 · 3 h</span><span class="lang-en">Day 5 · 3 h</span></div>
+        <div class="recipe-name">Session 1</div>
+        <div class="recipe-desc"><span class="lang-cs">In-room vibe-coding. 3 paralelní weby. Silent voting, shortlist.</span><span class="lang-en">In-room vibe-coding. 3 parallel apps. Silent voting, shortlist.</span></div>
+      </div>
+      <div class="recipe-step">
+        <div class="recipe-day"><span class="lang-cs">Den 6–9 · async</span><span class="lang-en">Day 6–9 · async</span></div>
+        <div class="recipe-name"><span class="lang-cs">Iterace</span><span class="lang-en">Iteration</span></div>
+        <div class="recipe-desc"><span class="lang-cs">Stakeholdeři klikají, builder lead ladí feedback.</span><span class="lang-en">Stakeholders click, builder lead applies feedback.</span></div>
+      </div>
+      <div class="recipe-step">
+        <div class="recipe-day"><span class="lang-cs">Den 10 · 3 h</span><span class="lang-en">Day 10 · 3 h</span></div>
+        <div class="recipe-name">Session 2</div>
+        <div class="recipe-desc"><span class="lang-cs">AI moderuje feedback. Decider hlasuje poslední. Scope locked.</span><span class="lang-en">AI moderates feedback. Decider votes last. Scope locked.</span></div>
+      </div>
+      <div class="recipe-step">
+        <div class="recipe-day"><span class="lang-cs">Den 11–14</span><span class="lang-en">Day 11–14</span></div>
+        <div class="recipe-name"><span class="lang-cs">Ship to prod</span><span class="lang-en">Ship to prod</span></div>
+        <div class="recipe-desc"><span class="lang-cs">Quality gates ≥ 80/100. PR-ready commit. Deploy.</span><span class="lang-en">Quality gates ≥ 80/100. PR-ready commit. Deploy.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2-COL: USPs + Profile -->
+  <div class="two-col">
+
+    <!-- USPs -->
+    <div>
+      <div class="section-label">
+        <span class="lang-cs">Pět věcí, které nikdo jiný nedělá</span><span class="lang-en">Five things no one else does</span>
+      </div>
+      <div class="usp-list">
+        <div class="usp">
+          <div class="usp-num">01</div>
+          <div>
+            <div class="usp-title"><span class="lang-cs">Non-tech v místnosti.</span><span class="lang-en">Non-tech in the room.</span></div>
+            <div class="usp-desc lang-cs">Security, Legal, DPO, A11y od minuty 0. <strong>Security audit hitneš v hodině 4, ne v sprintu 4.</strong></div>
+            <div class="usp-desc lang-en">Security, Legal, DPO, A11y from minute zero. <strong>You hit the security audit at hour 4, not at sprint 4.</strong></div>
+          </div>
+        </div>
+        <div class="usp">
+          <div class="usp-num">02</div>
+          <div>
+            <div class="usp-title"><span class="lang-cs">Native AI Act compliance.</span><span class="lang-en">Native AI Act compliance.</span></div>
+            <div class="usp-desc lang-cs">Decision log s human attribution, DORA-grade 7y audit retence. <strong>McKinsey to dělá za $1M+ jako custom deliverable.</strong></div>
+            <div class="usp-desc lang-en">Decision log with human attribution, DORA-grade 7y audit log. <strong>McKinsey delivers this as a custom deliverable in a $1M+ engagement.</strong></div>
+          </div>
+        </div>
+        <div class="usp">
+          <div class="usp-num">03</div>
+          <div>
+            <div class="usp-title"><span class="lang-cs">Score závaznosti per role.</span><span class="lang-en">Per-role commitment score.</span></div>
+            <div class="usp-desc lang-cs">1–5 stupnice s povinným důvodem. <strong>Veto pro 4 role: Security, Legal, A11y, Decider.</strong> Sponzor hlasuje poslední.</div>
+            <div class="usp-desc lang-en">1–5 scale with mandatory reason. <strong>Veto for 4 roles: Security, Legal, A11y, Decider.</strong> The sponsor votes last.</div>
+          </div>
+        </div>
+        <div class="usp">
+          <div class="usp-num">04</div>
+          <div>
+            <div class="usp-title"><span class="lang-cs">48h pre-flight triage.</span><span class="lang-en">48h pre-flight triage.</span></div>
+            <div class="usp-desc lang-cs">4 role asyc check-list. <strong>Bez 4 podpisů Session 1 neodstartuje.</strong> Žádné „my jsme to nevěděli" v hodině 3.</div>
+            <div class="usp-desc lang-en">4 roles, async checklist. <strong>Without 4 signatures, Session 1 doesn't start.</strong> No „we didn't know" at hour 3.</div>
+          </div>
+        </div>
+        <div class="usp">
+          <div class="usp-num">05</div>
+          <div>
+            <div class="usp-title"><span class="lang-cs">2 × 3h. Mezi tím týden.</span><span class="lang-en">2 × 3h. A week in between.</span></div>
+            <div class="usp-desc lang-cs">Ne 5 dní v kuse (DS). Ne 90 dní (Thoughtworks). <strong>+ checkpointy T+7/30/60/90 dní</strong>, ne deploy do vakua.</div>
+            <div class="usp-desc lang-en">Not 5 days in a row (DS). Not 90 days (Thoughtworks). <strong>Plus T+7/30/60/90 checkpoints</strong> — no shipping into a vacuum.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile + Roles + Field notes -->
+    <div>
+      <div class="section-label">
+        <span class="lang-cs">Dva profily</span><span class="lang-en">Two profiles</span>
+      </div>
+      <div class="profiles">
+        <div class="profile">
+          <div class="profile-name"><span class="lang-cs">Default</span><span class="lang-en">Default</span></div>
+          <div class="profile-when"><span class="lang-cs">~80 % korporátních případů. Eshop, SaaS, interní tool.</span><span class="lang-en">~80 % of corporate cases. E-commerce, SaaS, internal tool.</span></div>
+          <div class="profile-spec lang-cs">
+            ~10 PD effort · ~14 dní calendar · 6 lidí. <strong>Bez</strong> Method Steward, pre-registration, compliance score.
+          </div>
+          <div class="profile-spec lang-en">
+            ~10 PD effort · ~14 days calendar · 6 people. <strong>Without</strong> Method Steward, pre-registration, compliance score.
+          </div>
+        </div>
+        <div class="profile alt">
+          <div class="profile-name">Audit-grade</div>
+          <div class="profile-when"><span class="lang-cs">Banky, pojišťovny, AI Act High-risk, DORA scope.</span><span class="lang-en">Banks, insurance, AI Act High-risk, DORA scope.</span></div>
+          <div class="profile-spec lang-cs">
+            ~18–22 PD · 4–6 týdnů · 8–10 lidí (vč. co-facilitator, Method Steward, external red team).
+          </div>
+          <div class="profile-spec lang-en">
+            ~18–22 PD · 4–6 weeks · 8–10 people (incl. co-facilitator, Method Steward, external red team).
+          </div>
+        </div>
+      </div>
+
+      <div class="roles">
+        <div class="lang-cs">
+          <strong>6 rolí v místnosti (default):</strong> Sponzor · Produkt manažer · Facilitátor ·
+          Frontend / vibe-coding lead · Backend / API lead · UX. EM signs off capacity.
+        </div>
+        <div class="lang-en">
+          <strong>6 roles in the room (default):</strong> Sponsor · Product Manager · Facilitator ·
+          Frontend / vibe-coding lead · Backend / API lead · UX. EM signs off capacity.
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top: 0.9rem;">
+        <span class="lang-cs">Z terénu · e-shop · Q1 2026</span><span class="lang-en">From the field · e-shop · Q1 2026</span>
+      </div>
+      <p style="font-size: 8.5pt; line-height: 1.5;">
+        <span class="lang-cs">
+          E-commerce ~7M MAU. 6 lidí, 3 hodiny vibe-codingu, 3 funkční weby.
+          Druhé setkání = doladění, většina kódu rovnou do produkce.
+          Cyklus total ~14 dní, default profil, AI Act tier limited.
+        </span>
+        <span class="lang-en">
+          E-commerce ~7M MAU. 6 people, 3 hours of vibe-coding, 3 working web apps.
+          Second session = polish; most of the code shipped straight to production.
+          Cycle total ~14 days, default profile, AI Act tier limited.
+        </span>
+      </p>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="foot">
+    <span>
+      <span class="lang-cs">Tom Pflanzer · GiZMaX · 2026 · MIT License</span>
+      <span class="lang-en">Tom Pflanzer · GiZMaX · 2026 · MIT License</span>
+    </span>
+    <span class="cta">
+      <span class="lang-cs">Začni: <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">tom@gizmax.cz</a> · <a href="index.html">pflanzer.cz</a></span>
+      <span class="lang-en">Start: <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">tom@gizmax.cz</a> · <a href="index.html">pflanzer.cz</a></span>
+    </span>
+  </footer>
+
+</article>
+
+<script>
+  (function () {
+    const KEY = 'pflanzer-lang';
+    const html = document.documentElement;
+
+    function setLang(lang) {
+      if (lang !== 'cs' && lang !== 'en') lang = 'cs';
+      html.lang = lang;
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+      document.querySelectorAll('.lang-toggle').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+        btn.setAttribute('aria-pressed', btn.dataset.lang === lang ? 'true' : 'false');
+      });
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    let initial = null;
+    if (params.get('lang') === 'en' || params.get('lang') === 'cs') {
+      initial = params.get('lang');
+    } else {
+      try { initial = localStorage.getItem(KEY); } catch (e) {}
+    }
+    if (!initial) initial = html.lang === 'en' ? 'en' : 'cs';
+    setLang(initial);
+
+    document.addEventListener('click', function (e) {
+      const t = e.target.closest('.lang-toggle');
+      if (!t) return;
+      e.preventDefault();
+      setLang(t.dataset.lang);
+    });
+  })();
+</script>
+
+</body>
+</html>
