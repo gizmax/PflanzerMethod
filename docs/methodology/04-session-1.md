@@ -140,12 +140,23 @@ problému.
 
 ## Výstupy ze Session 1 (do 24 h)
 
+> **Track-aware (v0.4, per ADR-0020):** Výstupy se liší podle Charter track
+> designation. Track P (preferred default ~80 %) produkuje **běžící
+> produkční-ready varianty**; Track S (fallback ~20 %) produkuje **reference
+> prototypy + draft precision specu**.
+
 Artefakty se generují AI co-pilotem v reálném čase a finalizují se v hodinách
 po session.
 
-- **1–3 anotované mockupy** s embed link (public preview URL bez accountu)
-  + sandbox URL + IaC commit hash. Každý mockup má **OST tag** a **JTBD card
+**Společné pro Track P i Track S:**
+
+- **1–3 anotované varianty** s embed link (public preview URL bez accountu)
+  + sandbox URL + IaC commit hash. Každá varianta má **OST tag** a **JTBD card
   mapping** [perspektiva 14].
+  - **Track P:** varianty = **produkční-ready apps** v target repo, s real
+    code (ESLint/Prettier pass, types, Vitest passing).
+  - **Track S:** varianty = **reference prototypy** (lightweight, navigation
+    aid pro spec authors, ne deployable).
 - **Preference matrix** — varianty × dimenze (user value, effort, risk,
   strategic fit) × role. Hlasy per role + commitment level [perspektiva 02].
 - **Score závaznosti per role** s rationale field; AI-only persona feedback
@@ -171,9 +182,21 @@ po session.
   user @ SSO, retention 7 let pro regulované projekty [perspektiva 07].
 - **SBOM** prototypu (`cyclonedx` / `syft`), license scan, CVE scan
   (Trivy/Snyk), secret scan (gitleaks/trufflehog).
-- **Throw-away vs evolve flag** explicit per varianta. Default = throw-away.
+- **Throw-away vs evolve flag** explicit per varianta. **Default = evolve**
+  per ADR-0005 v0.4 rewrite (Track × Output 2×2 matrix). Throw-away je
+  explicit opt-in pro 3 valid use cases.
 - **Commitment level 0–3** per role (0 = neúčastnit se mezi-session, 1 =
-  read-only feedback, 2 = active scoring, 3 = co-creation prototypu).
+  read-only feedback, 2 = active scoring, 3 = co-creation varianty).
+
+**Track S only (pokud Charter = Track S):**
+
+- **Draft precision spec sekce A–C** (Functional / Technical / Quality)
+  per `tool/templates/precision-spec-track-s.md.template`. Reference
+  prototypy z bodu 1 slouží jako navigation aid pro spec authors —
+  combined SoT pattern (Spec + Reference Prototype + Decision Log +
+  Tests = 4 anchory proti drift, per ADR-0020 anti-drift mechanism #3).
+- **5-stage handoff ritual plan** — kdy 90-min walkthrough, kdy 5-day Q&A
+  window, kdo embedded reviewer T+30 (per 07-handoff-do-vyvoje.md).
 
 ## Failure modes a mitigace
 
