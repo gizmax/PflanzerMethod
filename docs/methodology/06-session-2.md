@@ -152,16 +152,47 @@ pokud kterákoli má 0, automatické iterate / re-charter.
 **AI-assisted commitment** se započítává deflated max 0.5 (AI proxy nemá
 podpis, jen briefing) [synthesis 02].
 
-## Handoff package (do 48 h od Session 2)
+## Sign-off package (do 48 h od Session 2)
 
-Pokud Decider's call = **GO**:
+> **Track-aware (v0.4, per ADR-0020):** Session 2 output a sign-off package
+> se liší podle Charter track. **Track P** (preferred ~80 %) → **winner
+> varianta = běžící produkt v target prod repo**, sign-off package = audit
+> trail. **Track S** (fallback ~20 %) → **winner varianta = precision spec
+> ≥ 80/100 quality gate**, sign-off package = spec navigation + audit trail
+> + 5-stage handoff ritual triggered.
 
+### Track P sign-off package (GO call, default)
+
+Winner varianta JE produkt. Žádný re-impl handoff k dev týmu — dev byl v room.
+
+- **Winner kód v target prod repo** (PR-ready commit, quality gates ≥ 80/100:
+  lint, types, tests, security, a11y, build, observability)
 - **Scoped epic** (PRD-lite, 1 stránka): JTBD, persona, success metric,
-  scope in/out, akceptační kritéria, otevřené otázky [perspektiva 02].
-- **Akceptační kritéria** v Gherkin, ≥ 1 negative scenario per flow,
-  exploratory charter [synthesis 02].
+  scope in/out, otevřené otázky [perspektiva 02].
+- **Akceptační kritéria** v Gherkin (verifikační, ne implementační — kód
+  už existuje), ≥ 1 negative scenario per flow.
 - **Akceptovaný OpenAPI 3.1** lintovaný (Spectral) + 3–5 ADR + contract
-  test skeleton (Pact / Schemathesis).
+  test passing (Pact / Schemathesis).
+
+### Track S sign-off package (GO call)
+
+Winner = **precision spec ≥ 80/100** + reference prototype z Session 1 +
+5-stage handoff ritual triggered. Per
+`tool/templates/precision-spec-track-s.md.template`.
+
+- **Precision spec** sekce A–E (Functional INVEST-RA / Technical OpenAPI
+  + ERD / Quality STRIDE + WCAG + AI Act / Implementation / Sign-off
+  12-role matrix) ≥ 80/100 quality gate
+- **Reference prototype** z Session 1 = Combined SoT s spec (anti-drift)
+- **5-stage handoff ritual scheduled**: 90-min walkthrough → 5-day Q&A
+  window → amendment protocol → first milestone review → T+30 embedded
+  reviewer (per `07-handoff-do-vyvoje.md` Track S section)
+- **Akceptační kritéria** v executable Gherkin (BDD scenarios runnable,
+  ne prose), ≥ 1 negative scenario per flow.
+- **Akceptovaný OpenAPI 3.1** lintovaný (Spectral) + 3–5 ADR + contract
+  test skeleton (Pact / Schemathesis), passing dle spec verifikace.
+
+### Společné pro Track P a Track S
 - **Dependency Map**: feature → team → typ → required by → owner.
 - **Tech debt flagy** s ownerem a planned-pay-down sprintem.
 - **Updated business case + exec one-pager** pro CPO/board (problém,
