@@ -1,8 +1,73 @@
 # Glossary — Pflanzer terminologie
 
-> Definice termínů, kde panovala nejednoznačnost. v0.3.1, 2026-05-28.
-> Created after output consistency audit
-> (`docs/research/output-consistency/`).
+> Definice termínů, kde panovala nejednoznačnost. **v0.4, 2026-05-28.**
+> Updated po dual-track design (`docs/research/dual-track-design/`)
+> a output consistency audit (`docs/research/output-consistency/`).
+
+## Track terms (v0.4)
+
+### Track P (Preferred)
+
+**Default Pflanzer track (~80 % cases).** Dev #4 (FE/vibe-coding lead) +
+#5 (BE/API lead) jsou v room od minuty 0 celý Session 1. Output cyklu =
+**běžící produkt na URL**, deployment D11-14. Žádný handoff k re-implementaci
+— dev tým byl v room.
+
+Charter potvrzuje track = P (default, zero-friction). Definováno v ADR-0020.
+
+### Track S (Fallback)
+
+**Fallback Pflanzer track (~20 % cases).** Dev tým NENÍ v room — z 1 ze
+4 hard triggers:
+
+1. Distributed dev tým ≥ 3 časové pásma
+2. AI Act High-risk + certified production
+3. FDA / IEC 62304 / DO-178C / PSD2 SCA
+4. Sponsor mandate spec-as-deliverable (multi-vendor, legacy modernization, acquisition DD)
+
+Output cyklu = **precision spec ≥ 80/100 quality gate** + 5-stage handoff
+ritual. Track S NESMÍ být easy escape hatch — bez triggeru = projekt odložit,
+ne přepnout. Definováno v ADR-0020.
+
+**Track S re-impl gap target ≤ 15 %** (vs SDD 9.8-42.1 %, vs Track P ~0 %).
+
+### dev-in-room
+
+Konkrétně **#4 FE / Vibe-coding lead + #5 BE / API lead** (z role catalogu)
+fyzicky / virtuálně v session od minuty 0 celý Session 1. Builder lead =
+dev v driver-seat AI co-pilot session (NE facilitátor s AI proxy).
+
+Dev-in-room je **fit criterion pro Track P** (mandatory). Pokud nelze
+zajistit, Track S nebo odložit projekt.
+
+### precision spec
+
+Output Track S Session 2. Markdown dokument ≥ 80/100 quality gate na
+12 dimensions:
+- Functional (INVEST-RA user stories, Gherkin BDD, edge cases)
+- Technical (OpenAPI 3.1, ERD, tech stack constraints)
+- Quality (STRIDE, WCAG, AI Act/DPIA/DORA)
+- Implementation (file structure, naming, anti-patterns)
+- Sign-off (12-role matrix s veto rights)
+
+**Reference prototype z Session 1 = combined SoT s spec** (anti-drift weapon
+unique pro Pflanzer vs SDD).
+
+Template: `tool/templates/precision-spec-track-s.md.template`.
+
+### 5-stage handoff ritual (Track S only)
+
+Když dev tým není v room a spec jde k nim:
+
+1. **90-min walkthrough** — PM + dev lead + spec authors
+2. **5-day Q&A window** — dev klade otázky, spec authors odpovídají
+3. **Amendment protocol** — dev requests changes, sponzor approves
+4. **First milestone review** — dev demos first slice, spec authors verify
+5. **T+30 embedded reviewer** — spec author shadows dev sprint, detects drift early
+
+Definováno v ADR-0020.
+
+## Core deliverable terms
 
 ## Core deliverable terms
 
