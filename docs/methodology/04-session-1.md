@@ -8,10 +8,11 @@
 
 Vyrobit **1–3 funkční mockupy** anotované na konkrétní node v OST, doplněné
 preference matrixem (4 dimenze × role) a Decider's go/no-go shortlistem
-pro mezi-session prototype hub. Mockupy nejsou Figma fasáda — jsou
-runnable v sandboxu, mají URL a jsou reviewable řidičem prototype hubu.
-Session **neproduktivuje finální feature** — produkuje **alignovaný
-shortlist**, který poputuje do scoring window.
+pro mezi-session iteraci. Varianty nejsou Figma fasáda — jsou
+**runnable produkční-ready apps** na sandbox URL, reviewable celým týmem
+včetně programátora (který je v room od minuty 0). Session produkuje
+**3 paralelní produkční-ready varianty + alignovaný shortlist** pro
+mezi-session scoring window.
 
 ## Energy curve a délka
 

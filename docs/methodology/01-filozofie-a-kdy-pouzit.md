@@ -144,7 +144,8 @@ nástroj — najdi jiný (viz `09-srovnani-existujici-metody.md`).
   out-of-scope pro session [synthesis 02 — sekce 5, WON'T].
 - **Nenahrazuje go-to-market.** Marketing claims, copy, launch readiness
   — to je #16 UX writer / Content designer + samostatná launch
-  strategie. Pflanzer končí handoff package, ne launchem.
+  strategie. Pflanzer končí **běžícím produktem v prod** + sign-off package,
+  ne launch campaign-ready aktivitou.
 - **Není one-shot demo metoda.** Bez reinforcement tracku (T+7/30/60/90)
   a Champion / CoP loopu metoda zhasne po 2 pilotech. Adopce stojí na
   Coaching Kata, ne na pre-launch nadšení [synthesis 02 — sekce 1,

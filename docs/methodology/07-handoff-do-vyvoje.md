@@ -1,22 +1,30 @@
-# 07 — Handoff do vývoje
+# 07 — Sign-off + deploy do produkce
 
-> Závěrečný krok Pflanzerovy metody. Výstupem Session 2 není „kód", ale
-> **podepsaný handoff package**, který tým vývoje může vzít a postavit z něj
-> produkt — nebo ho vědomě zahodit.
+> Závěrečný krok Pflanzerovy metody. **Výstupem Session 2 je běžící produkt
+> na URL** (winner varianta z 3 paralelních) + sign-off package (audit trail,
+> decision log, compliance evidence). Programátor byl v room od minuty 0 —
+> dev tým nedostává spec k re-implementaci, dostává kód k deployi.
 
-## Filozofie handoffu
+## Filozofie
 
-**Prototyp není produkt.** Default kontrakt v Charteru je **throw-away
-pattern**: prototyp slouží k alignmentu a falsifikaci variant, po Session
-2 se zahazuje a produkční implementace startuje na paved-road template
-[perspektiva 04].
+**Default = evolve. Pflanzer artefakt JE produkt.** Programátor byl v room
+od minuty 0 specifically proto, aby kód šel rovnou do prod — bez re-impl,
+bez paper handoff, bez „dev team picks up the prototype" loop. Quality gates
+v Session 2 (token compliance >90 %, a11y Critical/Serious clean, SBOM +
+secret scan clean, DPIA pokrytí, IaC v platform monorepu) jsou
+**production prerequisite**, ne *„prototype hardening checklist"*
+[perspektivy 04, 15; synthesis 01 osa A].
 
-**Evolve pattern** je povolen výhradně tehdy, když Charter podepíše FE
-lead + EM + Security a platí: token compliance >90 %, a11y Critical/
-Serious clean, SBOM + secret scan clean, DPIA pokrytí, IaC v platform
-monorepu [perspektivy 04, 15; synthesis 01 osa A]. Bez paketu sandbox
-technicky neuvolní deploy do prod sítě (24h TTL, noindex, watermark,
-network default-deny) [perspektiva 15].
+**Throw-away** je explicit opt-in flag pro 3 výjimky (per ADR-0005):
+(1) discovery-only piloty (žádný produkční záměr), (2) audit-grade evidence
+collection separate od prod, (3) regulatorní gate kde production = certified
+production (FDA, IEC 62304, DO-178C, certain AI Act High-risk uses) vyžaduje
+separate implementation track. Throw-away **NENÍ default** — flag, který musí
+sponzor explicitně podepsat v Charteru.
+
+Bez kompletního sign-off paketu sandbox technicky neuvolní deploy do prod
+sítě (24h TTL, noindex, watermark, network default-deny) [perspektiva 15].
+To platí pro evolve i throw-away — sandbox je guardrail proti governance bypass.
 
 **Champion model adopce** [synthesis 03 #17]. Každý handoff má
 pojmenovaného championa — senior engineer z přijímajícího týmu, byl v
