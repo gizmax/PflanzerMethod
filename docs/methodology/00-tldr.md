@@ -11,11 +11,12 @@
 Korporátní handoff hell. Zadavatel dostane nápad, pošle ho produktu, pinká se to,
 vznikne zadání, pinká se to s programátory, security to vetuje na konci, a za
 chvíli je rok pryč bez funkčního výstupu. Pflanzerova metoda nahrazuje sériový
-pinkání paralelním vajbeňím — všechny rozhodovací role (zadavatel, PM,
-programátoři, security, legal, UX, …) jsou v jedné místnosti od minuty 0 a AI
-slouží jako vibe-coding páka, která z verbálního inputu týmu generuje funkční
-mockupy v reálném čase. Cílem není rychlejší výroba mockupů; cílem je
-**cross-functional alignment na funkčním artefaktu, ne na PowerPointu**
+pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PM,
+programátoři od minuty 0, security, legal, UX, …) jsou v jedné místnosti
+a AI slouží jako páka, která z verbálního inputu týmu generuje **běžící
+produkční-ready varianty** v reálném čase. **Výstup cyklu je hotový produkt,
+ne handoff package k re-implementaci** — programátor byl v room právě proto,
+aby kód šel rovnou do prod
 [synthesis 02 — takeaway 3].
 
 ## Jak to funguje
@@ -24,31 +25,33 @@ mockupy v reálném čase. Cílem není rychlejší výroba mockupů; cílem je
    Gate (persona ≤6 měsíců, JTBD, OST), Security & Data triage (L1–L4
    classification, AI Act tier, DPIA), Platform Triage (sandbox spec, runtime),
    Capacity pre-sign-off od EM. Bez podpisů S1 nestartuje [synthesis 01 — B].
-2. **Session 1** (5–6 h, end v 16:00): všichni v místnosti, AI generuje 1–3
-   mockupy, BE shadow agent paralelně generuje OpenAPI 3.1, A11y quickscan,
-   token compliance check, ticket prediction. Výstup = anotované varianty +
-   risk register + score závaznosti per role [synthesis 02 — sekce 3].
-3. **Mezi-session** (5–7 dní): klikací prototyp v sandbox VPC s 24 h TTL a
-   watermark. Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
+2. **Session 1** (5–6 h, end v 16:00): všichni v místnosti **včetně programátora
+   od minuty 0**, AI generuje 1–3 **běžící produkční-ready varianty**, BE shadow
+   agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
+   ticket prediction. Výstup = anotované varianty + risk register + score
+   závaznosti per role [synthesis 02 — sekce 3].
+3. **Mezi-session** (5–7 dní): běžící produkt na sandbox URL (24 h TTL,
+   watermark). Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
    rationale; AI-only feedback deflated max 0.5).
 4. **Session 2** (3 h, rozhodovací): AI moderuje výklad připomínek per role,
    zadavatel hlasuje **poslední** (anti-HiPPO), Decider má tie-breaker.
-   Výstup = go / iterate / kill s explicit kritériem.
-5. **Handoff + reinforcement track** (T+7 / T+30 / T+60 / T+90): ticket check
+   Výstup = winner varianta jde **přímo do produkce**, ne re-implementace.
+5. **Reinforcement track** (T+7 / T+30 / T+60 / T+90): ticket check
    vs prediction, leading metric readout, retro, lagging metric vs success
    criterion [synthesis 02 — sekce 1, bod 11].
 
-## Co dostaneš (artefakty)
+## Co dostaneš (deliverables)
 
+- **Běžící produkt v target prod repo** — winner varianta z Session 2,
+  PR-ready commit, quality gates ≥ 80/100. Žádná re-implementace dev týmem
+  (programátor byl v room).
 - **Business Charter** (ROI hypotéza, success metric, XYZ falsifikace,
-  decider mandate, throw-away/evolve flag).
-- **1–3 anotované klikací prototypy** v izolovaném sandboxu s OST/JTBD tagem.
-- **Draft OpenAPI 3.1 per varianta** + breaking-change registr + 3–5 ADR.
-- **Decision package**: preference matrix, score závaznosti per role, veto
-  registr, decision log s lidskou atribucí (DORA, AI Act čl. 14, GDPR čl. 22).
-- **Handoff package**: scoped epic, akceptační kritéria (Gherkin, ≥1 negative
-  scenario per varianta), dependency map, P2P (Prototype-to-Prod) checklist.
-- **Compliance pakety** (jen pokud relevantní): DPIA artefakt, AI Act Annex IV
+  decider mandate, evolve/throw-away flag).
+- **Sign-off package** (audit trail, **ne** re-impl spec): preference matrix,
+  score závaznosti per role, veto registr, decision log s lidskou atribucí
+  (DORA, AI Act čl. 14, GDPR čl. 22).
+- **OpenAPI 3.1 final** + 3–5 ADR + Gherkin acceptance kritéria.
+- **Compliance pakety** (audit-grade jen): DPIA artefakt, AI Act Annex IV
   tech doc skeleton, Privacy Notice draft, SBOM, secret scan, A11y axe-core
   report, SLO baseline + runbook stub.
 
@@ -77,12 +80,19 @@ pokud PI je >80 % committed [synthesis 03 — decision tree krok 13].
 
 ## Risk & guardrails
 
-Pflanzer **není zkratka kolem governance**. Sandbox je produkt, ne výmluva
-[synthesis 02 — takeaway 1]: pre-approved Terraform modul s vlastní VPC,
-network default-deny, syntetický data seeder, 24 h TTL, audit logging, cost
-cap. Throw-away je **default v charteru**; „evolve" status vyžaduje současně
-podpisy FE+EM (token compliance, A11y), Security (threat model, SBOM, secret
-scan), DPO (DPIA, AI Act tier), DevOps (footprint, SLO, runbook), QA (P2P
-checklist) [synthesis 01 — A]. Bez kompletního paketu prototyp neopustí
-sandbox. Tím se odzbrojí politický tlak „management override" a metoda
-splňuje DORA / AI Act / GDPR požadavky na atribuci rozhodnutí.
+Pflanzer **není zkratka kolem governance**. Sandbox je produkt-grade prostředí,
+ne výmluva [synthesis 02 — takeaway 1]: pre-approved Terraform modul s vlastní
+VPC, network default-deny, syntetický data seeder, audit logging, cost cap.
+
+V default profilu (~80 % use casů) jde winner varianta z Session 2 **přímo
+do prod** s podpisy FE+EM (token compliance, A11y), Security (threat model,
+SBOM, secret scan), DPO (DPIA, AI Act tier), DevOps (footprint, SLO, runbook),
+QA (acceptance criteria pass).
+
+**Throw-away** je explicit opt-in flag pro 3 výjimky: (1) discovery-only piloty
+(žádný produkční záměr), (2) audit-grade evidence collection separate od prod,
+(3) regulatorní gate kde production = certified production (FDA, IEC 62304,
+DO-178C) a vyžaduje separátní implementační cestu. Bez kompletního paketu
+produkt neopustí sandbox — to platí pro evolve i throw-away. Tím se odzbrojí
+politický tlak „management override" a metoda splňuje DORA / AI Act / GDPR
+požadavky na atribuci rozhodnutí.

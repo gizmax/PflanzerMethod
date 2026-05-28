@@ -41,13 +41,13 @@ research roadmap (out of scope tohoto dokumentu, viz Akademik perspektiva).
 
 ## XYZ hypotéza (metoda)
 
-> Věříme, že Pflanzerova metoda **zkrátí čas od „nápad" k „handoff package"
-> o ≥ 50 %** (z baseline ~6–9 měsíců sériového handoffu na ~6–9 týdnů
-> 2-session cyklu) pro projekty splňující fit criteria
+> Věříme, že Pflanzerova metoda **zkrátí čas od „nápad" k „produkt v prod
+> deploy" o ≥ 50 %** (z baseline ~6–9 měsíců sériového handoffu na ~14 dní
+> default profilu / ~4–6 týdnů audit-grade) pro projekty splňující fit criteria
 > z `01-filozofie-a-kdy-pouzit.md`,
 >
-> s kvalitou handoff package **srovnatelnou nebo vyšší** než current state
-> (měřeno re-work % v T+90 a cross-functional NPS).
+> s kvalitou **běžícího produktu** srovnatelnou nebo vyšší než current state
+> (měřeno re-work % v T+90, deploy success rate a cross-functional NPS).
 >
 > **Practitioner-level falsification:** hypotéza je odmítnuta, pokud
 > median(composite PflanzerIndex) ≤ 1.0 across N=12 piloty s
@@ -59,7 +59,7 @@ Tabulka s **instrumentation** sloupci (per Method Steward perspective bod #1).
 
 | Metric | Cíl | Definice (start → end) | Data source | Cadence | Vlastník |
 |--------|-----|------------------------|-------------|---------|----------|
-| Primary lagging — Time-to-handoff | ≤ 50 % baseline | Od **signed Charter timestamp** (ADR-0004 artefakt v projekt repo) do **first commit s `#handoff` tag** v target dev repo (auditable git timestamps) | Pflanzer tool DB (primary) + Git API (validation) | Per pilot completion | Method Steward |
+| Primary lagging — Time-to-prod-deploy | ≤ 50 % baseline | Od **signed Charter timestamp** (ADR-0004 artefakt v projekt repo) do **first prod deploy commit** v target dev repo (`#prod` tag nebo merge-to-main na production branch; auditable git timestamps) | Pflanzer tool DB (primary) + Git API (validation) | Per pilot completion | Method Steward |
 | Leading — Handoff acceptance (operational) | ≥ 80 % artefaktů použito v T+30 | T+30 form survey s checklist 6 artifact types × {used / used with mods / not used} | EM dev týmu fills form; data v Pflanzer tool | T+30 per pilot | EM dev týmu |
 | Leading — Handoff acceptance (**blind external**) | ≥ 60 % per 3-EM panel | Stripped metadata artefakty + Likert 0-100 estimate per 3 EMs z jiných BU | Blind panel form, Steward aggregates | T+30 per pilot | Method Steward (orchestrace) |
 | Guardrail — Re-work % T+90 | ≤ baseline current state | Code churn ratio T+0..T+90 (LOC changed in feature files / LOC initially committed) via `git log --numstat` | Git API + Jira labels (`rework`, `defect_fix`) | T+90 per pilot | Method Steward (automated query) |
