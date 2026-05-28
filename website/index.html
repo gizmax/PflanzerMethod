@@ -1981,7 +1981,7 @@
               .trap-svg .label-day    { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
               .trap-svg .label-decay  { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #7A7264; font-weight: 500; }
               .trap-svg .label-side   { font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'SOFT' 100, 'opsz' 48; font-size: 15px; fill: #1A2418; font-weight: 500; letter-spacing: -0.015em; }
-              .trap-svg .label-side em{ font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 48; font-style: italic; font-weight: 300; fill: #2F4A2F; }
+              .trap-svg .label-side .em-italic { font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 48; font-style: italic; font-weight: 300; fill: #2F4A2F; }
               .trap-svg .spec-loop-anim { animation: specLoopDash 6s linear infinite; }
               @keyframes specLoopDash { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -28; } }
               @media (prefers-reduced-motion: reduce) { .trap-svg .spec-loop-anim { animation: none; } }
@@ -1993,7 +1993,7 @@
           </defs>
 
           <!-- LEFT — PFLANZER -->
-          <text x="50" y="34" class="label-side">Pflanzer — <em>roste do květu.</em></text>
+          <text x="50" y="34" class="label-side">Pflanzer — <tspan class="em-italic">roste do květu.</tspan></text>
           <text x="50" y="52" class="label-day">Day 0 → Day 14 · single artifact</text>
           <line x1="40" y1="220" x2="470" y2="220" class="stroke-ink"/>
           <g class="stroke-thin">
@@ -2038,7 +2038,7 @@
           <line x1="500" y1="20" x2="500" y2="340" class="stroke-dash"/>
 
           <!-- RIGHT — SPEC-DRIVEN -->
-          <text x="530" y="34" class="label-side">Spec-driven — <em>zacyklí v podzemí.</em></text>
+          <text x="530" y="34" class="label-side">Spec-driven — <tspan class="em-italic">zacyklí v podzemí.</tspan></text>
           <text x="530" y="52" class="label-day">T+? · spec ↔ app ↔ spec'</text>
           <line x1="520" y1="220" x2="960" y2="220" class="stroke-ink"/>
           <g class="stroke-thin">
