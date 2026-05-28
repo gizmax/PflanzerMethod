@@ -14,6 +14,14 @@
 > **Brand collision warning:** „AI Design Sprint" je Design Sprint Academy (DSA)
 > brand — Pflanzer dokumentace a marketing **NESMÍ** tento termín používat.
 
+> **v0.4 (2026-05-28) Track P/S split note:** Pflanzer entries v tabulkách
+> níže reprezentují **Track P (preferred default, ~80 % cases)** — dev v room
+> od minuty 0, output = produkt. Pro Track S (fallback ~20 %, 4 hard triggers,
+> ne preferovaná cesta) viz ADR-0020 + comparison matrix na webu
+> (`website/index.html#srovnani` má dedikovaný Track P / Track S split row).
+> Track S má jiné metriky: 21-28 dní vs 14, €40-112k vs DIY-€80k, output
+> = precision spec + 5-stage handoff, re-impl gap ≤ 15 %.
+
 ## Tabulka srovnání — workshop methodology family
 
 | Atribut | Pflanzer | Design Sprint (GV) | Lightning Decision Jam | Lean Inception | Event Storming (Big Picture) | Pretotyping |
