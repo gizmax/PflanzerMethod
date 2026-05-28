@@ -22,9 +22,17 @@ k produktivnímu kódu trvalo **týdny, ne měsíce**, a aby **většina kódu
 z vibe-session šla přímo do produkce** — ne jako reference pro
 re-implementaci.
 
-**Profil:** Default (per `00-lean-pflanzer.md`). e-shop není regulated
-v Pflanzer-relevant smyslu (žádný PSD2 SCA flow, žádné AI Act High-risk
-use case, žádný DORA scope).
+**Profil:** Default (per `00-lean-pflanzer.md`).
+
+**Track designation (per ADR-0020 v0.4):** **Track P (preferred default)** —
+dev tým byl v room od minuty 0, output = produkt do prod (ne handoff package
+k re-implementaci). e-shop nesplňuje žádný ze 4 Track S triggers (žádný
+PSD2 SCA, žádný AI Act High-risk, žádný DORA scope, ne distributed dev,
+ne sponsor mandate spec-as-deliverable) — tj. Track S by **nebyl validní**
+pro tento pilot, Track P je správná volba.
+
+**Output (per ADR-0005 v0.4):** **evolve** (default) — winner varianta
+jde rovnou do produkce.
 
 ## Sestava (6 lidí)
 
