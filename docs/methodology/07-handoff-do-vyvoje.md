@@ -1,30 +1,136 @@
-# 07 — Sign-off + deploy do produkce
+# 07 — Sign-off + deploy do produkce (dual-track)
 
-> Závěrečný krok Pflanzerovy metody. **Výstupem Session 2 je běžící produkt
-> na URL** (winner varianta z 3 paralelních) + sign-off package (audit trail,
-> decision log, compliance evidence). Programátor byl v room od minuty 0 —
-> dev tým nedostává spec k re-implementaci, dostává kód k deployi.
+> Závěrečný krok Pflanzerovy metody. **Output závisí na Track designation**
+> v Charteru (per ADR-0020 dual-track model):
+>
+> - **Track P (preferred, default ~80 %):** Output = běžící produkt na URL
+>   (winner varianta) + sign-off package. Dev v room → žádný handoff.
+> - **Track S (fallback ~20 %, 4 hard triggers):** Output = precision spec
+>   ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 %.
 
-## Filozofie
+## Track P — produkt do produkce (default)
 
-**Default = evolve. Pflanzer artefakt JE produkt.** Programátor byl v room
-od minuty 0 specifically proto, aby kód šel rovnou do prod — bez re-impl,
-bez paper handoff, bez „dev team picks up the prototype" loop. Quality gates
-v Session 2 (token compliance >90 %, a11y Critical/Serious clean, SBOM +
+### Filozofie
+
+**Default = Track P + evolve.** Programátor byl v room od minuty 0
+specifically proto, aby kód šel rovnou do prod — bez re-impl, bez paper
+handoff, bez *„dev team picks up the prototype"* loop. Quality gates
+v Session 2 (token compliance > 90 %, a11y Critical/Serious clean, SBOM +
 secret scan clean, DPIA pokrytí, IaC v platform monorepu) jsou
 **production prerequisite**, ne *„prototype hardening checklist"*
 [perspektivy 04, 15; synthesis 01 osa A].
 
-**Throw-away** je explicit opt-in flag pro 3 výjimky (per ADR-0005):
-(1) discovery-only piloty (žádný produkční záměr), (2) audit-grade evidence
-collection separate od prod, (3) regulatorní gate kde production = certified
-production (FDA, IEC 62304, DO-178C, certain AI Act High-risk uses) vyžaduje
-separate implementation track. Throw-away **NENÍ default** — flag, který musí
-sponzor explicitně podepsat v Charteru.
+**Throw-away pro Track P** je explicit opt-in flag pro discovery-only piloty
+(per ADR-0005 v0.4 — Track P + throw-away = ~5 % cases). Sponzor explicit
+v Charteru s rationale. Throw-away **NENÍ default**.
 
 Bez kompletního sign-off paketu sandbox technicky neuvolní deploy do prod
 sítě (24h TTL, noindex, watermark, network default-deny) [perspektiva 15].
-To platí pro evolve i throw-away — sandbox je guardrail proti governance bypass.
+Sandbox je guardrail proti governance bypass.
+
+### Track P sign-off package (Session 2 deliverable)
+
+Track P sign-off = **audit trail**, ne re-impl spec:
+
+- Decision log s human attribution per AI Act čl. 14
+- Preference matrix + score závaznosti per role + veto registr
+- DORA 7y audit log entry
+- Acceptance kritéria (Gherkin) — verifikační, ne implementační (winner kód už existuje)
+- AI Act Fáze C signed
+- Compliance pakety (audit-grade jen): DPIA, Annex IV, Privacy Notice, SBOM,
+  secret scan, axe-core, SLO baseline + runbook
+
+### Track P D11-14: production hardening
+
+Dev tým (same people kteří byli v Session 1 + 2):
+- Polish + observability hookup
+- Edge case handling
+- Monitoring + alerting setup
+- Production deploy
+
+**Žádná re-implementace.** Winner kód z Session 2 → polish → prod.
+
+## Track S — precision spec do vývoje (fallback)
+
+### Když Track S
+
+Dev #4 + #5 NENÍ v room. **4 hard triggers** (per ADR-0020) — bez triggeru
+projekt odložit, ne přepnout:
+
+1. Distributed dev tým ≥ 3 časové pásma
+2. AI Act High-risk + certified production (Annex IV separate impl)
+3. FDA / IEC 62304 / DO-178C / PSD2 SCA (regulated certified prod)
+4. Sponsor mandate spec-as-deliverable (multi-vendor, legacy modernization, acquisition DD)
+
+Method Decider (per ADR-0011) má autoritu hard-gate. EM + Sponzor
+dual-signature v Charteru. Method Steward audituje trigger validation
+v 5. pre-flight tracku.
+
+### Track S sign-off package (Session 2 deliverable)
+
+Track S sign-off = **spec navigation + audit trail**:
+
+- **Precision spec ≥ 80/100 quality gate** (12 dimensions, per
+  `tool/templates/precision-spec-track-s.md.template`):
+  - A. Functional: INVEST-RA user stories, Mermaid diagrams, executable
+    Gherkin BDD, edge cases enumeration, out-of-scope explicit
+  - B. Technical: OpenAPI 3.1 + Spectral lint, ERD + JSON schemas + sample
+    payloads, tech stack MUST/MAY/MUST NOT, NFRs
+  - C. Quality: STRIDE one-pager, WCAG 2.2 AA checklist, AI Act/DPIA/DORA,
+    BDD scenarios + unit prerequisites + E2E
+  - D. Implementation: file structure, naming, pinned libs, anti-patterns,
+    PR checklist
+  - E. Sign-off: 12-role matrix s veto rights, parallel approval
+- **Reference prototype z Session 1** = combined SoT s spec (anti-drift weapon)
+- Decision log + AI Act Fáze C + DORA 7y log
+- Spec quality gate score (publikováno transparentně)
+
+### Track S 5-stage handoff ritual
+
+**Critical:** žádný „throw spec over the wall". 5 stages:
+
+1. **90-min walkthrough** (PM + dev tým lead + spec authors)
+   - Spec authors present each section (A-E)
+   - Reference prototype demonstrated
+   - Q&A inline
+2. **5-day Q&A window** (dev tým ↔ spec authors async)
+   - Dev klade clarification questions
+   - Spec authors odpovídají + update spec amendments inline
+   - SLA: 24h response time
+3. **Amendment protocol**
+   - Dev requests changes (form: rationale + impact assessment)
+   - Sponzor approves / rejects within 5 dní
+   - Approved amendments → spec version bump (SemVer)
+4. **First milestone review** (T+14-30 v dev sprint)
+   - Dev demos first implementation slice (typicky 20-30 % spec scope)
+   - Spec authors verify alignment vs reference prototype + Gherkin BDD
+   - Drift assessment: ≤ 5 % = OK, > 5 % = root cause analysis
+5. **T+30 embedded spec author shadowing**
+   - 1 spec author shadows dev sprint po dobu 1 týdne
+   - Detects drift early, answers questions inline
+   - Reports back to Method Steward (drift metrics)
+
+### Track S anti-drift mechanismy
+
+Per `docs/research/dual-track-design/03-precision-spec-engineering.md`:
+
+1. SemVer + MADR ADR cross-link pro spec changes
+2. Amendment protocol s sponsor approval (above)
+3. Reference prototype as combined SoT (Session 1 artifact)
+4. Executable Gherkin (BDD scenarios runnable, ne prose)
+5. CI sync monitoring (linter flags spec ≠ impl)
+6. 30-day spec expiry — forces refresh, prevents staleness
+7. T+30 embedded reviewer (above)
+
+Track S re-impl gap target ≤ 15 % (vs SDD 9.8-42.1 % Yan et al. 2025).
+
+## Champion model adopce (oba tracks)
+
+[synthesis 03 #17]. Každý handoff má pojmenovaného championa — senior
+engineer z přijímajícího týmu (Track P: byl v Session 1+2; Track S: dev
+tým lead, attendovaný walkthrough), podepsal Decision log. Vlastní delivery,
+vede T+30/60/90 readout, reportuje do CoP. Bez championa metoda zhasne po
+druhém pilotu.
 
 **Champion model adopce** [synthesis 03 #17]. Každý handoff má
 pojmenovaného championa — senior engineer z přijímajícího týmu, byl v
