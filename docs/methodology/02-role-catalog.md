@@ -58,24 +58,42 @@ rolí**. Role catalog řeší dvě věci:
   facilitátora — buď z jiné BU (neutrální vůči sponzor řetězci), nebo
   externího coache (viz ADR-0006 bootstrap forma 1).
 
-### 4. Frontend / Vibe-coding lead — DOPORUČENÁ pro UI fíčury
-- **Trigger pro povinnost:** projekt mění UI nebo přidává nový view.
+### 4. Frontend / Vibe-coding lead — POVINNÁ pro Track P · doporučená pro Track S
+- **Trigger pro povinnost:** projekt má UI komponent — Track P MUSÍ mít
+  FE leada v room od minuty 0; Track S (fallback, viz ADR-0020) může bez
+  FE leada, ale spec authors musí přebrat jeho zodpovědnost za tech stack
+  rozhodnutí.
 - **Vstup:** design tokens manifest, component manifest + Storybook URL,
   tech stack contract (framework, ESLint/Prettier), a11y baseline,
-  anti-pattern list, throw-away vs evolve directive z Charteru.
-- **Výstup:** komponentový mapping, token compliance > 90 % per varianta,
-  throw-away/evolve decision, repo + commit history s Figma↔kód lineage.
+  anti-pattern list, Track + evolve/throw-away directive z Charteru.
+- **Výstup (Track P):** **běžící produkční-ready varianty** (3 paralelní)
+  s real kódem v target repo, komponentový mapping, token compliance > 90 %,
+  PR-ready commit pro winner.
+- **Výstup (Track S):** Reference prototype z Session 1 (1-3 lightweight) +
+  technical sekce precision specu (per `tool/templates/precision-spec-track-s.md.template`),
+  tech stack MUST/MAY/MUST NOT.
 - **AI proxy:** ⚠️ Pro greenfield části jde, brownfield vyžaduje human review.
 
-### 5. Backend / API lead — DOPORUČENÁ pro data/API změny
-- **Trigger:** nové API, změny datového modelu, integrace.
+### 5. Backend / API lead — POVINNÁ pro Track P · doporučená pro Track S
+- **Trigger:** nové API, změny datového modelu, integrace. Pro Track P MUSÍ
+  být v room od minuty 0; pro Track S (fallback) spec authors přebírají
+  zodpovědnost za contract-first sekce.
 - **Vstup:** **Backend Context Pack** = OpenAPI URL stávajícího API, ERD,
   NFR baseline, ADR archiv 12 mo, event taxonomy, RFC 7807 conventions.
-- **Výstup:** **Draft OpenAPI 3.1 per varianta** (BE shadow agent generuje
-  paralelně k UI mockupům), breaking-change registr, 3–5 ADR drafts,
-  contract test skeleton (Pact / Schemathesis), migration plan stub.
+- **Výstup (Track P):** **OpenAPI 3.1 final** + contract test passing
+  (Pact / Schemathesis), implementační kód v target repo, 3-5 ADR commits,
+  migration plan executed.
+- **Výstup (Track S):** Draft OpenAPI 3.1 final v precision spec, ERD +
+  JSON schemas + sample payloads, contract test skeleton, migration plan
+  for receiving dev team.
 - **AI proxy:** ⚠️ Jen pro velmi greenfield části, brownfield vyžaduje
   lidského BE leada.
+
+> **Track P / Track S note:** Per ADR-0020 dual-track model je dev #4 + #5
+> v room **mandatory pro Track P** (preferred default ~80 % cases). Track S
+> fallback (~20 %) vyžaduje 1 ze 4 hard triggers (distributed dev ≥ 3 TZ,
+> AI Act High-risk, FDA/IEC/DO-178C/PSD2 SCA, sponsor mandate spec-as-deliverable).
+> Bez triggeru = projekt odložit, ne přepnout. Viz `glossary.md`.
 
 ### 6. UX / Designer — DOPORUČENÁ pro nové flow
 - **Trigger pro povinnost:** nový user flow, přepracování core experience.
