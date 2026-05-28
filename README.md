@@ -1,8 +1,11 @@
 # Pflanzerova metoda
 
-> Univerzální corporate framework pro zrychlení agentního vývoje od nápadu po handoff
-> tím, že se všechny zainteresované role sejdou v jedné místnosti s AI co-pilotem
-> a společně provibekódují 1–3 funkční prototypy.
+> Univerzální corporate framework pro zrychlení agentního vývoje od nápadu po
+> produkční deploy — všechny zainteresované role (**včetně programátora od minuty 0**)
+> se sejdou v jedné místnosti s AI co-pilotem a společně provibe-kódují 1–3 funkční
+> produkční-ready varianty. Default Track P (~80 % case-ů) → produkt rovnou do prod.
+> Fallback Track S (~20 % s 4 hard triggers, ne preferovaný) → precision spec
+> ≥ 80/100 + 5-stage handoff ritual. Viz ADR-0020.
 
 ## Začni tady (default profil — ~80 % use casů)
 
