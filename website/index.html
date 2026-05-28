@@ -609,6 +609,115 @@
     .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
   }
 
+  /* ─────── Spec-driven trap section ─────── */
+  .trap-frame {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .trap-frame .flow-meta {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.4rem;
+  }
+  .trap-frame .flow-meta span {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--gray);
+  }
+  .trap-svg-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -0.5rem;
+    padding: 1rem 0.5rem;
+  }
+  .trap-svg-wrap svg {
+    display: block;
+    min-width: 760px;
+    width: 100%;
+    height: auto;
+  }
+  .trap-svg-wrap:hover .fill-punch {
+    fill: #B4D838;
+    transition: fill 0.3s ease;
+  }
+  .trap-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1.5rem;
+    margin-top: 1.5rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.2rem;
+  }
+  .trap-breakdown > div { display: flex; flex-direction: column; gap: 0.4rem; }
+  .trap-breakdown .col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--moss);
+    font-weight: 600;
+  }
+  .trap-breakdown .col-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .trap-breakdown .col-desc {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .trap-breakdown .col-desc strong { font-weight: 600; }
+  .trap-breakdown .col-tags {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .trap-breakdown .col-tags span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--line-bold);
+    background: var(--bone);
+    color: var(--moss);
+  }
+  .trap-breakdown .col-sdd .col-tags span { color: var(--gray); }
+  .trap-punchline {
+    margin-top: 2rem;
+    padding: 1.6rem 1.8rem;
+    background: var(--ink);
+    color: var(--bone);
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    line-height: 1.25;
+    letter-spacing: -0.018em;
+  }
+  .trap-punchline em {
+    color: var(--punch);
+    font-style: italic;
+  }
+  @media (max-width: 840px) {
+    .trap-breakdown { grid-template-columns: 1fr; row-gap: 1.4rem; }
+  }
+  @media print {
+    .trap-svg-wrap svg { min-width: 100%; max-height: 6cm; }
+    .trap-punchline { background: var(--bone); color: var(--ink); border: 1.5px solid var(--ink); }
+    .trap-punchline em { color: var(--moss); }
+  }
+
   /* ─────── Pricing tiers ─────── */
   .pricing-grid {
     display: grid;
@@ -1799,11 +1908,246 @@
 
 <hr class="rule">
 
+<!-- ─────── 02b SPEC-DRIVEN TRAP ─────── -->
+<section id="spec-trap" class="trap-section" style="padding-block: clamp(4rem, 8vw, 7rem);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">02<em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; opacity: 0.65;">b</em></div>
+      <h2 class="h-section lang-cs">
+        Past <em>spec-drivenu.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        The spec-driven <em>trap.</em>
+      </h2>
+      <div class="label-meta label">
+        <span class="lang-cs">Kontrast · proč ne SDD</span>
+        <span class="lang-en">Contrast · why not SDD</span>
+      </div>
+    </div>
+
+    <p class="lang-cs" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 2rem;">
+      Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — říká:
+      <em>„Nejdřív specka, pak kód."</em> V korporátu to zní zodpovědně.
+      Realita: <strong>app → specka → dev → další app, která se liší → pinking →
+      cyklus se prodlouží.</strong> Pflanzer dělá opačnou věc — artefakt
+      v místnosti od minuty 0, specka padá ven jako vedlejší produkt.
+    </p>
+    <p class="lang-en" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 2rem;">
+      Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — says:
+      <em>„Spec first, code second."</em> In the enterprise it sounds
+      responsible. The reality: <strong>app → spec → dev → a different app →
+      ping-pong → the cycle gets longer.</strong> Pflanzer flips it —
+      the artifact is in the room from minute zero, the spec falls out
+      as a by-product.
+    </p>
+
+    <div class="trap-frame">
+      <div class="flow-meta">
+        <span>
+          <span class="lang-cs">Fig. 02b — Dvě rostliny, jedna ve smyčce</span>
+          <span class="lang-en">Fig. 02b — Two plants, one stuck in a loop</span>
+        </span>
+        <span>
+          <span class="lang-cs">Pflanzer vs Spec-Driven · ilustrativní</span>
+          <span class="lang-en">Pflanzer vs Spec-Driven · illustrative</span>
+        </span>
+      </div>
+
+      <div class="trap-svg-wrap">
+        <svg viewBox="0 0 1000 360" xmlns="http://www.w3.org/2000/svg"
+             role="img" class="trap-svg"
+             aria-label="Two plants side-by-side: Pflanzer grows from seed to bloom in 14 days; Spec-Driven loops underground between spec and app, never blooms.">
+          <defs>
+            <style>
+              .trap-svg .stroke-ink   { stroke: #1A2418; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+              .trap-svg .stroke-moss  { stroke: #2F4A2F; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+              .trap-svg .stroke-thin  { stroke: #1A2418; fill: none; stroke-width: 1; stroke-linecap: round; }
+              .trap-svg .stroke-dash  { stroke: #1A2418; fill: none; stroke-width: 1; stroke-dasharray: 3 4; }
+              .trap-svg .stroke-loop  { stroke: #1A2418; fill: none; stroke-width: 1.4; stroke-dasharray: 4 3; opacity: 0.7; }
+              .trap-svg .fill-punch   { fill: #C7E84A; }
+              .trap-svg .fill-ink     { fill: #1A2418; }
+              .trap-svg .fill-moss    { fill: #2F4A2F; }
+              .trap-svg .fill-bone    { fill: #F4EFE6; }
+              .trap-svg .label-svg    { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; fill: #1A2418; font-weight: 600; }
+              .trap-svg .label-day    { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
+              .trap-svg .label-decay  { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #7A7264; font-weight: 500; }
+              .trap-svg .label-side   { font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'SOFT' 100, 'opsz' 48; font-size: 15px; fill: #1A2418; font-weight: 500; letter-spacing: -0.015em; }
+              .trap-svg .label-side em{ font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 48; font-style: italic; font-weight: 300; fill: #2F4A2F; }
+              .trap-svg .spec-loop-anim { animation: specLoopDash 6s linear infinite; }
+              @keyframes specLoopDash { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -28; } }
+              @media (prefers-reduced-motion: reduce) { .trap-svg .spec-loop-anim { animation: none; } }
+              @media print { .trap-svg .spec-loop-anim { animation: none; } }
+            </style>
+            <marker id="trap-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#1A2418"/>
+            </marker>
+          </defs>
+
+          <!-- LEFT — PFLANZER -->
+          <text x="50" y="34" class="label-side">Pflanzer — <em>roste do květu.</em></text>
+          <text x="50" y="52" class="label-day">Day 0 → Day 14 · single artifact</text>
+          <line x1="40" y1="220" x2="470" y2="220" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="50" y1="228" x2="54" y2="234"/><line x1="80" y1="228" x2="84" y2="234"/>
+            <line x1="110" y1="228" x2="114" y2="234"/><line x1="140" y1="228" x2="144" y2="234"/>
+            <line x1="170" y1="228" x2="174" y2="234"/><line x1="200" y1="228" x2="204" y2="234"/>
+            <line x1="230" y1="228" x2="234" y2="234"/><line x1="260" y1="228" x2="264" y2="234"/>
+            <line x1="290" y1="228" x2="294" y2="234"/><line x1="320" y1="228" x2="324" y2="234"/>
+            <line x1="350" y1="228" x2="354" y2="234"/><line x1="380" y1="228" x2="384" y2="234"/>
+            <line x1="410" y1="228" x2="414" y2="234"/><line x1="440" y1="228" x2="444" y2="234"/>
+          </g>
+          <g transform="translate(110, 220)">
+            <ellipse cx="0" cy="14" rx="9" ry="6" class="fill-ink"/>
+            <path d="M -6 18 Q -10 24 -12 28" class="stroke-moss"/>
+            <path d="M 0 20 Q 0 26 -2 32" class="stroke-moss"/>
+            <path d="M 6 18 Q 10 24 12 28" class="stroke-moss"/>
+          </g>
+          <text x="110" y="270" text-anchor="middle" class="label-day">D0</text>
+          <text x="110" y="284" text-anchor="middle" class="label-svg">sazba</text>
+          <path d="M 260 220 Q 260 140 260 90" class="stroke-ink"/>
+          <g class="stroke-moss">
+            <path d="M 260 180 Q 240 175 222 182 Q 230 192 246 194 Q 260 192 260 180 Z"/>
+            <path d="M 260 150 Q 282 145 300 152 Q 292 162 276 164 Q 260 162 260 150 Z"/>
+            <path d="M 260 180 L 230 188" class="stroke-thin"/>
+            <path d="M 260 150 L 296 158" class="stroke-thin"/>
+          </g>
+          <ellipse cx="260" cy="220" rx="14" ry="3" class="stroke-thin"/>
+          <g transform="translate(260, 88)">
+            <circle cx="0" cy="-8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="-9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="0" cy="8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="0" cy="0" r="5" class="fill-ink"/>
+          </g>
+          <text x="260" y="320" text-anchor="middle" class="label-day">D14</text>
+          <text x="260" y="334" text-anchor="middle" class="label-svg">prod</text>
+          <text x="395" y="270" class="label-day">alignment:</text>
+          <text x="395" y="284" class="label-svg" style="fill:#2F4A2F;">100% → 100%</text>
+          <text x="395" y="298" class="label-decay">same room · 6 heads</text>
+
+          <!-- DIVIDER -->
+          <line x1="500" y1="20" x2="500" y2="340" class="stroke-dash"/>
+
+          <!-- RIGHT — SPEC-DRIVEN -->
+          <text x="530" y="34" class="label-side">Spec-driven — <em>zacyklí v podzemí.</em></text>
+          <text x="530" y="52" class="label-day">T+? · spec ↔ app ↔ spec'</text>
+          <line x1="520" y1="220" x2="960" y2="220" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="530" y1="228" x2="534" y2="234"/><line x1="560" y1="228" x2="564" y2="234"/>
+            <line x1="590" y1="228" x2="594" y2="234"/><line x1="620" y1="228" x2="624" y2="234"/>
+            <line x1="650" y1="228" x2="654" y2="234"/><line x1="680" y1="228" x2="684" y2="234"/>
+            <line x1="710" y1="228" x2="714" y2="234"/><line x1="740" y1="228" x2="744" y2="234"/>
+            <line x1="770" y1="228" x2="774" y2="234"/><line x1="800" y1="228" x2="804" y2="234"/>
+            <line x1="830" y1="228" x2="834" y2="234"/><line x1="860" y1="228" x2="864" y2="234"/>
+            <line x1="890" y1="228" x2="894" y2="234"/><line x1="920" y1="228" x2="924" y2="234"/>
+          </g>
+          <path d="M 720 220 Q 720 180 700 168 Q 660 152 660 130" class="stroke-ink"/>
+          <circle cx="660" cy="118" r="9" class="stroke-ink fill-bone"/>
+          <text x="660" y="122" text-anchor="middle" class="label-svg" style="fill:#7A7264;">?</text>
+          <g class="stroke-moss" opacity="0.55">
+            <path d="M 712 200 Q 695 198 682 205 Q 690 212 702 213 Q 712 212 712 200 Z"/>
+          </g>
+          <g>
+            <rect x="585" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="615" y="260" text-anchor="middle" class="label-svg">spec</text>
+            <rect x="685" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="715" y="260" text-anchor="middle" class="label-svg">app</text>
+            <rect x="785" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="815" y="260" text-anchor="middle" class="label-svg">spec'</text>
+            <rect x="685" y="295" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="715" y="310" text-anchor="middle" class="label-svg">app'</text>
+            <path d="M 645 256 L 685 256" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 745 256 L 785 256" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 815 267 Q 815 286 745 306" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 685 306 Q 615 286 615 267" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+          </g>
+          <text x="530" y="334" class="label-day">alignment:</text>
+          <text x="600" y="334" class="label-svg" style="fill:#7A7264;">100% → 54%</text>
+          <text x="720" y="334" class="label-decay">handoffs · async · async · async</text>
+          <text x="530" y="350" class="label-decay" style="font-style: italic;">decay % illustrative — see docs/research/spec-driven-vs-pflanzer for sources</text>
+        </svg>
+      </div>
+
+      <div class="trap-breakdown">
+        <div class="col-pflanzer">
+          <div class="col-label">Pflanzer · artifact-first</div>
+          <div class="col-name lang-cs">Jeden artefakt. Šest hlav. Stejná místnost.</div>
+          <div class="col-name lang-en">One artifact. Six heads. Same room.</div>
+          <div class="col-desc lang-cs">
+            Funkční klikací prototyp od hodiny 1. Security, Legal, DPO čtou
+            ten samý URL, ne PDF se speckou. Specka se generuje
+            <em>po</em> sezení jako audit log, ne před.
+          </div>
+          <div class="col-desc lang-en">
+            A working clickable prototype from hour 1. Security, Legal, DPO
+            read the same URL — not a PDF spec. The spec is generated
+            <em>after</em> the session as an audit log, not before.
+          </div>
+          <div class="col-tags">
+            <span>same room</span>
+            <span><span class="lang-cs">alignment roste</span><span class="lang-en">alignment compounds</span></span>
+            <span>D14 → prod</span>
+          </div>
+        </div>
+
+        <div class="col-sdd">
+          <div class="col-label">Spec-Driven · spec-first</div>
+          <div class="col-name lang-cs">Specka. Dev. App, která se liší. Specka'.</div>
+          <div class="col-name lang-en">Spec. Dev. An app that diverges. Spec'.</div>
+          <div class="col-desc lang-cs">
+            Spec Kit (11/2025): <strong>2 577 řádků markdownu na 689 řádků
+            kódu</strong>. 10× pomalejší než iterativní prompting. Každý
+            předací krok ztrácí kontext — pinking začne v týdnu 3.
+            Compliance audit kontroluje papír, ne live URL.
+          </div>
+          <div class="col-desc lang-en">
+            Spec Kit (Nov 2025): <strong>2,577 lines of markdown for 689
+            lines of code</strong>. 10× slower than iterative prompting.
+            Every handoff loses context — ping-pong kicks in by week 3.
+            The compliance audit reviews paper, not a live URL.
+          </div>
+          <div class="col-tags">
+            <span>handoff decay</span>
+            <span>spec ≠ app</span>
+            <span>T+? · loop</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trap-punchline">
+      <span class="lang-cs">
+        Specka je <em>nájemné.</em> Artefakt je <em>vlastnictví.</em>
+        Pflanzer staví artefakty.
+      </span>
+      <span class="lang-en">
+        A spec is <em>rent.</em> An artifact is <em>equity.</em>
+        Pflanzer builds artifacts.
+      </span>
+    </div>
+
+    <p style="margin-top: 1.4rem; font-size: 12px; color: var(--gray); max-width: 80ch; border-left: 2px solid var(--moss); padding-left: 0.8rem;">
+      <span class="lang-cs">
+        Anthropic Engineering 2025–2026 to dokumentuje:
+        <em>„Communication was handled via files: one agent would write a file, another would read it and respond."</em>
+        Artefakt &gt; spec dokument. Plus Thoughtworks Tech Radar Vol 33 (11/2025) řadí SDD do <strong>Assess</strong> ring (ne Trial, ne Adopt).
+      </span>
+      <span class="lang-en">
+        Anthropic Engineering 2025–2026 documents this:
+        <em>„Communication was handled via files: one agent would write a file, another would read it and respond."</em>
+        Artifact &gt; spec document. Thoughtworks Tech Radar Vol 33 (Nov 2025) places SDD in the <strong>Assess</strong> ring — not Trial, not Adopt.
+      </span>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
 <!-- ─────── COMPARISON MATRIX ─────── -->
 <section id="srovnani" style="padding-block: clamp(3rem, 6vw, 5rem);">
   <div class="wrap">
     <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
-      <span class="label"><span class="lang-cs">Srovnání · 5 metod, jeden řádek</span><span class="lang-en">Comparison · 5 methods, one row</span></span>
+      <span class="label"><span class="lang-cs">Srovnání · 6 metod, jeden řádek</span><span class="lang-en">Comparison · 6 methods, one row</span></span>
       <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Kde Pflanzer sedí v 2026 stack-u — mezi single-shot hackathonem a $1M+ McKinsey transformací.</span><span class="lang-en">Where Pflanzer sits in the 2026 stack — between a single-shot hackathon and a $1M+ McKinsey transformation.</span></span>
     </div>
 
@@ -1859,6 +2203,14 @@
             <td><span class="lang-cs">Žádný</span><span class="lang-en">None</span></td>
             <td>$5–40k</td>
             <td><span class="lang-cs">High-fidelity prototyp + user testy</span><span class="lang-en">High-fidelity prototype + user tests</span></td>
+          </tr>
+          <tr>
+            <td><span class="lang-cs">Spec-Driven (Spec Kit · Kiro · OpenSpec · BMAD)</span><span class="lang-en">Spec-Driven (Spec Kit · Kiro · OpenSpec · BMAD)</span></td>
+            <td><span class="lang-cs">Multi-round, 20–28 PD typical</span><span class="lang-en">Multi-round, 20–28 PD typical</span></td>
+            <td><span class="lang-cs">Engineering + spec author (žádné non-tech)</span><span class="lang-en">Engineering + spec author (no non-tech)</span></td>
+            <td><span class="lang-cs">Spec dokument (statický, decay 9.8–42 %)</span><span class="lang-en">Spec document (static, 9.8–42 % decay)</span></td>
+            <td><span class="lang-cs">OSS · IDE license $0–$30/uživatel/měsíc</span><span class="lang-en">OSS · IDE license $0–$30/user/month</span></td>
+            <td><span class="lang-cs">Spec → re-impl loop, app ≠ spec</span><span class="lang-en">Spec → re-impl loop, app ≠ spec</span></td>
           </tr>
         </tbody>
       </table>
