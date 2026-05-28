@@ -229,6 +229,61 @@ vyžaduje:
   (post-ADR-0014 commit, update tabulku to remove TBD note).
 - `tool/cli/lib/` — future Python implementation `pflanzerindex.py` (P2 tool work).
 
+## v0.4 addendum — Per-track aggregation (2026-05-28)
+
+Per ADR-0020 dual-track model, PflanzerIndex gets **per-track measurement
+windows** (Tom decision 2026-05-28, Recommended default):
+
+### Track-specific measurement windows
+
+| Track | TimeRatio measurement | Acceptance measurement | Re-work measurement | NPS measurement |
+|-------|----------------------|------------------------|---------------------|-----------------|
+| **Track P** (preferred) | Charter signed → **first prod deploy commit** (`#prod` tag) — typically T+11-14 | EM dev týmu T+30 + blind external EM panel T+30 | Code churn T+0..T+90 | Stakeholder survey T+30 |
+| **Track S** (fallback) | Charter signed → **first prod deploy commit by receiving dev team** — typically T+60-90 | EM dev týmu T+60 + spec author embedded reviewer T+30 + blind external EM panel T+60 | Code churn measured against spec at T+90 | Stakeholder survey T+30 + receiving dev team survey T+60 |
+
+### Per-track aggregation rule
+
+Method Steward reports **two separate medians** per quarter:
+- `median(PflanzerIndex_P)` — Track P pilots only
+- `median(PflanzerIndex_S)` — Track S pilots only
+
+**Combined PflanzerIndex** for method-level XYZ hypothesis validation
+(per ADR-0007 method charter):
+
+```
+PflanzerIndex_combined = (count_P × median_P + count_S × median_S) / (count_P + count_S)
+```
+
+**Validation thresholds (per track):**
+- Track P PflanzerIndex > 1.0 = method working (default expectation)
+- Track S PflanzerIndex > 0.85 = method working (fallback accepts smaller delta)
+- Combined PflanzerIndex > 1.0 = aggregate XYZ validated
+
+### Track S re-impl gap explicit measurement
+
+Track S has explicit **re-impl gap metric** added (not in Track P):
+
+```
+ReImplGap_S = (LOC changed by receiving dev team that differs from spec) / (LOC delivered in final prod)
+```
+
+**Target:** ≤ 15 % (per ADR-0020). **Critical threshold:** > 25 % triggers
+Method Steward escalation (spec quality gate failed in retrospect).
+
+Comparable baseline:
+- Pflanzer Track P ~0 % (kód JE deliverable, no spec to drift from)
+- Pflanzer Track S target ≤ 15 %
+- SDD (Spec Kit, Kiro) 9.8-42.1 % (Yan et al. 2025)
+
+### Per-track adoption tracking
+
+Method Steward dashboard publishes monthly:
+- `count_P` (Track P pilots completed this quarter)
+- `count_S` (Track S pilots completed this quarter)
+- `ratio_S = count_S / (count_P + count_S)`
+- **Per-BU breakdown** of `ratio_S` — input to ADR-0011 v0.4 addendum
+  emergency trigger (`> 50 % Track S/BU` triggers Method Decider review)
+
 ## Out of scope (deferred)
 
 - **Project Class Taxonomy** (P1-5) — definice A/B/C/D class, prerequisita pro

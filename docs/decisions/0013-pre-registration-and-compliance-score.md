@@ -103,28 +103,29 @@ amendments: []                   # signed amendments mid-pilot (pokud nutné)
 **Compliance Score** = míra fidelity konkrétního pilotu vůči Pflanzer methodology.
 Měřena **ex-post** Method Stewardem (audit pilot artefaktů + decision logs).
 
-**12 must-have prvků:**
+**13 must-have prvků (v0.4 upgrade — added #13):**
 
 1. Pre-flight Discovery Readiness Gate sign-off existuje (datovaný, signed Champion + PM).
 2. Pre-flight Security & Data triage sign-off existuje (datovaný, signed Security + DPO).
 3. Pre-flight Platform Triage sign-off existuje (datovaný, signed Platform Eng).
 4. **Pre-registration document** (per § A) podepsaný před Session 1.
 5. Charter (ADR-0004 template, projekt-level) podepsaný před Session 1.
-6. Session 1 attendance ≥ 70 % Required roles podle role catalog.
+6. Session 1 attendance ≥ 70 % Required roles podle role catalog (Track P: vč. dev #4 + #5 mandatory; Track S: dev optional).
 7. Silent voting použit minimálně 1× v Session 1 (decision log evidence).
 8. **Decider hlasoval poslední** (anti-HiPPO) v Session 2 — decision log evidence.
 9. Hierarchie závaznosti (Critical / Yellow / Score) použita pro feedback v mezi-session.
-10. Throw-away default flag v Charteru (nebo explicit evolve sign-off per ADR-0005).
-11. Handoff package obsahuje **všech 6 required artefaktů** (per `07-handoff-do-vyvoje.md`).
+10. **Evolve / throw-away flag** v Charteru podepsaný sponzorem (per ADR-0005 v0.4 — default = evolve, throw-away opt-in pro 3 use cases).
+11. Sign-off package obsahuje **track-příslušné artefakty** (per `07-handoff-do-vyvoje.md`: Track P = audit trail; Track S = precision spec ≥ 80/100 + 5-stage handoff ritual).
 12. **AI Act Fáze C final classification** podepsaná DPO (per Útok 4 v0.3 resolution).
+13. **Track designation + justification (v0.4, per ADR-0020):** Charter má explicit Track P (default) nebo Track S declaration. Pokud Track S, MUSÍ být doložen 1 ze 4 hard triggers + evidence (distributed dev ≥ 3 TZ / AI Act High-risk / FDA-IEC-DO178C-PSD2 / sponsor mandate). Method Steward validuje v Track-S Trigger Validation pre-flight (per `03-pre-session-priprava.md`).
 
-**Skóre interpretation:**
+**Skóre interpretation (v0.4 — adjusted for 13 elements):**
 
 | Score | Status pilot pro method-level metrics |
 |-------|---------------------------------------|
-| **10-12 / 12** | **Pflanzer pilot.** Započítává se do XYZ hypothesis validation. |
-| **7-9 / 12** | **„Pflanzer-inspired".** Reportovaný separátně. **NEZAPOČÍTÁVÁ se** do success / kill metrics. Method Steward dokumentuje deviations. |
-| **< 7 / 12** | **Pilot disqualified.** Deviations logged jako *fork candidate* (potenciálně nový variant per ADR-0015 fork governance — TBD P2). |
+| **11-13 / 13** | **Pflanzer pilot.** Započítává se do XYZ hypothesis validation. |
+| **8-10 / 13** | **„Pflanzer-inspired".** Reportovaný separátně. **NEZAPOČÍTÁVÁ se** do success / kill metrics. Method Steward dokumentuje deviations. |
+| **< 8 / 13** | **Pilot disqualified.** Deviations logged jako *fork candidate*. |
 
 **Audit workflow:**
 - Method Steward provede compliance audit do **30 dní po pilot handoff completion**.

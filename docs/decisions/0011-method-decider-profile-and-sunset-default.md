@@ -106,11 +106,44 @@ volitelný).
 - Re-activation post-sunset má jasný proces (nový ADR + Process Portfolio Review
   endorsement) — sunset není permanent kill, je to *reset s explicit re-baselining*.
 
+## v0.4 addendum — Track S adoption emergency trigger (2026-05-28)
+
+Per ADR-0020 dual-track model, Method Decider gets **new emergency review
+trigger** for Track S adoption drift (Tom decision 2026-05-28, Recommended
+default):
+
+> **> 50 % Track S/BU per quarter** triggers Method Decider emergency review
+> within 14 days. Method Steward audituje quarterly Compliance Score #13
+> (Charter track designation + justification, per ADR-0013 v0.4 addendum).
+> If > 50 % pilots in given BU went Track S during quarter, Steward submits
+> mandatory escalation report to Method Decider + BU AI CoE Lead.
+
+**Rationale:** Pflanzer Track S adoption gravity je #1 strukturální risk
+(Spotify precedent: 22 % SAFe XP pair programming → 3.5 %). Without
+threshold trigger, BU drift detection happens late. 50 % is middle-ground:
+catches drift bez over-policing valid Track S adoption v regulated
+industries.
+
+**Alternative thresholds considered:**
+- 30 % (stricter): false positives v finance/healthcare BUs where Track S
+  is legitimate majority
+- 70 % (looser): drift catches late
+- 3 consecutive Track S pilots (absolute): considered, but ratio captures
+  systemic pattern better
+
+**Emergency review options for Method Decider:**
+- **Keep current adoption** — accept BU rationale (legitimate Track S use cases)
+- **Iterate** — joint Method Steward + BU AI CoE Lead intervention to
+  restore Track P preference (training, Charter coaching, dev availability fix)
+- **Sunset Pflanzer for that BU** — if root cause is „cannot sustain Track P,"
+  Pflanzer is wrong fit. Method Charter scope reduction.
+
 ## Update existující dokumentace
 
 - `ADR-0007` — addendum: *„Decider profile a sunset default specifikováno v ADR-0011."*
 - `method-charter.md` — sekce *„Status"* → Method Decider profile updated;
   nová sekce *„Default Sunset checkpoint"*; *„Validační loop & sunset"* sekce updated.
+- `ADR-0020 v0.4` — references this addendum for Track S adoption emergency trigger.
 
 ## Reference
 

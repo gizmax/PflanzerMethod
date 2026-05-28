@@ -71,6 +71,24 @@ Pre-registration template (`tool/templates/pre-registration.yaml.template`)
 zachycuje váhy per pilot — změna váh = signed amendment, aplikuje se pouze
 na future piloty.
 
+**v0.4 per-track aggregation (per ADR-0014 v0.4 addendum):** Method Steward
+reportuje **two separate medians** per quarter — `median(PflanzerIndex_P)`
+pro Track P pilots (measurement window T+11-14 → T+90), `median(PflanzerIndex_S)`
+pro Track S pilots (T+60-90 → T+90 + spec re-impl gap measurement).
+
+**Combined PflanzerIndex** pro method-level XYZ validation:
+
+```
+PflanzerIndex_combined = (count_P × median_P + count_S × median_S) / (count_P + count_S)
+```
+
+**Per-track thresholds:** Track P > 1.0 (default expectation), Track S > 0.85
+(fallback accepts smaller delta), Combined > 1.0 (aggregate XYZ validated).
+
+Plus **per-BU ratio_S = count_S / (count_P + count_S)** dashboard — input
+do ADR-0011 v0.4 addendum emergency trigger (> 50 % Track S/BU per quarter
+triggers Method Decider review).
+
 ## Kill criteria (Practitioner track)
 
 **Time-bounded variants** (per Skeptický VP Útok 2 + Method Steward perspective bod #4):
