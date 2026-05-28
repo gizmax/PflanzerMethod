@@ -98,6 +98,40 @@ Charteru. Bez všech tří podpisů Session 1 neodstartuje [synthesis 01, blok B
   logs + tracing).
 - **Secret policy** (Vault + OIDC, žádné hardcoded credentials).
 
+### Track-S Trigger Validation (Method Steward, jen Track S)
+
+> **5. pre-flight track per ADR-0020 — aktivuje se POUZE pokud Charter
+> označuje Track S (fallback).** Track P (preferred default ~80 %) tento
+> krok přeskakuje.
+
+Pokud Charter sponzor označuje Track S (dev #4 + #5 nebude v room), Method
+Steward **MUSÍ validovat justifikaci** — 1 ze 4 hard triggers musí být
+prokázán evidencí. Bez validace Session 1 neodstartuje a Method Decider
+(per ADR-0011) má autoritu vrátit projekt na Track P nebo odložit.
+
+**4 hard triggers (Charter MUSÍ specifikovat který + evidence):**
+
+1. **Distributed dev tým ≥ 3 časové pásma.** Evidence: org chart screenshot
+   s timezone tagy, demonstrace nemožnosti synchronního 3h Session 1.
+2. **AI Act High-risk + certified production.** Evidence: AI Act tier Fáze A
+   classification (čl. 6 + Annex III), regulator requirement pro Annex IV
+   separate impl track.
+3. **FDA / IEC 62304 / DO-178C / PSD2 SCA.** Evidence: regulatory scope
+   statement + change-of-record proces vyžadující spec-as-artifact.
+4. **Sponsor mandate spec-as-deliverable.** Evidence: signed mandate
+   s rationale (multi-vendor integration contract, legacy modernization
+   s novým dev týmem, M&A acquisition due diligence).
+
+**Bez 1 ze 4 triggerů → projekt odložit**, ne přepnout na Track S. Track S
+NESMÍ být easy escape hatch (per ADR-0020 § 10 strukturálních guards).
+
+**Charter dual-signature requirement (Track S):** EM + Sponzor podepisují
+oba. Žádný single-signer override.
+
+**Output Track-S Trigger Validation:** signed 1-pager memo s trigger
+justification + evidence + Method Steward sign-off. Audit log entry per
+ADR-0013 Compliance Score element #13.
+
 ## Krok 1 — Business Charter
 
 Charter je primární gate artefakt. Sponzor podepisuje 5–7 dní před session,
@@ -116,7 +150,8 @@ neodstartuje [perspektiva 01].
 | Capacity commit | Písemný sign-off od EM: počet sprintů, dependencies, IP iteration availability |
 | Constraints | Budget cap, timeline cap, no-go zóny, regulatorní rails |
 | Decider mandate | Písemně od CPO: *„Tom rozhoduje o variantě X v session 1, sign-off do 48 h"* |
-| Throw-away vs evolve | **Throw-away je default** [synthesis 01, blok A]. Evolve vyžaduje současný podpis FE+EM+Security+Legal+Platform po code review |
+| **Track designation (v0.4)** | **Track P (default)** = dev #4 + #5 v room od minuty 0, output = produkt v prod. **Track S** (fallback) = dev mimo room, output = precision spec ≥ 80/100 + 5-stage handoff ritual. Pokud Track S, MUSÍ specifikovat 1 ze 4 hard triggers + evidence (per Track-S Trigger Validation pre-flight track). Per ADR-0020. |
+| Throw-away vs evolve (v0.4) | **Default = evolve** (per ADR-0005 v0.4 rewrite). Throw-away je explicit opt-in pro 3 use cases (discovery-only pilot, audit-grade evidence separate od prod, regulated certified prod). Track × Output je 2×2 ortogonální matice, ne nested. |
 | AI Act risk tier | Z Legal Triage |
 | Data classification | L1–L4 z Security Triage |
 | Sandbox spec ref | Odkaz na Terraform modul z Platform Triage |
