@@ -1,18 +1,26 @@
-# Lean Pflanzer — default profil (1-pager)
+# Lean Pflanzer — Track P default profil (1-pager)
 
 > **Tohle čti první**, pokud chceš metodu **použít**, ne studovat.
 > Pro audit-grade variantu (banky, DORA, AI Act High-risk) viz
 > `method-charter.md` + ADR-0011/0012/0013/0014.
 >
-> Default profil = **~80 % use casů**: B2B / B2C eshop / SaaS / interní tool,
-> non-mission-critical, žádný regulatorní gate. e-shop, marketing site, app
+> **Track P default profil = ~80 % use casů** (per ADR-0020 dual-track model):
+> B2B / B2C eshop / SaaS / interní tool, non-mission-critical, žádný
+> regulatorní gate, dev tým dostupný v room. e-shop, marketing site, app
 > feature, internal dashboard, CRM rework.
+>
+> **Track S fallback (~20 %)** pro 4 hard triggers (distributed dev ≥ 3 TZ /
+> AI Act High-risk / FDA-IEC-DO178C-PSD2 / sponsor mandate spec-as-deliverable) —
+> NENÍ preferovaná cesta. Tento dokument je pro Track P. Track S detail
+> v `07-handoff-do-vyvoje.md` + `tool/templates/precision-spec-track-s.md.template`.
 
 ## Co Pflanzer skutečně je
 
-Sedm lidí (sponzor + 5 z workflow + facilitátor), 2 setkání, 1 týden mezi nimi,
-většina kódu jde rovnou do produkce. Pomáhá korporátu nasadit AI na zrychlení
-rigidních procesů (sériový handoff zadavatel → produkt → vývoj → security → deploy).
+Sedm lidí (sponzor + 5 z workflow **včetně programátora od minuty 0** +
+facilitátor), 2 setkání, 1 týden mezi nimi, **winner varianta jde rovnou
+do produkce** — žádná re-implementace dev týmem (dev byl v room).
+Pomáhá korporátu nasadit AI na zrychlení rigidních procesů (sériový handoff
+zadavatel → produkt → vývoj → security → deploy).
 
 **To je vše.** Vše ostatní v `docs/methodology/` (Method Steward, pre-registration,
 compliance score, leading indicators, DORA prompt audit pipeline, AI Act Fáze A/B/C)
