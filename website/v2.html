@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Codex — Specimen Plate Edition</title>
+<meta name="description" content="Pflanzer Method, představeno jako botanický kodex. Mehthodus pflanzeri vs Mehthodus speccatus — comparativi specimen plate." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bone:      #F4EFE6;
+    --paper:     #ECE3D0;
+    --paper-warm:#E8DCBE;
+    --ink:       #1A2418;
+    --moss:      #2F4A2F;
+    --punch:     #C7E84A;
+    --punch-dim: #DDE8A9;
+    --gray:      #7A7264;
+    --sepia:     rgba(120, 75, 30, 0.06);
+    --line:      rgba(26, 36, 24, 0.22);
+    --line-soft: rgba(26, 36, 24, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 14;
+    font-size: 15.5px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* sepia + grain overlay — manuscript feel */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at top, rgba(180, 130, 70, 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse at bottom, rgba(120, 75, 30, 0.05) 0%, transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.14 0 0 0 0 0.1 0 0 0 0.10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-blend-mode: multiply;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    z-index: 100;
+  }
+
+  ::selection { background: var(--punch); color: var(--ink); }
+
+  /* ── Typography palette ── */
+  .latin {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 60;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+  }
+  .small-caps {
+    font-variation-settings: 'SOFT' 60, 'opsz' 14;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+  .marginalia {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'opsz' 14;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--gray);
+  }
+
+  /* Drop cap */
+  .dropcap::first-letter {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 144;
+    font-weight: 400;
+    font-size: 5.2em;
+    line-height: 0.85;
+    float: left;
+    padding: 0.05em 0.12em 0 0;
+    margin-right: 0.05em;
+    color: var(--moss);
+    font-feature-settings: 'ss01' 1;
+  }
+
+  /* ── Frames ── */
+  .frame {
+    position: fixed;
+    z-index: 60;
+    color: var(--gray);
+    left: 0; right: 0;
+    height: 1.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 clamp(1rem, 2vw, 1.8rem);
+    background: var(--paper);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+  }
+  .frame-top { top: 0; border-bottom: 1px solid var(--line); }
+  .frame-bottom { bottom: 0; border-top: 1px solid var(--line); }
+
+  html:not([lang="en"]) .lang-en { display: none !important; }
+  html[lang="en"] .lang-cs { display: none !important; }
+  .lang-switch { display: inline-flex; align-items: center; gap: 0.4rem; pointer-events: auto; }
+  .lang-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    color: var(--gray);
+    padding: 0.2rem 0.4rem;
+    transition: all 0.15s ease;
+  }
+  .lang-toggle:hover { color: var(--ink); }
+  .lang-toggle.active { color: var(--ink); background: var(--punch); font-weight: 600; }
+  .lang-sep { color: var(--gray); font-size: 10px; }
+
+  /* ── Wrap ── */
+  .wrap {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 clamp(1.5rem, 5vw, 4rem);
+    position: relative;
+  }
+
+  section { padding-block: clamp(4rem, 9vw, 8rem); position: relative; }
+
+  /* ── Plate header (Roman numeral + name) ── */
+  .plate-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    column-gap: 2rem;
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: clamp(2rem, 5vw, 4rem);
+  }
+  .plate-head::after {
+    content: '';
+    display: block;
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--ink);
+    margin-top: 0.4rem;
+  }
+  .plate-roman {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 144;
+    font-weight: 400;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+  }
+  .plate-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 48;
+    font-weight: 500;
+    font-size: clamp(1.4rem, 2.4vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .plate-title .latin { font-size: 0.78em; display: block; margin-top: 0.3rem; }
+  .plate-folio {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    text-align: right;
+  }
+
+  /* ────────── PLATE I — Frontispiece ────────── */
+  .frontispiece {
+    min-height: 95vh;
+    padding: clamp(5rem, 11vw, 9rem) 0 clamp(3rem, 6vw, 5rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+  }
+  .frontispiece .wrap {
+    border: 1.5px solid var(--ink);
+    outline: 1px solid var(--ink);
+    outline-offset: 7px;
+    padding: clamp(2.5rem, 6vw, 5rem) clamp(2rem, 5vw, 4rem);
+    background:
+      radial-gradient(ellipse at top, rgba(199, 232, 74, 0.04) 0%, transparent 70%),
+      var(--paper);
+    max-width: 880px;
+  }
+  .frontispiece .small-caps { color: var(--gray); margin-bottom: 1.5rem; }
+  .frontispiece .codex-mark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 144;
+    font-weight: 400;
+    font-size: clamp(3rem, 9vw, 7.5rem);
+    line-height: 0.86;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .frontispiece .codex-mark .stretched {
+    letter-spacing: 0.16em;
+    display: block;
+    font-weight: 300;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-style: italic;
+    color: var(--moss);
+    font-size: 0.66em;
+    margin-top: 0.5rem;
+  }
+  .frontispiece .codex-mark .ampersand {
+    font-style: italic;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-weight: 300;
+    color: var(--moss);
+    padding: 0 0.15em;
+  }
+  .frontispiece .subtitle {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 60;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+    line-height: 1.5;
+    color: var(--moss);
+    max-width: 32ch;
+    margin: 1.8rem auto 0;
+  }
+  .frontispiece .ornament {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 300;
+    color: var(--moss);
+    font-size: 1.4rem;
+    letter-spacing: 0.3em;
+    margin: 2rem 0 1.5rem;
+  }
+  .frontispiece .colophon {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    margin-top: 2.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--gray);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .frontispiece .cta-row {
+    display: flex;
+    gap: 0.7rem;
+    justify-content: center;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .seal {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.18s ease;
+    position: relative;
+  }
+  .seal::before, .seal::after {
+    content: '✦';
+    color: var(--moss);
+    font-style: italic;
+    font-size: 0.8em;
+  }
+  .seal:hover {
+    background: var(--punch);
+    border-color: var(--ink);
+  }
+  .seal.solid { background: var(--ink); color: var(--bone); }
+  .seal.solid::before, .seal.solid::after { color: var(--punch); }
+  .seal.solid:hover { background: var(--moss); color: var(--bone); }
+
+  /* ────────── PLATE II — On the Problem (multi-column) ────────── */
+  .columns {
+    column-count: 2;
+    column-gap: 3rem;
+    column-rule: 1px solid var(--line);
+    margin-top: 2rem;
+  }
+  .columns p {
+    margin-bottom: 1rem;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+  .columns p:first-of-type { break-after: avoid; }
+  .columns p strong { font-weight: 600; }
+
+  .pull-stat {
+    margin: 3rem auto;
+    text-align: center;
+    padding: 2rem 2rem;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    position: relative;
+  }
+  .pull-stat::before, .pull-stat::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    border-bottom: 1px solid var(--ink);
+  }
+  .pull-stat::before { top: -4px; }
+  .pull-stat::after { bottom: -4px; }
+  .pull-stat .roman {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 144;
+    font-weight: 400;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: 0.04em;
+  }
+  .pull-stat .latin { font-size: 1rem; display: block; margin-top: 0.4rem; letter-spacing: 0.05em; }
+  .pull-stat .arrow {
+    font-size: 1.5rem;
+    margin: 0.5rem 0;
+    color: var(--moss);
+    font-style: italic;
+  }
+
+  /* ────────── PLATE III — Comparative Specimens (CENTRAL) ────────── */
+  .specimens {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1.5px solid var(--ink);
+    outline: 1px solid var(--ink);
+    outline-offset: 5px;
+    background: var(--paper-warm);
+    margin-top: 2rem;
+  }
+  .specimen {
+    padding: clamp(1.5rem, 3.5vw, 2.8rem) clamp(1.5rem, 3vw, 2.4rem);
+    position: relative;
+  }
+  .specimen.left {
+    background: linear-gradient(180deg, rgba(199, 232, 74, 0.13) 0%, rgba(199, 232, 74, 0.05) 100%);
+  }
+  .specimen.right {
+    border-left: 1.5px solid var(--ink);
+  }
+  .specimen .specimen-num {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 96;
+    font-weight: 400;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--moss);
+    margin-bottom: 0.5rem;
+  }
+  .specimen .specimen-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 60;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+  }
+  .specimen .specimen-var {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 48;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--gray);
+    font-size: 0.95rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .specimen-illustration {
+    width: 100%;
+    aspect-ratio: 1 / 1.2;
+    max-width: 280px;
+    margin: 0 auto 1.5rem;
+    display: block;
+  }
+
+  .specimen-labels {
+    list-style: none;
+    padding: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 1rem;
+  }
+  .specimen-labels li {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 13.5px;
+    line-height: 1.45;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .specimen-labels li:last-child { border-bottom: none; }
+  .specimen-labels .lab {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 24;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+    white-space: nowrap;
+  }
+  .specimen.right .specimen-labels .lab { color: var(--gray); }
+  .specimen-labels .val {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 14;
+    font-weight: 500;
+    font-size: 13.5px;
+  }
+  .specimen-labels .val strong { font-weight: 600; }
+
+  .specimen-caption {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 24;
+    font-style: italic;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--gray);
+  }
+
+  .specimens-caption {
+    border: 1px solid var(--ink);
+    padding: 1.4rem 1.8rem;
+    background: var(--paper);
+    margin-top: 2rem;
+    text-align: center;
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 60;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    line-height: 1.35;
+    color: var(--ink);
+  }
+  .specimens-caption strong { color: var(--moss); font-weight: 400; }
+
+  /* ────────── PLATE IV — The Cycle ────────── */
+  .cycle-frame {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    margin-top: 2rem;
+  }
+  .cycle-svg-host {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -0.5rem;
+    padding: 1rem 0.5rem;
+  }
+  .cycle-svg-host svg {
+    display: block;
+    min-width: 740px;
+    width: 100%;
+    height: auto;
+  }
+  .cycle-frame .stages {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1.5px solid var(--ink);
+  }
+  .cycle-frame .stages .roman-day {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 60;
+    font-weight: 400;
+    font-size: 1.4rem;
+    color: var(--moss);
+    line-height: 1;
+  }
+  .cycle-frame .stages .stage-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 36;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1rem;
+    margin: 0.3rem 0 0.5rem;
+    color: var(--ink);
+  }
+  .cycle-frame .stages .stage-desc {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .cycle-frame .stages .stage-desc strong { font-weight: 600; }
+
+  /* SVG colors */
+  .svg-host .stroke-ink { stroke: #1A2418; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .svg-host .stroke-moss { stroke: #2F4A2F; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .svg-host .stroke-thin { stroke: #1A2418; fill: none; stroke-width: 0.9; stroke-linecap: round; }
+  .svg-host .stroke-loop { stroke: #1A2418; fill: none; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.55; }
+  .svg-host .fill-punch { fill: #C7E84A; }
+  .svg-host .fill-ink { fill: #1A2418; }
+  .svg-host .fill-moss { fill: #2F4A2F; }
+  .svg-host .fill-bone { fill: #ECE3D0; }
+  .svg-host .lbl-mono { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
+  .svg-host .lbl-roman {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 60;
+    font-size: 14px;
+    fill: #1A2418;
+    font-weight: 400;
+  }
+  .svg-host .lbl-latin {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 36;
+    font-style: italic;
+    font-size: 10.5px;
+    fill: #2F4A2F;
+    font-weight: 300;
+  }
+  .svg-host .spec-loop-anim { animation: dash 6s linear infinite; }
+  @keyframes dash { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -24; } }
+  @media (prefers-reduced-motion: reduce) { .svg-host .spec-loop-anim { animation: none; } }
+
+  /* ────────── PLATE V — Initium ────────── */
+  .initium-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: start;
+    margin-top: 2rem;
+  }
+  .initium-body p {
+    margin-bottom: 1.2rem;
+    font-size: 16px;
+    line-height: 1.8;
+    text-align: justify;
+    hyphens: auto;
+  }
+  .initium-body p strong { font-weight: 600; }
+  .initium-cta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 2rem;
+  }
+  .initium-cta .seal { justify-content: center; }
+
+  .apothecary {
+    border: 1px solid var(--ink);
+    padding: 1.5rem 1.8rem;
+    background: var(--paper);
+    position: sticky;
+    top: 4rem;
+  }
+  .apothecary h4 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 36;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.2rem;
+    color: var(--moss);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 0.7rem;
+    margin-bottom: 1rem;
+  }
+  .apothecary ul { list-style: none; padding: 0; }
+  .apothecary li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.8rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 13.5px;
+    line-height: 1.5;
+    align-items: baseline;
+  }
+  .apothecary li:last-child { border-bottom: none; }
+  .apothecary li .name { font-style: italic; font-variation-settings: 'SOFT' 100, 'WONK' 1; color: var(--ink); }
+  .apothecary li .price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .apothecary .footnote {
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--gray);
+    font-style: italic;
+  }
+
+  .colophon-end {
+    margin-top: clamp(3rem, 6vw, 5rem);
+    padding-top: 2rem;
+    border-top: 1.5px solid var(--ink);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.5rem;
+    align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--gray);
+  }
+  .colophon-end strong { color: var(--ink); font-weight: 600; }
+  .colophon-end a { color: var(--moss); text-decoration: none; border-bottom: 1px solid var(--moss); }
+  .colophon-end a:hover { background: var(--punch); border-bottom-color: transparent; color: var(--ink); padding: 0 0.2em; }
+
+  /* ── Mobile ── */
+  @media (max-width: 800px) {
+    .columns { column-count: 1; column-rule: none; }
+    .specimens { grid-template-columns: 1fr; }
+    .specimen.right { border-left: none; border-top: 1.5px solid var(--ink); }
+    .cycle-frame .stages { grid-template-columns: 1fr; row-gap: 1.2rem; }
+    .initium-grid { grid-template-columns: 1fr; }
+    .apothecary { position: static; }
+    .colophon-end { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .frame { font-size: 9.5px; }
+    .frame .hide-sm { display: none; }
+    .plate-head { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .plate-folio { text-align: left; }
+    .dropcap::first-letter { font-size: 4em; }
+  }
+
+  /* entrance — page fold-in feel */
+  @keyframes inkSettle {
+    from { transform: translateY(12px); opacity: 0; filter: blur(2px); }
+    to { transform: translateY(0); opacity: 1; filter: blur(0); }
+  }
+  .ink-1 { animation: inkSettle 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .ink-2 { animation: inkSettle 1.1s 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .ink-3 { animation: inkSettle 1.1s 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ────── Frame top ────── -->
+<div class="frame frame-top">
+  <span>Pflanzer Codex &nbsp;·&nbsp; v0.4 &nbsp;·&nbsp; <strong style="color:var(--ink);">V2 Specimen Plate</strong></span>
+  <span class="hide-sm lang-cs">Specimen plate edition</span>
+  <span class="hide-sm lang-en">Specimen plate edition</span>
+  <span style="display:inline-flex; align-items:center; gap:1rem; pointer-events:auto;">
+    <a href="index.html" style="color:var(--ink); text-decoration:none; padding:0.2rem 0.5rem; border:1px solid var(--ink); font-weight:600; letter-spacing:0.1em; font-family:'JetBrains Mono', monospace;">← V1 Lean</a>
+    <span class="lang-switch">
+      <button class="lang-toggle active" data-lang="cs" type="button">CS</button>
+      <span class="lang-sep">·</span>
+      <button class="lang-toggle" data-lang="en" type="button">EN</button>
+    </span>
+  </span>
+</div>
+
+<!-- ══════════ PLATE I — Frontispiece ══════════ -->
+<section class="frontispiece">
+  <div class="wrap ink-1">
+    <div class="small-caps">
+      <span class="lang-cs">Frontispice · Plate I</span>
+      <span class="lang-en">Frontispiece · Plate I</span>
+    </div>
+
+    <h1 class="codex-mark">
+      Pflanzer
+      <span class="ampersand">&amp;</span>
+      Codex
+      <span class="stretched">methodus pflanzeri</span>
+    </h1>
+
+    <p class="subtitle lang-cs">
+      Manuál pro sázení AI do korporátu — výtisk čtvrtý, léta páně MMXXVI.
+    </p>
+    <p class="subtitle lang-en">
+      A manual for planting AI in the enterprise — fourth printing, anno MMXXVI.
+    </p>
+
+    <div class="ornament">❦ &nbsp;✦ &nbsp;❦</div>
+
+    <div class="cta-row">
+      <a href="1-pager.html" class="seal solid" target="_blank" rel="noopener">
+        <span class="lang-cs">Folium primum (1-pager)</span>
+        <span class="lang-en">Folium primum (1-pager)</span>
+      </a>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call" class="seal">
+        <span class="lang-cs">Pilot — 30 min</span>
+        <span class="lang-en">Pilot — 30 min</span>
+      </a>
+    </div>
+
+    <div class="colophon">
+      <span>v0.4 &nbsp;·&nbsp; MIT</span>
+      <span><span class="lang-cs">Praha — Gizmax</span><span class="lang-en">Prague — GiZMaX</span></span>
+      <span>MMXXVI</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PLATE II — On the Problem ══════════ -->
+<section>
+  <div class="wrap">
+    <div class="plate-head">
+      <div class="plate-roman">II.</div>
+      <h2 class="plate-title">
+        <span class="lang-cs">O Problému</span>
+        <span class="lang-en">On the Problem</span>
+        <span class="latin">de problemate corporato</span>
+      </h2>
+      <div class="plate-folio">Fol. 2</div>
+    </div>
+
+    <div class="columns lang-cs">
+      <p class="dropcap">
+        V&nbsp;korporátu pinká nápad mezi produktem, vývojem, security
+        a legal. Kontext umírá v emailech. Rozhodnutí se dělají na PowerPointu,
+        ne na funkčním kódu. Cesta od nápadu k funkční AI fíčuře typicky trvá
+        <strong>šest až devět měsíců sériového handoffu</strong>.
+      </p>
+      <p>
+        Pflanzer to obrací. Šest lidí napříč celým workflow — <strong>včetně
+        programátora od minuty 0</strong> — sedí v jedné místnosti. AI vibe-coding
+        tools generují tři funkční produkční-ready varianty v reálném čase.
+        Po dvou sezeních a týdnu mezi nimi winner jde rovnou do produkce.
+      </p>
+      <p>
+        Žádná specka se vývojářům nepředává. Není koho předávat —
+        vývojář byl v room. <em>Output cyklu je hotový produkt</em>,
+        ne dokument o produktu.
+      </p>
+    </div>
+
+    <div class="columns lang-en">
+      <p class="dropcap">
+        In a corporate, an idea bounces between product, engineering,
+        security and legal. Context dies in email threads. Decisions get
+        made on PowerPoint slides, not on working code. The path from idea
+        to a working AI feature typically takes
+        <strong>six to nine months of serial handoff</strong>.
+      </p>
+      <p>
+        Pflanzer flips it. Six people from across the entire workflow —
+        <strong>including the engineer from minute zero</strong> — sit in
+        one room. AI vibe-coding tools generate three working production-ready
+        variants in real time. After two sessions and one week between them,
+        the winner ships straight to production.
+      </p>
+      <p>
+        No spec is handed off to developers. There's no-one to hand it to —
+        the developer was in the room. <em>The output of the cycle is a
+        working product</em>, not a document about a product.
+      </p>
+    </div>
+
+    <!-- Pull stat -->
+    <div class="pull-stat">
+      <div class="roman">VI — IX <span class="latin">menses</span></div>
+      <div class="arrow">↓</div>
+      <div class="roman" style="color: var(--moss);">XIV <span class="latin">dies</span></div>
+      <div class="mono" style="margin-top: 1rem;">
+        <span class="lang-cs">~10× zrychlení od nápadu k produkci</span>
+        <span class="lang-en">~10× speedup from idea to production</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════ PLATE III — Comparative Specimens ══════════ -->
+<section style="background: linear-gradient(180deg, transparent 0%, rgba(120, 75, 30, 0.04) 50%, transparent 100%);">
+  <div class="wrap">
+    <div class="plate-head">
+      <div class="plate-roman">III.</div>
+      <h2 class="plate-title">
+        <span class="lang-cs">Comparativi specimina</span>
+        <span class="lang-en">Comparative specimens</span>
+        <span class="latin">pflanzeri vs. speccatus</span>
+      </h2>
+      <div class="plate-folio">Fol. 3</div>
+    </div>
+
+    <p class="marginalia" style="text-align: center; max-width: 60ch; margin: 0 auto 2.5rem; font-size: 14.5px;">
+      <span class="lang-cs">
+        Dva druhy téhož rodu. První roste k chartreuse květu, plody jde sklízet
+        čtrnáctý den. Druhý se ve smyčce vrací do podzemí — <em>specula → applicatio
+        → specula' → applicatio'</em> — nikdy nedokvete. Pflanzer cesta a cesta
+        spec-driven, v jedné rytině.
+      </span>
+      <span class="lang-en">
+        Two species of the same genus. The first grows to a chartreuse bloom,
+        ready to harvest on day fourteen. The second loops back underground —
+        <em>specula → applicatio → specula' → applicatio'</em> — never blooms.
+        The Pflanzer path and the spec-driven path, on a single plate.
+      </span>
+    </p>
+
+    <div class="specimens">
+
+      <!-- LEFT — Mehthodus pflanzeri -->
+      <div class="specimen left">
+        <div class="specimen-num">№ I.</div>
+        <div class="specimen-name">Mehthodus pflanzeri</div>
+        <div class="specimen-var">var. lean &nbsp;·&nbsp; <span class="lang-cs">Track P — preferovaný kultivar</span><span class="lang-en">Track P — preferred cultivar</span></div>
+
+        <!-- Plant SVG: full bloom -->
+        <svg class="specimen-illustration svg-host" viewBox="0 0 240 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mehthodus pflanzeri: a complete plant in bloom">
+          <!-- ground -->
+          <line x1="20" y1="225" x2="220" y2="225" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="30" y1="232" x2="33" y2="237"/><line x1="60" y1="232" x2="63" y2="237"/>
+            <line x1="90" y1="232" x2="93" y2="237"/><line x1="120" y1="232" x2="123" y2="237"/>
+            <line x1="150" y1="232" x2="153" y2="237"/><line x1="180" y1="232" x2="183" y2="237"/>
+            <line x1="210" y1="232" x2="213" y2="237"/>
+          </g>
+
+          <!-- roots (visible below) -->
+          <g class="stroke-moss" opacity="0.7">
+            <path d="M 110 240 Q 95 255 80 268"/>
+            <path d="M 120 242 Q 120 258 118 275"/>
+            <path d="M 130 240 Q 145 255 160 268"/>
+          </g>
+
+          <!-- main stem -->
+          <path d="M 120 225 Q 122 160 120 95" class="stroke-ink"/>
+
+          <!-- leaves -->
+          <g class="stroke-moss">
+            <path d="M 121 195 Q 100 190 82 198 Q 90 210 108 212 Q 122 209 121 195 Z"/>
+            <path d="M 120 165 Q 142 160 162 168 Q 152 180 134 182 Q 120 180 120 165 Z"/>
+            <path d="M 121 135 Q 100 130 84 138 Q 92 150 108 152 Q 120 150 121 135 Z"/>
+            <path d="M 120 195 L 95 202" class="stroke-thin"/>
+            <path d="M 120 165 L 156 173" class="stroke-thin"/>
+            <path d="M 121 135 L 96 142" class="stroke-thin"/>
+          </g>
+
+          <!-- bloom -->
+          <g transform="translate(120, 80)">
+            <circle cx="0" cy="-14" r="10" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+            <circle cx="-13" cy="-3" r="10" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+            <circle cx="13" cy="-3" r="10" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+            <circle cx="-9" cy="11" r="10" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+            <circle cx="9" cy="11" r="10" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+            <circle cx="0" cy="0" r="7" class="fill-ink"/>
+          </g>
+
+          <!-- annotation lines pointing to parts -->
+          <line x1="60" y1="80" x2="100" y2="80" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="58" y="84" text-anchor="end" class="lbl-latin">flos productum</text>
+
+          <line x1="60" y1="135" x2="90" y2="138" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="58" y="142" text-anchor="end" class="lbl-latin">folium dev-in-room</text>
+
+          <line x1="60" y1="195" x2="92" y2="200" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="58" y="202" text-anchor="end" class="lbl-latin">folium AI co-pilot</text>
+
+          <line x1="60" y1="260" x2="85" y2="258" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="58" y="264" text-anchor="end" class="lbl-latin">radix audit log</text>
+        </svg>
+
+        <ul class="specimen-labels">
+          <li><span class="lab">cyclus</span><span class="val">XIV <span class="lang-cs">dní</span><span class="lang-en">days</span></span></li>
+          <li><span class="lab">homines</span><span class="val">VI · <span class="lang-cs">vč. devu</span><span class="lang-en">incl. dev</span></span></li>
+          <li><span class="lab">output</span><span class="val"><strong><span class="lang-cs">produkt v produkci</span><span class="lang-en">product in prod</span></strong></span></li>
+          <li><span class="lab">re-impl gap</span><span class="val">~ 0 %</span></li>
+          <li><span class="lab">pretium</span><span class="val">DIY — €80k</span></li>
+        </ul>
+
+        <p class="specimen-caption">
+          <span class="lang-cs">Habitat: <em>societas digitalis</em>, eshop, SaaS, B2B nástroj. Substrate ideal: <em>devo statim adesto</em>.</span>
+          <span class="lang-en">Habitat: <em>societas digitalis</em>, e-commerce, SaaS, B2B tool. Ideal substrate: <em>devo statim adesto</em> (dev present from start).</span>
+        </p>
+      </div>
+
+      <!-- RIGHT — Mehthodus speccatus -->
+      <div class="specimen right">
+        <div class="specimen-num">№ II.</div>
+        <div class="specimen-name">Mehthodus speccatus</div>
+        <div class="specimen-var">var. commercialis &nbsp;·&nbsp; <span class="lang-cs">Spec Kit · Kiro · OpenSpec · BMAD</span><span class="lang-en">Spec Kit · Kiro · OpenSpec · BMAD</span></div>
+
+        <!-- Plant SVG: withered + underground loop -->
+        <svg class="specimen-illustration svg-host" viewBox="0 0 240 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mehthodus speccatus: a plant that fails to bloom; underground loop of spec and app">
+          <defs>
+            <marker id="ar2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#1A2418"/>
+            </marker>
+          </defs>
+
+          <!-- ground -->
+          <line x1="20" y1="155" x2="220" y2="155" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="30" y1="162" x2="33" y2="167"/><line x1="60" y1="162" x2="63" y2="167"/>
+            <line x1="90" y1="162" x2="93" y2="167"/><line x1="120" y1="162" x2="123" y2="167"/>
+            <line x1="150" y1="162" x2="153" y2="167"/><line x1="180" y1="162" x2="183" y2="167"/>
+            <line x1="210" y1="162" x2="213" y2="167"/>
+          </g>
+
+          <!-- failed stem trying to grow upward -->
+          <path d="M 120 155 Q 120 120 100 105 Q 75 90 80 70" class="stroke-ink"/>
+
+          <!-- failed bloom — outline circle with ? -->
+          <circle cx="80" cy="55" r="11" class="stroke-ink fill-bone"/>
+          <text x="80" y="60" text-anchor="middle" class="lbl-mono" style="fill:#7A7264; font-size:13px;">?</text>
+
+          <!-- 1 withered leaf -->
+          <g class="stroke-moss" opacity="0.5">
+            <path d="M 117 135 Q 100 132 88 140 Q 95 150 108 150 Q 118 148 117 135 Z"/>
+          </g>
+
+          <!-- underground loop boxes -->
+          <rect x="50" y="180" width="55" height="22" class="stroke-ink fill-bone"/>
+          <text x="77" y="195" text-anchor="middle" class="lbl-mono">spec</text>
+
+          <rect x="135" y="180" width="55" height="22" class="stroke-ink fill-bone"/>
+          <text x="162" y="195" text-anchor="middle" class="lbl-mono">app</text>
+
+          <rect x="135" y="225" width="55" height="22" class="stroke-ink fill-bone"/>
+          <text x="162" y="240" text-anchor="middle" class="lbl-mono">spec'</text>
+
+          <rect x="50" y="225" width="55" height="22" class="stroke-ink fill-bone"/>
+          <text x="77" y="240" text-anchor="middle" class="lbl-mono">app'</text>
+
+          <!-- loop arrows -->
+          <path d="M 105 191 L 135 191" class="stroke-loop spec-loop-anim" marker-end="url(#ar2)"/>
+          <path d="M 162 202 L 162 225" class="stroke-loop spec-loop-anim" marker-end="url(#ar2)"/>
+          <path d="M 135 236 L 105 236" class="stroke-loop spec-loop-anim" marker-end="url(#ar2)"/>
+          <path d="M 77 225 L 77 202" class="stroke-loop spec-loop-anim" marker-end="url(#ar2)"/>
+
+          <!-- annotation lines -->
+          <line x1="180" y1="55" x2="100" y2="55" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="182" y="58" class="lbl-latin">flos perditus</text>
+
+          <line x1="200" y1="135" x2="135" y2="138" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="200" y="142" class="lbl-latin">folium marcens</text>
+
+          <line x1="220" y1="215" x2="195" y2="215" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="222" y="220" class="lbl-latin">cyclus infinitus</text>
+
+          <line x1="220" y1="270" x2="170" y2="265" class="stroke-thin" stroke-dasharray="2 2"/>
+          <text x="222" y="275" class="lbl-latin">radix specularis</text>
+        </svg>
+
+        <ul class="specimen-labels">
+          <li><span class="lab">cyclus</span><span class="val"><span class="lang-cs">týdny–měsíce loopu</span><span class="lang-en">weeks–months of loop</span></span></li>
+          <li><span class="lab">homines</span><span class="val"><span class="lang-cs">jen engineering tým</span><span class="lang-en">engineering only</span></span></li>
+          <li><span class="lab">output</span><span class="val"><span class="lang-cs">specka, dev re-implementuje</span><span class="lang-en">spec, dev re-implements</span></span></li>
+          <li><span class="lab">drift</span><span class="val"><strong>9.8–42 %</strong> <em style="font-size:0.85em; color:var(--gray);">(Yan 2025)</em></span></li>
+          <li><span class="lab">pretium</span><span class="val">OSS · IDE €0–30/mo</span></li>
+        </ul>
+
+        <p class="specimen-caption">
+          <span class="lang-cs">Habitat: <em>legacy modernisatio</em>, multi-vendor, FDA/IEC scope. Pozn.: <em>cyclus infinitus</em> — spec drift po roce zní 42 % textu.</span>
+          <span class="lang-en">Habitat: <em>legacy modernisatio</em>, multi-vendor, FDA/IEC scope. Note: <em>cyclus infinitus</em> — spec drift after one year reaches 42 % of text.</span>
+        </p>
+      </div>
+
+    </div>
+
+    <div class="specimens-caption">
+      <span class="lang-cs">Specula <strong>senescunt</strong>. Producta <strong>crescunt.</strong></span>
+      <span class="lang-en">Specs <strong>decay</strong>. Products <strong>compound.</strong></span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════ PLATE IV — Cyclus ══════════ -->
+<section>
+  <div class="wrap">
+    <div class="plate-head">
+      <div class="plate-roman">IV.</div>
+      <h2 class="plate-title">
+        <span class="lang-cs">Cyklus</span>
+        <span class="lang-en">The Cycle</span>
+        <span class="latin">cyclus pflanzeri, dies XIV</span>
+      </h2>
+      <div class="plate-folio">Fol. 4</div>
+    </div>
+
+    <p class="marginalia" style="text-align: center; max-width: 60ch; margin: 0 auto 2rem; font-size: 14.5px;">
+      <span class="lang-cs">Cyklus od semene po sklizeň. Den nula: schůze nad kávou. Den čtrnáctý: produkt v produkci.</span>
+      <span class="lang-en">From seed to harvest. Day zero: a coffee meeting. Day fourteen: product in production.</span>
+    </p>
+
+    <div class="cycle-frame">
+      <div class="cycle-svg-host svg-host">
+        <svg viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="14-day growth cycle">
+
+          <line x1="40" y1="140" x2="960" y2="140" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="50" y1="148" x2="54" y2="154"/><line x1="100" y1="148" x2="104" y2="154"/>
+            <line x1="150" y1="148" x2="154" y2="154"/><line x1="200" y1="148" x2="204" y2="154"/>
+            <line x1="250" y1="148" x2="254" y2="154"/><line x1="300" y1="148" x2="304" y2="154"/>
+            <line x1="350" y1="148" x2="354" y2="154"/><line x1="400" y1="148" x2="404" y2="154"/>
+            <line x1="450" y1="148" x2="454" y2="154"/><line x1="500" y1="148" x2="504" y2="154"/>
+            <line x1="550" y1="148" x2="554" y2="154"/><line x1="600" y1="148" x2="604" y2="154"/>
+            <line x1="650" y1="148" x2="654" y2="154"/><line x1="700" y1="148" x2="704" y2="154"/>
+            <line x1="750" y1="148" x2="754" y2="154"/><line x1="800" y1="148" x2="804" y2="154"/>
+            <line x1="850" y1="148" x2="854" y2="154"/><line x1="900" y1="148" x2="904" y2="154"/>
+            <line x1="950" y1="148" x2="954" y2="154"/>
+          </g>
+
+          <!-- D0 seed -->
+          <g transform="translate(110, 140)">
+            <ellipse cx="0" cy="10" rx="7" ry="4" class="fill-ink"/>
+            <path d="M -5 13 Q -8 18 -9 22" class="stroke-moss"/>
+            <path d="M 0 14 Q 0 19 -1 24" class="stroke-moss"/>
+            <path d="M 5 13 Q 8 18 9 22" class="stroke-moss"/>
+          </g>
+          <text x="110" y="180" text-anchor="middle" class="lbl-roman">I.</text>
+
+          <!-- D5 — 3 sprouts -->
+          <g transform="translate(290, 140)">
+            <path d="M 0 0 Q 0 -30 -2 -55" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M -2 -50 Q -22 -62 -34 -55"/>
+              <path d="M -2 -50 Q -2 -72 -2 -82"/>
+              <path d="M -2 -50 Q 18 -62 30 -55"/>
+            </g>
+            <circle cx="-34" cy="-55" r="3" class="fill-moss"/>
+            <circle cx="-2" cy="-82" r="3" class="fill-moss"/>
+            <circle cx="30" cy="-55" r="3" class="fill-moss"/>
+            <ellipse cx="0" cy="0" rx="12" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="290" y="180" text-anchor="middle" class="lbl-roman">V.</text>
+
+          <!-- D6-9 leaves -->
+          <g transform="translate(490, 140)">
+            <path d="M 0 0 Q 0 -50 0 -100" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -40 Q -20 -45 -38 -38 Q -32 -28 -16 -26 Q 0 -28 0 -40 Z"/>
+              <path d="M 0 -65 Q 22 -70 40 -63 Q 32 -51 16 -49 Q 0 -51 0 -65 Z"/>
+            </g>
+            <circle cx="0" cy="-100" r="3" class="fill-moss"/>
+            <ellipse cx="0" cy="0" rx="12" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="490" y="180" text-anchor="middle" class="lbl-roman">VI–IX.</text>
+
+          <!-- D10 stem + bud -->
+          <g transform="translate(700, 140)">
+            <path d="M 0 0 Q 0 -60 0 -115" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -35 Q -22 -40 -42 -32 Q -34 -20 -16 -18 Q 0 -22 0 -35 Z"/>
+              <path d="M 0 -60 Q 24 -65 44 -55 Q 36 -43 16 -41 Q 0 -45 0 -60 Z"/>
+              <path d="M 0 -90 Q -20 -96 -38 -88 Q -30 -76 -14 -74 Q 0 -78 0 -90 Z"/>
+              <ellipse cx="0" cy="-115" rx="4" ry="6" class="fill-moss"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="12" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="700" y="180" text-anchor="middle" class="lbl-roman">X.</text>
+
+          <!-- D14 bloom -->
+          <g transform="translate(900, 140)">
+            <path d="M 0 0 Q 0 -60 0 -125" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -32 Q -22 -37 -42 -30 Q -34 -18 -16 -16 Q 0 -20 0 -32 Z"/>
+              <path d="M 0 -58 Q 24 -63 44 -55 Q 36 -43 16 -41 Q 0 -45 0 -58 Z"/>
+              <path d="M 0 -88 Q -22 -94 -42 -86 Q -34 -74 -16 -72 Q 0 -76 0 -88 Z"/>
+            </g>
+            <g transform="translate(0, -128)">
+              <circle cx="0" cy="-8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+              <circle cx="-9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+              <circle cx="9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+              <circle cx="0" cy="8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.5"/>
+              <circle cx="0" cy="0" r="5" class="fill-ink"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="12" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="900" y="180" text-anchor="middle" class="lbl-roman">XIV.</text>
+
+        </svg>
+      </div>
+
+      <div class="stages">
+        <div>
+          <span class="roman-day">I.</span>
+          <span class="stage-name"><span class="lang-cs">Sazba — 60 min</span><span class="lang-en">Sowing — 60 min</span></span>
+          <span class="stage-desc"><span class="lang-cs">Sponzor + 5 lidí <strong>včetně devu</strong>. Kávový meeting.</span><span class="lang-en">Sponsor + 5 people <strong>incl. dev</strong>. Coffee meeting.</span></span>
+        </div>
+        <div>
+          <span class="roman-day">V.</span>
+          <span class="stage-name">Session I — 3 h</span>
+          <span class="stage-desc"><span class="lang-cs">Tři paralelní produkční-ready apps. Silent voting, shortlist.</span><span class="lang-en">Three parallel production-ready apps. Silent voting, shortlist.</span></span>
+        </div>
+        <div>
+          <span class="roman-day">VI–IX.</span>
+          <span class="stage-name"><span class="lang-cs">Iterace — async</span><span class="lang-en">Iteration — async</span></span>
+          <span class="stage-desc"><span class="lang-cs">Stakeholdeři klikají, dev ladí. Alignment roste.</span><span class="lang-en">Stakeholders click, dev iterates. Alignment grows.</span></span>
+        </div>
+        <div>
+          <span class="roman-day">X.</span>
+          <span class="stage-name">Session II — 3 h</span>
+          <span class="stage-desc"><span class="lang-cs">Decider hlasuje poslední. Anti-HiPPO. Winner finalized.</span><span class="lang-en">Decider votes last. Anti-HiPPO. Winner finalized.</span></span>
+        </div>
+        <div>
+          <span class="roman-day">XIV.</span>
+          <span class="stage-name"><span class="lang-cs">Produkce</span><span class="lang-en">Production</span></span>
+          <span class="stage-desc"><span class="lang-cs">Polish + observability + deploy. <strong>Žádná re-implementace.</strong></span><span class="lang-en">Polish + observability + deploy. <strong>No re-implementation.</strong></span></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════ PLATE V — Initium ══════════ -->
+<section>
+  <div class="wrap">
+    <div class="plate-head">
+      <div class="plate-roman">V.</div>
+      <h2 class="plate-title">
+        <span class="lang-cs">Začni sázet</span>
+        <span class="lang-en">Begin to plant</span>
+        <span class="latin">de initio plantationis</span>
+      </h2>
+      <div class="plate-folio">Fol. 5</div>
+    </div>
+
+    <div class="initium-grid">
+
+      <div class="initium-body">
+        <p class="lang-cs">
+          V <strong>Q1 2027</strong> ti CEO bude chtít vidět tři AI fíčury v produkci.
+          Ne tři Cursor prototypy, ne tři PowerPointy z Innovation Day —
+          <strong>tři věci, které používají reální zákazníci</strong>.
+        </p>
+        <p class="lang-cs">
+          Pflanzer je <em>rámec, kterým je tam dostaneš</em> — za šest týdnů
+          místo šesti měsíců. Není to manifesto, ne další transformation program,
+          není to workshop hřbitov. Je to manuál.
+        </p>
+
+        <p class="lang-en">
+          By <strong>Q1 2027</strong> your CEO will want three AI features in
+          production. Not three Cursor prototypes, not three Innovation Day decks —
+          <strong>three things real customers actually use</strong>.
+        </p>
+        <p class="lang-en">
+          Pflanzer is <em>the frame that gets you there</em> — in six weeks
+          instead of six months. Not a manifesto, not another transformation
+          program, not a workshop graveyard. A manual.
+        </p>
+
+        <div class="initium-cta">
+          <a href="1-pager.html" class="seal solid" target="_blank" rel="noopener">
+            <span class="lang-cs">Otevřít 1-pager</span>
+            <span class="lang-en">Open the 1-pager</span>
+          </a>
+          <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call" class="seal">
+            <span class="lang-cs">30 min s autorem</span>
+            <span class="lang-en">30 min with the author</span>
+          </a>
+          <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20repo" class="seal">
+            <span class="lang-cs">Early access do repa</span>
+            <span class="lang-en">Repo early access</span>
+          </a>
+        </div>
+      </div>
+
+      <aside class="apothecary">
+        <h4><span class="lang-cs">Tarif lekařský</span><span class="lang-en">Apothecary's tariff</span></h4>
+        <ul>
+          <li><span class="name">DIY — <span class="lang-cs">samosázba</span><span class="lang-en">self-serve</span></span><span class="price">€0</span></li>
+          <li><span class="name">Facilitatum — <span class="lang-cs">s autorem</span><span class="lang-en">with author</span></span><span class="price">€15–30k</span></li>
+          <li><span class="name">Audit-grade — <span class="lang-cs">regulované</span><span class="lang-en">regulated</span></span><span class="price">€40–80k</span></li>
+          <li><span class="name">Methodus rollout — <span class="lang-cs">multi-pilot</span><span class="lang-en">multi-pilot</span></span><span class="price">custom</span></li>
+        </ul>
+        <p class="footnote">
+          <span class="lang-cs">Orientační. Final scope a quote po 30min call.</span>
+          <span class="lang-en">Indicative. Final scope and quote after a 30 min call.</span>
+        </p>
+
+        <h4 style="margin-top: 1.5rem;"><span class="lang-cs">Když dev v room nemůže</span><span class="lang-en">When dev cannot attend</span></h4>
+        <p style="font-size: 13.5px; line-height: 1.6;">
+          <span class="lang-cs">Pflanzer má <em>Track S</em> fallback (~20 % případů) pro 4 hard triggers — AI Act High-risk, FDA/IEC, distributed dev ≥ 3 TZ, sponsor mandate. Output = precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap ≤ 15 %. <em>Není to preferovaná cesta.</em> Detail v ADR-0020.</span>
+          <span class="lang-en">Pflanzer has a <em>Track S</em> fallback (~20 % of cases) for 4 hard triggers — AI Act High-risk, FDA/IEC, distributed dev ≥ 3 TZ, sponsor mandate. Output = precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap ≤ 15 %. <em>Not the preferred path.</em> Details in ADR-0020.</span>
+        </p>
+      </aside>
+
+    </div>
+
+    <!-- Colophon -->
+    <div class="colophon-end">
+      <strong>Tom Pflanzer</strong>
+      <span>
+        <span class="lang-cs">ex-engineering lead · vibe-coding researcher MMXXIV–MMXXVI · Gizmax · Praha</span>
+        <span class="lang-en">ex-engineering lead · vibe-coding researcher MMXXIV–MMXXVI · GiZMaX · Prague</span>
+      </span>
+      <a href="mailto:tom@gizmax.cz">tom@gizmax.cz</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- Frame bottom -->
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer Codex</span>
+  <span class="hide-sm"><span class="lang-cs">Specimen plate · v0.4</span><span class="lang-en">Specimen plate · v0.4</span></span>
+  <span><a href="#" style="color:inherit; text-decoration:none;">↑ <span class="lang-cs">na začátek</span><span class="lang-en">to top</span></a></span>
+</div>
+
+<script>
+  (function () {
+    const KEY = 'pflanzer-lang';
+    const html = document.documentElement;
+    function setLang(lang) {
+      if (lang !== 'cs' && lang !== 'en') lang = 'cs';
+      html.lang = lang;
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+      document.querySelectorAll('.lang-toggle').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+        btn.setAttribute('aria-pressed', btn.dataset.lang === lang ? 'true' : 'false');
+      });
+    }
+    const params = new URLSearchParams(window.location.search);
+    let initial = null;
+    if (params.get('lang') === 'en' || params.get('lang') === 'cs') initial = params.get('lang');
+    else { try { initial = localStorage.getItem(KEY); } catch (e) {} }
+    if (!initial) initial = html.lang === 'en' ? 'en' : 'cs';
+    setLang(initial);
+    document.addEventListener('click', function (e) {
+      const t = e.target.closest('.lang-toggle');
+      if (!t) return;
+      e.preventDefault();
+      setLang(t.dataset.lang);
+    });
+  })();
+</script>
+
+</body>
+</html>
