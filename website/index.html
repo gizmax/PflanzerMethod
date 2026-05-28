@@ -1930,20 +1930,24 @@
       </div>
     </div>
 
-    <p class="lang-cs" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 2rem;">
+    <p class="lang-cs" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 1.2rem;">
       Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — říká:
       <em>„Nejdřív specka, pak kód."</em> V korporátu to zní zodpovědně.
       Realita: <strong>app → specka → dev → další app, která se liší → pinking →
-      cyklus se prodlouží.</strong> Pflanzer dělá opačnou věc — artefakt
-      v místnosti od minuty 0, specka padá ven jako vedlejší produkt.
+      cyklus se prodlouží.</strong> Pflanzer dělá opačnou věc — <strong>programátor
+      je v room od minuty 0, output je běžící produkt</strong>.
     </p>
-    <p class="lang-en" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 2rem;">
+    <p class="lang-en" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 1.2rem;">
       Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — says:
       <em>„Spec first, code second."</em> In the enterprise it sounds
       responsible. The reality: <strong>app → spec → dev → a different app →
       ping-pong → the cycle gets longer.</strong> Pflanzer flips it —
-      the artifact is in the room from minute zero, the spec falls out
-      as a by-product.
+      <strong>the engineer is in the room from minute zero, output is
+      a running product</strong>.
+    </p>
+    <p style="font-size: 12.5px; color: var(--gray); border-left: 2px solid var(--moss); padding-left: 0.8rem; max-width: 62ch; margin-bottom: 2rem;">
+      <span class="lang-cs"><strong style="color: var(--ink);">Když dev v room být nemůže?</strong> Pflanzer má <strong style="color: var(--ink);">Track S</strong> fallback (~20 % případů, 4 hard triggers: distributed dev, AI Act High-risk, FDA/IEC/DO-178C/PSD2, sponsor mandate) — precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 % (vs SDD 9.8–42 %). Není to preferovaná cesta — viz <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">ADR-0020 dual-track model</a>.</span>
+      <span class="lang-en"><strong style="color: var(--ink);">When dev can't be in the room?</strong> Pflanzer has a <strong style="color: var(--ink);">Track S</strong> fallback (~20 % of cases, 4 hard triggers: distributed dev, AI Act High-risk, FDA/IEC/DO-178C/PSD2, sponsor mandate) — precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 % (vs SDD 9.8–42 %). Not the preferred path — see <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">ADR-0020 dual-track model</a>.</span>
     </p>
 
     <div class="trap-frame">
@@ -2156,7 +2160,7 @@
 <section id="srovnani" style="padding-block: clamp(3rem, 6vw, 5rem);">
   <div class="wrap">
     <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
-      <span class="label"><span class="lang-cs">Srovnání · 6 metod, jeden řádek</span><span class="lang-en">Comparison · 6 methods, one row</span></span>
+      <span class="label"><span class="lang-cs">Srovnání · 6 metod + Pflanzer dual-track</span><span class="lang-en">Comparison · 6 methods + Pflanzer dual-track</span></span>
       <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Kde Pflanzer sedí v 2026 stack-u — mezi single-shot hackathonem a $1M+ McKinsey transformací.</span><span class="lang-en">Where Pflanzer sits in the 2026 stack — between a single-shot hackathon and a $1M+ McKinsey transformation.</span></span>
     </div>
 
@@ -2174,12 +2178,20 @@
         </thead>
         <tbody>
           <tr class="compare-pflanzer">
-            <td><strong>Pflanzer</strong></td>
+            <td><strong>Pflanzer · Track P</strong><br/><span style="font-size: 10.5px; color: var(--moss); font-weight: 500;"><span class="lang-cs">preferred ~80 %</span><span class="lang-en">preferred ~80 %</span></span></td>
             <td><span class="lang-cs">2 sezení / 14 dní</span><span class="lang-en">2 sessions / 14 days</span></td>
-            <td><span class="lang-cs">6–10 cross-fn (vč. Security/Legal/DPO)</span><span class="lang-en">6–10 cross-fn (incl. Security/Legal/DPO)</span></td>
+            <td><span class="lang-cs">6–10 cross-fn <strong>vč. dev</strong></span><span class="lang-en">6–10 cross-fn <strong>incl. dev</strong></span></td>
             <td><span class="lang-cs"><strong>Native</strong> AI Act čl. 14 + DORA 7y</span><span class="lang-en"><strong>Native</strong> AI Act art. 14 + DORA 7y</span></td>
             <td>DIY free · €15–80k</td>
-            <td><span class="lang-cs">Produkční kód · deploys at D14</span><span class="lang-en">Production code · deploys at D14</span></td>
+            <td><span class="lang-cs"><strong>Produkční kód</strong> · deploys at D14</span><span class="lang-en"><strong>Production code</strong> · deploys at D14</span></td>
+          </tr>
+          <tr style="background: var(--punch-dim); opacity: 0.7;">
+            <td><span style="color: var(--moss); font-weight: 500;">Pflanzer · Track S</span><br/><span style="font-size: 10.5px; color: var(--gray); font-weight: 500;"><span class="lang-cs">fallback ~20 % · 4 triggers</span><span class="lang-en">fallback ~20 % · 4 triggers</span></span></td>
+            <td><span class="lang-cs">2 sezení / 21–28 dní</span><span class="lang-en">2 sessions / 21–28 days</span></td>
+            <td><span class="lang-cs">6–10 cross-fn <strong>bez dev</strong></span><span class="lang-en">6–10 cross-fn <strong>no dev</strong></span></td>
+            <td><span class="lang-cs">Native AI Act + DORA + spec ≥ 80/100</span><span class="lang-en">Native AI Act + DORA + spec ≥ 80/100</span></td>
+            <td>€40–100k (+30–50 %)</td>
+            <td><span class="lang-cs">Precision spec + 5-stage handoff · re-impl gap ≤ 15 %</span><span class="lang-en">Precision spec + 5-stage handoff · re-impl gap ≤ 15 %</span></td>
           </tr>
           <tr>
             <td>AWS AI-DLC</td>
