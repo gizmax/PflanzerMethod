@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method — Sázíme AI do rigidních procesů</title>
+<meta name="description" content="Metoda, která sází AI do korporátních procesů. 6 lidí, 2 sezení, kód do produkce za 14 dní. Pflanzerova metoda v0.3." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+<style>
+  /* ─────── Tokens ─────── */
+  :root {
+    --bone:      #F4EFE6;
+    --paper:     #EBE5D7;
+    --ink:       #1A2418;
+    --moss:      #2F4A2F;
+    --punch:     #C7E84A;
+    --punch-dim: #E2EDB8;
+    --gray:      #7A7264;
+    --line:      rgba(26, 36, 24, 0.14);
+    --line-bold: rgba(26, 36, 24, 0.36);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bone);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* paper grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.14 0 0 0 0 0.1 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    z-index: 100;
+  }
+
+  ::selection { background: var(--punch); color: var(--ink); }
+
+  /* ─────── Typography ─────── */
+  .display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 144;
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.86;
+  }
+  .display em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .display b {
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  .h-section {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 96;
+    font-weight: 400;
+    font-size: clamp(2.4rem, 5.5vw, 4.6rem);
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+  }
+
+  .h-sub {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 48;
+    font-weight: 500;
+    font-size: clamp(1.25rem, 1.9vw, 1.85rem);
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+  }
+
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--gray);
+    font-weight: 500;
+  }
+
+  .num-tag {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(3.2rem, 6.5vw, 5.2rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--moss);
+  }
+
+  .pullquote {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+  }
+
+  p { max-width: 60ch; }
+  p + p { margin-top: 1em; }
+  p strong { font-weight: 600; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: all 0.18s ease;
+  }
+  a.link-underline {
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 1px;
+  }
+  a.link-underline:hover {
+    background: var(--punch);
+    border-bottom-color: transparent;
+  }
+
+  /* ─────── Layout ─────── */
+  .wrap {
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+    position: relative;
+  }
+
+  section { padding-block: clamp(4rem, 9vw, 8rem); }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 0;
+  }
+
+  hr.rule-bold {
+    border: none;
+    border-top: 1.5px solid var(--ink);
+    margin: 0;
+  }
+
+  /* ─────── Top frame ─────── */
+  .frame {
+    position: fixed;
+    pointer-events: none;
+    z-index: 60;
+    color: var(--gray);
+  }
+  .frame-top, .frame-bottom {
+    left: 0; right: 0;
+    height: 1.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 clamp(0.9rem, 2vw, 1.6rem);
+    background: var(--bone);
+    border-color: var(--line);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .frame-top { top: 0; border-bottom: 1px solid var(--line); }
+  .frame-bottom { bottom: 0; border-top: 1px solid var(--line); }
+  .frame-bottom a:hover { color: var(--ink); }
+
+  /* ─────── Hero ─────── */
+  header.hero {
+    padding: 5.5rem 0 5rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: end;
+    padding-bottom: 2.5rem;
+  }
+  .hero-meta > * { grid-column: span 3; }
+  .hero-meta > .stretch { grid-column: span 12; }
+
+  .wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 0, 'opsz' 144;
+    font-weight: 400;
+    font-size: clamp(4.2rem, 17vw, 16rem);
+    line-height: 0.82;
+    letter-spacing: -0.05em;
+    margin-top: 1rem;
+  }
+  .wordmark .row-1 { display: block; }
+  .wordmark .row-2 {
+    display: block;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--moss);
+    margin-left: clamp(1rem, 8vw, 6rem);
+  }
+
+  .hero-tag {
+    margin-top: clamp(2rem, 4vw, 3rem);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  .hero-tag .punchmark {
+    grid-column: 1 / span 1;
+    align-self: start;
+    margin-top: 0.4rem;
+  }
+  .hero-tag .h-sub {
+    grid-column: 2 / span 7;
+  }
+  .hero-tag .cta-stack {
+    grid-column: 9 / span 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .punchmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: var(--punch);
+    border-radius: 50%;
+  }
+  .punchmark svg { width: 18px; height: 18px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--bone);
+    border: 1.5px solid var(--ink);
+    transition: all 0.18s ease;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--punch);
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+  }
+  .btn.ghost:hover {
+    background: var(--ink);
+    color: var(--bone);
+  }
+  .btn .arrow { display: inline-block; transition: transform 0.18s ease; }
+  .btn:hover .arrow { transform: translateX(4px); }
+
+  .scroll-cue {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1rem;
+  }
+  .scroll-cue .label { font-size: 10.5px; }
+
+  /* ─────── Section header ─────── */
+  .section-head {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: end;
+    padding-bottom: clamp(2rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+  .section-head .num-tag { grid-column: span 2; }
+  .section-head .h-section { grid-column: 3 / span 8; }
+  .section-head .label-meta {
+    grid-column: 11 / span 2;
+    text-align: right;
+  }
+
+  /* ─────── Manifesto ─────── */
+  .manifesto-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .manifesto-grid .body {
+    grid-column: 1 / span 7;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .manifesto-grid .body p { max-width: 56ch; }
+  .manifesto-grid .stat-block {
+    grid-column: 9 / span 4;
+    border-left: 1.5px solid var(--ink);
+    padding-left: 1.5rem;
+    align-self: start;
+    position: sticky;
+    top: 4rem;
+  }
+  .stat-num {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 144;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .stat-num + .label { margin-top: 0.5rem; }
+  .stat-block .stat + .stat { margin-top: 1.6rem; padding-top: 1.6rem; border-top: 1px solid var(--line); }
+
+  .pull-wrap {
+    margin-top: 3rem;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    padding: 2.5rem 0;
+    grid-column: 1 / -1;
+  }
+
+  /* ─────── Botanical flow ─────── */
+  .flow-frame {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .flow-frame .flow-meta {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.4rem;
+  }
+  .flow-frame .flow-meta span { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gray); }
+  .flow-svg-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -0.5rem;
+    padding: 1rem 0.5rem;
+  }
+  .flow-svg-wrap svg {
+    display: block;
+    min-width: 800px;
+    width: 100%;
+    height: auto;
+  }
+
+  .flow-stages {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    column-gap: 1rem;
+    margin-top: 1.5rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.2rem;
+  }
+  .flow-stages > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .flow-stages .day {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--moss);
+    font-weight: 600;
+  }
+  .flow-stages .stage-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .flow-stages .stage-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--gray);
+  }
+
+  /* ─────── USPs ─────── */
+  .usp-list { display: flex; flex-direction: column; }
+  .usp-row {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+    align-items: start;
+    padding-block: clamp(2rem, 4vw, 3rem);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .usp-row:first-child { border-top: 1.5px solid var(--ink); }
+  .usp-row:last-child { border-bottom: 1.5px solid var(--ink); }
+  .usp-row .num { grid-column: span 1; }
+  .usp-row .num span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+  }
+  .usp-row .h-sub { grid-column: 2 / span 5; }
+  .usp-row .desc {
+    grid-column: 8 / span 5;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .usp-row .desc strong { font-weight: 600; }
+  .usp-row .desc p + p { margin-top: 0.7rem; }
+  .usp-row .tag-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .usp-row .tag-list span {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--line-bold);
+    background: var(--bone);
+    color: var(--moss);
+  }
+
+  /* ─────── Field notes ─────── */
+  .field-notes {
+    background: var(--ink);
+    color: var(--bone);
+    padding: clamp(2rem, 5vw, 4rem);
+    border: 1.5px solid var(--ink);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .field-notes .stamp {
+    grid-column: span 12;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(244, 239, 230, 0.2);
+    padding-bottom: 1.4rem;
+    margin-bottom: 2rem;
+  }
+  .field-notes .stamp .label { color: var(--punch); }
+  .field-notes .stamp .label.dim { color: rgba(244, 239, 230, 0.5); }
+  .field-notes .quote-body {
+    grid-column: 1 / span 7;
+  }
+  .field-notes .quote-body .pullquote {
+    color: var(--bone);
+    margin-bottom: 1.8rem;
+  }
+  .field-notes .quote-body .pullquote em { color: var(--punch); font-style: italic; }
+  .field-notes .quote-body p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(244, 239, 230, 0.78);
+    max-width: 52ch;
+  }
+  .field-notes .quote-body p + p { margin-top: 0.9rem; }
+  .field-notes .receipts {
+    grid-column: 9 / span 4;
+    border-left: 1px solid rgba(244, 239, 230, 0.18);
+    padding-left: 1.5rem;
+  }
+  .receipts .label { color: rgba(244, 239, 230, 0.5); }
+  .receipts .receipt {
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px dashed rgba(244, 239, 230, 0.18);
+  }
+  .receipts .receipt:first-of-type { border-top: none; padding-top: 0; margin-top: 0.6rem; }
+  .receipts .receipt-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(244, 239, 230, 0.85);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .receipts .receipt-line .v { color: var(--punch); font-weight: 600; }
+
+  /* ─────── CTA ─────── */
+  .cta-wrap {
+    text-align: left;
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+  .cta-wrap .h-section {
+    max-width: 18ch;
+    margin-bottom: 2rem;
+  }
+  .cta-wrap .h-section em {
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--moss);
+  }
+  .cta-wrap .row {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+
+  .why-now {
+    border-top: 1.5px solid var(--ink);
+    padding-top: 2rem;
+    margin-top: 4rem;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: 1.5rem;
+  }
+  .why-now .label { grid-column: span 2; }
+  .why-now .body {
+    grid-column: 3 / span 8;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .why-now .body strong { background: var(--punch); padding: 0 4px; font-weight: 500; }
+
+  /* ─────── Footer ─────── */
+  footer {
+    background: var(--ink);
+    color: var(--bone);
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+    margin-bottom: 1.6rem; /* room for frame-bottom */
+  }
+  footer .wrap { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 1.5rem; row-gap: 2rem; align-items: end; }
+  footer .footer-mark { grid-column: span 6; font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'SOFT' 100, 'opsz' 96; font-weight: 400; font-size: clamp(2rem, 5vw, 3.6rem); line-height: 0.95; letter-spacing: -0.035em; }
+  footer .footer-mark em { font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96; font-style: italic; font-weight: 300; color: var(--punch); }
+  footer .footer-meta { grid-column: span 3; }
+  footer .footer-meta .label { color: rgba(244, 239, 230, 0.5); margin-bottom: 0.6rem; display: block; }
+  footer .footer-meta p { font-size: 13px; color: rgba(244, 239, 230, 0.85); }
+  footer .footer-meta a { color: var(--punch); }
+  footer .footer-meta a:hover { background: var(--punch); color: var(--ink); padding: 0 4px; }
+  footer .footer-foot { grid-column: span 12; border-top: 1px solid rgba(244, 239, 230, 0.18); padding-top: 1.5rem; display: flex; justify-content: space-between; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(244, 239, 230, 0.45); }
+
+  /* ─────── Responsive ─────── */
+  @media (max-width: 840px) {
+    .hero-meta { grid-template-columns: repeat(2, 1fr); }
+    .hero-meta > * { grid-column: span 1; }
+    .hero-meta > .stretch { grid-column: 1 / -1; }
+    .hero-tag { grid-template-columns: 1fr; }
+    .hero-tag .punchmark, .hero-tag .h-sub, .hero-tag .cta-stack { grid-column: 1; }
+    .hero-tag .cta-stack { align-items: flex-start; text-align: left; margin-top: 1rem; flex-direction: column; }
+
+    .section-head { grid-template-columns: 1fr; row-gap: 0.8rem; }
+    .section-head .num-tag, .section-head .h-section, .section-head .label-meta { grid-column: 1; text-align: left; }
+
+    .manifesto-grid { grid-template-columns: 1fr; row-gap: 2.5rem; }
+    .manifesto-grid .body, .manifesto-grid .stat-block { grid-column: 1; }
+    .manifesto-grid .stat-block { position: static; }
+
+    .flow-stages { grid-template-columns: 1fr; row-gap: 1rem; }
+
+    .usp-row { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .usp-row .num, .usp-row .h-sub, .usp-row .desc { grid-column: 1; }
+
+    .field-notes { grid-template-columns: 1fr; row-gap: 1.5rem; }
+    .field-notes .quote-body, .field-notes .receipts { grid-column: 1; }
+    .field-notes .receipts { border-left: none; border-top: 1px solid rgba(244, 239, 230, 0.18); padding-left: 0; padding-top: 1.4rem; }
+
+    footer .wrap { grid-template-columns: 1fr; row-gap: 1.6rem; }
+    footer .footer-mark, footer .footer-meta, footer .footer-foot { grid-column: 1; }
+
+    .why-now { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .why-now .label, .why-now .body { grid-column: 1; }
+
+    .frame-top, .frame-bottom { font-size: 9px; }
+    .frame-top .hide-sm, .frame-bottom .hide-sm { display: none; }
+  }
+
+  /* ─────── Spec-driven trap section ─────── */
+  .trap-frame {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .trap-frame .flow-meta {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.4rem;
+  }
+  .trap-frame .flow-meta span {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--gray);
+  }
+  .trap-svg-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0 -0.5rem;
+    padding: 1rem 0.5rem;
+  }
+  .trap-svg-wrap svg {
+    display: block;
+    min-width: 760px;
+    width: 100%;
+    height: auto;
+  }
+  .trap-svg-wrap:hover .fill-punch {
+    fill: #B4D838;
+    transition: fill 0.3s ease;
+  }
+  .trap-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1.5rem;
+    margin-top: 1.5rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.2rem;
+  }
+  .trap-breakdown > div { display: flex; flex-direction: column; gap: 0.4rem; }
+  .trap-breakdown .col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--moss);
+    font-weight: 600;
+  }
+  .trap-breakdown .col-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .trap-breakdown .col-desc {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .trap-breakdown .col-desc strong { font-weight: 600; }
+  .trap-breakdown .col-tags {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .trap-breakdown .col-tags span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--line-bold);
+    background: var(--bone);
+    color: var(--moss);
+  }
+  .trap-breakdown .col-sdd .col-tags span { color: var(--gray); }
+  .trap-punchline {
+    margin-top: 2rem;
+    padding: 1.6rem 1.8rem;
+    background: var(--ink);
+    color: var(--bone);
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 96;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    line-height: 1.25;
+    letter-spacing: -0.018em;
+  }
+  .trap-punchline em {
+    color: var(--punch);
+    font-style: italic;
+  }
+  @media (max-width: 840px) {
+    .trap-breakdown { grid-template-columns: 1fr; row-gap: 1.4rem; }
+  }
+  @media print {
+    .trap-svg-wrap svg { min-width: 100%; max-height: 6cm; }
+    .trap-punchline { background: var(--bone); color: var(--ink); border: 1.5px solid var(--ink); }
+    .trap-punchline em { color: var(--moss); }
+  }
+
+  /* ─────── Pricing tiers ─────── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+  }
+  .price-tier {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    padding: 1.4rem 1.3rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    position: relative;
+    transition: all 0.18s ease;
+  }
+  .price-tier:hover {
+    transform: translateY(-2px);
+  }
+  .price-tier-recommended {
+    border-width: 3px;
+    background: var(--punch-dim);
+  }
+  .price-tier-recommended:hover {
+    background: var(--punch);
+  }
+  .price-tier-dark {
+    background: var(--ink);
+    color: var(--bone);
+  }
+  .price-badge {
+    position: absolute;
+    top: -10px;
+    right: 1.2rem;
+    background: var(--ink);
+    color: var(--punch);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+  }
+  .price-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.2rem;
+    line-height: 1;
+    letter-spacing: -0.012em;
+  }
+  .price-amount {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 96;
+    font-weight: 500;
+    font-size: 2.1rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin-top: 0.2rem;
+  }
+  .price-tier-dark .price-amount { color: var(--punch); }
+  .price-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+    font-weight: 500;
+  }
+  .price-tier-dark .price-unit { color: rgba(244, 239, 230, 0.6); }
+  .price-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.7rem 0 0.7rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.7rem;
+    flex: 1;
+  }
+  .price-tier-dark .price-list { border-top-color: rgba(244, 239, 230, 0.2); }
+  .price-list li {
+    font-size: 12px;
+    line-height: 1.45;
+    padding-left: 0.9rem;
+    position: relative;
+    margin-bottom: 0.4rem;
+  }
+  .price-list li::before {
+    content: '+';
+    position: absolute;
+    left: 0;
+    color: var(--moss);
+    font-weight: 700;
+  }
+  .price-tier-dark .price-list li::before { color: var(--punch); }
+  .price-list li.muted {
+    color: var(--gray);
+  }
+  .price-list li.muted::before { content: '−'; color: var(--gray); }
+  .price-for {
+    border-top: 1px solid var(--line);
+    padding-top: 0.7rem;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .price-tier-dark .price-for {
+    border-top-color: rgba(244, 239, 230, 0.2);
+    color: rgba(244, 239, 230, 0.85);
+  }
+  .price-for strong { font-weight: 600; }
+
+  @media (max-width: 1000px) {
+    .pricing-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .pricing-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─────── Comparison table ─────── */
+  .compare-wrap {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    overflow-x: auto;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 760px;
+    font-size: 12.5px;
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 0.75rem 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    line-height: 1.4;
+  }
+  .compare-table thead th {
+    background: var(--ink);
+    color: var(--bone);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .compare-table tbody tr:hover { background: var(--paper); }
+  .compare-table tbody tr.compare-pflanzer {
+    background: var(--punch-dim);
+  }
+  .compare-table tbody tr.compare-pflanzer:hover {
+    background: var(--punch);
+  }
+  .compare-table tbody tr.compare-pflanzer td:first-child {
+    border-left: 4px solid var(--ink);
+    padding-left: 0.6rem;
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table td:first-child {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 24;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: -0.012em;
+  }
+
+  /* ─────── Honest Limitations ─────── */
+  .limitations {
+    margin-top: 3rem;
+    border-top: 1.5px solid var(--ink);
+    padding-top: 1.5rem;
+  }
+  .limitations-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1.2rem;
+    margin-bottom: 1.4rem;
+    flex-wrap: wrap;
+  }
+  .limitations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.7rem;
+  }
+  .limit-card {
+    border: 1.5px solid var(--ink);
+    background: var(--paper);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .limit-fact {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  .limit-src {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+    font-weight: 600;
+  }
+  .limit-fix {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    border-top: 1px solid var(--line);
+    padding-top: 0.6rem;
+  }
+  .limit-fix strong { font-weight: 600; }
+
+  @media (max-width: 840px) {
+    .limitations-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─────── Evidence cards ─────── */
+  .evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.7rem;
+  }
+  .evidence-card {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    padding: 1.1rem 1rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.18s ease;
+  }
+  .evidence-card:hover {
+    background: var(--punch);
+    transform: translateY(-2px);
+  }
+  .evidence-stat {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 60, 'opsz' 60;
+    font-weight: 500;
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 0.2rem;
+  }
+  .evidence-cite {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink);
+    flex: 1;
+  }
+  .evidence-src {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray);
+    font-weight: 600;
+    border-top: 1px solid var(--line);
+    padding-top: 0.5rem;
+  }
+
+  @media (max-width: 840px) {
+    .evidence-grid { grid-template-columns: 1fr 1fr; }
+    .evidence-card:nth-child(5) { grid-column: 1 / -1; }
+  }
+
+  /* ─────── Persona cards ─────── */
+  .persona-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .persona-card {
+    border: 1.5px solid var(--ink);
+    background: var(--bone);
+    padding: 1.5rem 1.6rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.18s ease;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .persona-card:hover {
+    background: var(--paper);
+    transform: translateY(-2px);
+  }
+  .persona-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--moss);
+    margin-bottom: 0.9rem;
+    font-weight: 600;
+  }
+  .persona-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'SOFT' 80, 'opsz' 36;
+    font-weight: 500;
+    font-size: 1.2rem;
+    line-height: 1.15;
+    letter-spacing: -0.014em;
+    margin-bottom: 0.9rem;
+  }
+  .persona-body {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 1rem;
+    flex: 1;
+    max-width: none;
+  }
+  .persona-body strong { font-weight: 600; }
+  .persona-cta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--moss);
+    font-weight: 600;
+    border-top: 1px solid var(--line);
+    padding-top: 0.7rem;
+    transition: color 0.18s ease;
+  }
+  .persona-card:hover .persona-cta {
+    color: var(--ink);
+  }
+
+  @media (max-width: 840px) {
+    .persona-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─────── i18n ─────── */
+  html:not([lang="en"]) .lang-en { display: none !important; }
+  html[lang="en"] .lang-cs { display: none !important; }
+
+  .lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    line-height: 1;
+  }
+  .lang-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gray);
+    padding: 0.2rem 0.35rem;
+    transition: all 0.15s ease;
+  }
+  .lang-toggle:hover { color: var(--ink); }
+  .lang-toggle.active {
+    color: var(--ink);
+    background: var(--punch);
+    font-weight: 600;
+  }
+  .lang-sep { color: var(--gray); font-size: 10px; }
+
+  /* ─────── Entrance ─────── */
+  @keyframes rise {
+    from { transform: translateY(28px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  .rise-1 { animation: rise 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-2 { animation: rise 0.9s 0.15s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-3 { animation: rise 0.9s 0.30s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-4 { animation: rise 0.9s 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+  .rise-5 { animation: rise 0.9s 0.60s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────── FIXED FRAMES ─────── -->
+<div class="frame frame-top">
+  <span>Pflanzer Method &nbsp;·&nbsp; v0.3</span>
+  <span class="hide-sm lang-cs">Manuál pro sázení AI do rigidních procesů</span>
+  <span class="hide-sm lang-en">Manual for planting AI in rigid processes</span>
+  <span style="display:inline-flex; align-items:center; gap:1rem;">
+    <span class="hide-sm" style="color:var(--gray);">Est. 2026</span>
+    <span class="lang-switch" style="pointer-events:auto;">
+      <button class="lang-toggle active" data-lang="cs" type="button" aria-label="Čeština">CS</button>
+      <span class="lang-sep">·</span>
+      <button class="lang-toggle" data-lang="en" type="button" aria-label="English">EN</button>
+    </span>
+  </span>
+</div>
+
+<!-- ─────── HERO ─────── -->
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-meta rise-1">
+      <div>
+        <div class="label"><span class="lang-cs">Subjekt</span><span class="lang-en">Subject</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Korporát · 5–5000+ FTE</span><span class="lang-en">Corporate · 5–5,000+ FTE</span></div>
+      </div>
+      <div>
+        <div class="label"><span class="lang-cs">Vstup</span><span class="lang-en">Input</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Nápad bez plánu</span><span class="lang-en">Idea without a plan</span></div>
+      </div>
+      <div>
+        <div class="label"><span class="lang-cs">Výstup</span><span class="lang-en">Output</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">Kód v produkci</span><span class="lang-en">Code in production</span></div>
+      </div>
+      <div>
+        <div class="label"><span class="lang-cs">Délka cyklu</span><span class="lang-en">Cycle length</span></div>
+        <div style="margin-top:0.4rem;"><span class="lang-cs">~14 dní calendar</span><span class="lang-en">~14 calendar days</span></div>
+      </div>
+    </div>
+
+    <h1 class="display wordmark rise-2" aria-label="Pflanzer Method">
+      <span class="row-1">Pflanzer</span>
+      <span class="row-2"><em>Method.</em></span>
+    </h1>
+
+    <div class="hero-tag">
+      <div class="punchmark rise-3" aria-hidden="true">
+        <!-- sprout icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1A2418" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21V11"/>
+          <path d="M12 11 C 12 7, 9 5, 5 5 C 5 9, 8 11, 12 11 Z"/>
+          <path d="M12 11 C 12 8, 14 6, 18 6 C 18 9, 16 11, 12 11 Z"/>
+        </svg>
+      </div>
+      <p class="h-sub rise-3 lang-cs">
+        Sázíme AI do korporátu. 6 lidí, 2 sezení, kód v produkci za 14 dní —
+        místo 9 měsíců sériového handoffu.
+      </p>
+      <p class="h-sub rise-3 lang-en">
+        We plant AI inside the enterprise. 6 people, 2 sessions, code in
+        production in 14 days — instead of 9 months of serial handoff.
+      </p>
+      <div class="cta-stack rise-4">
+        <a href="1-pager.html" class="btn" target="_blank" rel="noopener">
+          <span class="lang-cs">Otevřít 1-pager</span>
+          <span class="lang-en">Open the 1-pager</span>
+          <span class="arrow">↗</span>
+        </a>
+        <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20early%20access" class="btn ghost">
+          <span class="lang-cs">Early access</span>
+          <span class="lang-en">Early access</span>
+          <span class="arrow">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="scroll-cue rise-5" style="margin-top:auto;">
+      <span class="label"><span class="lang-cs">Čti dál ↓</span><span class="lang-en">Read on ↓</span></span>
+      <span class="label">00 — 04</span>
+    </div>
+  </div>
+</header>
+
+<!-- ─────── 00 MANIFESTO ─────── -->
+<section id="proc">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">00</div>
+      <h2 class="h-section lang-cs">
+        Korporátní handoff hell. <em>Metoda, která ho prolomí.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        Corporate handoff hell. <em>Here's how to break out.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Manifest</span><span class="lang-en">Manifesto</span></div>
+    </div>
+
+    <div class="manifesto-grid">
+      <div class="body">
+        <div class="lang-cs">
+          <p>
+            V korporátu trvá cesta od nápadu k funkční fíčuře 6 až 9 měsíců.
+            Nápad pinká mezi produktem, vývojem, security a legal. Kontext umírá
+            v email threadech. Rozhodnutí se dělají na PowerPointu — ne na
+            funkčním artefaktu.
+          </p>
+          <p>
+            <strong>AI to mění.</strong> Vibe-coding tooly dnes umí v reálném čase
+            vytáhnout z verbálního inputu týmu <strong>běžící produkční-ready app</strong>
+            — ne wireframe v Figmě, ne mockup v Sketch, ale deploy-able web
+            s API skeletonem na URL.
+          </p>
+          <p>
+            Pflanzerova metoda je odpověď na otázku: <em>„Jak ten skok přinést do korporátu?"</em>
+            Bez toho, aby z toho byl další SAFe roll-out, který zaklesne v procesní vrstvě,
+            nebo Design Sprint, který produkuje krásné Figmy, jež nikdo nepřevezme.
+          </p>
+          <p>
+            Místo toho dostáváme do jedné místnosti 6 lidí napříč celým workflow,
+            včetně programátora od minuty 0. Dáme jim 3 hodiny společného vibe-codingu
+            s AI, a na konci mají <strong>3 produkční-ready weby</strong>, ke kterým se
+            mohou vyjádřit. Po týdnu ladění a druhém 3hodinovém setkání jde
+            <strong>winner přímo do produkce</strong> — ne jako reference pro re-implementaci.
+          </p>
+
+          <div class="pull-wrap">
+            <p class="pullquote">
+              Nejde o rychlejší výrobu mockupů. Jde o <em>cross-funkční alignment
+              na funkčním artefaktu</em>, ne na slidu.
+            </p>
+          </div>
+
+          <p>
+            Pflanzer = německy „pěstitel, sazeč". Metoda se nesnaží AI do firem
+            násilím nasadit jako transformaci. <strong>Sází.</strong> Pilot po pilotu,
+            tým po týmu. Co se uchytí, roste. Co ne, vidí každý hned, ne až za rok.
+          </p>
+        </div>
+        <div class="lang-en">
+          <p>
+            Inside a corporate, an idea takes 6 to 9 months to become a working
+            feature. It bounces between product, engineering, security, and legal.
+            Context dies in email threads. Decisions get made on PowerPoint slides —
+            not on working artifacts.
+          </p>
+          <p>
+            <strong>AI is changing that.</strong> Vibe-coding tools today can pull
+            a <strong>running production-ready app</strong> from a team's verbal input
+            in real time — not a Figma wireframe, not a Sketch mockup, but a
+            deploy-able web app with an API skeleton on a URL.
+          </p>
+          <p>
+            Pflanzer Method answers the question: <em>„How do we bring that leap
+            into the corporate?"</em> Without it becoming another SAFe roll-out that
+            gets stuck in the process layer, or a Design Sprint that produces beautiful
+            Figmas no one ever picks up.
+          </p>
+          <p>
+            Instead, we get 6 people from across the entire workflow into one
+            room — including the engineer from minute zero. Give them 3 hours
+            of vibe-coding with AI and at the end they have <strong>3 production-ready
+            web apps</strong> to respond to. After a week of refinement and a
+            second 3-hour session, the <strong>winner ships straight to production</strong>
+            — not as a reference for re-implementation.
+          </p>
+
+          <div class="pull-wrap">
+            <p class="pullquote">
+              It's not about faster mockups. It's about <em>cross-functional alignment
+              on a working artifact</em>, not on a slide.
+            </p>
+          </div>
+
+          <p>
+            Pflanzer is German for „planter". The method doesn't force AI into
+            companies as a transformation. <strong>It plants it.</strong> Pilot by
+            pilot, team by team. What takes root, grows. What doesn't — you see it
+            that week, not next year.
+          </p>
+        </div>
+      </div>
+
+      <aside class="stat-block">
+        <div class="stat">
+          <div class="stat-num">~6–9</div>
+          <div class="label"><span class="lang-cs">měsíců · klasický sériový handoff</span><span class="lang-en">months · classic serial handoff</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">~14</div>
+          <div class="label"><span class="lang-cs">dní · Pflanzer default profil</span><span class="lang-en">days · Pflanzer default profile</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">~10×</div>
+          <div class="label"><span class="lang-cs">zrychlení cyklu od nápadu k prod kódu<sup style="font-size: 8px; opacity: 0.6;"> ¹</sup></span><span class="lang-en">speedup from idea to prod code<sup style="font-size: 8px; opacity: 0.6;"> ¹</sup></span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">6</div>
+          <div class="label"><span class="lang-cs">lidí v místnosti — celé workflow</span><span class="lang-en">people in the room — entire workflow</span></div>
+        </div>
+        <p style="margin-top: 1.4rem; font-size: 10.5px; line-height: 1.5; color: var(--gray); max-width: none;">
+          <sup>¹</sup> <span class="lang-cs">Baseline e-shop pilot, default profil. Tvůj cyklus bude jiný — zavolej.</span><span class="lang-en">Baseline from e-shop pilot, default profile. Your cycle will differ — let's talk.</span>
+        </p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── PERSONA ROUTING ─────── -->
+<section id="komu" style="padding-block: clamp(3rem, 6vw, 5rem);">
+  <div class="wrap">
+    <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
+      <span class="label"><span class="lang-cs">Komu Pflanzer pomáhá</span><span class="lang-en">Who Pflanzer is for</span></span>
+      <span style="font-size: 12px; color: var(--gray);"><span class="lang-cs">→ vyber, co tě pálí nejvíc</span><span class="lang-en">→ pick the pain that's loudest</span></span>
+    </div>
+    <div class="persona-grid">
+      <a href="#proc-pflanzer" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">01 · Regulovaná firma</span><span class="lang-en">01 · Regulated company</span></div>
+        <div class="persona-title lang-cs">AI CoE Lead v bance / pojišťovně / telco.</div>
+        <div class="persona-title lang-en">AI CoE Lead in banking / insurance / telco.</div>
+        <p class="persona-body lang-cs">
+          CEO chce AI v Q1 2027. Compliance nechce ani pilot bez audit trailu.
+          Pflanzer ti dodá <strong>14denní pilot s podpisem od security a legal</strong> —
+          stejný den, ne v sprintu 4.
+        </p>
+        <p class="persona-body lang-en">
+          The CEO wants AI by Q1 2027. Compliance won't sign off on a pilot
+          without an audit trail. Pflanzer gives you a <strong>14-day pilot with
+          security and legal already signed</strong> — the same day, not at sprint 4.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Viz 5 pilířů ↓</span><span class="lang-en">See the 5 pillars ↓</span></span>
+      </a>
+      <a href="#field" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">02 · Digital-native firma</span><span class="lang-en">02 · Digital-native company</span></div>
+        <div class="persona-title lang-cs">VP Engineering v eshopu / SaaS / scale-up.</div>
+        <div class="persona-title lang-en">VP Engineering at an e-commerce / SaaS / scale-up.</div>
+        <p class="persona-body lang-cs">
+          Board chce vidět AI fíčury v prod, ne v Cursoru. Pflanzer doručí
+          <strong>6 lidí, 2 sezení, kód do produkce za 14 dní</strong> — stejně, jak to
+          udělalo e-shop v Q1 2026.
+        </p>
+        <p class="persona-body lang-en">
+          The board wants to see AI features in prod, not in Cursor. Pflanzer
+          delivers <strong>6 people, 2 sessions, code in production in 14 days</strong> —
+          the way e-shop did it in Q1 2026.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Viz e-shop case ↓</span><span class="lang-en">See the e-shop case ↓</span></span>
+      </a>
+      <a href="#zacni" class="persona-card">
+        <div class="persona-label"><span class="lang-cs">03 · Facilitátor / konzultant</span><span class="lang-en">03 · Facilitator / consultant</span></div>
+        <div class="persona-title lang-cs">Hledáš sellable IP pro klienta.</div>
+        <div class="persona-title lang-en">Looking for sellable IP for a client.</div>
+        <p class="persona-body lang-cs">
+          Pflanzer je <strong>open-source rámec, který můžeš ohnout pod své jméno</strong>:
+          MIT license, playbook, šablony, role catalog. Začneš jako free DIY,
+          škáluješ na facilitated nebo audit-grade.
+        </p>
+        <p class="persona-body lang-en">
+          Pflanzer is an <strong>open-source frame you can bend under your own
+          brand</strong>: MIT license, playbook, templates, role catalog. Start as
+          free DIY, scale to facilitated or audit-grade.
+        </p>
+        <span class="persona-cta"><span class="lang-cs">Jak začít ↓</span><span class="lang-en">How to start ↓</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 01 BOTANICAL FLOW ─────── -->
+<section id="recept" style="background: linear-gradient(180deg, var(--bone) 0%, var(--paper) 100%);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">01</div>
+      <h2 class="h-section lang-cs">
+        Jak metoda <em>roste.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        How the method <em>grows.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">5 fází · 14 dní</span><span class="lang-en">5 stages · 14 days</span></div>
+    </div>
+
+    <div class="flow-frame">
+      <div class="flow-meta">
+        <span><span class="lang-cs">Fig. 01 — Pflanzer cyklus, default profil</span><span class="lang-en">Fig. 01 — Pflanzer cycle, default profile</span></span>
+        <span><span class="lang-cs">Verze v0.3 · 2026</span><span class="lang-en">Version v0.3 · 2026</span></span>
+      </div>
+
+      <div class="flow-svg-wrap" aria-label="Botanical visualization of the cycle: seed, sprout, leaf, stem, bloom">
+        <svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pflanzer growth stages">
+          <defs>
+            <style>
+              .stroke-ink { stroke: #1A2418; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+              .stroke-moss { stroke: #2F4A2F; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+              .stroke-thin { stroke: #1A2418; fill: none; stroke-width: 1; stroke-linecap: round; }
+              .stroke-dash { stroke: #1A2418; fill: none; stroke-width: 1; stroke-dasharray: 3 4; }
+              .fill-punch { fill: #C7E84A; }
+              .fill-ink { fill: #1A2418; }
+              .fill-moss { fill: #2F4A2F; }
+              .label-svg { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; fill: #1A2418; font-weight: 600; }
+              .label-day { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
+            </style>
+          </defs>
+
+          <!-- Earth baseline -->
+          <line x1="40" y1="200" x2="960" y2="200" class="stroke-ink"/>
+          <!-- Earth texture (hatch) -->
+          <g class="stroke-thin">
+            <line x1="40" y1="208" x2="44" y2="214"/>
+            <line x1="60" y1="208" x2="64" y2="214"/>
+            <line x1="80" y1="208" x2="84" y2="214"/>
+            <line x1="100" y1="208" x2="104" y2="214"/>
+            <line x1="120" y1="208" x2="124" y2="214"/>
+            <line x1="140" y1="208" x2="144" y2="214"/>
+            <line x1="160" y1="208" x2="164" y2="214"/>
+            <line x1="180" y1="208" x2="184" y2="214"/>
+            <line x1="200" y1="208" x2="204" y2="214"/>
+            <line x1="220" y1="208" x2="224" y2="214"/>
+            <line x1="240" y1="208" x2="244" y2="214"/>
+            <line x1="260" y1="208" x2="264" y2="214"/>
+            <line x1="280" y1="208" x2="284" y2="214"/>
+            <line x1="300" y1="208" x2="304" y2="214"/>
+            <line x1="320" y1="208" x2="324" y2="214"/>
+            <line x1="340" y1="208" x2="344" y2="214"/>
+            <line x1="360" y1="208" x2="364" y2="214"/>
+            <line x1="380" y1="208" x2="384" y2="214"/>
+            <line x1="400" y1="208" x2="404" y2="214"/>
+            <line x1="420" y1="208" x2="424" y2="214"/>
+            <line x1="440" y1="208" x2="444" y2="214"/>
+            <line x1="460" y1="208" x2="464" y2="214"/>
+            <line x1="480" y1="208" x2="484" y2="214"/>
+            <line x1="500" y1="208" x2="504" y2="214"/>
+            <line x1="520" y1="208" x2="524" y2="214"/>
+            <line x1="540" y1="208" x2="544" y2="214"/>
+            <line x1="560" y1="208" x2="564" y2="214"/>
+            <line x1="580" y1="208" x2="584" y2="214"/>
+            <line x1="600" y1="208" x2="604" y2="214"/>
+            <line x1="620" y1="208" x2="624" y2="214"/>
+            <line x1="640" y1="208" x2="644" y2="214"/>
+            <line x1="660" y1="208" x2="664" y2="214"/>
+            <line x1="680" y1="208" x2="684" y2="214"/>
+            <line x1="700" y1="208" x2="704" y2="214"/>
+            <line x1="720" y1="208" x2="724" y2="214"/>
+            <line x1="740" y1="208" x2="744" y2="214"/>
+            <line x1="760" y1="208" x2="764" y2="214"/>
+            <line x1="780" y1="208" x2="784" y2="214"/>
+            <line x1="800" y1="208" x2="804" y2="214"/>
+            <line x1="820" y1="208" x2="824" y2="214"/>
+            <line x1="840" y1="208" x2="844" y2="214"/>
+            <line x1="860" y1="208" x2="864" y2="214"/>
+            <line x1="880" y1="208" x2="884" y2="214"/>
+            <line x1="900" y1="208" x2="904" y2="214"/>
+            <line x1="920" y1="208" x2="924" y2="214"/>
+            <line x1="940" y1="208" x2="944" y2="214"/>
+            <line x1="960" y1="208" x2="964" y2="214"/>
+          </g>
+
+          <!-- STAGE 1: SEED (Den 0) -->
+          <g transform="translate(110, 190)">
+            <!-- seed underground -->
+            <ellipse cx="0" cy="14" rx="9" ry="6" class="fill-ink"/>
+            <!-- root hairs -->
+            <path d="M -6 18 Q -10 24 -12 28" class="stroke-moss"/>
+            <path d="M 0 20 Q 0 26 -2 32" class="stroke-moss"/>
+            <path d="M 6 18 Q 10 24 12 28" class="stroke-moss"/>
+            <!-- small upward signal -->
+            <line x1="0" y1="6" x2="0" y2="-2" class="stroke-ink"/>
+          </g>
+          <text x="110" y="248" text-anchor="middle" class="label-day lang-cs">Den 0</text>
+          <text x="110" y="248" text-anchor="middle" class="label-day lang-en">Day 0</text>
+          <text x="110" y="262" text-anchor="middle" class="label-svg lang-cs">Sazba</text>
+          <text x="110" y="262" text-anchor="middle" class="label-svg lang-en">Sowing</text>
+
+          <!-- STAGE 2: SPROUT (Den 5) -->
+          <g transform="translate(290, 200)">
+            <!-- stem -->
+            <path d="M 0 0 Q 0 -30 -2 -60" class="stroke-ink"/>
+            <!-- 3 sprouts = 3 variants -->
+            <g class="stroke-moss">
+              <path d="M -2 -55 Q -20 -68 -32 -60" />
+              <path d="M -2 -55 Q -2 -78 -2 -88" />
+              <path d="M -2 -55 Q 16 -68 28 -60" />
+            </g>
+            <!-- leaf tips -->
+            <circle cx="-32" cy="-60" r="3" class="fill-moss"/>
+            <circle cx="-2" cy="-88" r="3" class="fill-moss"/>
+            <circle cx="28" cy="-60" r="3" class="fill-moss"/>
+            <!-- ground line for plant -->
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="290" y="248" text-anchor="middle" class="label-day lang-cs">Den 5</text>
+          <text x="290" y="248" text-anchor="middle" class="label-day lang-en">Day 5</text>
+          <text x="290" y="262" text-anchor="middle" class="label-svg">Session 1 · 3h</text>
+
+          <!-- Connector -->
+          <line x1="160" y1="180" x2="240" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 3: LEAF EXPANSION (Den 6-9) -->
+          <g transform="translate(490, 200)">
+            <path d="M 0 0 Q 0 -50 0 -110" class="stroke-ink"/>
+            <!-- side leaves grown out -->
+            <g class="stroke-moss">
+              <!-- left leaf -->
+              <path d="M 0 -50 Q -20 -55 -38 -48 Q -32 -38 -16 -36 Q 0 -38 0 -50 Z"/>
+              <!-- right leaf -->
+              <path d="M 0 -70 Q 22 -75 40 -68 Q 32 -56 16 -54 Q 0 -56 0 -70 Z"/>
+              <!-- veins -->
+              <path d="M 0 -50 L -28 -45" class="stroke-thin"/>
+              <path d="M 0 -70 L 30 -64" class="stroke-thin"/>
+            </g>
+            <!-- top -->
+            <circle cx="0" cy="-110" r="3" class="fill-moss"/>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="490" y="248" text-anchor="middle" class="label-day lang-cs">Den 6–9</text>
+          <text x="490" y="248" text-anchor="middle" class="label-day lang-en">Day 6–9</text>
+          <text x="490" y="262" text-anchor="middle" class="label-svg lang-cs">Iterace · async</text>
+          <text x="490" y="262" text-anchor="middle" class="label-svg lang-en">Iteration · async</text>
+
+          <!-- Connector -->
+          <line x1="340" y1="180" x2="440" y2="180" class="stroke-dash"/>
+          <line x1="540" y1="180" x2="640" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 4: STEM HEIGHT (Den 10) -->
+          <g transform="translate(700, 200)">
+            <path d="M 0 0 Q 0 -60 0 -130" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -40 Q -22 -45 -42 -36 Q -34 -24 -16 -22 Q 0 -26 0 -40 Z"/>
+              <path d="M 0 -65 Q 24 -70 44 -60 Q 36 -48 16 -46 Q 0 -50 0 -65 Z"/>
+              <path d="M 0 -100 Q -20 -106 -38 -98 Q -30 -86 -14 -84 Q 0 -88 0 -100 Z"/>
+              <!-- bud -->
+              <ellipse cx="0" cy="-130" rx="4" ry="6" class="fill-moss"/>
+              <!-- veins -->
+              <path d="M 0 -40 L -34 -32" class="stroke-thin"/>
+              <path d="M 0 -65 L 36 -56" class="stroke-thin"/>
+              <path d="M 0 -100 L -32 -92" class="stroke-thin"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="700" y="248" text-anchor="middle" class="label-day lang-cs">Den 10</text>
+          <text x="700" y="248" text-anchor="middle" class="label-day lang-en">Day 10</text>
+          <text x="700" y="262" text-anchor="middle" class="label-svg">Session 2 · 3h</text>
+
+          <!-- Connector -->
+          <line x1="740" y1="180" x2="840" y2="180" class="stroke-dash"/>
+
+          <!-- STAGE 5: BLOOM (Den 14) -->
+          <g transform="translate(900, 200)">
+            <path d="M 0 0 Q 0 -60 0 -140" class="stroke-ink"/>
+            <g class="stroke-moss">
+              <path d="M 0 -38 Q -22 -43 -42 -34 Q -34 -22 -16 -20 Q 0 -24 0 -38 Z"/>
+              <path d="M 0 -68 Q 24 -73 44 -63 Q 36 -51 16 -49 Q 0 -53 0 -68 Z"/>
+              <path d="M 0 -100 Q -22 -106 -42 -98 Q -34 -86 -16 -84 Q 0 -88 0 -100 Z"/>
+            </g>
+            <!-- flower (the prod) -->
+            <g transform="translate(0, -142)">
+              <!-- petals -->
+              <circle cx="0" cy="-8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="-9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <circle cx="0" cy="8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+              <!-- center -->
+              <circle cx="0" cy="0" r="5" class="fill-ink"/>
+            </g>
+            <ellipse cx="0" cy="0" rx="14" ry="3" class="stroke-thin"/>
+          </g>
+          <text x="900" y="248" text-anchor="middle" class="label-day lang-cs">Den 14</text>
+          <text x="900" y="248" text-anchor="middle" class="label-day lang-en">Day 14</text>
+          <text x="900" y="262" text-anchor="middle" class="label-svg lang-cs">Kód v produkci</text>
+          <text x="900" y="262" text-anchor="middle" class="label-svg lang-en">Code in production</text>
+
+        </svg>
+      </div>
+
+      <div class="flow-stages">
+        <div>
+          <div class="day"><span class="lang-cs">Den 0 · 60 min</span><span class="lang-en">Day 0 · 60 min</span></div>
+          <div class="stage-name"><span class="lang-cs">Sazba</span><span class="lang-en">Sowing</span></div>
+          <div class="stage-desc"><span class="lang-cs">Kávový meeting. Sponzor + 5 lidí napříč workflow. Problém v jedné větě, success threshold ve dvou.</span><span class="lang-en">Coffee meeting. Sponsor + 5 people across the workflow. Problem in one sentence, success threshold in two.</span></div>
+        </div>
+        <div>
+          <div class="day"><span class="lang-cs">Den 5 · 3 h</span><span class="lang-en">Day 5 · 3 h</span></div>
+          <div class="stage-name"><span class="lang-cs">Session 1 · vibe</span><span class="lang-en">Session 1 · vibe</span></div>
+          <div class="stage-desc"><span class="lang-cs">In-room vibe-coding. 3 paralelní weby v Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</span><span class="lang-en">In-room vibe-coding. 3 parallel web apps in Bolt / v0 / Lovable / Claude Code. Silent voting, Decider shortlist.</span></div>
+        </div>
+        <div>
+          <div class="day"><span class="lang-cs">Den 6–9 · async</span><span class="lang-en">Day 6–9 · async</span></div>
+          <div class="stage-name"><span class="lang-cs">Mezi-session</span><span class="lang-en">Between sessions</span></div>
+          <div class="stage-desc"><span class="lang-cs">Stakeholdeři klikají, builder lead aplikuje feedback. Cross-fn alignment roste, ne degraduje.</span><span class="lang-en">Stakeholders click, builder lead applies feedback. Cross-fn alignment grows, doesn't degrade.</span></div>
+        </div>
+        <div>
+          <div class="day"><span class="lang-cs">Den 10 · 3 h</span><span class="lang-en">Day 10 · 3 h</span></div>
+          <div class="stage-name"><span class="lang-cs">Session 2 · rozhodnutí</span><span class="lang-en">Session 2 · decision</span></div>
+          <div class="stage-desc"><span class="lang-cs">AI moderuje feedback per role. Decider hlasuje poslední (anti-HiPPO). Scope locked.</span><span class="lang-en">AI moderates feedback per role. Decider votes last (anti-HiPPO). Scope locked.</span></div>
+        </div>
+        <div>
+          <div class="day"><span class="lang-cs">Den 11–14 · 1–2 d</span><span class="lang-en">Day 11–14 · 1–2 d</span></div>
+          <div class="stage-name"><span class="lang-cs">Ship to prod</span><span class="lang-en">Ship to prod</span></div>
+          <div class="stage-desc"><span class="lang-cs">Quality gates score ≥ 80/100. Per-role handoff s odkazy na soubory. PR-ready commit. Deploy.</span><span class="lang-en">Quality gates score ≥ 80/100. Per-role handoff with file links. PR-ready commit. Deploy.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 02 USPs ─────── -->
+<section id="proc-pflanzer">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">02</div>
+      <h2 class="h-section lang-cs">
+        Pět věcí, které <em>nikdo jiný nedělá.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        Five things <em>no one else does.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">USP · diferenciace</span><span class="lang-en">USP · differentiation</span></div>
+    </div>
+
+    <p class="lang-cs" style="font-size: 14px; line-height: 1.65; margin-bottom: 2.5rem; max-width: 64ch;">
+      Vibe-coding samotný už není diferenciátor — v 2026 to umí každý.
+      Diferenciátor je, <strong>jak ho dostat do firmy tak, aby ho podepsala
+      security, legal i procurement</strong>. Tady je pět věcí, které dohromady
+      nikdo jiný nedělá.
+    </p>
+    <p class="lang-en" style="font-size: 14px; line-height: 1.65; margin-bottom: 2.5rem; max-width: 64ch;">
+      Vibe-coding itself is no longer the moat — in 2026 everyone can do it.
+      The moat is <strong>shipping it inside the enterprise so that security,
+      legal, and procurement all sign off</strong>. Here are five things no one
+      else does together.
+    </p>
+
+    <div class="usp-list">
+
+      <div class="usp-row">
+        <div class="num"><span>01 →</span></div>
+        <h3 class="h-sub lang-cs">Non-tech v místnosti.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Security, Legal, DPO, A11y od minuty 0.</em></h3>
+        <h3 class="h-sub lang-en">Non-tech in the room.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Security, Legal, DPO, A11y from minute zero.</em></h3>
+        <div class="desc">
+          <div class="lang-cs">
+            <p>
+              V AWS „mob mode" sedí jen vývojáři. V Design Sprintu jen produktový
+              tým. U Pflanzera sedí Security, Legal, DPO a UX writer
+              <strong>od minuty 0 ve stejné místnosti</strong>, na stejném artefaktu.
+            </p>
+            <p>
+              <strong>Co tím získáš:</strong> na security audit narazíš v hodině 4,
+              ne v sprintu 4. Žádné „v poslední fázi nám compliance řekne, že to neprojde".
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              In AWS „mob mode" only engineers sit at the table. In Design Sprint,
+              only the product team. In Pflanzer, Security, Legal, DPO and the
+              UX writer are there <strong>from minute zero, in the same room</strong>,
+              on the same artifact.
+            </p>
+            <p>
+              <strong>What you get:</strong> you hit the security audit at hour 4,
+              not at sprint 4. No more „in the last phase compliance told us it won't pass".
+            </p>
+          </div>
+          <div class="tag-list">
+            <span><span class="lang-cs">Žádné late-stage veto</span><span class="lang-en">No late-stage veto</span></span><span><span class="lang-cs">Security od minuty 0</span><span class="lang-en">Security from minute 0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>02 →</span></div>
+        <h3 class="h-sub lang-cs">Native AI Act compliance.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Decision log per čl. 14, ne custom deliverable.</em></h3>
+        <h3 class="h-sub lang-en">Native AI Act compliance.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Decision log per art. 14, not a custom deliverable.</em></h3>
+        <div class="desc">
+          <div class="lang-cs">
+            <p>
+              McKinsey ti AI Act compliance dodá jako <strong>custom deliverable
+              v engagementu za $1M+</strong>. Pflanzer ji má zadarmo přibalený:
+              každé rozhodnutí má jmennou atribuci k člověku, audit log běží 7 let
+              (DORA-grade), AI Act klasifikuje riziko ještě před první session.
+            </p>
+            <p>
+              <strong>Co tím získáš:</strong> až si tě regulátor zavolá za 14 měsíců
+              na audit, máš co ukázat — jméno, datum, rationale. Nemusíš to
+              rekonstruovat z emailů.
+            </p>
+            <p style="font-size: 12px; color: var(--gray); border-left: 2px solid var(--moss); padding-left: 0.7rem; margin-top: 0.8rem;">
+              <strong style="color: var(--ink);">2. srpna 2026</strong> startuje enforcement
+              čl. 14 EU AI Act — každé rozhodnutí systému musí mít timestamp +
+              operator ID. <strong style="color: var(--ink);">70 % firem</strong>
+              to dnes nemá.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              McKinsey will deliver your AI Act compliance as a <strong>custom
+              deliverable inside a $1M+ engagement</strong>. Pflanzer ships it bundled
+              in: every decision has a named human attribution, the audit log runs
+              7 years (DORA-grade), AI Act classifies risk before session one.
+            </p>
+            <p>
+              <strong>What you get:</strong> when the regulator calls you in for an
+              audit 14 months from now, you have something to show — name, date,
+              rationale. No reconstructing it from emails.
+            </p>
+            <p style="font-size: 12px; color: var(--gray); border-left: 2px solid var(--moss); padding-left: 0.7rem; margin-top: 0.8rem;">
+              <strong style="color: var(--ink);">2 August 2026</strong> — enforcement
+              of EU AI Act art. 14 begins. Every system decision must carry
+              a timestamp + operator ID. <strong style="color: var(--ink);">70 %
+              of firms</strong> don't have this today.
+            </p>
+          </div>
+          <div class="tag-list">
+            <span><span class="lang-cs">Compliance ready</span><span class="lang-en">Compliance-ready</span></span><span><span class="lang-cs">AI Act čl. 14</span><span class="lang-en">AI Act art. 14</span></span><span>DORA 7y</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>03 →</span></div>
+        <h3 class="h-sub lang-cs">Mezi „líbí se mi" a „commitnu".<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Stupnice se zdůvodněním. Veto má jen 4 role.</em></h3>
+        <h3 class="h-sub lang-en">Between „I like it" and „I commit".<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">A scored scale with a reason. Veto belongs to 4 roles.</em></h3>
+        <div class="desc">
+          <div class="lang-cs">
+            <p>
+              Většina workshop metod měří „líbí se mi" — palečky, samolepky, dot
+              voting. Design Sprint Decider udělá binární go/no-go. A pak týden
+              po sprintu ti člověk z compliance řekne, že se mu to vlastně nelíbí.
+            </p>
+            <p>
+              Pflanzer má <strong>1–5 stupnici s povinným důvodem</strong>
+              (proč jsi dal 3, ne 5?) plus binární <strong>veto-právo
+              pro 4 role: Security, Legal, A11y, Decider</strong>. Sponzor hlasuje
+              poslední — vidí výsledek silent vote týmu, pak rozhoduje.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              Most workshop methods only measure „I like it" — thumbs, stickies,
+              dot voting. Design Sprint's Decider makes a binary go/no-go. Then a
+              week later compliance tells you they actually didn't like it.
+            </p>
+            <p>
+              Pflanzer uses a <strong>1–5 scale with a mandatory reason</strong>
+              (why a 3, not a 5?) plus binary <strong>veto rights for 4 roles:
+              Security, Legal, A11y, Decider</strong>. The sponsor votes last —
+              sees the team's silent-vote result first, then decides.
+            </p>
+          </div>
+          <p style="font-size: 12px; color: var(--gray); border-left: 2px solid var(--moss); padding-left: 0.7rem; margin-top: 0.8rem;">
+            <span class="lang-cs"><strong style="color: var(--ink);">Akademická opora:</strong> strukturované rozhodovací protokoly snižují <em>hidden profile bias</em> o <strong style="color: var(--ink);">41 %</strong> oproti volné diskuzi (Lu, Yuan &amp; McLeod, meta-analýza, <em>PSPR</em> 2012).</span>
+            <span class="lang-en"><strong style="color: var(--ink);">Academic anchor:</strong> structured decision protocols reduce <em>hidden profile bias</em> by <strong style="color: var(--ink);">41 %</strong> vs free discussion (Lu, Yuan &amp; McLeod, meta-analysis, <em>PSPR</em> 2012).</span>
+          </p>
+          <div class="tag-list">
+            <span><span class="lang-cs">Anti-HiPPO</span><span class="lang-en">Anti-HiPPO</span></span><span><span class="lang-cs">Silent voting</span><span class="lang-en">Silent voting</span></span><span><span class="lang-cs">Důvod, ne emotikon</span><span class="lang-en">Reason, not emoji</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>04 →</span></div>
+        <h3 class="h-sub lang-cs">48 hodin před Session 1.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Čtyři role si přečtou check-list. Bez podpisů nezačínáme.</em></h3>
+        <h3 class="h-sub lang-en">48 hours before Session 1.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Four roles read a checklist. No signatures — no session.</em></h3>
+        <div class="desc">
+          <div class="lang-cs">
+            <p>
+              48 hodin před Session 1 dostane každá ze 4 rolí (Discovery, Security,
+              Legal, Platform) krátký async check-list. <strong>Bez 4 podpisů Session 1
+              neodstartuje.</strong>
+            </p>
+            <p>
+              <strong>Co tím získáš:</strong> žádné „my jsme to nevěděli" v hodině 3 —
+              protože tu informaci si přečetli den předtím v posteli. AWS AI-DLC,
+              AJ&amp;Smart Sprint 2.0 ani Thoughtworks tohle nemají.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              48 hours before Session 1, each of 4 roles (Discovery, Security,
+              Legal, Platform) gets a short async checklist. <strong>Without 4
+              signatures, Session 1 doesn't start.</strong>
+            </p>
+            <p>
+              <strong>What you get:</strong> no „we didn't know" at hour 3 —
+              because they read it the night before in bed. AWS AI-DLC, AJ&amp;Smart
+              Sprint 2.0 and Thoughtworks don't do this.
+            </p>
+          </div>
+          <div class="tag-list">
+            <span><span class="lang-cs">Async pre-read</span><span class="lang-en">Async pre-read</span></span><span><span class="lang-cs">4 podpisy</span><span class="lang-en">4 signatures</span></span><span><span class="lang-cs">Sandbox-first</span><span class="lang-en">Sandbox-first</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usp-row">
+        <div class="num"><span>05 →</span></div>
+        <h3 class="h-sub lang-cs">2 × 3 hodiny. Mezi tím týden.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">Žádných 5 dní v kuse. Žádných 90 dní.</em></h3>
+        <h3 class="h-sub lang-en">2 × 3 hours. A week in between.<br/><em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; color: var(--moss);">No 5-day block. No 90-day program.</em></h3>
+        <div class="desc">
+          <div class="lang-cs">
+            <p>
+              AWS AI-DLC běží non-stop, bez async pauzy. Thoughtworks „3-3-3" trvá
+              90 dní. Design Sprint chce 5 dní v kuse — což stakeholder z compliance
+              v korporátu nikdy nedá. <strong>Pflanzer to rozsekne: 2 × 3 hodiny,
+              mezi tím týden.</strong>
+            </p>
+            <p>
+              <strong>Bonus:</strong> po Session 2 jsou checkpointy v T+7, T+30,
+              T+60 a T+90 dní. Pilot se nepředá do vakua. Když po 6 měsících
+              metoda nevykazuje hodnotu, sunset.
+            </p>
+          </div>
+          <div class="lang-en">
+            <p>
+              AWS AI-DLC runs non-stop, no async pause. Thoughtworks „3-3-3"
+              takes 90 days. Design Sprint demands 5 days in a row — which the
+              compliance stakeholder will never give. <strong>Pflanzer splits it:
+              2 × 3 hours, a week in between.</strong>
+            </p>
+            <p>
+              <strong>Bonus:</strong> checkpoints at T+7, T+30, T+60, T+90 days
+              after Session 2. The pilot doesn't ship into a vacuum. If the method
+              shows no value after 6 months — sunset.
+            </p>
+          </div>
+          <div class="tag-list">
+            <span><span class="lang-cs">14 dní default</span><span class="lang-en">14-day default</span></span><span>T+7/30/60/90</span><span><span class="lang-cs">Async-friendly</span><span class="lang-en">Async-friendly</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 3rem; padding: 1.8rem 2rem; border: 1.5px solid var(--ink); background: var(--paper);">
+      <span class="label" style="display: block; margin-bottom: 0.8rem;"><span class="lang-cs">Co Pflanzer NENÍ — a co je</span><span class="lang-en">What Pflanzer is NOT — and what it is</span></span>
+      <p class="lang-cs" style="font-size: 14px; line-height: 1.65; max-width: none; margin-bottom: 0.9rem;">
+        <strong>NENÍ to další workshop metoda.</strong> Hřbitov těch je plný —
+        Sprint 2.0, Innovation Days, Lean Startup workshopy, „AI Adoption Framework"
+        od poradenské firmy XY.
+      </p>
+      <p class="lang-cs" style="font-size: 14px; line-height: 1.65; max-width: none;">
+        Pflanzer <strong>JE operating layer pro tvoje AI Center of Excellence</strong> —
+        opakovatelný, certifikovatelný, procurement-ready. Cenově sedí mezi
+        McKinsey transformací za $1M+ a hackathonem za $0. Tu mezeru zatím
+        nikdo nezaplnil.
+      </p>
+      <p class="lang-en" style="font-size: 14px; line-height: 1.65; max-width: none; margin-bottom: 0.9rem;">
+        <strong>It's NOT another workshop method.</strong> The graveyard is full
+        of those — Sprint 2.0, Innovation Days, Lean Startup workshops,
+        „AI Adoption Frameworks" from consultancy XY.
+      </p>
+      <p class="lang-en" style="font-size: 14px; line-height: 1.65; max-width: none;">
+        Pflanzer <strong>IS the operating layer for your AI Center of Excellence</strong> —
+        repeatable, certifiable, procurement-ready. Priced between McKinsey's
+        $1M+ transformation and the $0 hackathon. No one has filled that gap yet.
+      </p>
+    </div>
+
+    <!-- EVIDENCE ROW -->
+    <div style="margin-top: 3rem;">
+      <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.4rem; flex-wrap: wrap; border-top: 1.5px solid var(--ink); padding-top: 1.5rem;">
+        <span class="label"><span class="lang-cs">Důkazy · 2024–2026</span><span class="lang-en">Evidence · 2024–2026</span></span>
+        <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Pflanzer claim nestojí na vlastním hlasu. Tady je, co publikovaly Anthropic, AWS, Stripe, MIT, EU a peer-review žurnály.</span><span class="lang-en">Pflanzer claims don't rest on our own voice. Here's what Anthropic, AWS, Stripe, MIT, the EU, and peer-reviewed journals have published.</span></span>
+      </div>
+
+      <div class="evidence-grid">
+        <a href="https://anthropic.com/research/building-effective-agents" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">+90.2 %</div>
+          <div class="evidence-cite lang-cs">Multi-agent výkon vs single-agent.</div>
+          <div class="evidence-cite lang-en">Multi-agent performance vs single-agent.</div>
+          <div class="evidence-src">Anthropic · 06/2025</div>
+        </a>
+        <a href="https://aws.amazon.com/blogs/devops/" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">7×</div>
+          <div class="evidence-cite lang-cs">Amazon Bedrock: 18 měsíců / 30 vývojářů → 76 dní / 6 inženýrů.</div>
+          <div class="evidence-cite lang-en">Amazon Bedrock: 18 months / 30 devs → 76 days / 6 engineers.</div>
+          <div class="evidence-src">AWS AI-DLC · re:Invent 2025</div>
+        </a>
+        <a href="https://stripe.com/blog" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">12×</div>
+          <div class="evidence-cite lang-cs">Stripe Scala→Java migrace: 10 týdnů → 4 dny. 1 300 PRs/týden od AI agentů.</div>
+          <div class="evidence-cite lang-en">Stripe Scala→Java migration: 10 weeks → 4 days. 1,300 PRs/week from AI agents.</div>
+          <div class="evidence-src">Stripe Engineering · Q1 2026</div>
+        </a>
+        <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">2 · 8 · 2026</div>
+          <div class="evidence-cite lang-cs">EU AI Act čl. 14 enforcement: každé rozhodnutí timestamp + operator ID. 70 % firem nemá.</div>
+          <div class="evidence-cite lang-en">EU AI Act art. 14 enforcement: every decision needs timestamp + operator ID. 70 % of firms don't.</div>
+          <div class="evidence-src">EU · enforcement start</div>
+        </a>
+        <a href="https://doi.org/10.1109/TSE.2002.1019481" target="_blank" rel="noopener" class="evidence-card">
+          <div class="evidence-stat">2×</div>
+          <div class="evidence-cite lang-cs">Co-located týmy: dvojnásobná produktivita + vyšší kvalita vs distribuované.</div>
+          <div class="evidence-cite lang-en">Co-located teams: 2× productivity + higher quality vs distributed.</div>
+          <div class="evidence-src">Teasley et al. · IEEE TSE 2002</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 02b SPEC-DRIVEN TRAP ─────── -->
+<section id="spec-trap" class="trap-section" style="padding-block: clamp(4rem, 8vw, 7rem);">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">02<em style="font-variation-settings: 'SOFT' 100, 'WONK' 1; font-style: italic; font-weight: 300; opacity: 0.65;">b</em></div>
+      <h2 class="h-section lang-cs">
+        Past <em>spec-drivenu.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        The spec-driven <em>trap.</em>
+      </h2>
+      <div class="label-meta label">
+        <span class="lang-cs">Kontrast · proč ne SDD</span>
+        <span class="lang-en">Contrast · why not SDD</span>
+      </div>
+    </div>
+
+    <p class="lang-cs" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 1.2rem;">
+      Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — říká:
+      <em>„Nejdřív specka, pak kód."</em> V korporátu to zní zodpovědně.
+      Realita: <strong>app → specka → dev → další app, která se liší → pinking →
+      cyklus se prodlouží.</strong> Pflanzer dělá opačnou věc — <strong>programátor
+      je v room od minuty 0, output je běžící produkt</strong>.
+    </p>
+    <p class="lang-en" style="font-size: 15px; line-height: 1.7; max-width: 62ch; margin-bottom: 1.2rem;">
+      Spec-Driven Development — Spec Kit, Kiro, OpenSpec, BMAD — says:
+      <em>„Spec first, code second."</em> In the enterprise it sounds
+      responsible. The reality: <strong>app → spec → dev → a different app →
+      ping-pong → the cycle gets longer.</strong> Pflanzer flips it —
+      <strong>the engineer is in the room from minute zero, output is
+      a running product</strong>.
+    </p>
+    <p style="font-size: 12.5px; color: var(--gray); border-left: 2px solid var(--moss); padding-left: 0.8rem; max-width: 62ch; margin-bottom: 2rem;">
+      <span class="lang-cs"><strong style="color: var(--ink);">Když dev v room být nemůže?</strong> Pflanzer má <strong style="color: var(--ink);">Track S</strong> fallback (~20 % případů, 4 hard triggers: distributed dev, AI Act High-risk, FDA/IEC/DO-178C/PSD2, sponsor mandate) — precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 % (vs SDD 9.8–42 %). Není to preferovaná cesta — viz <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">ADR-0020 dual-track model</a>.</span>
+      <span class="lang-en"><strong style="color: var(--ink);">When dev can't be in the room?</strong> Pflanzer has a <strong style="color: var(--ink);">Track S</strong> fallback (~20 % of cases, 4 hard triggers: distributed dev, AI Act High-risk, FDA/IEC/DO-178C/PSD2, sponsor mandate) — precision spec ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 % (vs SDD 9.8–42 %). Not the preferred path — see <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">ADR-0020 dual-track model</a>.</span>
+    </p>
+
+    <div class="trap-frame">
+      <div class="flow-meta">
+        <span>
+          <span class="lang-cs">Fig. 02b — Dvě rostliny, jedna ve smyčce</span>
+          <span class="lang-en">Fig. 02b — Two plants, one stuck in a loop</span>
+        </span>
+        <span>
+          <span class="lang-cs">Pflanzer vs Spec-Driven · ilustrativní</span>
+          <span class="lang-en">Pflanzer vs Spec-Driven · illustrative</span>
+        </span>
+      </div>
+
+      <div class="trap-svg-wrap">
+        <svg viewBox="0 0 1000 360" xmlns="http://www.w3.org/2000/svg"
+             role="img" class="trap-svg"
+             aria-label="Two plants side-by-side: Pflanzer grows from seed to bloom in 14 days; Spec-Driven loops underground between spec and app, never blooms.">
+          <defs>
+            <style>
+              .trap-svg .stroke-ink   { stroke: #1A2418; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+              .trap-svg .stroke-moss  { stroke: #2F4A2F; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+              .trap-svg .stroke-thin  { stroke: #1A2418; fill: none; stroke-width: 1; stroke-linecap: round; }
+              .trap-svg .stroke-dash  { stroke: #1A2418; fill: none; stroke-width: 1; stroke-dasharray: 3 4; }
+              .trap-svg .stroke-loop  { stroke: #1A2418; fill: none; stroke-width: 1.4; stroke-dasharray: 4 3; opacity: 0.7; }
+              .trap-svg .fill-punch   { fill: #C7E84A; }
+              .trap-svg .fill-ink     { fill: #1A2418; }
+              .trap-svg .fill-moss    { fill: #2F4A2F; }
+              .trap-svg .fill-bone    { fill: #F4EFE6; }
+              .trap-svg .label-svg    { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; fill: #1A2418; font-weight: 600; }
+              .trap-svg .label-day    { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: #7A7264; font-weight: 500; text-transform: uppercase; }
+              .trap-svg .label-decay  { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #7A7264; font-weight: 500; }
+              .trap-svg .label-side   { font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'SOFT' 100, 'opsz' 48; font-size: 15px; fill: #1A2418; font-weight: 500; letter-spacing: -0.015em; }
+              .trap-svg .label-side .em-italic { font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 48; font-style: italic; font-weight: 300; fill: #2F4A2F; }
+              .trap-svg .spec-loop-anim { animation: specLoopDash 6s linear infinite; }
+              @keyframes specLoopDash { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -28; } }
+              @media (prefers-reduced-motion: reduce) { .trap-svg .spec-loop-anim { animation: none; } }
+              @media print { .trap-svg .spec-loop-anim { animation: none; } }
+            </style>
+            <marker id="trap-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#1A2418"/>
+            </marker>
+          </defs>
+
+          <!-- LEFT — PFLANZER -->
+          <text x="50" y="34" class="label-side">Pflanzer — <tspan class="em-italic">roste do květu.</tspan></text>
+          <text x="50" y="52" class="label-day">Day 0 → Day 14 · single artifact</text>
+          <line x1="40" y1="220" x2="470" y2="220" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="50" y1="228" x2="54" y2="234"/><line x1="80" y1="228" x2="84" y2="234"/>
+            <line x1="110" y1="228" x2="114" y2="234"/><line x1="140" y1="228" x2="144" y2="234"/>
+            <line x1="170" y1="228" x2="174" y2="234"/><line x1="200" y1="228" x2="204" y2="234"/>
+            <line x1="230" y1="228" x2="234" y2="234"/><line x1="260" y1="228" x2="264" y2="234"/>
+            <line x1="290" y1="228" x2="294" y2="234"/><line x1="320" y1="228" x2="324" y2="234"/>
+            <line x1="350" y1="228" x2="354" y2="234"/><line x1="380" y1="228" x2="384" y2="234"/>
+            <line x1="410" y1="228" x2="414" y2="234"/><line x1="440" y1="228" x2="444" y2="234"/>
+          </g>
+          <g transform="translate(110, 220)">
+            <ellipse cx="0" cy="14" rx="9" ry="6" class="fill-ink"/>
+            <path d="M -6 18 Q -10 24 -12 28" class="stroke-moss"/>
+            <path d="M 0 20 Q 0 26 -2 32" class="stroke-moss"/>
+            <path d="M 6 18 Q 10 24 12 28" class="stroke-moss"/>
+          </g>
+          <text x="110" y="270" text-anchor="middle" class="label-day">D0</text>
+          <text x="110" y="284" text-anchor="middle" class="label-svg">sazba</text>
+          <path d="M 260 220 Q 260 140 260 90" class="stroke-ink"/>
+          <g class="stroke-moss">
+            <path d="M 260 180 Q 240 175 222 182 Q 230 192 246 194 Q 260 192 260 180 Z"/>
+            <path d="M 260 150 Q 282 145 300 152 Q 292 162 276 164 Q 260 162 260 150 Z"/>
+            <path d="M 260 180 L 230 188" class="stroke-thin"/>
+            <path d="M 260 150 L 296 158" class="stroke-thin"/>
+          </g>
+          <ellipse cx="260" cy="220" rx="14" ry="3" class="stroke-thin"/>
+          <g transform="translate(260, 88)">
+            <circle cx="0" cy="-8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="-9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="9" cy="0" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="0" cy="8" r="7" class="fill-punch" stroke="#1A2418" stroke-width="1.4"/>
+            <circle cx="0" cy="0" r="5" class="fill-ink"/>
+          </g>
+          <text x="260" y="320" text-anchor="middle" class="label-day">D14</text>
+          <text x="260" y="334" text-anchor="middle" class="label-svg">prod</text>
+          <text x="395" y="270" class="label-day">alignment:</text>
+          <text x="395" y="284" class="label-svg" style="fill:#2F4A2F;">100% → 100%</text>
+          <text x="395" y="298" class="label-decay">same room · 6 heads</text>
+
+          <!-- DIVIDER -->
+          <line x1="500" y1="20" x2="500" y2="340" class="stroke-dash"/>
+
+          <!-- RIGHT — SPEC-DRIVEN -->
+          <text x="530" y="34" class="label-side">Spec-driven — <tspan class="em-italic">zacyklí v podzemí.</tspan></text>
+          <text x="530" y="52" class="label-day">T+? · spec ↔ app ↔ spec'</text>
+          <line x1="520" y1="220" x2="960" y2="220" class="stroke-ink"/>
+          <g class="stroke-thin">
+            <line x1="530" y1="228" x2="534" y2="234"/><line x1="560" y1="228" x2="564" y2="234"/>
+            <line x1="590" y1="228" x2="594" y2="234"/><line x1="620" y1="228" x2="624" y2="234"/>
+            <line x1="650" y1="228" x2="654" y2="234"/><line x1="680" y1="228" x2="684" y2="234"/>
+            <line x1="710" y1="228" x2="714" y2="234"/><line x1="740" y1="228" x2="744" y2="234"/>
+            <line x1="770" y1="228" x2="774" y2="234"/><line x1="800" y1="228" x2="804" y2="234"/>
+            <line x1="830" y1="228" x2="834" y2="234"/><line x1="860" y1="228" x2="864" y2="234"/>
+            <line x1="890" y1="228" x2="894" y2="234"/><line x1="920" y1="228" x2="924" y2="234"/>
+          </g>
+          <path d="M 720 220 Q 720 180 700 168 Q 660 152 660 130" class="stroke-ink"/>
+          <circle cx="660" cy="118" r="9" class="stroke-ink fill-bone"/>
+          <text x="660" y="122" text-anchor="middle" class="label-svg" style="fill:#7A7264;">?</text>
+          <g class="stroke-moss" opacity="0.55">
+            <path d="M 712 200 Q 695 198 682 205 Q 690 212 702 213 Q 712 212 712 200 Z"/>
+          </g>
+          <g>
+            <rect x="585" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="615" y="260" text-anchor="middle" class="label-svg">spec</text>
+            <rect x="685" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="715" y="260" text-anchor="middle" class="label-svg">app</text>
+            <rect x="785" y="245" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="815" y="260" text-anchor="middle" class="label-svg">spec'</text>
+            <rect x="685" y="295" width="60" height="22" class="stroke-ink fill-bone"/>
+            <text x="715" y="310" text-anchor="middle" class="label-svg">app'</text>
+            <path d="M 645 256 L 685 256" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 745 256 L 785 256" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 815 267 Q 815 286 745 306" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+            <path d="M 685 306 Q 615 286 615 267" class="stroke-loop spec-loop-anim" marker-end="url(#trap-arrow)"/>
+          </g>
+          <text x="530" y="334" class="label-day">alignment:</text>
+          <text x="600" y="334" class="label-svg" style="fill:#7A7264;">100% → 54%</text>
+          <text x="720" y="334" class="label-decay">handoffs · async · async · async</text>
+          <text x="530" y="350" class="label-decay" style="font-style: italic;">decay % illustrative — see docs/research/spec-driven-vs-pflanzer for sources</text>
+        </svg>
+      </div>
+
+      <div class="trap-breakdown">
+        <div class="col-pflanzer">
+          <div class="col-label">Pflanzer · artifact-first</div>
+          <div class="col-name lang-cs">Jeden běžící produkt. Šest hlav. Stejná místnost.</div>
+          <div class="col-name lang-en">One running product. Six heads. Same room.</div>
+          <div class="col-desc lang-cs">
+            Běžící produkt na URL <strong>od hodiny 1</strong> — programátor
+            je v místnosti od minuty 0, žádná re-implementace. Security,
+            Legal, DPO čtou ten samý URL jako dev tým. Sign-off package
+            (decision log, audit trail) padá ven <em>po</em> sezení —
+            ne jako spec pro re-impl, ale jako compliance evidence.
+          </div>
+          <div class="col-desc lang-en">
+            A running product on a URL <strong>from hour 1</strong> — the
+            engineer is in the room from minute zero, no re-implementation.
+            Security, Legal, DPO read the same URL as the dev team. The
+            sign-off package (decision log, audit trail) falls out <em>after</em>
+            the session — not as a re-impl spec, but as compliance evidence.
+          </div>
+          <div class="col-tags">
+            <span>same room</span>
+            <span><span class="lang-cs">alignment roste</span><span class="lang-en">alignment compounds</span></span>
+            <span>D14 → prod</span>
+          </div>
+        </div>
+
+        <div class="col-sdd">
+          <div class="col-label">Spec-Driven · spec-first</div>
+          <div class="col-name lang-cs">Specka. Dev. App, která se liší. Specka'.</div>
+          <div class="col-name lang-en">Spec. Dev. An app that diverges. Spec'.</div>
+          <div class="col-desc lang-cs">
+            Spec Kit (11/2025): <strong>2 577 řádků markdownu na 689 řádků
+            kódu</strong>. 10× pomalejší než iterativní prompting. Každý
+            předací krok ztrácí kontext — pinking začne v týdnu 3.
+            Compliance audit kontroluje papír, ne live URL.
+          </div>
+          <div class="col-desc lang-en">
+            Spec Kit (Nov 2025): <strong>2,577 lines of markdown for 689
+            lines of code</strong>. 10× slower than iterative prompting.
+            Every handoff loses context — ping-pong kicks in by week 3.
+            The compliance audit reviews paper, not a live URL.
+          </div>
+          <div class="col-tags">
+            <span>handoff decay</span>
+            <span>spec ≠ app</span>
+            <span>T+? · loop</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trap-punchline">
+      <span class="lang-cs">
+        Specka je <em>nájemné.</em> Artefakt je <em>vlastnictví.</em>
+        Pflanzer staví artefakty.
+      </span>
+      <span class="lang-en">
+        A spec is <em>rent.</em> An artifact is <em>equity.</em>
+        Pflanzer builds artifacts.
+      </span>
+    </div>
+
+    <p style="margin-top: 1.4rem; font-size: 12px; color: var(--gray); max-width: 80ch; border-left: 2px solid var(--moss); padding-left: 0.8rem;">
+      <span class="lang-cs">
+        Anthropic Engineering 2025–2026 to dokumentuje:
+        <em>„Communication was handled via files: one agent would write a file, another would read it and respond."</em>
+        Artefakt &gt; spec dokument. Plus Thoughtworks Tech Radar Vol 33 (11/2025) řadí SDD do <strong>Assess</strong> ring (ne Trial, ne Adopt).
+      </span>
+      <span class="lang-en">
+        Anthropic Engineering 2025–2026 documents this:
+        <em>„Communication was handled via files: one agent would write a file, another would read it and respond."</em>
+        Artifact &gt; spec document. Thoughtworks Tech Radar Vol 33 (Nov 2025) places SDD in the <strong>Assess</strong> ring — not Trial, not Adopt.
+      </span>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── COMPARISON MATRIX ─────── -->
+<section id="srovnani" style="padding-block: clamp(3rem, 6vw, 5rem);">
+  <div class="wrap">
+    <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
+      <span class="label"><span class="lang-cs">Srovnání · 6 metod + Pflanzer dual-track</span><span class="lang-en">Comparison · 6 methods + Pflanzer dual-track</span></span>
+      <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Kde Pflanzer sedí v 2026 stack-u — mezi single-shot hackathonem a $1M+ McKinsey transformací.</span><span class="lang-en">Where Pflanzer sits in the 2026 stack — between a single-shot hackathon and a $1M+ McKinsey transformation.</span></span>
+    </div>
+
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th><span class="lang-cs">Metoda</span><span class="lang-en">Method</span></th>
+            <th><span class="lang-cs">Délka</span><span class="lang-en">Length</span></th>
+            <th><span class="lang-cs">V místnosti</span><span class="lang-en">In the room</span></th>
+            <th><span class="lang-cs">Audit trail</span><span class="lang-en">Audit trail</span></th>
+            <th><span class="lang-cs">Cena</span><span class="lang-en">Cost</span></th>
+            <th><span class="lang-cs">Output</span><span class="lang-en">Output</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="compare-pflanzer">
+            <td><strong>Pflanzer · Track P</strong><br/><span style="font-size: 10.5px; color: var(--moss); font-weight: 500;"><span class="lang-cs">preferred ~80 %</span><span class="lang-en">preferred ~80 %</span></span></td>
+            <td><span class="lang-cs">2 sezení / 14 dní</span><span class="lang-en">2 sessions / 14 days</span></td>
+            <td><span class="lang-cs">6–10 cross-fn <strong>vč. dev</strong></span><span class="lang-en">6–10 cross-fn <strong>incl. dev</strong></span></td>
+            <td><span class="lang-cs"><strong>Native</strong> AI Act čl. 14 + DORA 7y</span><span class="lang-en"><strong>Native</strong> AI Act art. 14 + DORA 7y</span></td>
+            <td>DIY free · €15–80k</td>
+            <td><span class="lang-cs"><strong>Produkční kód</strong> · deploys at D14</span><span class="lang-en"><strong>Production code</strong> · deploys at D14</span></td>
+          </tr>
+          <tr style="background: var(--punch-dim); opacity: 0.7;">
+            <td><span style="color: var(--moss); font-weight: 500;">Pflanzer · Track S</span><br/><span style="font-size: 10.5px; color: var(--gray); font-weight: 500;"><span class="lang-cs">fallback ~20 % · 4 triggers</span><span class="lang-en">fallback ~20 % · 4 triggers</span></span></td>
+            <td><span class="lang-cs">2 sezení / 21–28 dní</span><span class="lang-en">2 sessions / 21–28 days</span></td>
+            <td><span class="lang-cs">6–10 cross-fn <strong>bez dev</strong></span><span class="lang-en">6–10 cross-fn <strong>no dev</strong></span></td>
+            <td><span class="lang-cs">Native AI Act + DORA + spec ≥ 80/100</span><span class="lang-en">Native AI Act + DORA + spec ≥ 80/100</span></td>
+            <td>€40–112k (+40 %)</td>
+            <td><span class="lang-cs">Precision spec + 5-stage handoff · re-impl gap ≤ 15 %</span><span class="lang-en">Precision spec + 5-stage handoff · re-impl gap ≤ 15 %</span></td>
+          </tr>
+          <tr>
+            <td>AWS AI-DLC</td>
+            <td><span class="lang-cs">Continuous bolts</span><span class="lang-en">Continuous bolts</span></td>
+            <td><span class="lang-cs">Jen engineering tým</span><span class="lang-en">Engineering team only</span></td>
+            <td><span class="lang-cs">Žádný explicit</span><span class="lang-en">None explicit</span></td>
+            <td><span class="lang-cs">Free (OSS) · AWS support</span><span class="lang-en">Free (OSS) · AWS support</span></td>
+            <td><span class="lang-cs">Engineering output</span><span class="lang-en">Engineering output</span></td>
+          </tr>
+          <tr>
+            <td>Thoughtworks „3-3-3"</td>
+            <td><span class="lang-cs">90 dní idea → MVP</span><span class="lang-en">90 days idea → MVP</span></td>
+            <td><span class="lang-cs">Consulting team + client</span><span class="lang-en">Consulting team + client</span></td>
+            <td><span class="lang-cs">Custom enterprise governance</span><span class="lang-en">Custom enterprise governance</span></td>
+            <td>$300k–$1M</td>
+            <td><span class="lang-cs">MVP delivery</span><span class="lang-en">MVP delivery</span></td>
+          </tr>
+          <tr>
+            <td><span class="lang-cs">McKinsey QuantumBlack</span><span class="lang-en">McKinsey QuantumBlack</span></td>
+            <td><span class="lang-cs">8–12 týdnů strategy</span><span class="lang-en">8–12 weeks strategy</span></td>
+            <td><span class="lang-cs">Partner + 5–10 konzultantů</span><span class="lang-en">Partner + 5–10 consultants</span></td>
+            <td><span class="lang-cs">Custom (engagement deliverable)</span><span class="lang-en">Custom (engagement deliverable)</span></td>
+            <td>$500k–$10M+</td>
+            <td><span class="lang-cs">Operating model + roadmap</span><span class="lang-en">Operating model + roadmap</span></td>
+          </tr>
+          <tr>
+            <td>Design Sprint 2.0</td>
+            <td><span class="lang-cs">4–5 dní non-stop</span><span class="lang-en">4–5 days non-stop</span></td>
+            <td><span class="lang-cs">7 + Decider, jen produktový tým</span><span class="lang-en">7 + Decider, product team only</span></td>
+            <td><span class="lang-cs">Žádný</span><span class="lang-en">None</span></td>
+            <td>$5–40k</td>
+            <td><span class="lang-cs">High-fidelity prototyp + user testy</span><span class="lang-en">High-fidelity prototype + user tests</span></td>
+          </tr>
+          <tr>
+            <td><span class="lang-cs">Spec-Driven (Spec Kit · Kiro · OpenSpec · BMAD)</span><span class="lang-en">Spec-Driven (Spec Kit · Kiro · OpenSpec · BMAD)</span></td>
+            <td><span class="lang-cs">Multi-round, 20–28 PD typical</span><span class="lang-en">Multi-round, 20–28 PD typical</span></td>
+            <td><span class="lang-cs">Engineering + spec author (žádné non-tech)</span><span class="lang-en">Engineering + spec author (no non-tech)</span></td>
+            <td><span class="lang-cs">Spec dokument (statický, decay 9.8–42 %)</span><span class="lang-en">Spec document (static, 9.8–42 % decay)</span></td>
+            <td><span class="lang-cs">OSS · IDE license $0–$30/uživatel/měsíc</span><span class="lang-en">OSS · IDE license $0–$30/user/month</span></td>
+            <td><span class="lang-cs">Spec → re-impl loop, app ≠ spec</span><span class="lang-en">Spec → re-impl loop, app ≠ spec</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top: 1rem; font-size: 12px; color: var(--gray); max-width: 70ch;">
+      <span class="lang-cs">Detail per metoda + decision tree v <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">repo</a> — `docs/methodology/09-srovnani-existujici-metody.md`.</span>
+      <span class="lang-en">Per-method detail + decision tree in the <a class="link-underline" href="https://github.com/" target="_blank" rel="noopener">repo</a> — `docs/methodology/09-srovnani-existujici-metody.md`.</span>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 03 FIELD NOTES — e-shop ─────── -->
+<section id="field">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num-tag">03</div>
+      <h2 class="h-section lang-cs">
+        Z terénu. <em>e-shop · 2026.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        From the field. <em>e-shop · 2026.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Případ · default profil</span><span class="lang-en">Case · default profile</span></div>
+    </div>
+
+    <div class="field-notes">
+      <div class="stamp">
+        <span class="label">Field Notes &nbsp;·&nbsp; Pilot P-001</span>
+        <span class="label dim">e-commerce · ~7M MAU · CZ/SK/PL</span>
+      </div>
+
+      <div class="quote-body">
+        <p class="pullquote lang-cs">
+          „Dali jsme dohromady 6 lidí. Tři hodiny <em>vajbili</em>.
+          Měli jsme tři funkční weby. Při dalším setkání jsme dva doladili.
+          Na konci jde většina kódu rovnou do produkce."
+        </p>
+        <p class="pullquote lang-en">
+          „We pulled together 6 people. Three hours of <em>vibing</em>.
+          We had three working web apps. At the next session we polished two.
+          Most of the code shipped straight to production."
+        </p>
+        <div class="lang-cs">
+          <p>
+            E-commerce platforma. Klasický rigidní workflow: zadavatel → produkt → UX →
+            vývoj, jeden cyklus měsíce. Cíl pilotu: nasadit vibe-coding tak,
+            aby cesta od první alignment session k produktivnímu kódu trvala
+            <strong style="color:var(--punch);">týdny, ne měsíce</strong>.
+          </p>
+          <p>
+            Zatímco klasický Design Sprint dělá v ten samý čas Figmu, kterou pak někdo
+            re-implementuje za další 2 měsíce, Pflanzer cyklus skončí s kódem,
+            který lead developer mergne za 1–2 dny.
+          </p>
+        </div>
+        <div class="lang-en">
+          <p>
+            E-commerce platform. Classic rigid workflow: sponsor → product → UX →
+            engineering, one cycle = months. Pilot goal: deploy vibe-coding so the
+            path from the first alignment session to production code takes
+            <strong style="color:var(--punch);">weeks, not months</strong>.
+          </p>
+          <p>
+            While a classic Design Sprint produces a Figma in the same time
+            that someone then re-implements over 2 more months, the Pflanzer cycle
+            ends with code the lead developer merges in 1–2 days.
+          </p>
+        </div>
+      </div>
+
+      <div class="receipts">
+        <div class="label"><span class="lang-cs">Receipty</span><span class="lang-en">Receipts</span></div>
+        <div class="receipt">
+          <div class="receipt-line"><span><span class="lang-cs">Účastníci</span><span class="lang-en">Participants</span></span><span class="v">6</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Setkání</span><span class="lang-en">Sessions</span></span><span class="v">2 × 3h</span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Mezi-session</span><span class="lang-en">Between</span></span><span class="v"><span class="lang-cs">5 dní async</span><span class="lang-en">5 days async</span></span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Varianty</span><span class="lang-en">Variants</span></span><span class="v"><span class="lang-cs">3 produkční weby</span><span class="lang-en">3 production-ready apps</span></span></div>
+          <div class="receipt-line"><span><span class="lang-cs">Cyklus total</span><span class="lang-en">Cycle total</span></span><span class="v"><span class="lang-cs">~14 dní</span><span class="lang-en">~14 days</span></span></div>
+        </div>
+        <div class="receipt">
+          <div class="receipt-line"><span><span class="lang-cs">Profil</span><span class="lang-en">Profile</span></span><span class="v">default</span></div>
+          <div class="receipt-line"><span>Method Steward</span><span class="v">—</span></div>
+          <div class="receipt-line"><span>Compliance score</span><span class="v">—</span></div>
+          <div class="receipt-line"><span>AI Act tier</span><span class="v">limited</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── PRICING TIERS ─────── -->
+<section id="cena" style="padding-block: clamp(3rem, 6vw, 5rem); background: linear-gradient(180deg, var(--bone) 0%, var(--paper) 100%);">
+  <div class="wrap">
+    <div style="display: flex; align-items: baseline; gap: 1.2rem; margin-bottom: 1.8rem; flex-wrap: wrap;">
+      <span class="label"><span class="lang-cs">Cena · 4 tiers</span><span class="lang-en">Pricing · 4 tiers</span></span>
+      <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Pflanzer není $1M McKinsey transformace ani $0 hackathon. Tady je ladder od DIY k method-level rolloutu.</span><span class="lang-en">Pflanzer is neither a $1M McKinsey transformation nor a $0 hackathon. Here's the ladder from DIY to method-level rollout.</span></span>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="price-tier">
+        <div class="price-name">DIY</div>
+        <div class="price-amount">€0</div>
+        <div class="price-unit"><span class="lang-cs">MIT licence · self-serve</span><span class="lang-en">MIT licence · self-serve</span></div>
+        <ul class="price-list">
+          <li><span class="lang-cs">Method dokumentace (GitHub repo)</span><span class="lang-en">Method docs (GitHub repo)</span></li>
+          <li><span class="lang-cs">Charter, role catalog, šablony</span><span class="lang-en">Charter, role catalog, templates</span></li>
+          <li><span class="lang-cs">Default profil (~10 PD effort)</span><span class="lang-en">Default profile (~10 PD effort)</span></li>
+          <li class="muted"><span class="lang-cs">Bez podpory, bez certifikace</span><span class="lang-en">No support, no certification</span></li>
+        </ul>
+        <div class="price-for"><span class="lang-cs"><strong>Pro:</strong> digital-native, e-shop-style, single pilot</span><span class="lang-en"><strong>For:</strong> digital-native, e-shop-style, single pilot</span></div>
+      </div>
+
+      <div class="price-tier price-tier-recommended">
+        <div class="price-badge"><span class="lang-cs">Doporučeno</span><span class="lang-en">Recommended</span></div>
+        <div class="price-name"><span class="lang-cs">Facilitovaný</span><span class="lang-en">Facilitated</span></div>
+        <div class="price-amount">€15–30k</div>
+        <div class="price-unit"><span class="lang-cs">/ cyklus · 14 dní</span><span class="lang-en">/ cycle · 14 days</span></div>
+        <ul class="price-list">
+          <li><span class="lang-cs">Externí facilitátor (Tom + tým)</span><span class="lang-en">External facilitator (Tom + team)</span></li>
+          <li><span class="lang-cs">Pre-flight triage + Charter coaching</span><span class="lang-en">Pre-flight triage + Charter coaching</span></li>
+          <li><span class="lang-cs">2 sezení + mezi-session async support</span><span class="lang-en">2 sessions + between-session async support</span></li>
+          <li><span class="lang-cs">Handoff package + T+30 retro</span><span class="lang-en">Handoff package + T+30 retro</span></li>
+        </ul>
+        <div class="price-for"><span class="lang-cs"><strong>Pro:</strong> první pilot, scale-up po validaci</span><span class="lang-en"><strong>For:</strong> first pilot, scale-up post-validation</span></div>
+      </div>
+
+      <div class="price-tier">
+        <div class="price-name">Audit-grade</div>
+        <div class="price-amount">€40–80k</div>
+        <div class="price-unit"><span class="lang-cs">/ cyklus · 4–6 týdnů</span><span class="lang-en">/ cycle · 4–6 weeks</span></div>
+        <ul class="price-list">
+          <li><span class="lang-cs">Vše z Facilitated +</span><span class="lang-en">Everything in Facilitated +</span></li>
+          <li><span class="lang-cs">Co-facilitator + Method Steward</span><span class="lang-en">Co-facilitator + Method Steward</span></li>
+          <li><span class="lang-cs">Pre-registration + Compliance Score</span><span class="lang-en">Pre-registration + Compliance Score</span></li>
+          <li><span class="lang-cs">AI Act Fáze A/B/C + DORA 7y audit log</span><span class="lang-en">AI Act Phase A/B/C + DORA 7y audit log</span></li>
+          <li><span class="lang-cs">T+7/30/60/90 reinforcement</span><span class="lang-en">T+7/30/60/90 reinforcement</span></li>
+        </ul>
+        <div class="price-for"><span class="lang-cs"><strong>Pro:</strong> banky, pojišťovny, AI Act High-risk, DORA</span><span class="lang-en"><strong>For:</strong> banks, insurance, AI Act High-risk, DORA</span></div>
+      </div>
+
+      <div class="price-tier price-tier-dark">
+        <div class="price-name"><span class="lang-cs">Method rollout</span><span class="lang-en">Method rollout</span></div>
+        <div class="price-amount"><span class="lang-cs">Custom</span><span class="lang-en">Custom</span></div>
+        <div class="price-unit"><span class="lang-cs">/ Q · 3–10 pilotů</span><span class="lang-en">/ quarter · 3–10 pilots</span></div>
+        <ul class="price-list">
+          <li><span class="lang-cs">Method-level governance (ADR-0011)</span><span class="lang-en">Method-level governance (ADR-0011)</span></li>
+          <li><span class="lang-cs">Pilot portfolio + Champion training</span><span class="lang-en">Pilot portfolio + Champion training</span></li>
+          <li><span class="lang-cs">T+6 / T+12 mo method review</span><span class="lang-en">T+6 / T+12 mo method review</span></li>
+          <li><span class="lang-cs">Procurement-ready MSA template</span><span class="lang-en">Procurement-ready MSA template</span></li>
+          <li><span class="lang-cs">Default Sunset gate T+18 mo</span><span class="lang-en">Default Sunset gate at T+18 mo</span></li>
+        </ul>
+        <div class="price-for"><span class="lang-cs"><strong>Pro:</strong> AI CoE Lead, multi-BU rollout, exec mandate</span><span class="lang-en"><strong>For:</strong> AI CoE Lead, multi-BU rollout, exec mandate</span></div>
+      </div>
+    </div>
+
+    <p style="margin-top: 1.4rem; font-size: 12px; color: var(--gray); max-width: 80ch;">
+      <span class="lang-cs">Ceny jsou orientační (EUR, fully-loaded, EU base). Final scope a quote po 30min call. <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pricing%20call" class="link-underline">tom@gizmax.cz</a></span>
+      <span class="lang-en">Indicative pricing (EUR, fully-loaded, EU base). Final scope and quote after a 30 min call. <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pricing%20call" class="link-underline">tom@gizmax.cz</a></span>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ─────── 04 CTA ─────── -->
+<section id="zacni">
+  <div class="wrap cta-wrap">
+    <div class="section-head" style="border-bottom-color: transparent; padding-bottom: 0; margin-bottom: 1.5rem;">
+      <div class="num-tag">04</div>
+      <h2 class="h-section lang-cs">
+        Začni <em>sázet.</em>
+      </h2>
+      <h2 class="h-section lang-en">
+        Start <em>planting.</em>
+      </h2>
+      <div class="label-meta label"><span class="lang-cs">Jak dál</span><span class="lang-en">What's next</span></div>
+    </div>
+
+    <p class="lang-cs" style="font-size:15px; line-height:1.7; max-width: 56ch;">
+      Pflanzerova metoda existuje ve dvou profilech. <strong>Default</strong>
+      (e-shop-style, ~80 % korporátních případů) ti stačí jeden 1-pager.
+      <strong>Audit-grade</strong> (banky, AI Act High-risk, DORA) přidává
+      Method Steward, pre-registration a compliance score — ale jen pokud
+      to skutečně potřebuješ.
+    </p>
+    <p class="lang-en" style="font-size:15px; line-height:1.7; max-width: 56ch;">
+      Pflanzer Method comes in two profiles. <strong>Default</strong>
+      (e-shop-style, ~80 % of corporate cases) needs just one 1-pager.
+      <strong>Audit-grade</strong> (banks, AI Act High-risk, DORA) adds
+      a Method Steward, pre-registration, and a compliance score — but
+      only if you actually need it.
+    </p>
+
+    <div class="row">
+      <a href="1-pager.html" class="btn" target="_blank" rel="noopener">
+        <span class="lang-cs">Otevřít 1-pager</span>
+        <span class="lang-en">Open the 1-pager</span>
+        <span class="arrow">↗</span>
+      </a>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call" class="btn ghost">
+        <span class="lang-cs">30min call s autorem</span>
+        <span class="lang-en">30 min with the author</span>
+        <span class="arrow">→</span>
+      </a>
+      <a href="mailto:tom@gizmax.cz?subject=Pflanzer%20early%20access" class="btn ghost">
+        <span class="lang-cs">Early access do repa</span>
+        <span class="lang-en">Repo early access</span>
+        <span class="arrow">↗</span>
+      </a>
+    </div>
+
+    <!-- HONEST LIMITATIONS -->
+    <div class="limitations">
+      <div class="limitations-head">
+        <span class="label"><span class="lang-cs">Co Pflanzer NEDOKÁŽE</span><span class="lang-en">What Pflanzer CAN'T do</span></span>
+        <span style="font-size: 12px; color: var(--gray); max-width: 60ch;"><span class="lang-cs">Žádná metoda v 2026 není silver bullet. Tady je, co může selhat — a jak to Pflanzer obchází.</span><span class="lang-en">No method in 2026 is a silver bullet. Here's what can break — and how Pflanzer routes around it.</span></span>
+      </div>
+      <div class="limitations-grid">
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">95 % enterprise GenAI pilotů má zero ROI.</span><span class="lang-en">95 % of enterprise GenAI pilots show zero ROI.</span></div>
+          <div class="limit-src">MIT NANDA · Q3/2025</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">Systematizuje to, co dělá 5 % winning — quality gates ≥ 80/100, cross-fn alignment pre-build, audit trail od dne 0.</span><span class="lang-en">Systematizes what the winning 5 % do — quality gates ≥ 80/100, cross-fn alignment pre-build, audit trail from day 0.</span></div>
+        </div>
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">Zkušení vývojáři s AI jsou 19 % POMALEJŠÍ na legacy kódu (RCT).</span><span class="lang-en">Experienced devs with AI are 19 % SLOWER on legacy code (RCT).</span></div>
+          <div class="limit-src">METR · 07/2025 · n=16</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">Greenfield use case (Peng 2023: +56 % rychlejší). Pro brownfield refactor doporučení = Pflanzer NEpoužít.</span><span class="lang-en">Greenfield use case (Peng 2023: +56 % faster). For brownfield refactor we recommend NOT using Pflanzer.</span></div>
+        </div>
+        <div class="limit-card">
+          <div class="limit-fact"><span class="lang-cs">Klarna: 67 % AI automation → částečný rollback po CSAT degradaci.</span><span class="lang-en">Klarna: 67 % AI automation → partial rollback after CSAT drop.</span></div>
+          <div class="limit-src">Klarna · 2024–2026</div>
+          <div class="limit-fix"><strong><span class="lang-cs">Pflanzer:</span><span class="lang-en">Pflanzer:</span></strong> <span class="lang-cs">T+7/T+30/T+60/T+90 reinforcement track je explicit answer — kdyby Klarna ho měla, rollback by zachytili v T+30.</span><span class="lang-en">T+7/30/60/90 reinforcement is the explicit answer — Klarna would have caught the rollback at T+30.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why-now">
+      <div class="label"><span class="lang-cs">Proč teď</span><span class="lang-en">Why now</span></div>
+      <div class="body">
+        <div class="lang-cs">
+          <p>
+            V Q1 2027 ti CEO bude chtít vidět tři AI fíčury v produkci.
+            Ne tři piloty v Cursor, ne tři PowerPointy z Innovation Day —
+            <strong>tři věci, které používají reální zákazníci</strong>.
+          </p>
+          <p style="margin-top:0.6rem;">
+            Pflanzer je rámec, kterým je tam dostaneš za 6 týdnů místo 6 měsíců.
+            Bez rámce zůstane AI v korporátu sólo aktivita několika ranních ptáčat —
+            a CEO ti to v Q2 spočítá.
+          </p>
+        </div>
+        <div class="lang-en">
+          <p>
+            By Q1 2027 your CEO will want three AI features in production.
+            Not three Cursor prototypes, not three Innovation Day decks —
+            <strong>three things real customers actually use</strong>.
+          </p>
+          <p style="margin-top:0.6rem;">
+            Pflanzer is the frame that gets you there in 6 weeks instead of 6 months.
+            Without it, AI inside the enterprise stays a solo gig for a handful of
+            early birds — and your CEO will notice in Q2.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────── FOOTER ─────── -->
+<footer>
+  <div class="wrap">
+    <div class="footer-mark">
+      Pflanzer<br/><em>Method.</em>
+    </div>
+    <div class="footer-meta">
+      <span class="label"><span class="lang-cs">Zdroj</span><span class="lang-en">Source</span></span>
+      <p><span class="lang-cs"><a class="link-underline" href="mailto:tom@gizmax.cz?subject=Pflanzer%20repo">repo · early access</a></span><span class="lang-en"><a class="link-underline" href="mailto:tom@gizmax.cz?subject=Pflanzer%20repo">repo · early access</a></span></p>
+      <p style="margin-top:0.4rem;"><a class="link-underline" href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></p>
+    </div>
+    <div class="footer-meta">
+      <span class="label"><span class="lang-cs">Verze</span><span class="lang-en">Version</span></span>
+      <p>v0.3 · 2026</p>
+      <p style="margin-top:0.4rem;">MIT License<br/>Czech &amp; English</p>
+    </div>
+    <div class="footer-foot">
+      <span>© 2026 Tom Pflanzer · GiZMaX</span>
+      <span><span class="lang-cs">Pestujeme AI v korporátu od roku 2026.</span><span class="lang-en">Planting AI inside the enterprise. Since 2026.</span></span>
+    </div>
+  </div>
+</footer>
+
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer Method</span>
+  <span class="hide-sm"><span class="lang-cs">Manuál · ne manifesto</span><span class="lang-en">Manual · not manifesto</span></span>
+  <span><a href="#" style="color:inherit;"><span class="lang-cs">↑ nahoru</span><span class="lang-en">↑ top</span></a></span>
+</div>
+
+<script>
+  (function () {
+    const KEY = 'pflanzer-lang';
+    const html = document.documentElement;
+
+    function setLang(lang) {
+      if (lang !== 'cs' && lang !== 'en') lang = 'cs';
+      html.lang = lang;
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+      document.querySelectorAll('.lang-toggle').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+        btn.setAttribute('aria-pressed', btn.dataset.lang === lang ? 'true' : 'false');
+      });
+    }
+
+    // Init: ?lang=en > localStorage > html lang > default cs
+    const params = new URLSearchParams(window.location.search);
+    let initial = null;
+    if (params.get('lang') === 'en' || params.get('lang') === 'cs') {
+      initial = params.get('lang');
+    } else {
+      try { initial = localStorage.getItem(KEY); } catch (e) {}
+    }
+    if (!initial) initial = html.lang === 'en' ? 'en' : 'cs';
+    setLang(initial);
+
+    document.addEventListener('click', function (e) {
+      const t = e.target.closest('.lang-toggle');
+      if (!t) return;
+      e.preventDefault();
+      setLang(t.dataset.lang);
+    });
+  })();
+</script>
+
+</body>
+</html>
