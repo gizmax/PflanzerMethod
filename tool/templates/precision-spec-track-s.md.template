@@ -1,0 +1,735 @@
+---
+# Pflanzer Track S — Precision Specification
+#
+# Use this template ONLY when dev team was NOT in Session 1+2 room.
+# Default Pflanzer mode = artefakt JE produkt (winner code → prod direct).
+# Track S = fallback for 3 use cases:
+#   1. Vendor build (external team gets spec, not commit)
+#   2. Regulatory-mandated separate impl track
+#   3. Capacity-bound dev team with sprint cadence incompatible with 14d
+#
+# Target hand-off score ≥ 80/100. Below 80 = re-work, not hand-off.
+
+# === FRONTMATTER (mandatory) ===
+spec_id: SP-NNNN
+title: <verb-first title, e.g., "OAuth login + refresh for B2B SaaS">
+version: 1.0.0  # SemVer: MAJOR=scope break, MINOR=scope add, PATCH=clarify
+status: draft   # draft | rc | final | superseded
+
+# Project context
+project: <project name>
+charter_ref: <git SHA of signed Charter ADR-0004 artifact>
+pilot_id: <Pflanzer pilot ID>
+target_repo: <git URL of target dev repo>
+sandbox_url: <Session 1+2 reference prototype URL>
+sandbox_ttl: <date — extended to 30 days for Track S>
+
+# Authorship
+authors:
+  - name: <Spec lead PM>
+    role: PM
+    pilot_role: facilitator
+  - name: <BE lead>
+    role: BE
+  - name: <FE lead>
+    role: FE
+session_1_date: <YYYY-MM-DD>
+session_2_date: <YYYY-MM-DD>
+spec_published: <YYYY-MM-DD>
+
+# Sign-off matrix (filled during E. Sign-off)
+signers:
+  - role: Decider
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: overall
+  - role: PM
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: A.functional
+  - role: EM
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: B.technical+D.implementation
+  - role: BE-lead
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: B.1-B.2-B.5-B.6
+  - role: FE-lead
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: B.3-B.4-D.1-D.5
+  - role: Security-lead
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: C.4
+  - role: DPO
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: C.6.AI-Act+DPIA
+  - role: Legal
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: C.6.DORA+contracts
+  - role: A11y-reviewer
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: C.5
+  - role: QA-lead
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: C.1-C.3
+  - role: CS-proxy
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: informed_only
+  - role: Data-lead
+    name: <name>
+    date: <YYYY-MM-DD>
+    veto_scope: informed_only
+
+# Quality gate
+quality_score: 0  # filled at sign-off, ≥ 80 = ready to hand off
+quality_breakdown:  # see § E.4 for weights
+  invest_ra_user_stories: 0    # /10
+  gherkin_executable: 0         # /15
+  edge_cases_enumerated: 0      # /10
+  openapi_lint_clean: 0         # /10
+  erd_json_schema: 0            # /5
+  tech_stack_explicit: 0        # /5
+  performance_nfrs: 0           # /5
+  stride_one_pager: 0           # /10
+  wcag_22_aa_checklist: 0       # /5
+  ai_act_dpia_dora: 0           # /10
+  implementation_guidance: 0    # /10
+  signoff_complete: 0           # /5
+
+# Amendment ledger (per AI Act čl. 14 + DORA 7y retention)
+amendments: []
+  # - id: AMENDMENT-001
+  #   section: B.4
+  #   proposed: 2026-XX-XX
+  #   proposer: <name>
+  #   approved: 2026-XX-XX
+  #   approver: <Decider name>
+  #   rationale: <why current spec doesn't work>
+  #   impact: <scope/timeline/cost>
+
+# Q&A log (filled during § 5.2 hand-off ritual Stage 2)
+q_a_log_url: <link to Pflanzer hub Q&A thread>
+
+# Spec expiry (anti-staleness mechanism)
+hand_off_started: null  # YYYY-MM-DD, set when Stage 1 walkthrough complete
+expires_if_not_handed_off_by: <published + 30 days>
+---
+
+# Pflanzer Track S Spec — <title>
+
+> **Status:** {status} v{version}
+> **Charter:** {charter_ref}
+> **Reference prototype:** [{sandbox_url}]({sandbox_url}) (TTL: {sandbox_ttl})
+> **Target repo:** [{target_repo}]({target_repo})
+>
+> **CRITICAL:** This spec is **navigation layer**, not sole source of truth.
+> Combined SoT = **Spec + Reference Prototype + Decision Log + Executable
+> Tests (4 anchors)**. Disagreement between 2 anchors → amendment proposal
+> (see § Amendment protocol). Disagreement between 3+ → spec re-issue.
+
+## Executive summary (5 řádků max)
+
+<5-line summary: what we're building, for whom, why now, key constraints,
+expected delivery>
+
+---
+
+# A. Functional spec
+
+## A.1 User stories (INVEST-RA format)
+
+### US-001: <verb-first title>
+
+**Role:** <Persona ID + link to persona doc in /docs/personas/>
+**Want:** <concrete outcome, not feature noun>
+**So that:** <business value, measurable if possible>
+
+**Referenced:**
+- Sandbox URL: <sandbox URL + screen / timestamp>
+- Figma: <frame ID if applicable>
+- Session 1 transcript: <line / timestamp>
+
+**Attributed:**
+- Proposer: <name from Session 1>
+- Approver: <Decider name + date>
+
+**INVEST self-check:**
+- [ ] Independent — no dependency on US-NNN outside this batch
+- [ ] Negotiable — open for refinement during hand-off
+- [ ] Valuable — link to OKR/metric: <link>
+- [ ] Estimable — T-shirt: <XS/S/M/L>
+- [ ] Small — fits ≤ 3 dev days
+- [ ] Testable — acceptance criteria in § A.3 are executable
+- [ ] Referenced — sandbox + Figma above
+- [ ] Attributed — proposer + approver above
+
+<repeat for US-002, US-003, ...>
+
+## A.2 Use case diagrams (Mermaid)
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Client
+  participant API
+  participant OAuth as OAuth Provider
+  participant DB
+
+  User->>Client: Trigger authenticated action
+  Client->>API: Request with access_token
+  alt Token expired
+    API->>OAuth: Refresh with refresh_token
+    OAuth-->>API: New access_token
+    API-->>Client: Action result + new token
+  else Token valid
+    API->>DB: Authorized query
+    DB-->>API: Result
+    API-->>Client: Action result
+  end
+```
+
+<add more diagrams as needed; C4 Container level for system architecture>
+
+## A.3 Acceptance criteria (Gherkin — executable)
+
+```gherkin
+Feature: <feature name matching § A.1 US-NNN>
+
+  Background:
+    Given <common setup>
+
+  # MANDATORY: 1 happy path
+  Scenario: <Happy path title>
+    Given <precondition>
+    When <action>
+    Then <concrete assertion>
+    And <additional concrete assertion>
+
+  # MANDATORY: ≥ 1 negative scenario per feature
+  Scenario: <Negative scenario title>
+    Given <precondition where bad thing should happen>
+    When <action that should be rejected>
+    Then <system rejects with specific error_code and HTTP status>
+    And <side effects: log entry, no state mutation, no charge, etc.>
+
+  # 3-5 scenarios total per user story
+  Scenario: <Edge case 1: validation failure>
+    ...
+
+  Scenario: <Edge case 2: network/dependency failure>
+    ...
+
+  Scenario: <Edge case 3: concurrent access — if applicable>
+    ...
+```
+
+**Validation:**
+- All scenarios runnable in `tests/acceptance/` via `pytest-bdd` or `cucumber-js`
+- CI gate: `npm run test:acceptance` / `pytest tests/acceptance/` returns 0
+- BEFORE sign-off: all scenarios pass against reference prototype on sandbox
+
+## A.4 Edge cases (mandatory enumeration)
+
+Per feature, ≥ 4 edge case types covered:
+
+| Edge case type | Enumerated | Gherkin scenario | Status |
+|---|---|---|---|
+| Validation failure (boundary, malformed input) | <description> | Scenario: <name> | covered/skipped |
+| Network/dependency failure (timeout, 503) | <description> | Scenario: <name> | covered/skipped |
+| Concurrent access (race, deadlock) | <description if applicable> | Scenario: <name> | covered/skipped/N-A |
+| Permission denied (no auth, wrong role) | <description> | Scenario: <name> | covered/skipped |
+| Capacity/scale degradation (rate limit, quota) | <description if applicable> | Scenario: <name> | covered/skipped/N-A |
+
+**Skip rationale required if N/A. No silent skips.**
+
+## A.5 Out-of-scope (explicit)
+
+```markdown
+## Explicitly NOT in scope (v1.0)
+
+- ❌ <feature> — rationale why deferred
+- ❌ <feature> — rationale why deferred
+- ❌ <feature> — rationale why deferred
+
+Rationale: scope locked in Session 2 (winner varianta did NOT include these).
+Re-opening scope = signed amendment per § 5.3 Amendment protocol.
+```
+
+---
+
+# B. Technical spec
+
+## B.1 OpenAPI 3.1 contract
+
+**File:** `<target_repo>/apps/<svc>/api/openapi.yaml`
+**Lint baseline:** Spectral 0 errors, warnings documented
+**CI checks:**
+- `spectral lint api/openapi.yaml --ruleset .spectral.yaml --fail-severity=warn`
+- `oasdiff breaking previous-openapi.yaml api/openapi.yaml --fail-on ERR`
+- `schemathesis run api/openapi.yaml --checks all --hypothesis-database=none`
+- `pact-broker can-i-deploy --pacticipant <svc> --version $GIT_SHA`
+
+Full spec attached: `<git path to openapi.yaml>` (single source for server
+stubs + client SDK).
+
+## B.2 Data model
+
+### ERD (Mermaid)
+
+```mermaid
+erDiagram
+  USER ||--o{ SESSION : has
+  USER ||--o{ REFRESH_TOKEN : owns
+  SESSION ||--|| ACCESS_TOKEN : contains
+
+  USER {
+    uuid id PK
+    string email UK
+    timestamp created_at
+  }
+  SESSION {
+    uuid id PK
+    uuid user_id FK
+    timestamp expires_at
+  }
+  REFRESH_TOKEN {
+    uuid id PK
+    uuid user_id FK
+    string token_hash
+    timestamp expires_at
+    bool revoked
+  }
+```
+
+### JSON Schema (2020-12)
+
+Per entity, schema in `<target_repo>/schemas/*.schema.json`:
+- `user.schema.json`
+- `session.schema.json`
+- `refresh_token.schema.json`
+
+### Sample payloads
+
+`<target_repo>/examples/`:
+- `oauth-login-request.happy.json`
+- `oauth-login-response.happy.json`
+- `oauth-refresh-token-expired.error.json`
+- `oauth-refresh-network-failure.error.json`
+
+## B.3 Component architecture (Mermaid C4 Container level)
+
+```mermaid
+C4Container
+  title Container diagram for OAuth feature
+
+  Person(user, "B2B User", "Authenticated end user")
+
+  Container_Boundary(spa, "Web SPA") {
+    Container(nextjs, "Next.js 15", "TypeScript", "Renders UI, manages tokens via httpOnly cookies")
+  }
+
+  Container_Boundary(api, "Auth Service") {
+    Container(fastapi, "FastAPI", "Python 3.12", "Handles OAuth flows, token validation")
+    ContainerDb(postgres, "PostgreSQL 16", "Existing prod cluster", "Stores users, sessions, refresh tokens")
+  }
+
+  Container_Ext(keycloak, "Keycloak", "Existing realm 'b2b'", "OIDC provider")
+
+  Rel(user, nextjs, "Uses", "HTTPS")
+  Rel(nextjs, fastapi, "API calls", "HTTPS + httpOnly cookie")
+  Rel(fastapi, keycloak, "OIDC flows", "HTTPS + mTLS")
+  Rel(fastapi, postgres, "Reads/writes", "TCP")
+```
+
+**Trust boundaries:**
+- Internet ↔ SPA: TLS 1.3, HSTS
+- SPA ↔ Auth Service: httpOnly cookies, CSRF token
+- Auth Service ↔ Keycloak: mTLS + client credentials
+- Auth Service ↔ PostgreSQL: VPC internal, network policy
+
+**Existing components touched (mandatory enumeration — anti-Böckeler):**
+- Keycloak realm `b2b` — existing, no changes (out of scope)
+- PostgreSQL `prod-eu-1` — new tables only (additive)
+- Frontend session middleware in `apps/web/middleware.ts` — extended
+
+## B.4 Tech stack constraints
+
+```markdown
+### MUST
+- Frontend: Next.js 15.x
+- Backend: FastAPI 0.115+ with Pydantic v2
+- DB: PostgreSQL 16 (existing prod cluster `prod-eu-1`)
+- Auth: OIDC via existing Keycloak realm `b2b` (NE custom JWT)
+- Observability: OpenTelemetry + existing Grafana stack
+
+### MAY
+- Caching: Redis MAY (pokud justified v ADR), default no-cache
+- Background jobs: existing Celery setup if needed
+
+### MUST NOT
+- ❌ MongoDB / non-relational primary store
+- ❌ Custom auth implementation
+- ❌ AWS Lambda (org runs k8s)
+- ❌ Bleeding-edge libraries < 6 mo since stable release
+```
+
+## B.5 Integration points
+
+| System | Direction | Auth | SLA | Owner | Fallback |
+|---|---|---|---|---|---|
+| Keycloak | OAuth provider (out) | client_credentials | 99.95 % | Platform | Cached refresh 15 min |
+| <other> | <in/out> | <auth> | <SLA> | <team> | <fallback> |
+
+**Per integration, document in `<target_repo>/docs/integrations/<system>.md`:**
+- Endpoint URLs (prod / staging / dev)
+- Authentication setup steps
+- Error handling
+- Retry policy
+- Circuit breaker config
+
+## B.6 Performance NFRs
+
+| Metric | Target | Measurement | Validation |
+|---|---|---|---|
+| p95 latency (read) | < 300 ms | OpenTelemetry traces | k6 load test in CI |
+| p95 latency (write) | < 800 ms | OpenTelemetry traces | k6 load test in CI |
+| Availability | 99.9 % / 30d | SLO panel Grafana | Error-budget burn alert |
+| Error budget | 0.1 % / 30d | error_rate / total_req | PagerDuty if 25 % consumed in 24h |
+| Throughput | 1 000 RPS sustained | k6 ramp-up | E2E load test |
+| Cold start | < 2 s | First-request trace | Playwright e2e test |
+
+---
+
+# C. Quality spec
+
+## C.1 Test pyramid split
+
+| Layer | % effort | Owner | Tool |
+|---|---|---|---|
+| Unit | 70 % | Dev | pytest / vitest |
+| Integration | 20 % | Dev + QA | pytest + testcontainers |
+| E2E | 10 % | QA | Playwright |
+| Contract | overlay | Dev + QA | Pact + Schemathesis |
+| Property | overlay | Dev | Hypothesis / fast-check |
+
+## C.2 Unit test prerequisites
+
+**Mandatory coverage:**
+- Every public function/class implementing a user story → unit test named
+  per Gherkin scenario ID (e.g., `test_token_refresh_happy_path_silent`)
+- Branch coverage ≥ 80 % for spec-derived modules
+- CI: `pytest --cov=src --cov-branch --cov-fail-under=80`
+
+## C.3 E2E test scenarios
+
+Per Gherkin scenario in § A.3, Playwright skeleton in
+`<target_repo>/tests/e2e/<feature>.spec.ts`. CI gate: all scenarios green
+before merge.
+
+## C.4 Security threat model (STRIDE one-pager)
+
+### What are we building?
+<re-paste § B.3 diagram with trust boundaries highlighted>
+
+### Threats identified
+
+| ID | STRIDE | Threat | Severity | Mitigation ID |
+|---|---|---|---|---|
+| S.1 | Spoofing | <threat> | <Crit/High/Med/Low> | S.1.R.1 |
+| T.1 | Tampering | <threat> | | T.1.R.1 |
+| R.1 | Repudiation | <threat> | | R.1.R.1 |
+| I.1 | Information Disclosure | <threat> | | I.1.R.1 |
+| D.1 | Denial of Service | <threat> | | D.1.R.1 |
+| E.1 | Elevation of Privilege | <threat> | | E.1.R.1 |
+
+### Mitigations
+
+| ID | Mitigation | Owner | Verified by |
+|---|---|---|---|
+| S.1.R.1 | <mitigation> | <team> | <test ID> |
+| T.1.R.1 | <mitigation> | <team> | <test ID> |
+| ... | ... | ... | ... |
+
+### Did we do a good job?
+- [ ] Pentest scheduled for v1.0 launch -7d
+- [ ] DAST scan in CI passes
+- [ ] SBOM (cyclonedx) clean of Critical/High CVE
+- [ ] Secret scan (gitleaks) clean
+- [ ] Threat model reviewed by Security lead — signed: <date>
+
+## C.5 A11y baseline (WCAG 2.2 AA)
+
+### Mandatory criteria checklist
+
+- [ ] **1.4.11 Non-text Contrast** (≥ 3:1 for UI components, focus indicators)
+- [ ] **2.1.1 Keyboard** (all interactive reachable + operable)
+- [ ] **2.4.7 Focus Visible** (custom focus ring per design tokens)
+- [ ] **2.4.11 Focus Not Obscured (Minimum)** [NEW 2.2]
+- [ ] **2.5.7 Dragging Movements** [NEW 2.2] (alternative if dragging required)
+- [ ] **2.5.8 Target Size (Minimum)** [NEW 2.2] (≥ 24×24 CSS px)
+- [ ] **3.2.6 Consistent Help** [NEW 2.2] (help link in same location)
+- [ ] **3.3.7 Redundant Entry** [NEW 2.2] (don't re-ask info user provided)
+- [ ] **3.3.8 Accessible Authentication (Minimum)** [NEW 2.2] (no cognitive
+      function test required in login)
+- [ ] **4.1.3 Status Messages** (ARIA live region for status updates)
+
+### Validation
+- axe-core CI run on every PR (zero Critical/Serious)
+- Manual keyboard test of top 3 user flows (per A11y reviewer)
+- Screen reader test (NVDA + VoiceOver) — AI proxy NESTAČÍ pro EAA per
+  `docs/methodology/07-handoff-do-vyvoje.md` § Compliance handoff
+
+## C.6 Compliance classification
+
+### AI Act risk tier (Fáze C final, per ADR-0013)
+
+- **Tier:** <Unacceptable / High-risk / Limited / Minimal>
+- **Rationale:** <why this tier>
+- **Annex IV tech doc:** <required (high-risk) or N/A>
+- **Signed:** DPO <name> @ <date>
+
+### DPIA trigger (GDPR čl. 35)
+
+- [ ] Large-scale special category data — <yes/no + rationale>
+- [ ] Systematic monitoring — <yes/no>
+- [ ] Automated decision making with legal effect — <yes/no>
+- [ ] Innovative use of new technologies — <yes/no>
+- [ ] Vulnerable subjects (children, employees in monitoring, etc.) — <yes/no>
+- [ ] National DPA Muss-Liste hit — <yes/no + which item>
+
+**Verdict:** DPIA <required / not required> for v1.0
+**Signed:** DPO <name> @ <date>
+
+If DPIA required, link to artifact: `<path to dpia/<feature>.md>`
+
+### DORA scope (Article 28)
+
+- **Vendor classification:** <in-house / ICT third party (regulated)>
+- **Register entry:** <N/A or link to register entry>
+- **Resilience SLA:** per § B.6 NFRs
+- **TPRM assessment:** <link if applicable>
+- **Signed:** Risk officer <name> @ <date>
+
+### Audit trail (AI Act čl. 14 + DORA 7-year retention)
+
+- Decision log: Pflanzer hub DB at `decisions/<pilot-id>.yaml`
+- Retention: 7 years (DORA), backed up to immutable storage
+- Per-decision: rozhodnutí | navrhovatel | schvalovatel | datum | rationale
+
+---
+
+# D. Implementation guidance
+
+## D.1 File structure proposal
+
+```
+<target_repo>/
+├── apps/
+│   └── <service-name>/
+│       ├── src/
+│       │   ├── routes/        # FastAPI routers (1 per resource)
+│       │   ├── services/      # business logic
+│       │   ├── models/        # Pydantic + SQLAlchemy
+│       │   ├── adapters/      # external integrations
+│       │   └── tests/
+│       │       ├── unit/
+│       │       ├── integration/
+│       │       └── e2e/
+│       ├── api/
+│       │   └── openapi.yaml   # spec-versioned with code
+│       ├── docs/
+│       │   ├── security/      # STRIDE, threat models
+│       │   └── adr/           # Architecture Decision Records
+│       └── pyproject.toml
+└── packages/
+    └── <generated-client>/    # SDK generated from openapi.yaml
+```
+
+## D.2 Naming conventions
+
+- **Python:** `snake_case.py`, `PascalCase` classes, `snake_case` functions,
+  `SCREAMING_SNAKE_CASE` constants, formatter = Ruff + Black
+- **TypeScript:** `PascalCase.tsx` for components, `camelCase.ts` for utils,
+  `useCamelCase` hooks, formatter = Prettier + ESLint
+- **Database:** `snake_case` tables (plural), `snake_case` columns,
+  `<table>_id` for FKs
+- **API:** `/v1/<resource>/<id>` (RESTful), RFC 7807 error format
+
+## D.3 Recommended libraries (pinned)
+
+```
+### BE
+fastapi==0.115.4
+pydantic==2.9.2
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+authlib==1.3.2
+httpx==0.27.2
+pytest==8.3.3
+pytest-asyncio==0.24.0
+schemathesis==3.39.5
+
+### FE
+next@15.0.3
+react@19.0.0
+@tanstack/react-query@5.59.0
+zod@3.23.8
+playwright@1.49.0
+vitest@2.1.5
+```
+
+## D.4 Anti-patterns (project-specific MUST NOT)
+
+- ❌ `localStorage` for tokens (per STRIDE I.1.R.1 — use httpOnly cookies)
+- ❌ Synchronous external API calls in request hot path (use async +
+  circuit breaker)
+- ❌ ORM N+1 queries (use `selectinload` for related collections)
+- ❌ Untyped function signatures (mypy strict mode required)
+- ❌ Magic numbers (constants module mandatory)
+- ❌ Print debugging (use OpenTelemetry spans + structured logs)
+- ❌ Commit secrets (pre-commit hook with gitleaks)
+
+## D.5 PR review checklist (inject into PR template)
+
+```markdown
+- [ ] All Gherkin acceptance scenarios pass in CI
+- [ ] Branch coverage ≥ 80 % for changed modules
+- [ ] OpenAPI spec updated if endpoint changed
+- [ ] Pact contract validated against new spec version
+- [ ] STRIDE one-pager updated if new trust boundary
+- [ ] axe-core CI passes (Critical/Serious = 0)
+- [ ] No new Critical/High CVE in SBOM
+- [ ] ADR linked if architectural decision made
+- [ ] Decision log entry if cross-fn decision
+```
+
+---
+
+# E. Sign-off
+
+## E.1 Approval matrix
+
+(See frontmatter `signers:` block. Filled in parallel during Day 1-5 of
+sign-off window.)
+
+## E.2 Approval order — parallel 5-day window
+
+```
+Day 1: Spec authors publish v1.0 RC to Pflanzer hub
+Day 1-3: Each role reviews their owned sections in parallel
+Day 3: Cross-functional callout (90 min):
+        - any veto raised? rationale heard, addressed or amendment
+        - blocking concerns become amendment proposals
+Day 4-5: Amendments incorporated by spec authors
+Day 5 EOD: All roles sign — spec moves to v1.0 final
+Day 6+: Spec hand-off ritual starts (§ 5 of design doc)
+```
+
+## E.3 Quality gate score sheet
+
+Self-rate each dimension; sum must ≥ 80/100 before hand-off.
+
+| Dimension | Weight | Self-score | Notes |
+|---|---|---|---|
+| A.1 INVEST-RA user stories | 10 | __/10 | |
+| A.3 Gherkin executable | 15 | __/15 | |
+| A.4 Edge cases enumerated | 10 | __/10 | |
+| B.1 OpenAPI lint-clean | 10 | __/10 | |
+| B.2 ERD + JSON Schema | 5 | __/5 | |
+| B.4 Tech stack explicit | 5 | __/5 | |
+| B.6 Performance NFRs | 5 | __/5 | |
+| C.4 STRIDE one-pager | 10 | __/10 | |
+| C.5 WCAG 2.2 AA checklist | 5 | __/5 | |
+| C.6 AI Act + DPIA + DORA | 10 | __/10 | |
+| D.1-D.5 Implementation guidance | 10 | __/10 | |
+| E. Sign-off complete | 5 | __/5 | |
+| **TOTAL** | **100** | **__/100** | **≥ 80 to hand off** |
+
+## E.4 Hand-off ritual entry condition
+
+✅ Score ≥ 80, all 12 signers approved → **Stage 1 walkthrough scheduled**
+❌ Score < 80 OR veto unresolved → **re-work, no hand-off**
+
+---
+
+# Hand-off ritual log (filled during Stages 1-5)
+
+## Stage 1: Spec walkthrough (90 min)
+
+- Date: <YYYY-MM-DD>
+- Attendees: <list>
+- Recording: <link>
+- Open questions captured: <count>
+- Minutes: <link in Pflanzer hub>
+
+## Stage 2: Q&A window (5 prac. dní)
+
+- Window: <start date> → <end date>
+- Questions raised: <count>
+- Amendments opened: <count>
+- Q&A thread: {q_a_log_url}
+
+## Stage 3: Amendments
+
+(See frontmatter `amendments:` array)
+
+## Stage 4: First milestone review
+
+- Date: <YYYY-MM-DD>
+- Slice delivered: <description>
+- Gherkin pass rate: <%>
+- Reference prototype side-by-side: <aligned / drift / misaligned>
+- Verdict: <aligned / amendment opened / re-issue>
+
+## Stage 5: T+30 embedded reviewer
+
+- Reviewer: <name>
+- Shadow date: <YYYY-MM-DD>
+- Report: <link>
+- Material drift detected: <yes/no>
+- Decider escalation: <yes/no>
+
+---
+
+# Change log
+
+## v1.0.0 — <YYYY-MM-DD>
+- Initial sign-off (12/12 roles signed)
+- Quality gate score: <score>/100
+- Reference prototype: {sandbox_url}
+
+## v1.1.0 (example MINOR — scope add)
+- Added US-NNN per AMENDMENT-001
+- Approved: Decider <name> @ <date>
+- Re-signed sections: A.1, A.3
+
+## v2.0.0 (example MAJOR — scope break)
+- Removed US-NNN per AMENDMENT-NNN
+- All 12 roles re-signed
+- Score recomputed: <score>/100
+
+---
+
+# References (cross-links)
+
+- Pflanzer Charter (signed v<X>): {charter_ref}
+- Session 1 minutes: <link>
+- Session 2 decision log: <link>
+- Reference prototype: {sandbox_url}
+- Target dev repo: {target_repo}
+- ADRs in this spec:
+  - ADR-NNNN: <title>
+  - ADR-NNNN: <title>
+- Q&A log: {q_a_log_url}
+
+---
+
+**END OF TRACK S SPEC. Hand-off only after ≥ 80/100 and 12/12 signed.**
