@@ -215,13 +215,33 @@ Track S re-impl gap target ≤ 15 % (vs SDD 9.8-42.1 % per Yan et al. 2025).
 - `website/index.html` — sekce 02b track context, comparison matrix split
 - `website/1-pager.html` — track designation field
 
-## Out of scope (Tom decisions pending)
+## Open questions — RESOLVED (Tom decisions 2026-05-28)
 
-1. **Pricing structure** — Track P vs Track S premium % (recommendation +30-50 %)
-2. **Marketing strategy** — Track S FAQ-only vs explicit website mention
-3. **ADR-0013 Compliance Score upgrade** — accept element #13?
-4. **ADR-0014 PflanzerIndex** — accept per-track aggregation?
-5. **ADR-0011 Default Sunset trigger** — > 50 % Track S/BU threshold OK or different?
+All 5 strategic questions resolved with Recommended defaults:
+
+1. ✅ **Pricing differential** — Track S = **Track P × 1.4 (+40 % premium)**.
+   Track P €15-80k → Track S €40-112k (audit-grade floor €40k, top +40 %).
+2. ✅ **Marketing strategy** — **Current state** (Track S in comparison matrix
+   as chartreuse-dim row + sekce 02b moss-bordered footnote „kdyz dev v room
+   nemůže"). Nikdy v hero/CTA.
+3. ✅ **ADR-0013 Compliance Score upgrade** — **Accepted**. Element #13 added:
+   *„Track designation + justification (if Track S, evidence of 1 of 4 hard
+   triggers)"*. Compliance Score scale shifted 12 → 13. Tier thresholds:
+   Pflanzer pilot 11-13/13, Pflanzer-inspired 8-10/13, disqualified < 8/13.
+4. ✅ **ADR-0014 PflanzerIndex per-track** — **Accepted**. Per-track measurement
+   windows (Track P T+11-14 final, Track S T+60-90 final), separate
+   `median_P` and `median_S`, combined index for XYZ validation. Track S adds
+   explicit `ReImplGap_S` metric (target ≤ 15 %, critical > 25 %).
+5. ✅ **ADR-0011 Default Sunset trigger** — **> 50 % Track S/BU per quarter**
+   triggers Method Decider emergency review within 14 days. Steward audituje
+   quarterly Compliance Score #13.
+
+All 5 decisions reflected in:
+- ADR-0011 v0.4 addendum (Track S adoption emergency trigger)
+- ADR-0013 v0.4 upgrade (12 → 13 elements)
+- ADR-0014 v0.4 addendum (per-track aggregation + ReImplGap_S)
+- `method-charter.md` § Success threshold (per-track PflanzerIndex note)
+- `website/index.html` comparison matrix (Track S €40-112k +40 %)
 
 ## Reference
 
