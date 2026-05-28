@@ -23,7 +23,12 @@ materiál — ne pokračovat v generaci.
 Delší než 7 dní = ztráta kontextu a momentum. Kratší než 5 = role nezvládnou
 ohodnotit, zejména async stakeholdeři (Legal, Security, Engineering manager).
 
-## Prototype hub spec
+## Variant hub spec
+
+> **Track-aware (v0.4, per ADR-0020):** Hub obsahuje **track-příslušný
+> artefakt** per varianta. **Track P (default ~80 %)** = běžící produkční-ready
+> apps na sandbox URL (real code v target repo). **Track S (fallback ~20 %)**
+> = lightweight reference prototypy + draft precision spec sekce A-C.
 
 Rozcestník na sdílené URL (sandbox doména + watermark + noindex), bez
 accountu, bez prod credentials.
@@ -31,12 +36,14 @@ accountu, bez prod credentials.
 **Povinný obsah:**
 
 - **Hero rozcestník** s 1–3 variantami, každá karta:
-  - Embed link (sandbox URL).
+  - Embed link (sandbox URL) — **Track P:** běžící produkční-ready app
+    z target repo. **Track S:** lightweight reference prototyp.
   - **Version diff popis** vůči ostatním variantám: 3–5 odrážek
     (UX flow, datový model, performance trade-off, A11y stav, security stance).
   - OST tag + JTBD card mapping [perspektiva 14].
   - T-shirt size od EM + draft effort estimate.
-  - Throw-away/evolve flag (default = throw-away).
+  - **Track designation + evolve/throw-away flag** (per Charter; default =
+    Track P + evolve per ADR-0005 v0.4).
 - **Sandbox URL** s 24h TTL refreshovaným do konce scoring windowu;
   audit logging do SIEM, žádný route do prod sítě [perspektiva 07].
 - **OpenAPI 3.1 draft** per varianta + breaking-change registr.
@@ -54,6 +61,16 @@ accountu, bez prod credentials.
 - **Decision log Session 1** s lidskou atribucí.
 - **Acceptance criteria seed** (Gherkin, ≥ 1 negative scenario per varianta).
 - **Feedback formulář link** (viz níže).
+
+**Track S only (pokud Charter = Track S):**
+
+- **Draft precision spec sekce A–C** (Functional / Technical / Quality)
+  z Session 1 — stakeholdeři ve scoring window komentují **spec**, ne
+  jen reference prototyp. Combined SoT pattern: Spec + Reference Prototype +
+  Decision Log + Tests = 4 anchory proti drift (anti-drift mechanism #3
+  per ADR-0020).
+- **5-stage handoff ritual draft schedule** — kdy walkthrough (po Session 2
+  GO call), kdy 5-day Q&A window, kdo bude embedded reviewer T+30.
 
 **Sandbox guardrails** [perspektiva 07]:
 - Vlastní VPC, default-deny network, watermark + noindex.
