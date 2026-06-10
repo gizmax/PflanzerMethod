@@ -88,13 +88,15 @@
   /* klíček vyrašící z tečky za "Produkt." */
   .poster .dot { position: relative; display: inline-block; }
   .sprout {
-    position: absolute; left: 50%; bottom: 0.72em; width: 0.46em; height: 0.6em;
+    position: absolute; left: 50%; bottom: 0.32em; width: 0.5em; height: 0.78em;
     overflow: visible; pointer-events: none;
     transform: translateX(-50%) scale(0); transform-origin: bottom center;
     animation: sproutUp 0.6s cubic-bezier(.2,1.4,.4,1) 2s forwards;
   }
   .sprout .st { stroke: var(--ink); stroke-width: 3.2; fill: none; stroke-linecap: round; }
   .sprout .lf { fill: var(--leaf); }
+  .sprout .pt { fill: var(--acid); stroke: var(--ink); stroke-width: 2; }
+  .sprout .ct { fill: var(--ink); }
   @keyframes sproutUp {
     0% { transform: translateX(-50%) scale(0); }
     70% { transform: translateX(-50%) scale(1.18); }
@@ -447,6 +449,7 @@
   .meadow .m-gr { stroke: var(--leaf); stroke-width: 2.6; fill: none; stroke-linecap: round; }
   .meadow .m-fl { fill: var(--acid); stroke: var(--ink); stroke-width: 1.8; }
   .meadow .m-ct { fill: var(--ink); }
+  .meadow .m-lf { fill: var(--leaf); }
 
   footer { border-top: 2px solid var(--ink); padding: 1.4rem 0 3.4rem; font-size: 0.78rem; }
   footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
@@ -511,10 +514,16 @@
           <svg viewBox="0 0 1000 220" aria-hidden="true" preserveAspectRatio="none">
             <path d="M10,150 C220,90 480,170 990,70" />
           </svg></span></span>
-        <span class="row"><span class="product">Produkt<span class="dot">.<svg class="sprout" viewBox="0 0 40 52" aria-hidden="true">
-          <path class="st" d="M20 50 C20 38 19 30 20 22" />
-          <path class="lf" d="M20 34 C20 24 12 21 6 22 C7 31 14 34 20 34 Z" />
-          <path class="lf" d="M20 27 C20 17 28 14 34 15 C33 24 26 27 20 27 Z" />
+        <span class="row"><span class="product">Produkt<span class="dot">.<svg class="sprout" viewBox="0 0 40 64" aria-hidden="true">
+          <path class="st" d="M20 62 C20 50 19 40 20 28" />
+          <path class="lf" d="M20 48 C20 38 12 35 6 36 C7 45 14 48 20 48 Z" />
+          <path class="lf" d="M20 41 C20 31 28 28 34 29 C33 38 26 41 20 41 Z" />
+          <ellipse class="pt" cx="20" cy="6" rx="4.4" ry="6" />
+          <ellipse class="pt" cx="29.5" cy="13" rx="4.4" ry="6" transform="rotate(72 29.5 13)" />
+          <ellipse class="pt" cx="26" cy="24" rx="4.4" ry="6" transform="rotate(144 26 24)" />
+          <ellipse class="pt" cx="14" cy="24" rx="4.4" ry="6" transform="rotate(-144 14 24)" />
+          <ellipse class="pt" cx="10.5" cy="13" rx="4.4" ry="6" transform="rotate(-72 10.5 13)" />
+          <circle class="ct" cx="20" cy="15" r="4" />
         </svg></span></span></span>
       </h1>
 
@@ -813,7 +822,7 @@
       <p class="sec-lede reveal">Stejný nápad, dva procesy. Vlevo, jak to chodí dnes.
       Vpravo, jak to běží s Pflanzer Method.</p>
 
-      <div class="tear anim-trigger" aria-hidden="true">
+      <div class="tear" aria-hidden="true">
         <div class="tear-paper">
           <div class="behind"><span class="hl">✓ Produkt.</span></div>
           <div class="half left">
@@ -889,7 +898,7 @@
             <li>první cyklus vedený autorem metody, na vašem problému</li>
             <li>zavedení do firemních procesů a governance</li>
           </ul>
-          <p class="btn-sm"><a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pro%20firmu">Ozvěte se →</a></p>
+          <p class="btn-sm"><a href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pro%20firmu">Ozvěte se →</a></p>
         </div>
       </div>
     </div>
@@ -933,7 +942,7 @@
     <div class="wrap">
       <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
       <div class="reveal">
-        <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
+        <a class="btn" href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
       </div>
       <p class="alt reveal">Nebo rovnou sami: metodika je k dispozici zdarma jako
       přídavek do Claude Code. Instalace na jeden řádek, pak <code>/pm start</code>.</p>
@@ -945,7 +954,7 @@
   <footer>
     <div class="wrap">
       <span><strong>Pflanzer Method</strong> | pflanzer.cz/method</span>
-      <span>Tom Pflanzer · GiZMaX · Praha · <a href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></span>
+      <span>Tom Pflanzer · GiZMaX · Praha · <a href="mailto:tom@pflanzer.cz">tom@pflanzer.cz</a></span>
       <span>v0.4 · MIT</span>
     </div>
   </footer>
@@ -963,9 +972,13 @@
   /* louka v patičce — kytky a tráva, deterministická variace per index */
   var meadow = document.getElementById('meadow');
   if (meadow) {
-    var FLOWER = function (h) {
+    var FLOWER = function (h, side) {
+      var ly = h - 16;  // kde na stonku sedí lístek
+      var leaf = (side < 0)
+        ? '<path class="m-lf" d="M11 ' + ly + ' C11 ' + (ly - 8) + ' 4 ' + (ly - 10) + ' 1 ' + (ly - 9) + ' C2 ' + (ly - 3) + ' 7 ' + ly + ' 11 ' + ly + ' Z" />'
+        : '<path class="m-lf" d="M11 ' + ly + ' C11 ' + (ly - 8) + ' 18 ' + (ly - 10) + ' 21 ' + (ly - 9) + ' C20 ' + (ly - 3) + ' 15 ' + ly + ' 11 ' + ly + ' Z" />';
       return '<svg width="22" height="' + h + '" viewBox="0 0 22 ' + h + '">' +
-        '<path class="m-st" d="M11 ' + h + ' V14" />' +
+        '<path class="m-st" d="M11 ' + h + ' V14" />' + leaf +
         '<circle class="m-fl" cx="11" cy="10" r="7.5" />' +
         '<circle class="m-ct" cx="11" cy="10" r="2.6" /></svg>';
     };
@@ -977,7 +990,7 @@
     var heights = [52, 38, 46, 34, 56, 40, 50, 36, 54, 42, 48, 38, 52, 44];
     var html = '';
     for (var m = 0; m < heights.length; m++) {
-      html += (m % 2 === 0) ? FLOWER(heights[m]) : GRASS(heights[m]);
+      html += (m % 2 === 0) ? FLOWER(heights[m], (m % 4 === 0) ? -1 : 1) : GRASS(heights[m]);
     }
     meadow.innerHTML = html;
     var kids = meadow.children;
@@ -1009,7 +1022,7 @@
   onScroll();
 
   if (reduced) {
-    document.querySelectorAll('.reveal, .reveal-l, .reveal-r, .tl-step, .anim-trigger').forEach(function (el) { el.classList.add('in'); });
+    document.querySelectorAll('.reveal, .reveal-l, .reveal-r, .tl-step, .anim-trigger, .tear').forEach(function (el) { el.classList.add('in'); });
     if (tlFill) tlFill.style.height = '100%';
     return;
   }
@@ -1021,6 +1034,18 @@
     });
   }, { threshold: 0.18 });
   document.querySelectorAll('.reveal, .reveal-l, .reveal-r, .tl-step, .anim-trigger').forEach(function (el) { io.observe(el); });
+
+  /* trhání specky: spustit až když je papír pohodlně ve viewportu,
+     ne hned u spodní hrany — jinak proběhne mimo zorné pole */
+  var tear = document.querySelector('.tear');
+  if (tear) {
+    var tio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { tear.classList.add('in'); tio.disconnect(); }
+      });
+    }, { threshold: 0.6, rootMargin: '0px 0px -22% 0px' });
+    tio.observe(tear);
+  }
 
   /* count-up čísla */
   var cio = new IntersectionObserver(function (entries) {
