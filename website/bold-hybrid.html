@@ -315,12 +315,37 @@
   .vs-row .ok2 { color: var(--leaf); font-weight: 700; margin-right: 0.5rem; }
   .vs-src { margin-top: 0.9rem; font-size: 0.72rem; color: var(--grey); }
 
-  /* ════ 05 · Zdarma ════ */
-  .free { border: 2px solid var(--ink); background: var(--acid); padding: 2.6rem 2.4rem 2.8rem; }
-  .free h3 { font-family: var(--display); text-transform: uppercase; font-size: clamp(1.4rem, 3.4vw, 2.2rem); line-height: 1.1; }
-  .free p { margin-top: 1rem; max-width: 46rem; font-size: 0.95rem; }
+  /* ════ 05 · Zdarma + pro firmy ════ */
+  .free-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  .free, .firm { border: 2px solid var(--ink); padding: 2.2rem 2rem 2.4rem; display: flex; flex-direction: column; }
+  .free { background: var(--acid); }
+  .firm { background: var(--ink); color: var(--paper); }
+  .free h3, .firm h3 { font-family: var(--display); text-transform: uppercase; font-size: clamp(1.2rem, 2.6vw, 1.7rem); line-height: 1.1; }
+  .firm h3 { color: var(--acid); }
+  .free p, .firm p { margin-top: 1rem; font-size: 0.92rem; }
   .free p b { background: var(--ink); color: var(--acid); padding: 0 0.3rem; }
+  .firm p b { color: var(--acid); }
   .free code { background: var(--ink); color: var(--acid); padding: 0.15rem 0.5rem; font-weight: 700; }
+  .install {
+    margin-top: 1.2rem; background: var(--term-bg); color: var(--term-text);
+    border: 2px solid var(--ink); padding: 0.9rem 1rem; font-size: 0.78rem;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .install .p { color: var(--acid); font-weight: 700; }
+  .install .c { color: var(--term-dim); }
+  .firm ul { margin: 1rem 0 0 0; padding: 0; list-style: none; font-size: 0.92rem; }
+  .firm li { padding: 0.45rem 0; border-top: 1px solid #F4F3EC26; }
+  .firm li::before { content: "→ "; color: var(--acid); font-weight: 700; }
+  .firm .btn-sm {
+    margin-top: auto; padding-top: 1.4rem;
+  }
+  .firm .btn-sm a {
+    display: inline-block; font-weight: 700; font-size: 0.82rem;
+    text-transform: uppercase; letter-spacing: 0.1em; text-decoration: none;
+    background: var(--acid); color: var(--ink); padding: 0.7rem 1.3rem;
+    border: 2px solid var(--acid);
+  }
+  .firm .btn-sm a:hover { background: transparent; color: var(--acid); }
 
   /* ════ FAQ ════ */
   .faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
@@ -375,6 +400,7 @@
     .numbers > div:nth-child(even) { border-left: 2px solid var(--ink); }
     .numbers > div:nth-child(n+3) { border-top: 2px solid var(--ink); }
     .faq { grid-template-columns: 1fr; }
+    .free-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 700px) {
     .tl-rail { left: 1.1rem; }
@@ -739,17 +765,35 @@
     </div>
   </section>
 
-  <!-- ════ 05 · ZDARMA ════ -->
+  <!-- ════ 05 · ZDARMA + PRO FIRMY ════ -->
   <section id="zdarma" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">05</span><h2>Zdarma. Schválně.</h2></div>
-      <div class="free reveal">
-        <h3>Metodika je open source (MIT). Celá.</h3>
-        <p>Dokumentace, šablony, nástroje i příkazy. Žádná registrace, žádný
-        trial, žádné „kontaktujte obchod". Dobrý proces se nemá prodávat
-        po kapitolách: <b>má dávat smysl, jinak ho nikdo nepoužije</b>.</p>
-        <p>Máte Claude Code? Napište <code>/pm start</code> a metoda vás provede sama.
-        Chcete první cyklus s autorem metody? Od toho je tlačítko dole.</p>
+      <div class="sec-head reveal"><span class="no">05</span><h2>K dispozici zdarma</h2></div>
+      <p class="sec-lede reveal">Celá metodika je open source (MIT): dokumentace,
+      šablony, příkazy. Žádná registrace, žádný trial. <b>Dobrý proces má dávat
+      smysl, jinak ho nikdo nepoužije.</b></p>
+      <div class="free-grid">
+        <div class="free reveal-l">
+          <h3>Přídavek do Claude Code</h3>
+          <p>Nainstalujete na jeden řádek a metoda vás provede sama,
+          od Charteru po nasazení:</p>
+          <div class="install"><span class="c"># instalace (jednou)</span>
+<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
+
+<span class="c"># a v Claude Code už jen</span>
+<span class="p">$</span> /pm start</div>
+          <p><b>/pm</b> pozná, kde v cyklu jste, a sám nabídne další krok.</p>
+        </div>
+        <div class="firm reveal-r">
+          <h3>Pro firmy</h3>
+          <p>Chcete metodu zavést bez pokusů a omylů? Pomůžeme:</p>
+          <ul>
+            <li>školení týmu (facilitátor, builder, stakeholdeři)</li>
+            <li>první cyklus vedený autorem metody, na vašem problému</li>
+            <li>zavedení do firemních procesů a governance</li>
+          </ul>
+          <p class="btn-sm"><a href="mailto:tom@gizmax.cz?subject=Pflanzer%20pro%20firmu">Ozvěte se →</a></p>
+        </div>
       </div>
     </div>
   </section>
@@ -794,8 +838,8 @@
       <div class="reveal">
         <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
       </div>
-      <p class="alt reveal">Nebo rovnou sami: <code>/pm start</code> v Claude Code.
-      Metodika je zdarma, open source (MIT).</p>
+      <p class="alt reveal">Nebo rovnou sami: metodika je k dispozici zdarma jako
+      přídavek do Claude Code. Instalace na jeden řádek, pak <code>/pm start</code>.</p>
     </div>
   </section>
 
