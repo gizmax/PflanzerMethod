@@ -306,6 +306,9 @@
 
   /* ════ CTA ════ */
   .cta { padding-bottom: 6rem; }
+  .cta-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 2.5rem; flex-wrap: wrap; }
+  .cta-plant { width: min(280px, 56vw); aspect-ratio: 1; flex-shrink: 0; }
+  .cta-plant svg { display: block; }
   .cta .big {
     font-family: var(--display); text-transform: uppercase;
     font-size: clamp(2rem, 6vw, 4.6rem); line-height: 1.05; margin-bottom: 2.2rem;
@@ -753,13 +756,16 @@
 
   <!-- ════ CTA ════ -->
   <section class="cta" style="padding-top:0">
-    <div class="wrap">
-      <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
-      <div class="reveal">
-        <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
+    <div class="wrap cta-inner">
+      <div>
+        <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
+        <div class="reveal">
+          <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
+        </div>
+        <p class="alt reveal">Nebo rovnou sami: <code>/pm start</code> v Claude Code.
+        Metodika je zdarma, open source (MIT).</p>
       </div>
-      <p class="alt reveal">Nebo rovnou sami: <code>/pm start</code> v Claude Code.
-      Metodika je zdarma, open source (MIT).</p>
+      <div class="cta-plant" id="cta-plant" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -845,6 +851,43 @@
     setTimeout(next, i === 1 ? 850 : 600);
   }
   setTimeout(next, 600);
+})();
+</script>
+
+<!-- Lottie: rostlina vyroste, až k ní doscrollujete. Když CDN nejede, nic se nerozbije. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie_light.min.js" defer></script>
+<script>
+(function () {
+  var holder = document.getElementById('cta-plant');
+  if (!holder) return;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var started = false;
+  var visible = !('IntersectionObserver' in window);
+
+  /* startuje až ve chvíli, kdy je sekce vidět A lottie knihovna načtená */
+  function maybeStart() {
+    if (started || !visible || typeof lottie === 'undefined') return;
+    started = true;
+    var anim = lottie.loadAnimation({
+      container: holder, renderer: 'svg',
+      loop: false, autoplay: !reduced, path: 'plant-lottie.json'
+    });
+    if (reduced) {
+      anim.addEventListener('DOMLoaded', function () {
+        anim.goToAndStop(anim.totalFrames - 1, true);
+      });
+    }
+  }
+
+  window.addEventListener('load', maybeStart);
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { visible = true; io.disconnect(); maybeStart(); }
+      });
+    }, { threshold: 0.35 });
+    io.observe(holder);
+  }
 })();
 </script>
 
