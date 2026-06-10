@@ -210,6 +210,21 @@
   .three-pointe { margin-top: 1.6rem; font-size: 0.95rem; max-width: 46rem; }
 
   /* ════ 03 · Timeline ════ */
+  .tl-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; }
+  .tl-side { position: relative; }
+  .tl-plant {
+    position: sticky; top: 26vh; width: 100%; aspect-ratio: 1;
+    border: 2px solid var(--ink); background: var(--paper);
+    box-shadow: 6px 6px 0 #161A1014;
+  }
+  .tl-plant svg { display: block; }
+  .tl-plant .cap {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    border-top: 2px solid var(--ink);
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; text-align: center; padding: 0.4rem 0.5rem;
+    background: var(--acid);
+  }
   .tl { position: relative; margin-top: 1rem; }
   .tl-rail { position: absolute; left: 7.2rem; top: 0; bottom: 0; width: 4px; background: var(--line); }
   .tl-fill { position: absolute; left: 0; top: 0; width: 100%; height: 0%; background: var(--acid); transition: height 0.2s linear; }
@@ -239,6 +254,16 @@
     transition: transform 0.55s cubic-bezier(.2,1.4,.4,1), opacity 0.3s ease;
   }
   .tl-step.in .node .plant { transform: scale(1); opacity: 1; }
+  /* na desktopu roste velká rostlina vedle osy, mini-ikonky nahradí tečky */
+  @media (min-width: 981px) {
+    .tl-step .node svg { display: none; }
+    .tl-step .node {
+      width: 1.15rem; height: 1.15rem; border-radius: 50%;
+      border: 3px solid var(--ink); margin-top: 0.35rem;
+      transition: background 0.3s ease;
+    }
+    .tl-step.in .node { background: var(--acid); }
+  }
   .tl-card { border: 2px solid var(--ink); background: var(--paper); padding: 1.2rem 1.4rem 1.35rem; box-shadow: 6px 6px 0 #161A1014; }
   .tl-card h3 { font-family: var(--display); text-transform: uppercase; font-size: 1.15rem; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
   .tl-card .chip {
@@ -306,9 +331,6 @@
 
   /* ════ CTA ════ */
   .cta { padding-bottom: 6rem; }
-  .cta-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 2.5rem; flex-wrap: wrap; }
-  .cta-plant { width: min(280px, 56vw); aspect-ratio: 1; flex-shrink: 0; }
-  .cta-plant svg { display: block; }
   .cta .big {
     font-family: var(--display); text-transform: uppercase;
     font-size: clamp(2rem, 6vw, 4.6rem); line-height: 1.05; margin-bottom: 2.2rem;
@@ -342,6 +364,8 @@
   }
   @media (max-width: 980px) {
     .hero-grid { grid-template-columns: 1fr; }
+    .tl-wrap { grid-template-columns: 1fr; }
+    .tl-side { display: none; }
     .silos { grid-template-columns: 1fr; }
     .three { grid-template-columns: 1fr; }
     .three > div + div { border-left: none; border-top: 2px solid var(--ink); }
@@ -511,8 +535,9 @@
       nebo to udělá AI. <b>Celkem asi 4 hodiny společného času na osobu.</b><br />
       <span style="font-size:0.82rem;">Pflanzer znamená německy pěstitel.
       A přesně tak to běží: ze semínka (problém) vyroste za 14 dní květ (produkt).
-      Sledujte rostlinku na časové ose.</span></p>
+      Rostlina vedle osy roste s tím, jak scrollujete dny.</span></p>
 
+      <div class="tl-wrap">
       <div class="tl" id="tl">
         <div class="tl-rail"><div class="tl-fill" id="tl-fill"></div></div>
 
@@ -636,6 +661,14 @@
         </div>
       </div>
 
+      <aside class="tl-side" aria-hidden="true">
+        <div class="tl-plant">
+          <div id="tl-plant-anim"></div>
+          <div class="cap" id="tl-plant-cap">Den 0 · semínko</div>
+        </div>
+      </aside>
+      </div>
+
       <p class="tl-sum reveal">Schůzky dohromady: <span class="hl">60 + 90 + 60 minut</span>.
       Běžný projekt spolkne víc už jen na úvodním kolečku.</p>
     </div>
@@ -756,16 +789,13 @@
 
   <!-- ════ CTA ════ -->
   <section class="cta" style="padding-top:0">
-    <div class="wrap cta-inner">
-      <div>
-        <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
-        <div class="reveal">
-          <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
-        </div>
-        <p class="alt reveal">Nebo rovnou sami: <code>/pm start</code> v Claude Code.
-        Metodika je zdarma, open source (MIT).</p>
+    <div class="wrap">
+      <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
+      <div class="reveal">
+        <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
       </div>
-      <div class="cta-plant" id="cta-plant" aria-hidden="true"></div>
+      <p class="alt reveal">Nebo rovnou sami: <code>/pm start</code> v Claude Code.
+      Metodika je zdarma, open source (MIT).</p>
     </div>
   </section>
 
@@ -854,40 +884,59 @@
 })();
 </script>
 
-<!-- Lottie: rostlina vyroste, až k ní doscrollujete. Když CDN nejede, nic se nerozbije. -->
+<!-- Lottie: rostlina vedle časové osy roste se scrollem (scrub po framech).
+     Když CDN nejede, zbytek stránky se nerozbije. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie_light.min.js" defer></script>
 <script>
 (function () {
-  var holder = document.getElementById('cta-plant');
-  if (!holder) return;
+  var holder = document.getElementById('tl-plant-anim');
+  var cap = document.getElementById('tl-plant-cap');
+  var tl = document.getElementById('tl');
+  if (!holder || !tl) return;
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var started = false;
-  var visible = !('IntersectionObserver' in window);
+  var anim = null, total = 0, ready = false;
+  var LABELS = [
+    'Den 0 · semínko',
+    'Den 1–4 · AI staví',
+    'Den 5 · steering',
+    'Den 6–9 · feedback',
+    'Den 10 · rozhodnutí',
+    'Den 11–14 · v produkci'
+  ];
 
-  /* startuje až ve chvíli, kdy je sekce vidět A lottie knihovna načtená */
-  function maybeStart() {
-    if (started || !visible || typeof lottie === 'undefined') return;
-    started = true;
-    var anim = lottie.loadAnimation({
+  /* stejný průběh jako zelená linka osy: 0 na začátku dnů, 1 na konci */
+  function progress() {
+    var r = tl.getBoundingClientRect();
+    var p = (window.innerHeight * 0.75 - r.top) / r.height;
+    return Math.max(0, Math.min(1, p));
+  }
+
+  function update() {
+    if (!ready) return;
+    var p = progress();
+    anim.goToAndStop(Math.round(p * (total - 1)), true);
+    cap.textContent = LABELS[Math.min(LABELS.length - 1, Math.floor(p * LABELS.length))];
+  }
+
+  function init() {
+    if (anim || typeof lottie === 'undefined') return;
+    anim = lottie.loadAnimation({
       container: holder, renderer: 'svg',
-      loop: false, autoplay: !reduced, path: 'plant-lottie.json'
+      loop: false, autoplay: false, path: 'plant-lottie.json'
     });
-    if (reduced) {
-      anim.addEventListener('DOMLoaded', function () {
-        anim.goToAndStop(anim.totalFrames - 1, true);
-      });
-    }
+    anim.addEventListener('DOMLoaded', function () {
+      total = anim.totalFrames; ready = true;
+      if (reduced) {
+        anim.goToAndStop(total - 1, true);
+        cap.textContent = LABELS[LABELS.length - 1];
+        return;
+      }
+      update();
+      window.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+    });
   }
-
-  window.addEventListener('load', maybeStart);
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) { visible = true; io.disconnect(); maybeStart(); }
-      });
-    }, { threshold: 0.35 });
-    io.observe(holder);
-  }
+  window.addEventListener('load', init);
 })();
 </script>
 
