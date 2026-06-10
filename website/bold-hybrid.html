@@ -45,6 +45,14 @@
   .frame-top { top: 0; border-bottom: 2px solid var(--ink); }
   .frame-bottom { bottom: 0; border-top: 2px solid var(--ink); }
   .frame .dot { color: var(--leaf); }
+  .langs { display: flex; gap: 0.1rem; pointer-events: auto; }
+  .langs button {
+    background: transparent; border: none; cursor: pointer; font: inherit;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey); padding: 0.1rem 0.38rem;
+  }
+  .langs button:hover { color: var(--ink); }
+  .langs button.on { background: var(--acid); color: var(--ink); font-weight: 700; }
 
   .progress {
     position: fixed; top: 0; left: 0; height: 4px; width: 0%;
@@ -500,21 +508,21 @@
 
 <div class="frame frame-top">
   <span>Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
-  <span class="dot">●&nbsp;Otevřená&nbsp;metodika&nbsp;·&nbsp;zdarma</span>
+  <nav class="langs" id="langs" aria-label="Language"></nav>
 </div>
 
 <main>
   <!-- ════ HERO ════ -->
   <header class="hero">
     <div class="wrap">
-      <p class="kicker">Otevřená metodika · zdarma (MIT) <b>· 14 dní k produkci</b></p>
+      <p class="kicker" data-i="kicker">Otevřená metodika · zdarma (MIT) <b>· 14 dní k produkci</b></p>
       <h1 class="poster" aria-label="Žádná specka. Produkt.">
-        <span class="row">Žádná</span>
-        <span class="row"><span class="struck">specka.
+        <span class="row" data-i="hno">Žádná</span>
+        <span class="row"><span class="struck"><span data-i="hspec">specka.</span>
           <svg viewBox="0 0 1000 220" aria-hidden="true" preserveAspectRatio="none">
             <path d="M10,150 C220,90 480,170 990,70" />
           </svg></span></span>
-        <span class="row"><span class="product">Produkt<span class="dot">.<svg class="sprout" viewBox="0 0 40 64" aria-hidden="true">
+        <span class="row"><span class="product"><span data-i="hprod">Produkt</span><span class="dot">.<svg class="sprout" viewBox="0 0 40 64" aria-hidden="true">
           <path class="st" d="M20 62 C20 50 19 40 20 28" />
           <path class="lf" d="M20 48 C20 38 12 35 6 36 C7 45 14 48 20 48 Z" />
           <path class="lf" d="M20 41 C20 31 28 28 34 29 C33 38 26 41 20 41 Z" />
@@ -528,21 +536,21 @@
       </h1>
 
       <nav class="hero-nav" aria-label="Obsah stránky">
-        <a href="#proc">Proč</a>
-        <a href="#co">Jak to funguje</a>
-        <a href="#dny">14 dní</a>
-        <a href="#srovnani">Srovnání</a>
-        <a href="#zdarma">Zdarma</a>
+        <a href="#proc" data-i="navwhy">Proč</a>
+        <a href="#co" data-i="navhow">Jak to funguje</a>
+        <a href="#dny" data-i="navdays">14 dní</a>
+        <a href="#srovnani" data-i="navcmp">Srovnání</a>
+        <a href="#zdarma" data-i="navfree">Zdarma</a>
       </nav>
 
       <div class="hero-grid">
         <div class="hero-sub reveal">
           <div class="bar" aria-hidden="true"></div>
           <div>
-            <p>Sepíšete <span class="hl">problém</span> na jednu stránku.
+            <p data-i="lead">Sepíšete <span class="hl">problém</span> na jednu stránku.
             AI s vaším vývojářem postaví <span class="hl">3 běžící varianty</span> řešení.
             Tým si je proklikne, vybere, a <span class="hl">tentýž kód jde do produkce</span>.</p>
-            <p class="more">Žádné dlouhé zadání. Žádné předávání mezi odděleními.
+            <p class="more" data-i="more">Žádné dlouhé zadání. Žádné předávání mezi odděleními.
             Žádné přepisování skoro hotové věci. <b>6 lidí, 14 dní, asi 4 hodiny
             schůzek na osobu.</b></p>
           </div>
@@ -554,14 +562,14 @@
             <span>pflanzer · /pm session</span>
           </div>
           <div class="term-body type-seq" id="hero-term">
-<div class="ln"><span class="p">tým@firma:~$</span> <span class="cmd">/pm start "onboarding zákazníků trvá 3 týdny"</span></div>
-<div class="ln"><span class="day">[den 0]</span>    charter ✎ <span class="dim">1 stránka · 60 min</span></div>
-<div class="ln"><span class="day">[den 1–4]</span>  AI staví varianty… <span class="ok">✓ A</span> <span class="ok">✓ B</span> <span class="ok">✓ C</span></div>
-<div class="ln"><span class="day">[den 5]</span>    steering 90 min → shortlist</div>
-<div class="ln"><span class="day">[den 6–9]</span>  feedback z prohlížeče <span class="dim">(žádná schůzka)</span></div>
-<div class="ln"><span class="day">[den 10]</span>   rozhodnutí → <span class="ok">GO: varianta B</span></div>
-<div class="ln"><span class="day">[den 11–14]</span> kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
-<div class="ln"><span class="p">tým@firma:~$</span> <span class="caret" aria-hidden="true"></span></div>
+<div class="ln" data-i="t1"><span class="p">tým@firma:~$</span> <span class="cmd">/pm start "onboarding zákazníků trvá 3 týdny"</span></div>
+<div class="ln" data-i="t2"><span class="day">[den 0]</span>    charter ✎ <span class="dim">1 stránka · 60 min</span></div>
+<div class="ln" data-i="t3"><span class="day">[den 1–4]</span>  AI staví varianty… <span class="ok">✓ A</span> <span class="ok">✓ B</span> <span class="ok">✓ C</span></div>
+<div class="ln" data-i="t4"><span class="day">[den 5]</span>    steering 90 min → shortlist</div>
+<div class="ln" data-i="t5"><span class="day">[den 6–9]</span>  feedback z prohlížeče <span class="dim">(žádná schůzka)</span></div>
+<div class="ln" data-i="t6"><span class="day">[den 10]</span>   rozhodnutí → <span class="ok">GO: varianta B</span></div>
+<div class="ln" data-i="t7"><span class="day">[den 11–14]</span> kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
+<div class="ln" data-i="t8"><span class="p">tým@firma:~$</span> <span class="caret" aria-hidden="true"></span></div>
           </div>
         </div>
       </div>
@@ -571,37 +579,37 @@
   <!-- ════ 01 · PROČ: AI v silech ════ -->
   <section id="proc">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">01</span><h2>AI už ve firmě máte. V silech.</h2></div>
-      <p class="sec-lede reveal">Byznys si nechává psát podklady, produkťáci zadání,
+      <div class="sec-head reveal"><span class="no">01</span><h2 data-i="s1h">AI už ve firmě máte. V silech.</h2></div>
+      <p class="sec-lede reveal" data-i="s1l">Byznys si nechává psát podklady, produkťáci zadání,
       vývojáři generují kód. Každý zvlášť. Jenže <b>cesta od nápadu k nasazení zůstává
       stejně pomalá</b>, protože mezi odděleními pořád putují dokumenty a tikety.
       Pflanzer Method zapojí AI tam, kde to bolí: do celého procesu dodání.</p>
 
       <div class="silos">
         <div class="silo-card today reveal-l">
-          <h3>Dnes: každý sám</h3>
+          <h3 data-i="silth">Dnes: každý sám</h3>
           <div class="silo-row">
-            <div class="silo-box">Byznys<br /><span class="ai-badge">AI ✓</span></div>
+            <div class="silo-box"><span data-i="sb1">Byznys</span><br /><span class="ai-badge">AI ✓</span></div>
             <div class="silo-wall" aria-hidden="true"></div>
-            <div class="silo-box">Produkt<br /><span class="ai-badge">AI ✓</span></div>
+            <div class="silo-box"><span data-i="sb2">Produkt</span><br /><span class="ai-badge">AI ✓</span></div>
             <div class="silo-wall" aria-hidden="true"></div>
-            <div class="silo-box">Vývoj<br /><span class="ai-badge">AI ✓</span></div>
+            <div class="silo-box"><span data-i="sb3">Vývoj</span><br /><span class="ai-badge">AI ✓</span></div>
           </div>
-          <p class="silo-note">Tři chytrá oddělení, mezi nimi zadání, fronty
+          <p class="silo-note" data-i="siltnote">Tři chytrá oddělení, mezi nimi zadání, fronty
           a schvalovací kolečka. Nápad putuje měsíce.</p>
         </div>
 
         <div class="silo-card method reveal-r">
-          <h3>S Pflanzer Method: jeden tok</h3>
+          <h3 data-i="silmh">S Pflanzer Method: jeden tok</h3>
           <div class="flow-row">
-            <div class="flow-box">Problém</div>
+            <div class="flow-box" data-i="fb1">Problém</div>
             <span class="flow-arrow" aria-hidden="true">→</span>
-            <div class="flow-box">3 varianty</div>
+            <div class="flow-box" data-i="fb2">3 varianty</div>
             <span class="flow-arrow" aria-hidden="true">→</span>
-            <div class="flow-box">Produkce</div>
+            <div class="flow-box" data-i="fb3">Produkce</div>
           </div>
-          <div class="ai-band">AI + celý tým, po celou dobu</div>
-          <p class="silo-note">Všechny role u jednoho stolu, AI staví průběžně.
+          <div class="ai-band" data-i="band">AI + celý tým, po celou dobu</div>
+          <p class="silo-note" data-i="silmnote">Všechny role u jednoho stolu, AI staví průběžně.
           <b>Nápad doputuje za 14 dní.</b></p>
         </div>
       </div>
@@ -611,34 +619,34 @@
   <!-- ════ 02 · JAK TO FUNGUJE ════ -->
   <section id="co" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">02</span><h2>Jak to funguje: tři kroky</h2></div>
-      <p class="sec-lede reveal">Místo psaní zadání se řešení rovnou staví.
+      <div class="sec-head reveal"><span class="no">02</span><h2 data-i="s2h">Jak to funguje: tři kroky</h2></div>
+      <p class="sec-lede reveal" data-i="s2l">Místo psaní zadání se řešení rovnou staví.
       Rozhodujete se nad něčím, na co si můžete <b>kliknout</b>, ne nad dokumentem.</p>
 
       <div class="three">
         <div class="reveal">
           <div class="big-no">1</div>
-          <h3>Sepíšete problém</h3>
-          <p>Ne řešení, ale problém. Jedna stránka: co nefunguje, pro koho,
+          <h3 data-i="st1h">Sepíšete problém</h3>
+          <p data-i="st1p">Ne řešení, ale problém. Jedna stránka: co nefunguje, pro koho,
           podle čeho poznáte úspěch. Hotovo za hodinu u kávy.</p>
           <span class="arrow" aria-hidden="true">→</span>
         </div>
         <div class="reveal" style="transition-delay:0.12s">
           <div class="big-no">2</div>
-          <h3>AI postaví 3 varianty</h3>
-          <p>Váš vývojář s AI postaví tři různé běžící verze řešení.
+          <h3 data-i="st2h">AI postaví 3 varianty</h3>
+          <p data-i="st2p">Váš vývojář s AI postaví tři různé běžící verze řešení.
           Ne obrázky, ne klikací atrapa. Skutečný software na adrese,
           kterou si otevřete v prohlížeči.</p>
           <span class="arrow" aria-hidden="true">→</span>
         </div>
         <div class="reveal" style="transition-delay:0.24s">
           <div class="big-no">3</div>
-          <h3>Vyberete a nasadíte</h3>
-          <p>Tým si varianty proklikne a vybere vítěze. Tentýž kód projde
+          <h3 data-i="st3h">Vyberete a nasadíte</h3>
+          <p data-i="st3p">Tým si varianty proklikne a vybere vítěze. Tentýž kód projde
           kontrolami kvality a jde do produkce. Nic se nestaví znovu.</p>
         </div>
       </div>
-      <p class="three-pointe reveal">Klasické zadání zafixuje řešení dřív, než ho kdokoliv
+      <p class="three-pointe reveal" data-i="pointe">Klasické zadání zafixuje řešení dřív, než ho kdokoliv
       viděl běžet. Pflanzer zafixuje jen problém. <span class="hl">Řešení se vybírá,
       až když na něj jde sáhnout.</span></p>
     </div>
@@ -647,8 +655,8 @@
   <!-- ════ 03 · 14 DNÍ ════ -->
   <section id="dny" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">03</span><h2>14 dní, den po dni</h2></div>
-      <p class="sec-lede reveal">Jen tři schůzky. Všechno ostatní běží asynchronně,
+      <div class="sec-head reveal"><span class="no">03</span><h2 data-i="s3h">14 dní, den po dni</h2></div>
+      <p class="sec-lede reveal" data-i="s3l">Jen tři schůzky. Všechno ostatní běží asynchronně,
       nebo to udělá AI. <b>Celkem asi 4 hodiny společného času na osobu.</b><br />
       <span style="font-size:0.82rem;">Pflanzer znamená německy pěstitel.
       A přesně tak to běží: ze semínka (problém) vyroste za 14 dní květ (produkt).</span></p>
@@ -666,11 +674,11 @@
             </g></svg>
           </div>
           <div class="tl-card reveal-r">
-            <h3>Káva a Charter <span class="chip go">schůzka · 60 min</span></h3>
-            <p>Sponzor, produkťák a vývojář sepíšou Charter. Jedna stránka:
+            <h3><span data-i="c1h">Káva a Charter</span> <span class="chip go" data-i="chipm60">schůzka · 60 min</span></h3>
+            <p data-i="c1p">Sponzor, produkťák a vývojář sepíšou Charter. Jedna stránka:
             co řešíme, pro koho, jaká metrika určí úspěch. Nic o tom,
             jak to má vypadat.</p>
-            <div class="log"><span class="p">$</span> /pm start → charter uložen <span class="ok">✓</span></div>
+            <div class="log" data-i="c1log"><span class="p">$</span> /pm start → charter uložen <span class="ok">✓</span></div>
           </div>
         </div>
 
@@ -684,11 +692,11 @@
             </g></svg>
           </div>
           <div class="tl-card reveal-r">
-            <h3>AI staví <span class="chip">bez schůzky</span></h3>
-            <p>Vývojář zadá Charter AI a nechá postavit tři záměrně odlišné
+            <h3><span data-i="c2h">AI staví</span> <span class="chip" data-i="chipasync">bez schůzky</span></h3>
+            <p data-i="c2p">Vývojář zadá Charter AI a nechá postavit tři záměrně odlišné
             varianty. Třeba průvodce, samoobslužný portál a automatizaci.
             Každá běží na vlastní adrese.</p>
-            <div class="log"><span class="p">$</span> /pm build → varianta A <span class="ok">✓</span> · B <span class="ok">✓</span> · C <span class="ok">✓</span></div>
+            <div class="log" data-i="c2log"><span class="p">$</span> /pm build → varianta A <span class="ok">✓</span> · B <span class="ok">✓</span> · C <span class="ok">✓</span></div>
           </div>
         </div>
 
@@ -703,11 +711,11 @@
             </g></svg>
           </div>
           <div class="tl-card reveal-r">
-            <h3>Steering <span class="chip go">schůzka · 90 min</span></h3>
-            <p>Tým (asi 6 lidí) si varianty proklikne naživo. „Tohle předělat takhle":
+            <h3><span data-i="c3h">Steering</span> <span class="chip go" data-i="chipm90">schůzka · 90 min</span></h3>
+            <p data-i="c3p">Tým (asi 6 lidí) si varianty proklikne naživo. „Tohle předělat takhle":
             AI změnu udělá během minut, ještě na schůzce. Pak tiché hlasování.
             Šéf hlasuje poslední, aby nestrhl ostatní.</p>
-            <div class="log"><span class="p">$</span> /pm review → shortlist: B, C</div>
+            <div class="log" data-i="c3log"><span class="p">$</span> /pm review → shortlist: B, C</div>
           </div>
         </div>
 
@@ -723,11 +731,11 @@
             </g></svg>
           </div>
           <div class="tl-card reveal-r">
-            <h3>Feedback <span class="chip">bez schůzky</span></h3>
-            <p>Každý, kdo do toho má co mluvit, dostane jen odkaz.
+            <h3><span data-i="c4h">Feedback</span> <span class="chip" data-i="chipasync">bez schůzky</span></h3>
+            <p data-i="c4p">Každý, kdo do toho má co mluvit, dostane jen odkaz.
             Kliká ve svém prohlížeči, kdy se mu to hodí, hodnotí ve formuláři.
             Vývojář podle toho varianty dolaďuje.</p>
-            <div class="log"><span class="p">$</span> /pm feedback → 14 hodnocení · 0 blokací</div>
+            <div class="log" data-i="c4log"><span class="p">$</span> /pm feedback → 14 hodnocení · 0 blokací</div>
           </div>
         </div>
 
@@ -744,11 +752,11 @@
           </div>
           <div class="tl-card reveal-r">
             <span class="stamp" aria-hidden="true">GO</span>
-            <h3>Rozhodnutí <span class="chip go">schůzka · 60 min</span></h3>
-            <p>Vyřeší se sporné body a padne rozhodnutí: pokračovat, upravit,
+            <h3><span data-i="c5h">Rozhodnutí</span> <span class="chip go" data-i="chipm60">schůzka · 60 min</span></h3>
+            <p data-i="c5p">Vyřeší se sporné body a padne rozhodnutí: pokračovat, upravit,
             nebo zastavit. Každé rozhodnutí má jméno a důvod v decision logu.
             Za půl roku dohledáte, kdo co rozhodl a proč.</p>
-            <div class="log"><span class="p">$</span> /pm decide → <span class="ok">GO: varianta B</span></div>
+            <div class="log" data-i="c5log"><span class="p">$</span> /pm decide → <span class="ok">GO: varianta B</span></div>
           </div>
         </div>
 
@@ -769,11 +777,11 @@
             </g></svg>
           </div>
           <div class="tl-card reveal-r">
-            <h3>Nasazení <span class="chip">vývojáři · 1–2 dny</span></h3>
-            <p>Vítězný kód projde kontrolami kvality (testy, bezpečnost,
+            <h3><span data-i="c6h">Nasazení</span> <span class="chip" data-i="chipdev">vývojáři · 1–2 dny</span></h3>
+            <p data-i="c6p">Vítězný kód projde kontrolami kvality (testy, bezpečnost,
             přístupnost, build) a tíž lidé, co byli u toho, ho nasadí do
             produkce s monitoringem. Nic se nestaví znovu.</p>
-            <div class="log"><span class="p">$</span> /pm ship → kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
+            <div class="log" data-i="c6log"><span class="p">$</span> /pm ship → kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
           </div>
         </div>
       </div>
@@ -786,7 +794,7 @@
       </aside>
       </div>
 
-      <p class="tl-sum reveal">Schůzky dohromady: <span class="hl">60 + 90 + 60 minut</span>.
+      <p class="tl-sum reveal" data-i="tlsum">Schůzky dohromady: <span class="hl">60 + 90 + 60 minut</span>.
       Běžný projekt spolkne víc už jen na úvodním kolečku.</p>
     </div>
   </section>
@@ -795,10 +803,10 @@
   <section style="padding-top:0">
     <div class="wrap">
       <div class="numbers reveal" role="list">
-        <div role="listitem"><div class="n"><span class="cnt" data-n="14">0</span> <em>dní</em></div><div class="l">od nápadu k produkci</div></div>
-        <div role="listitem"><div class="n"><span class="cnt" data-n="4">0</span> <em>hod</em></div><div class="l">schůzek na osobu, celkem</div></div>
-        <div role="listitem"><div class="n"><span class="cnt" data-n="3">0</span> <em>varianty</em></div><div class="l">k výběru, ne jeden návrh</div></div>
-        <div role="listitem"><div class="n"><span class="cnt" data-n="0">0</span> <em>×</em></div><div class="l">přepisování podle zadání</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="14">0</span> <em data-i="n1u">dní</em></div><div class="l" data-i="n1l">od nápadu k produkci</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="4">0</span> <em data-i="n2u">hod</em></div><div class="l" data-i="n2l">schůzek na osobu, celkem</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="3">0</span> <em data-i="n3u">varianty</em></div><div class="l" data-i="n3l">k výběru, ne jeden návrh</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="0">0</span> <em data-i="n4u">×</em></div><div class="l" data-i="n4l">přepisování podle zadání</div></div>
       </div>
     </div>
   </section>
@@ -806,9 +814,9 @@
   <!-- ════ CLAIM ════ -->
   <div class="claim">
     <div class="wrap">
-      <p class="reveal">Zadání je nejdražší dokument ve firmě. Platíte ho <em>dvakrát</em>:
+      <p class="reveal" data-i="claim">Zadání je nejdražší dokument ve firmě. Platíte ho <em>dvakrát</em>:
       jednou když se píše, podruhé když se podle něj postaví <em>něco jiného.</em></p>
-      <p class="sub reveal">Výzkum: hotová implementace se od specifikace liší
+      <p class="sub reveal" data-i="claimsub">Výzkum: hotová implementace se od specifikace liší
       o <b>9,8 až 42 %</b> (Yan et al. 2025). Každé předání mezi týmy stojí
       <b>8 % propustnosti</b> (DORA 2024). Pflanzer obě ztráty škrtá: kód, který
       tým odsouhlasil, je kód, který se nasadí.</p>
@@ -818,55 +826,55 @@
   <!-- ════ 04 · SROVNÁNÍ ════ -->
   <section id="srovnani">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">04</span><h2>Specka vs. Pflanzer</h2></div>
-      <p class="sec-lede reveal">Stejný nápad, dva procesy. Vlevo, jak to chodí dnes.
+      <div class="sec-head reveal"><span class="no">04</span><h2 data-i="s4h">Specka vs. Pflanzer</h2></div>
+      <p class="sec-lede reveal" data-i="s4l">Stejný nápad, dva procesy. Vlevo, jak to chodí dnes.
       Vpravo, jak to běží s Pflanzer Method.</p>
 
       <div class="tear" aria-hidden="true">
         <div class="tear-paper">
-          <div class="behind"><span class="hl">✓ Produkt.</span></div>
+          <div class="behind"><span class="hl" data-i="tearbehind">✓ Produkt.</span></div>
           <div class="half left">
-            <span class="fn">SPECKA_v7_final_final2.pdf</span>
-            <span class="meta">40 stran · 6 týdnů · 3 kola připomínek</span>
+            <span class="fn" data-i="tearfn">SPECKA_v7_final_final2.pdf</span>
+            <span class="meta" data-i="tearmeta">40 stran · 6 týdnů · 3 kola připomínek</span>
           </div>
           <div class="half right">
-            <span class="fn">SPECKA_v7_final_final2.pdf</span>
-            <span class="meta">40 stran · 6 týdnů · 3 kola připomínek</span>
+            <span class="fn" data-i="tearfn">SPECKA_v7_final_final2.pdf</span>
+            <span class="meta" data-i="tearmeta">40 stran · 6 týdnů · 3 kola připomínek</span>
           </div>
         </div>
       </div>
 
       <div class="vs-table">
         <div class="vs-row head reveal">
-          <div>Vývoj podle specky</div>
-          <div>Pflanzer Method</div>
+          <div data-i="vshl">Vývoj podle specky</div>
+          <div data-i="vshr">Pflanzer Method</div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Týdny psaní zadání, kola připomínek</div>
-          <div class="reveal-r"><span class="ok2">→</span>Charter: <span class="hl">1 stránka, 60 minut</span></div>
+          <div class="reveal-l" data-i="v1l"><span class="x">✕</span>Týdny psaní zadání, kola připomínek</div>
+          <div class="reveal-r" data-i="v1r"><span class="ok2">→</span>Charter: <span class="hl">1 stránka, 60 minut</span></div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Stakeholdeři komentují dokument a obrázky</div>
-          <div class="reveal-r"><span class="ok2">→</span>Stakeholdeři klikají na <span class="hl">běžící produkt</span></div>
+          <div class="reveal-l" data-i="v2l"><span class="x">✕</span>Stakeholdeři komentují dokument a obrázky</div>
+          <div class="reveal-r" data-i="v2r"><span class="ok2">→</span>Stakeholdeři klikají na <span class="hl">běžící produkt</span></div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Předání: vývoj dostane spec a staví znovu</div>
-          <div class="reveal-r"><span class="ok2">→</span>Vývojář u toho od minuty 0, <span class="hl">nic se nepředává</span></div>
+          <div class="reveal-l" data-i="v3l"><span class="x">✕</span>Předání: vývoj dostane spec a staví znovu</div>
+          <div class="reveal-r" data-i="v3r"><span class="ok2">→</span>Vývojář u toho od minuty 0, <span class="hl">nic se nepředává</span></div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Výsledek se od zadání liší o 9,8 až 42 %</div>
-          <div class="reveal-r"><span class="ok2">→</span>Kód ze sezení <span class="hl">= kód v produkci</span></div>
+          <div class="reveal-l" data-i="v4l"><span class="x">✕</span>Výsledek se od zadání liší o 9,8 až 42 %</div>
+          <div class="reveal-r" data-i="v4r"><span class="ok2">→</span>Kód ze sezení <span class="hl">= kód v produkci</span></div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Rozhoduje nejlépe placený názor v místnosti</div>
-          <div class="reveal-r"><span class="ok2">→</span>Tiché hlasování, šéf hlasuje <span class="hl">poslední</span></div>
+          <div class="reveal-l" data-i="v5l"><span class="x">✕</span>Rozhoduje nejlépe placený názor v místnosti</div>
+          <div class="reveal-r" data-i="v5r"><span class="ok2">→</span>Tiché hlasování, šéf hlasuje <span class="hl">poslední</span></div>
         </div>
         <div class="vs-row">
-          <div class="reveal-l"><span class="x">✕</span>Měsíce do první verze, kterou někdo vidí</div>
-          <div class="reveal-r"><span class="ok2">→</span><span class="hl">14 dní</span> do produkce</div>
+          <div class="reveal-l" data-i="v6l"><span class="x">✕</span>Měsíce do první verze, kterou někdo vidí</div>
+          <div class="reveal-r" data-i="v6r"><span class="ok2">→</span><span class="hl">14 dní</span> do produkce</div>
         </div>
       </div>
-      <p class="vs-src reveal">Zdroje: rozdíl spec vs. implementace 9,8 až 42,1 %: Yan et al. 2025 ·
+      <p class="vs-src reveal" data-i="vssrc">Zdroje: rozdíl spec vs. implementace 9,8 až 42,1 %: Yan et al. 2025 ·
       předání = ztráta 8 % propustnosti: DORA 2024.</p>
     </div>
   </section>
@@ -874,31 +882,31 @@
   <!-- ════ 05 · ZDARMA + PRO FIRMY ════ -->
   <section id="zdarma" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">05</span><h2>K dispozici zdarma</h2></div>
-      <p class="sec-lede reveal">Celá metodika je open source (MIT): dokumentace,
+      <div class="sec-head reveal"><span class="no">05</span><h2 data-i="s5h">K dispozici zdarma</h2></div>
+      <p class="sec-lede reveal" data-i="s5l">Celá metodika je open source (MIT): dokumentace,
       šablony, příkazy. Žádná registrace, žádný trial. <b>Dobrý proces má dávat
       smysl, jinak ho nikdo nepoužije.</b></p>
       <div class="free-grid">
         <div class="free reveal-l">
-          <h3>Přídavek do Claude Code</h3>
-          <p>Nainstalujete na jeden řádek a metoda vás provede sama,
+          <h3 data-i="freeh">Přídavek do Claude Code</h3>
+          <p data-i="freep1">Nainstalujete na jeden řádek a metoda vás provede sama,
           od Charteru po nasazení:</p>
-          <div class="install"><span class="c"># instalace (jednou)</span>
+          <div class="install" data-i="inst"><span class="c"># instalace (jednou)</span>
 <span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
 
 <span class="c"># a v Claude Code už jen</span>
 <span class="p">$</span> /pm start</div>
-          <p><b>/pm</b> pozná, kde v cyklu jste, a sám nabídne další krok.</p>
+          <p data-i="freep2"><b>/pm</b> pozná, kde v cyklu jste, a sám nabídne další krok.</p>
         </div>
         <div class="firm reveal-r">
-          <h3>Pro firmy</h3>
-          <p>Chcete metodu zavést bez pokusů a omylů? Pomůžeme:</p>
+          <h3 data-i="firmh">Pro firmy</h3>
+          <p data-i="firmp">Chcete metodu zavést bez pokusů a omylů? Pomůžeme:</p>
           <ul>
-            <li>školení týmu (facilitátor, builder, stakeholdeři)</li>
-            <li>první cyklus vedený autorem metody, na vašem problému</li>
-            <li>zavedení do firemních procesů a governance</li>
+            <li data-i="fli1">školení týmu (facilitátor, builder, stakeholdeři)</li>
+            <li data-i="fli2">první cyklus vedený autorem metody, na vašem problému</li>
+            <li data-i="fli3">zavedení do firemních procesů a governance</li>
           </ul>
-          <p class="btn-sm"><a href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pro%20firmu">Ozvěte se →</a></p>
+          <p class="btn-sm"><a href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pro%20firmu" data-i="firmbtn">Ozvěte se →</a></p>
         </div>
       </div>
     </div>
@@ -907,29 +915,29 @@
   <!-- ════ FAQ ════ -->
   <section style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head reveal"><span class="no">06</span><h2>Na co se ptáte</h2></div>
+      <div class="sec-head reveal"><span class="no">06</span><h2 data-i="s6h">Na co se ptáte</h2></div>
       <div class="faq">
         <div class="reveal">
-          <h3>My už víme, co chceme postavit.</h3>
-          <p>Dobře, vaše představa bude varianta A. Postavit ji stojí s AI hodiny,
+          <h3 data-i="q1h">My už víme, co chceme postavit.</h3>
+          <p data-i="q1p">Dobře, vaše představa bude varianta A. Postavit ji stojí s AI hodiny,
           ne sprinty, takže B a C přihodíme jako levné vyzývatele. Buď potvrdí,
           že A je správně, nebo vás zachrání před drahou předělávkou.</p>
         </div>
         <div class="reveal" style="transition-delay:0.1s">
-          <h3>Co bezpečnost a kvalita AI kódu?</h3>
-          <p>Do produkce nejde nic bez kontrol: testy, typy, lint, bezpečnostní
+          <h3 data-i="q2h">Co bezpečnost a kvalita AI kódu?</h3>
+          <p data-i="q2p">Do produkce nejde nic bez kontrol: testy, typy, lint, bezpečnostní
           skeny, přístupnost, build. Skóre aspoň 80 ze 100 je podmínka nasazení,
           ne doporučení.</p>
         </div>
         <div class="reveal" style="transition-delay:0.2s">
-          <h3>Kolik lidí to reálně stojí?</h3>
-          <p>Asi 6 lidí, každý kolem 4 hodin schůzek. K tomu vývojář zhruba
+          <h3 data-i="q3h">Kolik lidí to reálně stojí?</h3>
+          <p data-i="q3p">Asi 6 lidí, každý kolem 4 hodin schůzek. K tomu vývojář zhruba
           3 dny stavění. Celkem kolem 10 člověkodní na celý cyklus. Méně,
           než kolik běžně spolkne samotné sepsání a vypořádání zadání.</p>
         </div>
         <div class="reveal" style="transition-delay:0.3s">
-          <h3>A když to jiný tým nepřevezme?</h3>
-          <p>Není co předávat. Vývojář z přebírajícího týmu je členem od první
+          <h3 data-i="q4h">A když to jiný tým nepřevezme?</h3>
+          <p data-i="q4p">Není co předávat. Vývojář z přebírajícího týmu je členem od první
           minuty. Dokumentace (API spec, testy, decision log) se generuje
           z kódu, ne naopak.</p>
         </div>
@@ -940,11 +948,11 @@
   <!-- ════ CTA ════ -->
   <section class="cta" style="padding-top:0">
     <div class="wrap">
-      <p class="big reveal">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
+      <p class="big reveal" data-i="ctabig">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
       <div class="reveal">
-        <a class="btn" href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pilot%20call">Domluvit pilot →</a>
+        <a class="btn" href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pilot%20call" data-i="ctabtn">Domluvit pilot →</a>
       </div>
-      <p class="alt reveal">Nebo rovnou sami: metodika je k dispozici zdarma jako
+      <p class="alt reveal" data-i="ctaalt">Nebo rovnou sami: metodika je k dispozici zdarma jako
       přídavek do Claude Code. Instalace na jeden řádek, pak <code>/pm start</code>.</p>
     </div>
   </section>
@@ -962,9 +970,10 @@
 
 <div class="frame frame-bottom">
   <span>↳ Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
-  <span>Manuál · ne manifesto</span>
+  <span data-i="fbr">Manuál · ne manifesto</span>
 </div>
 
+<script src="bold-hybrid.i18n.js"></script>
 <script>
 (function () {
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1093,14 +1102,9 @@
   if (!holder || !tl) return;
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var anim = null, total = 0, ready = false;
-  var LABELS = [
-    'Den 0 · semínko',
-    'Den 1–4 · AI staví',
-    'Den 5 · steering',
-    'Den 6–9 · feedback',
-    'Den 10 · rozhodnutí',
-    'Den 11–14 · v produkci'
-  ];
+  var FALLBACK = ['Den 0 · semínko', 'Den 1–4 · AI staví', 'Den 5 · steering',
+    'Den 6–9 · feedback', 'Den 10 · rozhodnutí', 'Den 11–14 · v produkci'];
+  function LBL() { return window.__plantLabels || FALLBACK; }
 
   /* stejný průběh jako zelená linka osy: 0 na začátku dnů, 1 na konci */
   function progress() {
@@ -1113,7 +1117,8 @@
     if (!ready) return;
     var p = progress();
     anim.goToAndStop(Math.round(p * (total - 1)), true);
-    cap.textContent = LABELS[Math.min(LABELS.length - 1, Math.floor(p * LABELS.length))];
+    var L = LBL();
+    cap.textContent = L[Math.min(L.length - 1, Math.floor(p * L.length))];
   }
 
   function init() {
@@ -1126,7 +1131,7 @@
       total = anim.totalFrames; ready = true;
       if (reduced) {
         anim.goToAndStop(total - 1, true);
-        cap.textContent = LABELS[LABELS.length - 1];
+        cap.textContent = LBL()[LBL().length - 1];
         return;
       }
       update();
@@ -1134,6 +1139,7 @@
       window.addEventListener('resize', update);
     });
   }
+  window.__plantUpdate = update;
   window.addEventListener('load', init);
 })();
 </script>
