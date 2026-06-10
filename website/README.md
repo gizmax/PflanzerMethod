@@ -97,6 +97,19 @@ curl -T website/index.html --user "claude.gizmax.cz:***REDACTED***" \
 - 1 inline SVG (~7 KB), žádné externí obrázky
 - Zero JS framework
 
+## Lottie animace (bold-hybrid)
+
+`bold-hybrid.html` má v CTA sekci animaci růstu rostliny
+(`plant-lottie.json`, ~9 kB, generováno skillem `text-to-lottie`
+z `diffusionstudio/lottie`, instalován v `.agents/skills/`).
+
+- Přehrávač: `lottie_light.min.js` z cdnjs (~150 kB, lazy: SVG renderer)
+- Spouští se přes IntersectionObserver, hraje jednou, drží poslední frame
+- `prefers-reduced-motion`: skočí rovnou na rozkvetlý poslední frame
+- Když CDN nejede, sekce zůstane bez animace, nic se nerozbije
+- Regenerace: viz `.agents/skills/text-to-lottie/SKILL.md`, JSON se dá
+  upravit i ručně (vrstvy: ground, seed, stem, 4× leaf, 5× petal, center)
+
 ## Accessibility
 
 - Semantic HTML (`header`, `section`, `footer`, `h1`–`h3`)
