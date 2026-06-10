@@ -30,6 +30,7 @@ CS-only.
 | `bold-poster.html` | **Signal Poster** — švýcarský typografický plakát; papír + ink + signální červená; Archivo Black + Space Mono | Obří „SPECKA." přeškrtnutá animovaným červeným tahem fixy → „PRODUKT." |
 | `bold-duel.html` | **Duel** — celá stránka je split-screen souboj: šedý svět specky vlevo, Pflanzer noc + chartreuse vpravo; Syne + IBM Plex Mono | Sticky „VS" šev uprostřed; 270 dní vs. 14 dní v hero |
 | `bold-terminal.html` | **Session** — pitch jako terminálový přepis `/pm` session; fosforová zelená, CRT scanlines; JetBrains Mono | Hero terminál „odehraje" celých 14 dní; srovnání jako `git diff` (− specka / + pflanzer) |
+| `bold-hybrid.html` | **Poster × Session** (favorit) — plakátový vizuál A + terminálové prvky z C; scroll-reveal animace, count-up čísla, kreslící se timeline, FAQ | Timeline 14 dní = rostoucí rostlina (semínko → květ, Pflanzer = pěstitel); hero terminál + přeškrtnutá SPECKA |
 
 ## Sekce
 
