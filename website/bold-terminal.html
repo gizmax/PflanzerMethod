@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method — /pm start</title>
+<meta name="description" content="Pflanzer Method | pflanzer.cz/method — celá metoda je jeden příkaz. /pm start → kód v produkci za 14 dní. Srovnání se spec-driven vývojem jako git diff." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0A0F0A;
+    --panel: #0E150E;
+    --phosphor: #B8F53C;     /* zelený fosfor, brand-adjacent */
+    --phosphor-dim: #B8F53C99;
+    --amber: #FFB347;
+    --red: #FF5C57;
+    --text: #D8E6C8;
+    --faint: #D8E6C84D;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--mono); font-size: 15.5px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--phosphor); color: var(--bg); }
+  a { color: var(--phosphor); }
+  a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+  /* CRT: jemný scanline + vignette, žádný kýč */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    background: repeating-linear-gradient(0deg, transparent 0 2px, #00000026 2px 4px);
+    opacity: 0.35;
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 101;
+    background: radial-gradient(ellipse at center, transparent 58%, #000000B3 130%);
+  }
+
+  .frame {
+    position: fixed; left: 0; right: 0; z-index: 110;
+    display: flex; justify-content: space-between;
+    padding: 0.5rem 1.2rem; font-size: 0.7rem; letter-spacing: 0.1em;
+    text-transform: uppercase; background: var(--bg);
+    border-bottom: 1px solid #B8F53C33; color: var(--phosphor-dim);
+  }
+  .frame-top { top: 0; }
+  .frame-bottom { bottom: 0; top: auto; border-bottom: 0; border-top: 1px solid #B8F53C33; }
+
+  main { max-width: 880px; margin: 0 auto; padding: 5.5rem 1.4rem 6rem; }
+
+  /* ── Hero: prompt ── */
+  .hero { padding: 8vh 0 3rem; }
+  .hero .title {
+    font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em;
+    font-size: clamp(2rem, 7vw, 4.4rem); line-height: 1.02; color: var(--phosphor);
+    text-shadow: 0 0 18px #B8F53C40;
+  }
+  .hero .title .ghost { color: var(--faint); text-shadow: none; }
+  .hero .sub { margin-top: 1.4rem; max-width: 36rem; color: var(--text); }
+  .hero .sub b { color: var(--phosphor); font-weight: 700; }
+
+  /* ── Terminal window ── */
+  .term {
+    margin-top: 2.6rem; background: var(--panel);
+    border: 1px solid #B8F53C40; border-radius: 8px;
+    box-shadow: 0 0 40px #B8F53C14, inset 0 0 60px #00000066;
+    overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.6rem 0.9rem; border-bottom: 1px solid #B8F53C26;
+    font-size: 0.72rem; color: var(--faint);
+  }
+  .term-bar .led { width: 10px; height: 10px; border-radius: 50%; background: #B8F53C59; }
+  .term-bar .led:first-child { background: var(--red); opacity: 0.6; }
+  .term-bar .led:nth-child(2) { background: var(--amber); opacity: 0.6; }
+  .term-bar span:last-child { margin-left: auto; }
+  .term-body { padding: 1.3rem 1.4rem 1.6rem; font-size: 0.88rem; }
+  .line { white-space: pre-wrap; min-height: 1.65em; }
+  .line .p { color: var(--phosphor); font-weight: 700; }
+  .line .cmd { color: var(--text); font-weight: 700; }
+  .line .ok { color: var(--phosphor); }
+  .line .day { color: var(--amber); font-weight: 700; }
+  .line .dim { color: var(--faint); }
+  .caret {
+    display: inline-block; width: 0.55em; height: 1.1em;
+    background: var(--phosphor); vertical-align: text-bottom;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  /* typing reveal: JS přidá .is-typed postupně; bez JS je vidět vše */
+  .js .line { visibility: hidden; }
+  .js .line.is-typed { visibility: visible; }
+
+  /* ── Sections ── */
+  section { padding: 3.6rem 0 0; }
+  .sec-label {
+    color: var(--phosphor-dim); font-size: 0.74rem; letter-spacing: 0.2em;
+    text-transform: uppercase; margin-bottom: 1.1rem;
+  }
+  .sec-label::before { content: "## "; color: var(--faint); }
+  h2 {
+    font-weight: 800; text-transform: uppercase; color: var(--text);
+    font-size: clamp(1.3rem, 3.4vw, 2rem); line-height: 1.15; margin-bottom: 1.4rem;
+  }
+  h2 em { font-style: normal; color: var(--phosphor); }
+
+  /* ── man page (jak to běží) ── */
+  .man { border-left: 2px solid #B8F53C40; padding-left: 1.3rem; }
+  .man dl { display: grid; grid-template-columns: 9.5rem 1fr; row-gap: 0.85rem; column-gap: 1.2rem; font-size: 0.9rem; }
+  .man dt { color: var(--amber); font-weight: 700; }
+  .man dd b { color: var(--phosphor); font-weight: 700; }
+  .man .total { margin-top: 1.4rem; font-size: 0.85rem; color: var(--faint); }
+  .man .total b { color: var(--phosphor); }
+
+  /* ── diff (srovnání) ── */
+  .diff {
+    background: var(--panel); border: 1px solid #B8F53C40; border-radius: 8px;
+    padding: 1.2rem 0; font-size: 0.88rem; overflow-x: auto;
+  }
+  .diff .h { padding: 0 1.3rem 0.8rem; color: var(--faint); border-bottom: 1px solid #B8F53C1F; margin-bottom: 0.8rem; }
+  .diff .row { padding: 0.18rem 1.3rem; white-space: pre-wrap; }
+  .diff .del { background: #FF5C5712; color: var(--red); }
+  .diff .del::before { content: "- "; }
+  .diff .add { background: #B8F53C12; color: var(--phosphor); }
+  .diff .add::before { content: "+ "; }
+  .diff .ctx { color: var(--faint); }
+  .diff .ctx::before { content: "  "; }
+  .diff-src { margin-top: 0.8rem; font-size: 0.72rem; color: var(--faint); }
+
+  /* ── výstupní log (čísla) ── */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .stat {
+    border: 1px solid #B8F53C33; border-radius: 8px; padding: 1.2rem 1.1rem;
+    background: var(--panel);
+  }
+  .stat .v { font-size: clamp(1.8rem, 4.5vw, 2.8rem); font-weight: 800; color: var(--phosphor); line-height: 1.05; }
+  .stat .k { margin-top: 0.4rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+
+  /* ── CTA ── */
+  .cta { padding-top: 4rem; }
+  .cta .prompt-line {
+    font-size: clamp(1rem, 2.6vw, 1.35rem); font-weight: 700; margin-bottom: 1.8rem;
+  }
+  .cta .prompt-line .p { color: var(--phosphor); }
+  .btn {
+    display: inline-block; text-decoration: none;
+    font-family: var(--mono); font-weight: 800; font-size: 0.95rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bg); background: var(--phosphor);
+    padding: 1rem 1.9rem; border-radius: 4px;
+    box-shadow: 0 0 28px #B8F53C4D;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .btn:hover { box-shadow: 0 0 44px #B8F53C80; transform: translateY(-2px); }
+  .cta .alt { margin-top: 1.2rem; font-size: 0.8rem; color: var(--faint); }
+  .cta .alt code { color: var(--amber); }
+
+  footer { margin-top: 4.5rem; padding-top: 1.4rem; border-top: 1px solid #B8F53C26;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem;
+    font-size: 0.74rem; color: var(--faint); }
+  footer b { color: var(--phosphor-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .caret { animation: none; }
+    .js .line { visibility: visible; }
+    .btn:hover { transform: none; }
+  }
+  @media (max-width: 700px) {
+    .stats { grid-template-columns: 1fr; }
+    .man dl { grid-template-columns: 1fr; row-gap: 0.2rem; }
+    .man dd { margin-bottom: 0.7rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame frame-top">
+  <span>Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <span>tty1&nbsp;·&nbsp;Bold&nbsp;C&nbsp;—&nbsp;Session</span>
+</div>
+
+<main>
+  <!-- ── HERO ── -->
+  <header class="hero">
+    <h1 class="title">Celá metoda<br />je jeden <span class="ghost">příkaz.</span></h1>
+    <p class="sub">Pflanzer Method: <b>6 lidí, 2 sezení, kód v produkci za 14 dní.</b>
+    Žádné zadání, žádný handoff, žádná re-implementace. Vývojář a AI staví,
+    tým rozhoduje nad běžícím produktem.</p>
+
+    <div class="term" id="term">
+      <div class="term-bar" aria-hidden="true">
+        <span class="led"></span><span class="led"></span><span class="led"></span>
+        <span>pflanzer — /pm session — 80×24</span>
+      </div>
+      <div class="term-body" aria-label="Ukázkový průběh Pflanzer Method jako terminálová session">
+<div class="line"><span class="p">tým@firma:~$</span> <span class="cmd">/pm start "onboarding B2B zákazníků trvá 3 týdny"</span></div>
+<div class="line"><span class="day">[den 0]</span>  charter sepsán <span class="dim">(1 stránka, 60 min — problém, pro koho, metrika úspěchu)</span></div>
+<div class="line"><span class="day">[den 1–4]</span> AI staví 3 běžící varianty… <span class="ok">✓ A</span> <span class="ok">✓ B</span> <span class="ok">✓ C</span> <span class="dim">→ sandbox URL</span></div>
+<div class="line"><span class="day">[den 5]</span>  steering 90 min — tým kliká, AI mění naživo · tiché hlasování <span class="dim">(šéf poslední)</span></div>
+<div class="line"><span class="day">[den 6–9]</span> async feedback stakeholderů <span class="dim">(z prohlížeče, žádná schůzka)</span></div>
+<div class="line"><span class="day">[den 10]</span> rozhodnutí 60 min → <span class="ok">GO: varianta B</span></div>
+<div class="line"><span class="day">[den 11–14]</span> quality gates <span class="ok">86/100 ✓</span> → <span class="ok">deploy to production ✓</span></div>
+<div class="line"><span class="p">tým@firma:~$</span> <span class="dim">celkem schůzek: 4 h/os · re-implementací: 0</span> <span class="caret" aria-hidden="true"></span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAN PAGE ── -->
+  <section>
+    <p class="sec-label">man pflanzer</p>
+    <h2>Co se kdy děje <em>a proč to funguje</em></h2>
+    <div class="man">
+      <dl>
+        <dt>DEN 0</dt>
+        <dd>Charter — jediný „dokument" celé metody. Definuje <b>problém</b>, ne řešení.
+        Řešení se nevymýšlí na papíře; postaví se.</dd>
+        <dt>DEN 1–4</dt>
+        <dd>Builder (vývojář, <b>v týmu od minuty 0</b>) s AI postaví 3 varianty.
+        Stojí to hodiny, ne sprinty — proto si můžete dovolit vybírat z alternativ.</dd>
+        <dt>DEN 5</dt>
+        <dd>Steering: tým směruje běžící software, ne wireframy. „Přestavět s X" trvá
+        minuty. Hlasuje se tiše, <b>Decider poslední</b> — anti-HiPPO.</dd>
+        <dt>DEN 6–9</dt>
+        <dd>Feedback async: každý stakeholder kliká ve svém prohlížeči, kdy se mu to hodí.</dd>
+        <dt>DEN 10</dt>
+        <dd>Go / Iterate / Kill. Rozhodnutí má jméno a důvod v decision logu.</dd>
+        <dt>DEN 11–14</dt>
+        <dd>Vítězný kód projde gates (lint, testy, security, a11y) a <b>jde do produkce</b>.
+        Tentýž kód. Kód je specka.</dd>
+      </dl>
+      <p class="total">→ synchronní čas na osobu: <b>~4 hodiny</b>. Zbytek běží async nebo to dělá AI.</p>
+    </div>
+  </section>
+
+  <!-- ── DIFF ── -->
+  <section>
+    <p class="sec-label">git diff — proces vývoje</p>
+    <h2>diff: specka <em>→</em> pflanzer</h2>
+    <div class="diff" role="figure" aria-label="Srovnání spec-driven vývoje a Pflanzer Method ve formátu git diff">
+      <div class="h">--- a/firma/proces/spec-driven.md<br />+++ b/firma/proces/pflanzer.md</div>
+      <div class="row ctx">@@ jak vzniká software @@</div>
+      <div class="row del">zadání: 40 stran, 6 týdnů psaní, 3 kola připomínek</div>
+      <div class="row add">charter: 1 stránka, 60 minut — jen problém a metrika</div>
+      <div class="row del">handoff: vývoj dostane spec a frontu na kapacitu</div>
+      <div class="row add">vývojář v týmu od minuty 0 — handoff neexistuje</div>
+      <div class="row del">feedback: komentáře k dokumentu a wireframům</div>
+      <div class="row add">feedback: klikání na 3 běžící varianty v prohlížeči</div>
+      <div class="row del">rozhoduje: nejlépe placený názor v místnosti (HiPPO)</div>
+      <div class="row add">rozhoduje: tiché hlasování, šéf hlasuje poslední</div>
+      <div class="row del">implementace se od specky liší o 9,8–42 %</div>
+      <div class="row add">kód ze sezení == kód v produkci (0 re-implementací)</div>
+      <div class="row del">čas k produkci: měsíce až rok</div>
+      <div class="row add">čas k produkci: 14 dní</div>
+      <div class="row ctx">@@ konec diffu — 6 deletions, 6 additions @@</div>
+    </div>
+    <p class="diff-src">mismatch 9,8–42,1 %: Yan et al. 2025 · handoff = −8 % throughput: DORA 2024</p>
+  </section>
+
+  <!-- ── STATS ── -->
+  <section>
+    <p class="sec-label">exit status</p>
+    <h2>Co dostanete <em>na konci</em></h2>
+    <div class="stats">
+      <div class="stat"><div class="v">14 dní</div><div class="k">od nápadu k produkci</div></div>
+      <div class="stat"><div class="v">4 h</div><div class="k">schůzek na osobu, celkem</div></div>
+      <div class="stat"><div class="v">≥ 80/100</div><div class="k">quality gate score nasazeného kódu</div></div>
+    </div>
+  </section>
+
+  <!-- ── CTA ── -->
+  <section class="cta">
+    <p class="prompt-line"><span class="p">vy@vase-firma:~$</span> _</p>
+    <a class="btn" href="mailto:tom@gizmax.cz?subject=Pflanzer%20pilot%20call">Spustit pilot →</a>
+    <p class="alt">Open-source (MIT). Máte Claude Code? Stačí <code>/pm start</code> — metoda vás provede sama.</p>
+    <footer>
+      <span><b>Pflanzer Method</b> | pflanzer.cz/method</span>
+      <span>Tom Pflanzer · GiZMaX · Praha · <a href="mailto:tom@gizmax.cz">tom@gizmax.cz</a></span>
+      <span>v0.4 · MIT</span>
+    </footer>
+  </section>
+</main>
+
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <span>exit 0 · 14 dní</span>
+</div>
+
+<script>
+  // Postupné "odehrání" session v hero terminálu. Bez JS nebo s
+  // prefers-reduced-motion je celý transcript viditelný okamžitě.
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.body.classList.add('js');
+    var lines = document.querySelectorAll('#term .line');
+    var i = 0;
+    function next() {
+      if (i >= lines.length) return;
+      lines[i].classList.add('is-typed');
+      i++;
+      setTimeout(next, i === 1 ? 900 : 650);
+    }
+    setTimeout(next, 400);
+  })();
+</script>
+
+</body>
+</html>
