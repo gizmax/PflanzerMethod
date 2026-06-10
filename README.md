@@ -1,4 +1,6 @@
-# Pflanzerova metoda
+# Pflanzer Method
+
+**Pflanzer Method | [pflanzer.cz/method](https://pflanzer.cz/method)**
 
 > Univerzální corporate framework pro zrychlení agentního vývoje od nápadu po
 > produkční deploy — všechny zainteresované role (**včetně programátora od minuty 0**)
@@ -26,20 +28,24 @@ rozhodne, kód projde production gates, ven jde **PR připravený k mergi**.
 
 ## Quick start (3 sezení = ship to production)
 
+**Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu pozná,
+kde v cyklu projekt je, a nabídne další krok. (Dlouhé `/pflanzer-*` commandy
+žijí dál jako implementace pod kapotou.)
+
 ```
 Session 1: Explore (in-room, 60-90 min)
-  /pflanzer "chceme zlepšit onboarding"
+  /pm live "chceme zlepšit onboarding"
   → 2-3 paralelně postavené varianty v Bolt/v0/Lovable
   → silent voting + Decider's shortlist
   → 1-page handoff MD
 
 Session 2: Decide (3 h)
-  /pflanzer-feedback-pull <slug>     # async feedback od stakeholderů
-  /pflanzer-session-2 <slug>         # Decider's Go/Iterate/Kill
+  /pm feedback <slug>     # async feedback od stakeholderů
+  /pm decide <slug>       # Decider's Go/Iterate/Kill
 
 Session 3: Ship (1-2 h)
-  /pflanzer-session-3 <slug>         # extract → 7 quality gates → score 0-100
-  /pflanzer-handoff <slug>           # PR-ready package s odkazy na soubory
+  /pm ship <slug>         # extract → 7 quality gates → score 0-100
+  /pm handoff <slug>      # PR-ready package s odkazy na soubory
 ```
 
 **Po session 3 dostane tým**:
@@ -114,13 +120,13 @@ V opt-in módu dostane shortlist mix: `claude-code + codex-cli + v0`
 Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
 
 ```
-/pflanzer-charter <slug>     # Plný Charter wizard (XYZ, kapacita, Decider mandate, …)
-/pflanzer-roles <slug>       # Decision tree pro 18 rolí
-/pflanzer-triage <slug>      # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
-/pflanzer-session-1 <slug>   # Session 1 orchestrator (5–6 h)
+/pm start <slug>      # Plný Charter wizard (XYZ, kapacita, Decider mandate, …)
+/pm roles <slug>      # Decision tree pro 18 rolí
+/pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
+/pm build <slug>      # Session 1 orchestrator (5–6 h)
 # … mezi-session 5–7 dní (web hub) …
-/pflanzer-session-2 <slug>   # Session 2 (decisional, 3 h) — TBD Slice 7
-/pflanzer-handoff <slug>     # Handoff package (BE/FE/QA/Platform) — TBD Slice 8
+/pm decide <slug>     # Session 2 (decisional, 3 h)
+/pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
 ```
 
 ## Klíčový pilíř — role catalog
@@ -165,7 +171,7 @@ tool/
 └── web/                 # FastAPI backend + React frontend (Hybrid form-factor)
 
 .claude/
-├── commands/            # slash commands (/pflanzer, /pflanzer-charter, …)
+├── commands/            # slash commands (/pm router + /pflanzer-* implementace)
 └── agents/              # 23 sub-agentů (1 facilitator + 17 role experts + 5 triage)
 ```
 
@@ -199,7 +205,7 @@ Co se stane:
 **Pak commit oba soubory** a tým je ready. V Claude Code:
 
 ```
-/pflanzer "co dnes řešíme"
+/pm live "co dnes řešíme"
 ```
 
 ### Co vlastně tým stahuje?
