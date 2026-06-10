@@ -95,8 +95,8 @@
   }
   .sprout .st { stroke: var(--ink); stroke-width: 3.2; fill: none; stroke-linecap: round; }
   .sprout .lf { fill: var(--leaf); }
-  .sprout .pt { fill: var(--acid); stroke: var(--ink); stroke-width: 2; }
-  .sprout .ct { fill: var(--ink); }
+  .sprout .pt { fill: #FFFFFF; stroke: var(--ink); stroke-width: 2; }
+  .sprout .ct { fill: var(--acid); stroke: var(--ink); stroke-width: 2; }
   @keyframes sproutUp {
     0% { transform: translateX(-50%) scale(0); }
     70% { transform: translateX(-50%) scale(1.18); }
@@ -339,7 +339,7 @@
 
   /* ════ 04 · Srovnání ════ */
   /* specka se přetrhne, za ní se objeví Produkt */
-  .tear { display: flex; justify-content: center; margin-bottom: 2.4rem; }
+  .tear { display: flex; justify-content: center; margin-bottom: 2.4rem; position: relative; z-index: 0; }
   .tear-paper { position: relative; width: min(460px, 92%); height: 118px; }
   .tear .behind {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -358,11 +358,11 @@
   .tear .half .meta { font-size: 0.72rem; color: var(--grey); }
   .tear .half.left  { clip-path: polygon(0 0, 52% 0, 48% 12%, 53% 26%, 47% 40%, 52% 54%, 48% 68%, 53% 82%, 49% 92%, 51% 100%, 0 100%); }
   .tear .half.right { clip-path: polygon(52% 0, 100% 0, 100% 100%, 51% 100%, 49% 92%, 53% 82%, 48% 68%, 52% 54%, 47% 40%, 53% 26%, 48% 12%); }
-  .tear.in .half.left  { transform: translate(-38px, 16px) rotate(-7deg); opacity: 0.45; }
-  .tear.in .half.right { transform: translate(38px, 20px) rotate(8deg); opacity: 0.45; }
+  .tear.in .half.left  { transform: translate(-110px, 48px) rotate(-15deg); opacity: 0.3; }
+  .tear.in .half.right { transform: translate(110px, 56px) rotate(16deg); opacity: 0.3; }
   .tear.in .behind { opacity: 1; transform: scale(1); }
 
-  .vs-table { border: 2px solid var(--ink); }
+  .vs-table { border: 2px solid var(--ink); position: relative; z-index: 1; background: var(--paper); }
   .vs-row { display: grid; grid-template-columns: 1fr 1fr; }
   .vs-row + .vs-row { border-top: 2px solid var(--ink); }
   .vs-row > div { padding: 1.25rem 1.4rem; font-size: 0.92rem; }
@@ -447,8 +447,8 @@
   .meadow.in svg { transform: scale(1); }
   .meadow .m-st { stroke: var(--ink); stroke-width: 2.4; fill: none; stroke-linecap: round; }
   .meadow .m-gr { stroke: var(--leaf); stroke-width: 2.6; fill: none; stroke-linecap: round; }
-  .meadow .m-fl { fill: var(--acid); stroke: var(--ink); stroke-width: 1.8; }
-  .meadow .m-ct { fill: var(--ink); }
+  .meadow .m-pt { fill: #FFFFFF; stroke: var(--ink); stroke-width: 1.5; }
+  .meadow .m-ct { fill: var(--acid); stroke: var(--ink); stroke-width: 1.6; }
   .meadow .m-lf { fill: var(--leaf); }
 
   footer { border-top: 2px solid var(--ink); padding: 1.4rem 0 3.4rem; font-size: 0.78rem; }
@@ -979,8 +979,12 @@
         : '<path class="m-lf" d="M11 ' + ly + ' C11 ' + (ly - 8) + ' 18 ' + (ly - 10) + ' 21 ' + (ly - 9) + ' C20 ' + (ly - 3) + ' 15 ' + ly + ' 11 ' + ly + ' Z" />';
       return '<svg width="22" height="' + h + '" viewBox="0 0 22 ' + h + '">' +
         '<path class="m-st" d="M11 ' + h + ' V14" />' + leaf +
-        '<circle class="m-fl" cx="11" cy="10" r="7.5" />' +
-        '<circle class="m-ct" cx="11" cy="10" r="2.6" /></svg>';
+        '<ellipse class="m-pt" cx="11" cy="4.6" rx="2.7" ry="3.7" />' +
+        '<ellipse class="m-pt" cx="16.7" cy="8.8" rx="2.7" ry="3.7" transform="rotate(72 16.7 8.8)" />' +
+        '<ellipse class="m-pt" cx="14.6" cy="15.4" rx="2.7" ry="3.7" transform="rotate(144 14.6 15.4)" />' +
+        '<ellipse class="m-pt" cx="7.4" cy="15.4" rx="2.7" ry="3.7" transform="rotate(-144 7.4 15.4)" />' +
+        '<ellipse class="m-pt" cx="5.3" cy="8.8" rx="2.7" ry="3.7" transform="rotate(-72 5.3 8.8)" />' +
+        '<circle class="m-ct" cx="11" cy="10" r="3" /></svg>';
     };
     var GRASS = function (h) {
       return '<svg width="20" height="' + h + '" viewBox="0 0 20 ' + h + '">' +
