@@ -32,6 +32,11 @@ CS-only.
 | `bold-terminal.html` | **Session** — pitch jako terminálový přepis `/pm` session; fosforová zelená, CRT scanlines; JetBrains Mono | Hero terminál „odehraje" celých 14 dní; srovnání jako `git diff` (− specka / + pflanzer) |
 | `bold-hybrid.html` | **Poster × Session** (favorit) — plakátový vizuál A + terminálové prvky z C; scroll-reveal animace, count-up čísla, kreslící se timeline, FAQ | Timeline 14 dní = rostoucí rostlina (semínko → květ, Pflanzer = pěstitel); hero terminál + přeškrtnutá SPECKA |
 
+**i18n (bold-hybrid):** 7 jazyků — **EN (default)**, CS, DE, ES, FR, IT, PL.
+Slovník v `bold-hybrid.i18n.js` (klíče přes `data-i` atributy → innerHTML).
+Přepínač v horní liště, persistence v `localStorage`, override `?lang=de`.
+Nový jazyk = přidat objekt do `I18N` + kód do `LANGS`.
+
 ## Sekce
 
 - `00` — Manifesto (proč metoda vznikla, handoff hell)
