@@ -18,6 +18,19 @@ metoda vizualizovaná jako rostlina od semínka po květ.
 - **Palette:** bone paper (#F4EFE6) + ink (#1A2418) + moss (#2F4A2F) + punch chartreuse (#C7E84A)
 - **Texture:** subtle SVG paper grain overlay
 
+## Bold varianty (drafty k výběru)
+
+Tři alternativní bold směry — jednoduché na pochopení, výrazné v expresi,
+každá obsahuje srovnání se spec-driven vývojem. Všechny nesou brand lockup
+`Pflanzer Method | pflanzer.cz/method`, jsou self-contained (žádný build),
+CS-only.
+
+| Soubor | Směr | Anchor (co si zapamatuješ) |
+|--------|------|----------------------------|
+| `bold-poster.html` | **Signal Poster** — švýcarský typografický plakát; papír + ink + signální červená; Archivo Black + Space Mono | Obří „SPECKA." přeškrtnutá animovaným červeným tahem fixy → „PRODUKT." |
+| `bold-duel.html` | **Duel** — celá stránka je split-screen souboj: šedý svět specky vlevo, Pflanzer noc + chartreuse vpravo; Syne + IBM Plex Mono | Sticky „VS" šev uprostřed; 270 dní vs. 14 dní v hero |
+| `bold-terminal.html` | **Session** — pitch jako terminálový přepis `/pm` session; fosforová zelená, CRT scanlines; JetBrains Mono | Hero terminál „odehraje" celých 14 dní; srovnání jako `git diff` (− specka / + pflanzer) |
+
 ## Sekce
 
 - `00` — Manifesto (proč metoda vznikla, handoff hell)
