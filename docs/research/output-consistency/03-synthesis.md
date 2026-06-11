@@ -92,7 +92,7 @@ NE default. Default = evolve (kód jde do prod).
 User claim *„výstup je hotový produkt"* je **strong claim**, který:
 
 ✅ **Funguje pro:**
-- e-shop-style default pilots (eshop, internal tool, SaaS feature)
+- default pilots (běžný e-shop) (eshop, internal tool, SaaS feature)
 - 80 % use casů
 - Hero/CTA marketing
 - Persona B (VP Eng) magnet

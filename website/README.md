@@ -65,14 +65,15 @@ Nahraj na:
 - **Cloudflare Pages** — connect repo, root directory `website`
 - **FTP na claude.gizmax.cz** — viz globální CLAUDE.md upload command
 
-### FTP deploy (pflanzer.gizmax.cz subdomain)
+### FTP deploy (pflanzer.cz/method)
 
 ```bash
-curl -T website/index.html --user "claude.gizmax.cz:***REDACTED***" \
-  "ftp://ftp.gizmax.cz/pflanzer/index.html"
+# Heslo z env proměnné, NIKDY natvrdo do souboru
+curl -T website/bold-hybrid.html --user "$PFLANZER_FTP_USER:$PFLANZER_FTP_PASS" \
+  "ftp://ftp.pflanzer.cz/public_html/method/index.html"
 ```
 
-(Předpokládá subdoménový mapping `pflanzer.gizmax.cz` → `/pflanzer/` na FTP.)
+(K `index.html` patří i `bold-hybrid.i18n.js` a `plant-lottie.json`.)
 
 ## Před produkčním deployem TODO
 

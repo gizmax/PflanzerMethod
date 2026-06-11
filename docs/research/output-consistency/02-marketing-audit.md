@@ -121,7 +121,7 @@ USP #03–05 — neutrální.
 | 2268–2269 | *„Pflanzer cyklus skončí s **kódem, který lead developer mergne za 1–2 dny**."* | **STRONG** |
 | 2293 | Receipt: Varianty — *„3 prototyp / 3 prototypes"* | **WEAK** |
 
-**Per user otázka *„„většina" underselling. Co s tím?"*** — ANO. Slovo *„většina"* v 6 výskytech napříč materiály (1229, 1267, 2252, 2257, README ř. 22, 00-lean ř. 14, eshop ř. 21) je systematický underselling. Buyer čte: *„OK takže část se zahazuje. Kolik? 60 %? 95 %? 5 %?"*. Hard claim by byl: *„kód jde do produkce"* (bez kvalifikátoru), s podpůrnou metrikou *„≥80/100 quality gate score"*. Případně *„≥80 % kódu shippuje"* je tvrdý a měřitelný — *„most"* je vague.
+**Per user otázka *„„většina" underselling. Co s tím?"*** — ANO. Slovo *„většina"* v 6 výskytech napříč materiály (1229, 1267, 2252, 2257, README ř. 22, 00-lean ř. 14, e-shop ř. 21) je systematický underselling. Buyer čte: *„OK takže část se zahazuje. Kolik? 60 %? 95 %? 5 %?"*. Hard claim by byl: *„kód jde do produkce"* (bez kvalifikátoru), s podpůrnou metrikou *„≥80/100 quality gate score"*. Případně *„≥80 % kódu shippuje"* je tvrdý a měřitelný — *„most"* je vague.
 
 #### Pricing (ř. 2309–2378), Sekce 04 CTA (ř. 2383–2485)
 
