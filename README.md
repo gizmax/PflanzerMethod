@@ -180,7 +180,7 @@ tool/
 ### Pro tebe (one-time, ~30 sekund)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash
 ```
 
 Co se stane:
@@ -234,7 +234,7 @@ rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
 ### Dev setup (pokud přispíváš do metody)
 
 ```bash
-git clone https://github.com/pflanzer-method/PflanzerMethod
+git clone https://github.com/gizmax/PflanzerMethod
 cd PflanzerMethod
 python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
 # Web hub (volitelně, pro async feedback dev):

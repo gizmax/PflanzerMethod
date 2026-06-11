@@ -2,7 +2,7 @@
 # Pflanzer Method — installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash
 #   nebo:
 #   bash install.sh                 # z lokálního cloneu
 #   PFLANZER_REF=v1.0 bash install.sh   # specific version
@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-PFLANZER_REPO="${PFLANZER_REPO:-https://github.com/pflanzer-method/PflanzerMethod.git}"
+PFLANZER_REPO="${PFLANZER_REPO:-https://github.com/gizmax/PflanzerMethod.git}"
 PFLANZER_REF="${PFLANZER_REF:-main}"
 PLUGIN_DIR="${HOME}/.claude/plugins/pflanzer"
 RUNTIME_DIR="${HOME}/.pflanzer"
