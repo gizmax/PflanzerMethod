@@ -18,6 +18,25 @@ metoda vizualizovaná jako rostlina od semínka po květ.
 - **Palette:** bone paper (#F4EFE6) + ink (#1A2418) + moss (#2F4A2F) + punch chartreuse (#C7E84A)
 - **Texture:** subtle SVG paper grain overlay
 
+## Bold varianty (drafty k výběru)
+
+Tři alternativní bold směry — jednoduché na pochopení, výrazné v expresi,
+každá obsahuje srovnání se spec-driven vývojem. Všechny nesou brand lockup
+`Pflanzer Method | pflanzer.cz/method`, jsou self-contained (žádný build),
+CS-only.
+
+| Soubor | Směr | Anchor (co si zapamatuješ) |
+|--------|------|----------------------------|
+| `bold-poster.html` | **Signal Poster** — švýcarský typografický plakát; papír + ink + signální červená; Archivo Black + Space Mono | Obří „SPECKA." přeškrtnutá animovaným červeným tahem fixy → „PRODUKT." |
+| `bold-duel.html` | **Duel** — celá stránka je split-screen souboj: šedý svět specky vlevo, Pflanzer noc + chartreuse vpravo; Syne + IBM Plex Mono | Sticky „VS" šev uprostřed; 270 dní vs. 14 dní v hero |
+| `bold-terminal.html` | **Session** — pitch jako terminálový přepis `/pm` session; fosforová zelená, CRT scanlines; JetBrains Mono | Hero terminál „odehraje" celých 14 dní; srovnání jako `git diff` (− specka / + pflanzer) |
+| `bold-hybrid.html` | **Poster × Session** (favorit) — plakátový vizuál A + terminálové prvky z C; scroll-reveal animace, count-up čísla, kreslící se timeline, FAQ | Timeline 14 dní = rostoucí rostlina (semínko → květ, Pflanzer = pěstitel); hero terminál + přeškrtnutá SPECKA |
+
+**i18n (bold-hybrid):** 7 jazyků — **EN (default)**, CS, DE, ES, FR, IT, PL.
+Slovník v `bold-hybrid.i18n.js` (klíče přes `data-i` atributy → innerHTML).
+Přepínač v horní liště, persistence v `localStorage`, override `?lang=de`.
+Nový jazyk = přidat objekt do `I18N` + kód do `LANGS`.
+
 ## Sekce
 
 - `00` — Manifesto (proč metoda vznikla, handoff hell)
@@ -82,6 +101,19 @@ curl -T website/index.html --user "claude.gizmax.cz:***REDACTED***" \
 - 2 Google Fonts (preconnect + preload doporučeno pokud bude critical)
 - 1 inline SVG (~7 KB), žádné externí obrázky
 - Zero JS framework
+
+## Lottie animace (bold-hybrid)
+
+`bold-hybrid.html` má v CTA sekci animaci růstu rostliny
+(`plant-lottie.json`, ~9 kB, generováno skillem `text-to-lottie`
+z `diffusionstudio/lottie`, instalován v `.agents/skills/`).
+
+- Přehrávač: `lottie_light.min.js` z cdnjs (~150 kB, lazy: SVG renderer)
+- Spouští se přes IntersectionObserver, hraje jednou, drží poslední frame
+- `prefers-reduced-motion`: skočí rovnou na rozkvetlý poslední frame
+- Když CDN nejede, sekce zůstane bez animace, nic se nerozbije
+- Regenerace: viz `.agents/skills/text-to-lottie/SKILL.md`, JSON se dá
+  upravit i ručně (vrstvy: ground, seed, stem, 4× leaf, 5× petal, center)
 
 ## Accessibility
 
