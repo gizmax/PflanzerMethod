@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method — 270 dní vs. 14 dní</title>
+<meta name="description" content="Pflanzer Method | pflanzer.cz/method — split-screen souboj: vývoj podle specky vs. Pflanzer. Stejný nápad, dva osudy." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --dead: #DEDAD1;        /* svět specky: šedý papír */
+    --dead-ink: #6F6B62;
+    --dead-line: #6F6B6233;
+    --live: #101216;        /* svět Pflanzer: noc */
+    --live-ink: #F2F0EA;
+    --acid: #C7E84A;        /* brand chartreuse */
+    --display: 'Syne', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--mono); font-size: 15.5px; line-height: 1.6;
+    color: var(--dead-ink); background: var(--dead);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--acid); color: var(--live); }
+  a:focus-visible { outline: 3px solid var(--acid); outline-offset: 3px; }
+
+  /* ── Frames ── */
+  .frame {
+    position: fixed; left: 0; right: 0; z-index: 60;
+    display: flex; justify-content: space-between;
+    padding: 0.5rem 1.2rem; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--live); color: var(--live-ink);
+  }
+  .frame-top { top: 0; } .frame-bottom { bottom: 0; }
+  .frame .a { color: var(--acid); }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 92vh; display: grid; grid-template-columns: 1fr 1fr;
+    position: relative; padding-top: 2.2rem;
+  }
+  .hero > div { display: flex; flex-direction: column; justify-content: center; padding: 3rem; }
+  .hero .side-label {
+    font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
+    margin-bottom: 1.6rem;
+  }
+  .hero h1 {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(2.2rem, 5.4vw, 4.6rem); line-height: 1.0;
+    letter-spacing: -0.02em; text-transform: uppercase;
+  }
+  .hero .dead-side { background: var(--dead); color: var(--dead-ink); }
+  .hero .dead-side h1 { color: var(--dead-ink); }
+  .hero .dead-side h1 .fade { opacity: 0.45; }
+  .hero .live-side { background: var(--live); color: var(--live-ink); }
+  .hero .live-side h1 em { font-style: normal; color: var(--acid); }
+  .hero .days {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(3.4rem, 9vw, 8rem); line-height: 1; margin: 1.6rem 0 0.4rem;
+  }
+  .live-side .days { color: var(--acid); }
+  .hero .days-l { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; }
+  .hero p.note { margin-top: 1.4rem; max-width: 26rem; font-size: 0.88rem; }
+
+  /* středový šev — anchor celé stránky */
+  .seam {
+    position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
+    border-left: 3px dashed var(--acid); z-index: 5;
+  }
+  .seam .vs {
+    position: sticky; top: 46vh;
+    display: inline-block; transform: translateX(-50%);
+    font-family: var(--display); font-weight: 800; font-size: 1.2rem;
+    background: var(--acid); color: var(--live);
+    padding: 0.5rem 0.9rem; border-radius: 999px;
+  }
+
+  /* ── Duel rows ── */
+  .duel { position: relative; }
+  .duel-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .duel-row > div { padding: 2.6rem 3rem; }
+  .duel-row .dead {
+    background: var(--dead); color: var(--dead-ink);
+    border-top: 1px solid var(--dead-line);
+  }
+  .duel-row .live {
+    background: var(--live); color: var(--live-ink);
+    border-top: 1px solid #F2F0EA1A;
+  }
+  .duel-row h3 {
+    font-family: var(--display); font-weight: 700; font-size: 1.15rem;
+    text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.6rem;
+  }
+  .duel-row .live h3 { color: var(--acid); }
+  .duel-row .tag {
+    display: inline-block; font-size: 0.68rem; letter-spacing: 0.16em;
+    text-transform: uppercase; margin-bottom: 0.9rem; padding: 0.15rem 0.5rem;
+  }
+  .dead .tag { border: 1px solid var(--dead-ink); }
+  .live .tag { background: var(--acid); color: var(--live); font-weight: 600; }
+  .duel-row p { font-size: 0.9rem; max-width: 30rem; }
+  .dead .stamp {
+    display: inline-block; margin-top: 1rem;
+    font-weight: 600; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+    border: 2px solid var(--dead-ink); padding: 0.3rem 0.7rem;
+    transform: rotate(-3deg); opacity: 0.75;
+  }
+  .dead s { text-decoration-thickness: 2px; }
+  .live b { color: var(--acid); font-weight: 600; }
+
+  /* ── Verdikt (merge) ── */
+  .verdict {
+    background: var(--acid); color: var(--live);
+    padding: 5rem 1.5rem; text-align: center; position: relative; z-index: 10;
+  }
+  .verdict .inner { max-width: 56rem; margin: 0 auto; }
+  .verdict h2 {
+    font-family: var(--display); font-weight: 800; text-transform: uppercase;
+    font-size: clamp(1.9rem, 5vw, 3.6rem); line-height: 1.05; letter-spacing: -0.015em;
+  }
+  .verdict p { margin: 1.6rem auto 0; max-width: 38rem; font-size: 0.95rem; }
+  .verdict .src { margin-top: 1.2rem; font-size: 0.72rem; opacity: 0.65; }
+
+  /* ── Recept ── */
+  .recipe { background: var(--live); color: var(--live-ink); padding: 5rem 1.5rem; }
+  .recipe .inner { max-width: 56rem; margin: 0 auto; }
+  .recipe h2 {
+    font-family: var(--display); font-weight: 800; text-transform: uppercase;
+    font-size: clamp(1.6rem, 4vw, 2.6rem); margin-bottom: 2.4rem;
+  }
+  .recipe h2 em { font-style: normal; color: var(--acid); }
+  .recipe ol { list-style: none; counter-reset: d; }
+  .recipe li {
+    counter-increment: d;
+    display: grid; grid-template-columns: 7.5rem 1fr; gap: 1.4rem;
+    padding: 1.05rem 0; border-top: 1px solid #F2F0EA22; font-size: 0.92rem;
+  }
+  .recipe li:last-child { border-bottom: 1px solid #F2F0EA22; }
+  .recipe .d {
+    font-family: var(--display); font-weight: 700; color: var(--acid);
+    text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.06em;
+  }
+  .recipe li b { color: var(--acid); font-weight: 600; }
+  .recipe .sum { margin-top: 1.8rem; font-size: 0.85rem; color: #F2F0EAB0; }
+  .recipe .sum b { color: var(--acid); }
+
+  /* ── CTA ── */
+  .cta { background: var(--live); color: var(--live-ink); padding: 2rem 1.5rem 7rem; text-align: center; }
+  .btn {
+    display: inline-block; font-family: var(--mono); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.95rem;
+    background: var(--acid); color: var(--live); text-decoration: none;
+    padding: 1.1rem 2.2rem; border-radius: 999px;
+    transition: transform 0.12s ease;
+  }
+  .btn:hover { transform: scale(1.04) rotate(-1deg); }
+  .cta .alt { margin-top: 1.3rem; font-size: 0.8rem; color: #F2F0EA99; }
+  .cta .alt code { color: var(--acid); }
+  .cta footer { margin-top: 3.5rem; font-size: 0.74rem; color: #F2F0EA80; }
+
+  @media (prefers-reduced-motion: reduce) { .btn:hover { transform: none; } }
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; min-height: 0; }
+    .duel-row { grid-template-columns: 1fr; }
+    .seam { display: none; }
+    .hero > div, .duel-row > div { padding: 2.2rem 1.4rem; }
+    .recipe li { grid-template-columns: 5.4rem 1fr; gap: 0.9rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame frame-top">
+  <span>Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <span class="a">●&nbsp;Bold&nbsp;B&nbsp;—&nbsp;Duel</span>
+</div>
+
+<!-- ── HERO: stejný nápad, dva osudy ── -->
+<header class="hero">
+  <div class="seam" aria-hidden="true"><span class="vs">VS</span></div>
+  <div class="dead-side">
+    <p class="side-label">Stejný nápad · cesta A</p>
+    <h1>Vývoj podle <span class="fade">specky</span></h1>
+    <div class="days">270</div>
+    <div class="days-l">dní k produkci*</div>
+    <p class="note">Zadání → připomínky → odhady → fronta → vývoj →
+    „to jsme nemysleli takhle" → přepracování.</p>
+  </div>
+  <div class="live-side">
+    <p class="side-label">Stejný nápad · cesta B</p>
+    <h1>Pflanzer <em>Method</em></h1>
+    <div class="days">14</div>
+    <div class="days-l">dní k produkci</div>
+    <p class="note">Problém → 3 běžící varianty → tým vybere → tentýž kód
+    jde do produkce. 6 lidí, 4 hodiny schůzek.</p>
+  </div>
+</header>
+
+<!-- ── DUEL ROWS ── -->
+<main class="duel">
+  <div class="seam" aria-hidden="true"><span class="vs">VS</span></div>
+
+  <div class="duel-row">
+    <div class="dead">
+      <span class="tag">Krok 1 · týdny 1–6</span>
+      <h3>Píše se zadání</h3>
+      <p>Čtyřicet stran. Tři kola připomínek. Každý si pod textem představuje
+      něco jiného — a nikdo to zatím neví.</p>
+      <span class="stamp">verze 7 · final_final2</span>
+    </div>
+    <div class="live">
+      <span class="tag">Den 0 · 60 minut</span>
+      <h3>Píše se jedna stránka</h3>
+      <p>Charter: jaký problém, pro koho, jak poznáme úspěch. <b>Žádné „jak"</b> —
+      řešení se nevymýšlí na papíře, ale postaví se.</p>
+    </div>
+  </div>
+
+  <div class="duel-row">
+    <div class="dead">
+      <span class="tag">Krok 2 · měsíce 2–5</span>
+      <h3>Handoff &amp; fronta</h3>
+      <p>Zadání putuje: produkt → architekt → odhady → backlog. Vývojář, který to
+      bude stavět, ho uvidí jako poslední — bez kontextu.</p>
+      <span class="stamp">čeká na kapacitu</span>
+    </div>
+    <div class="live">
+      <span class="tag">Den 1–4 · async</span>
+      <h3>AI staví 3 varianty</h3>
+      <p>Vývojář je u toho <b>od první minuty</b>. S AI postaví tři běžící
+      varianty řešení — žádné obrázky, skutečný software na URL.</p>
+    </div>
+  </div>
+
+  <div class="duel-row">
+    <div class="dead">
+      <span class="tag">Krok 3 · měsíc 6</span>
+      <h3>Feedback na dokument</h3>
+      <p>Stakeholdeři komentují wireframy a odstavce. Nejhlasitější názor vyhrává.
+      <s>Uživatel</s> Nejlépe placený člověk v místnosti rozhodl.</p>
+      <span class="stamp">HiPPO approved</span>
+    </div>
+    <div class="live">
+      <span class="tag">Den 5–10 · 2,5 h schůzek</span>
+      <h3>Feedback na produkt</h3>
+      <p>Tým i stakeholdeři <b>klikají na běžící varianty</b>. Tiché hlasování,
+      šéf hlasuje poslední. Go / Iterate / Kill — rozhodnuto nad realitou.</p>
+    </div>
+  </div>
+
+  <div class="duel-row">
+    <div class="dead">
+      <span class="tag">Krok 4 · měsíce 7–9</span>
+      <h3>Staví se to znovu</h3>
+      <p>Implementace se od specky liší o 9,8–42 %. Skoro hotová věc se přepisuje,
+      protože dokument a kód jsou dva různé světy.</p>
+      <span class="stamp">re-implementace</span>
+    </div>
+    <div class="live">
+      <span class="tag">Den 11–14 · ship</span>
+      <h3>Nasazuje se tentýž kód</h3>
+      <p><b>Žádná re-implementace.</b> Vítězná varianta projde quality gates
+      (lint, testy, security, a11y) a jde do produkce. Kód je specka.</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── VERDIKT ── -->
+<section class="verdict">
+  <div class="inner">
+    <h2>Zadání platíte dvakrát.<br />Produkt jen jednou.</h2>
+    <p>Jednou, když se specka píše. Podruhé, když se podle ní postaví něco jiného.
+    Pflanzer Method ten druhý účet ruší — co tým odsouhlasil, to se nasadí.</p>
+    <p class="src">* Mediánové korporátní delivery okno. Spec–impl mismatch 9,8–42,1 %:
+    Yan et al. 2025 · handoff = −8 % throughput: DORA 2024.</p>
+  </div>
+</section>
+
+<!-- ── RECEPT ── -->
+<section class="recipe">
+  <div class="inner">
+    <h2>14 dní, krok za krokem <em>→</em></h2>
+    <ol>
+      <li><span class="d">Den 0</span><span>Kávový meeting (60 min) → <b>Charter</b>: problém, pro koho, success metrika.</span></li>
+      <li><span class="d">Den 1–4</span><span>Builder + AI staví <b>3 běžící varianty</b> na sandbox URL. Async.</span></li>
+      <li><span class="d">Den 5</span><span><b>Steering</b> (90 min): tým kliká, směruje, AI mění naživo. Tiché hlasování.</span></li>
+      <li><span class="d">Den 6–9</span><span>Stakeholdeři klikají a komentují ze svého prohlížeče. Builder dolaďuje.</span></li>
+      <li><span class="d">Den 10</span><span><b>Rozhodnutí</b> (60 min): Go / Iterate / Kill. Šéf hlasuje poslední.</span></li>
+      <li><span class="d">Den 11–14</span><span>Quality gates ≥ 80/100 → <b>deploy do produkce</b> + monitoring.</span></li>
+    </ol>
+    <p class="sum">Celkem na osobu: <b>~4 hodiny schůzek</b>. Výstup: <b>produkt v produkci</b>,
+    decision log kdo-co-proč, žádný šuplík plný PDF.</p>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta">
+  <a class="btn" href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pilot%20call">Chci cestu B →</a>
+  <p class="alt">Open-source (MIT) · v Claude Code stačí <code>/pm start</code></p>
+  <footer>
+    <strong>Pflanzer Method</strong> | pflanzer.cz/method · Tom Pflanzer · GiZMaX · Praha · v0.4
+  </footer>
+</section>
+
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <span><span class="a">270 dní</span> vs <span class="a">14 dní</span></span>
+</div>
+
+</body>
+</html>

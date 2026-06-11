@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pflanzer Method | Žádná specka. Produkt za 14 dní.</title>
+<meta name="description" content="Pflanzer Method | pflanzer.cz/method. Otevřená metodika zdarma: AI už ve firmě máte, ale v izolovaných silech. Pflanzer ji zapojí do celého procesu dodání. Produkt v produkci za 14 dní." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #F4F3EC;
+    --ink: #161A10;
+    --acid: #B5E822;        /* zvýrazňovač, barva rostlin */
+    --acid-soft: #D6F38A;
+    --leaf: #44701A;        /* tmavá zelená pro drobný text */
+    --grey: #87897B;
+    --line: #161A1022;
+    --term-bg: #11150C;
+    --term-text: #E9F3D2;
+    --term-dim: #E9F3D266;
+    --display: 'Archivo Black', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--mono); font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  ::selection { background: var(--acid); color: var(--ink); }
+  a { color: inherit; }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--leaf); outline-offset: 3px; }
+  .hl { background: var(--acid); color: var(--ink); padding: 0 0.3rem; }
+
+  /* ════ Frame ════ */
+  .frame {
+    position: fixed; left: 0; right: 0; z-index: 90;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.55rem 1.25rem; font-size: 0.72rem;
+    letter-spacing: 0.08em; text-transform: uppercase; background: var(--paper);
+  }
+  .frame-top { top: 0; border-bottom: 2px solid var(--ink); }
+  .frame-bottom { bottom: 0; border-top: 2px solid var(--ink); }
+  .frame .dot { color: var(--leaf); }
+  .langs { display: flex; gap: 0.1rem; pointer-events: auto; }
+  .langs button {
+    background: transparent; border: none; cursor: pointer; font: inherit;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey); padding: 0.1rem 0.38rem;
+  }
+  .langs button:hover { color: var(--ink); }
+  .langs button.on { background: var(--acid); color: var(--ink); font-weight: 700; }
+
+  .progress {
+    position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+    background: var(--acid); z-index: 95; transition: width 0.08s linear;
+  }
+
+  main { padding: 4.5rem 0 5rem; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 1.5rem; }
+
+  /* ════ Reveal animace ════ */
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .reveal-l { opacity: 0; transform: translateX(-36px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(.2,.7,.2,1); }
+  .reveal-r { opacity: 0; transform: translateX(36px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(.2,.7,.2,1); }
+  .reveal-l.in, .reveal-r.in { opacity: 1; transform: none; }
+
+  /* ════ Hero ════ */
+  .hero { padding: 6vh 0 4rem; border-bottom: 2px solid var(--ink); position: relative; }
+  .hero .kicker {
+    font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 2rem;
+  }
+  .hero .kicker b { color: var(--leaf); }
+  .poster {
+    font-family: var(--display);
+    font-size: clamp(3rem, 11.5vw, 10.5rem);
+    line-height: 0.94; text-transform: uppercase; letter-spacing: -0.015em;
+  }
+  .poster .row { display: block; opacity: 0; transform: translateY(30px); animation: rise 0.55s cubic-bezier(.2,.7,.2,1) forwards; }
+  .poster .row:nth-child(2) { animation-delay: 0.14s; }
+  .poster .row:nth-child(3) { animation-delay: 0.28s; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .struck { position: relative; display: inline-block; color: var(--grey); }
+  .struck svg { position: absolute; left: -3%; top: 8%; width: 106%; height: 84%; pointer-events: none; }
+  .struck svg path {
+    stroke: var(--acid); stroke-width: 16; fill: none; stroke-linecap: round;
+    stroke-dasharray: 1300; stroke-dashoffset: 1300;
+    animation: strike 0.5s cubic-bezier(.8,0,.2,1) 0.9s forwards;
+  }
+  @keyframes strike { to { stroke-dashoffset: 0; } }
+  .poster .product { background: var(--acid); padding: 0 1.5rem 0 0.8rem; display: inline-block; position: relative; }
+  /* klíček vyrašící z tečky za "Produkt." */
+  .poster .dot { position: relative; display: inline-block; }
+  .sprout {
+    position: absolute; left: 50%; bottom: 0.32em; width: 0.5em; height: 0.78em;
+    overflow: visible; pointer-events: none;
+    transform: translateX(-50%) scale(0); transform-origin: bottom center;
+    animation: sproutUp 0.6s cubic-bezier(.2,1.4,.4,1) 2s forwards;
+  }
+  .sprout .st { stroke: var(--ink); stroke-width: 3.2; fill: none; stroke-linecap: round; }
+  .sprout .lf { fill: var(--leaf); }
+  .sprout .pt { fill: #FFFFFF; stroke: var(--ink); stroke-width: 2; }
+  .sprout .ct { fill: var(--acid); stroke: var(--ink); stroke-width: 2; }
+  @keyframes sproutUp {
+    0% { transform: translateX(-50%) scale(0); }
+    70% { transform: translateX(-50%) scale(1.18); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  .hero-nav { margin-top: 2.2rem; display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  .hero-nav a {
+    text-decoration: none; font-size: 0.74rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    border: 2px solid var(--ink); padding: 0.45rem 0.9rem;
+    transition: background 0.15s ease;
+  }
+  .hero-nav a:hover { background: var(--acid); }
+
+  .hero-grid {
+    margin-top: 2.6rem; display: grid; grid-template-columns: 1fr 1.1fr; gap: 2.5rem; align-items: start;
+  }
+  .hero-sub { display: grid; grid-template-columns: auto 1fr; gap: 0 1rem; }
+  .hero-sub .bar { width: 4px; background: var(--acid); }
+  .hero-sub p { font-size: 1.02rem; }
+  .hero-sub .more { margin-top: 1rem; font-size: 0.84rem; color: var(--grey); }
+  .hero-sub .more b { color: var(--ink); }
+
+  /* ════ Terminál ════ */
+  .term {
+    background: var(--term-bg); color: var(--term-text);
+    border: 2px solid var(--ink); box-shadow: 8px 8px 0 var(--ink);
+    font-size: 0.84rem;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 0.9rem; border-bottom: 1px solid #E9F3D226;
+    font-size: 0.68rem; color: var(--term-dim);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .term-bar .led { width: 9px; height: 9px; border-radius: 50%; background: var(--acid); }
+  .term-bar .led + .led { background: #E9F3D240; }
+  .term-bar span:last-child { margin-left: auto; }
+  .term-body { padding: 1.1rem 1.2rem 1.3rem; }
+  .term .ln { white-space: pre-wrap; min-height: 1.6em; }
+  .term .p { color: var(--acid); font-weight: 700; }
+  .term .cmd { font-weight: 700; }
+  .term .ok { color: var(--acid); }
+  .term .day { color: var(--acid-soft); font-weight: 700; }
+  .term .dim { color: var(--term-dim); }
+  .caret {
+    display: inline-block; width: 0.55em; height: 1.1em;
+    background: var(--acid); vertical-align: text-bottom;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .js .type-seq .ln { visibility: hidden; }
+  .js .type-seq .ln.is-typed { visibility: visible; }
+
+  /* ════ Sekce ════ */
+  section { padding: 5rem 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+  .sec-head .no { font-family: var(--display); font-size: 1rem; color: var(--leaf); }
+  .sec-head h2 {
+    font-family: var(--display); text-transform: uppercase;
+    font-size: clamp(1.7rem, 4.2vw, 3rem); line-height: 1;
+  }
+  .sec-lede { max-width: 46rem; margin-bottom: 2.8rem; font-size: 0.95rem; color: var(--grey); }
+  .sec-lede b { color: var(--ink); }
+
+  /* ════ 01 · Sila ════ */
+  .silos { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; align-items: stretch; }
+  .silo-card { border: 2px solid var(--ink); padding: 1.6rem 1.6rem 1.8rem; display: flex; flex-direction: column; }
+  .silo-card h3 { font-family: var(--display); text-transform: uppercase; font-size: 1.1rem; margin-bottom: 1.3rem; }
+  .silo-card.today h3 { color: var(--grey); }
+  .silo-card.method { background: var(--ink); color: var(--paper); }
+  .silo-card.method h3 { color: var(--acid); }
+  .silo-row { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .silo-box {
+    flex: 1; border: 2px solid currentColor; padding: 0.8rem 0.6rem; text-align: center;
+    font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .silo-box .ai-badge {
+    display: inline-block; margin-top: 0.5rem; font-size: 0.62rem; font-weight: 700;
+    border: 2px dashed currentColor; padding: 0.1rem 0.45rem;
+  }
+  .silo-wall {
+    width: 2px; align-self: stretch; background: repeating-linear-gradient(
+      0deg, var(--grey) 0 6px, transparent 6px 12px);
+  }
+  .flow-row { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .flow-box {
+    flex: 1; border: 2px solid var(--paper); padding: 0.8rem 0.6rem; text-align: center;
+    font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .flow-arrow { color: var(--acid); font-weight: 700; }
+  .ai-band {
+    margin-top: 0.9rem; position: relative; overflow: hidden;
+    background: var(--acid); color: var(--ink);
+    text-align: center; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; padding: 0.45rem 0.4rem;
+  }
+  /* světelný puls běžící po AI pásu */
+  .ai-band::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 30%;
+    background: linear-gradient(90deg, transparent, #FFFFFF80, transparent);
+    animation: sweep 2.6s ease-in-out infinite;
+  }
+  @keyframes sweep { 0% { left: -35%; } 60%, 100% { left: 105%; } }
+  .silo-note { margin-top: 1.1rem; font-size: 0.8rem; }
+  .silo-card.today .silo-note { color: var(--grey); }
+  .silo-card.method .silo-note { color: #F4F3ECB3; }
+  .silo-card.method .silo-note b { color: var(--acid); }
+
+  /* ════ 02 · Tři kroky ════ */
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 2px solid var(--ink); }
+  .three > div { padding: 2rem 1.6rem 2.3rem; position: relative; background: var(--paper); }
+  .three > div + div { border-left: 2px solid var(--ink); }
+  .three .big-no {
+    font-family: var(--display); font-size: 3.4rem; line-height: 1;
+    color: var(--ink); background: var(--acid); display: inline-block; padding: 0 0.8rem;
+  }
+  .three h3 { font-family: var(--display); text-transform: uppercase; font-size: 1.25rem; margin: 0.9rem 0 0.7rem; line-height: 1.15; }
+  .three p { font-size: 0.88rem; }
+  .three .arrow {
+    position: absolute; right: -1.05rem; top: 50%; transform: translateY(-50%);
+    z-index: 2; background: var(--acid); color: var(--ink);
+    font-weight: 700; font-size: 1.1rem; width: 2rem; height: 2rem;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    border: 2px solid var(--ink);
+  }
+  .three-pointe { margin-top: 1.6rem; font-size: 0.95rem; max-width: 46rem; }
+
+  /* ════ 03 · Timeline ════ */
+  .tl-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; }
+  .tl-side { position: relative; }
+  .tl-plant {
+    position: sticky; top: 26vh; width: 100%; aspect-ratio: 1;
+    border: 2px solid var(--ink); background: var(--paper);
+    box-shadow: 6px 6px 0 #161A1014;
+  }
+  .tl-plant svg { display: block; }
+  .tl-plant .cap {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    border-top: 2px solid var(--ink);
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; text-align: center; padding: 0.4rem 0.5rem;
+    background: var(--acid);
+  }
+  .tl { position: relative; margin-top: 1rem; }
+  .tl-rail { position: absolute; left: 7.2rem; top: 0; bottom: 0; width: 4px; background: var(--line); }
+  .tl-fill { position: absolute; left: 0; top: 0; width: 100%; height: 0%; background: var(--acid); transition: height 0.2s linear; }
+  .tl-step { position: relative; display: grid; grid-template-columns: 6rem 2.4rem 1fr; gap: 0 0.8rem; padding: 1.5rem 0; }
+  .tl-step .when {
+    text-align: right; font-size: 0.74rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--leaf);
+    padding-top: 0.35rem;
+  }
+  /* uzly = fáze růstu rostliny (Pflanzer znamená pěstitel) */
+  .tl-step .node {
+    width: 2.4rem; height: 2.6rem; margin: 0 auto;
+    position: relative; z-index: 2; background: var(--paper);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .tl-step .node svg { width: 2rem; height: 2.3rem; overflow: visible; }
+  .tl-step .node svg * {
+    stroke: var(--ink); stroke-width: 2.4; fill: none;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tl-step .node svg .fill { fill: var(--ink); stroke: none; }
+  .tl-step .node svg .sig { stroke: var(--leaf); }
+  .tl-step .node svg .sig-fill { fill: var(--acid); stroke: var(--ink); stroke-width: 1.6; }
+  .tl-step .node svg .petal { stroke: var(--ink); fill: #FFFFFF; stroke-width: 1.6; }
+  .tl-step .node .plant {
+    transform: scale(0.2); transform-origin: 50% 100%; opacity: 0;
+    transition: transform 0.55s cubic-bezier(.2,1.4,.4,1), opacity 0.3s ease;
+  }
+  .tl-step.in .node .plant { transform: scale(1); opacity: 1; }
+  /* na desktopu roste velká rostlina vedle osy, mini-ikonky nahradí tečky */
+  @media (min-width: 981px) {
+    .tl-step .node svg { display: none; }
+    .tl-step .node {
+      width: 1.15rem; height: 1.15rem; border-radius: 50%;
+      border: 3px solid var(--ink); margin-top: 0.35rem;
+      transition: background 0.3s ease;
+    }
+    .tl-step.in .node { background: var(--acid); }
+  }
+  .tl-card { position: relative; border: 2px solid var(--ink); background: var(--paper); padding: 1.2rem 1.4rem 1.35rem; box-shadow: 6px 6px 0 #161A1014; }
+  /* razítko GO — přibouchne se na kartu Rozhodnutí */
+  .stamp {
+    position: absolute; top: 0.8rem; right: 1rem; z-index: 2;
+    font-family: var(--display); font-size: 1.5rem; letter-spacing: 0.06em;
+    color: var(--leaf); border: 4px double var(--leaf); border-radius: 8px;
+    padding: 0.02rem 0.55rem; mix-blend-mode: multiply;
+    transform: rotate(-20deg) scale(2.8); opacity: 0;
+  }
+  .tl-step.in .stamp { animation: stampIn 0.4s cubic-bezier(.25,1.1,.3,1) 0.55s forwards; }
+  .tl-step.in .stamp ~ * { animation: thud 0.28s ease 0.9s; }
+  @keyframes stampIn {
+    0% { opacity: 0; transform: rotate(-26deg) scale(2.8); }
+    65% { opacity: 1; transform: rotate(-12deg) scale(0.9); }
+    100% { opacity: 0.92; transform: rotate(-12deg) scale(1); }
+  }
+  @keyframes thud {
+    0%, 100% { transform: none; }
+    35% { transform: translate(2px, 1px); }
+    70% { transform: translate(-1px, 0); }
+  }
+  .tl-card h3 { font-family: var(--display); text-transform: uppercase; font-size: 1.15rem; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .tl-card .chip {
+    font-family: var(--mono); font-size: 0.66rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    border: 2px solid var(--ink); padding: 0.12rem 0.5rem;
+  }
+  .tl-card .chip.go { background: var(--acid); color: var(--ink); }
+  .tl-card p { margin-top: 0.6rem; font-size: 0.88rem; max-width: 38rem; }
+  .tl-card .log {
+    margin-top: 0.9rem; background: var(--term-bg); color: var(--term-text);
+    font-size: 0.76rem; padding: 0.55rem 0.8rem; border: 2px solid var(--ink);
+    white-space: pre-wrap;
+  }
+  .tl-card .log .p { color: var(--acid); font-weight: 700; }
+  .tl-card .log .ok { color: var(--acid); }
+  .tl-sum { margin: 2rem 0 0 9.6rem; font-size: 0.9rem; }
+
+  /* ════ Čísla ════ */
+  .numbers { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); }
+  .numbers > div { padding: 2.2rem 1.4rem 2rem; }
+  .numbers > div + div { border-left: 2px solid var(--ink); }
+  .numbers .n { font-family: var(--display); font-size: clamp(2.1rem, 5vw, 3.8rem); line-height: 1; }
+  .numbers .n em { font-style: normal; color: var(--leaf); font-size: 0.55em; }
+  .numbers .l { margin-top: 0.6rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--grey); }
+
+  /* ════ Claim ════ */
+  .claim { background: var(--ink); color: var(--paper); padding: 5rem 0; }
+  .claim p {
+    font-family: var(--display); font-size: clamp(1.6rem, 4.4vw, 3.2rem);
+    line-height: 1.12; text-transform: uppercase; max-width: 62rem;
+  }
+  .claim p em { font-style: normal; color: var(--acid); }
+  .claim .sub { margin-top: 1.6rem; font-family: var(--mono); font-size: 0.9rem; text-transform: none; color: #F4F3ECB3; max-width: 42rem; line-height: 1.6; }
+  .claim .sub b { color: var(--acid); }
+
+  /* ════ 04 · Srovnání ════ */
+  /* specka se přetrhne, za ní se objeví Produkt */
+  .tear { display: flex; justify-content: center; margin-bottom: 2.4rem; position: relative; z-index: 0; }
+  .tear-paper { position: relative; width: min(460px, 92%); height: 118px; }
+  .tear .behind {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-family: var(--display); font-size: 1.7rem; text-transform: uppercase;
+    opacity: 0; transform: scale(0.7);
+    transition: opacity 0.3s ease 0.5s, transform 0.45s cubic-bezier(.2,1.4,.4,1) 0.5s;
+  }
+  .tear .half {
+    position: absolute; inset: 0; z-index: 2;
+    background: #FBFAF4; border: 2px solid var(--ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.35rem; box-shadow: 4px 4px 0 #161A1010;
+    transition: transform 0.65s cubic-bezier(.55,0,.85,.45) 0.2s, opacity 0.5s ease 0.55s;
+  }
+  .tear .half .fn { font-weight: 700; font-size: 0.84rem; }
+  .tear .half .meta { font-size: 0.72rem; color: var(--grey); }
+  .tear .half.left  { clip-path: polygon(0 0, 52% 0, 48% 12%, 53% 26%, 47% 40%, 52% 54%, 48% 68%, 53% 82%, 49% 92%, 51% 100%, 0 100%); }
+  .tear .half.right { clip-path: polygon(52% 0, 100% 0, 100% 100%, 51% 100%, 49% 92%, 53% 82%, 48% 68%, 52% 54%, 47% 40%, 53% 26%, 48% 12%); }
+  .tear.in .half.left  { transform: translate(-110px, 48px) rotate(-15deg); opacity: 0.3; }
+  .tear.in .half.right { transform: translate(110px, 56px) rotate(16deg); opacity: 0.3; }
+  .tear.in .behind { opacity: 1; transform: scale(1); }
+
+  .vs-table { border: 2px solid var(--ink); position: relative; z-index: 1; background: var(--paper); }
+  .vs-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .vs-row + .vs-row { border-top: 2px solid var(--ink); }
+  .vs-row > div { padding: 1.25rem 1.4rem; font-size: 0.92rem; }
+  .vs-row > div:first-child { border-right: 2px solid var(--ink); color: var(--grey); }
+  .vs-row.head > div {
+    font-family: var(--display); text-transform: uppercase; font-size: 1.1rem;
+    color: var(--ink); padding: 1rem 1.4rem;
+  }
+  .vs-row.head > div:last-child { background: var(--acid); }
+  .vs-row .x { color: var(--grey); font-weight: 700; margin-right: 0.5rem; }
+  .vs-row .ok2 { color: var(--leaf); font-weight: 700; margin-right: 0.5rem; }
+  .vs-src { margin-top: 0.9rem; font-size: 0.72rem; color: var(--grey); }
+
+  /* ════ 05 · Zdarma + pro firmy ════ */
+  .free-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  .free, .firm { border: 2px solid var(--ink); padding: 2.2rem 2rem 2.4rem; display: flex; flex-direction: column; }
+  .free { background: var(--acid); }
+  .firm { background: var(--ink); color: var(--paper); }
+  .free h3, .firm h3 { font-family: var(--display); text-transform: uppercase; font-size: clamp(1.2rem, 2.6vw, 1.7rem); line-height: 1.1; }
+  .firm h3 { color: var(--acid); }
+  .free p, .firm p { margin-top: 1rem; font-size: 0.92rem; }
+  .free p b { background: var(--ink); color: var(--acid); padding: 0 0.3rem; }
+  .firm p b { color: var(--acid); }
+  .free code { background: var(--ink); color: var(--acid); padding: 0.15rem 0.5rem; font-weight: 700; }
+  .install {
+    margin-top: 1.2rem; background: var(--term-bg); color: var(--term-text);
+    border: 2px solid var(--ink); padding: 0.9rem 1rem; font-size: 0.78rem;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .install .p { color: var(--acid); font-weight: 700; }
+  .install .c { color: var(--term-dim); }
+  .firm ul { margin: 1rem 0 0 0; padding: 0; list-style: none; font-size: 0.92rem; }
+  .firm li { padding: 0.45rem 0; border-top: 1px solid #F4F3EC26; }
+  .firm li::before { content: "→ "; color: var(--acid); font-weight: 700; }
+  .firm .btn-sm {
+    margin-top: auto; padding-top: 1.4rem;
+  }
+  .firm .btn-sm a {
+    display: inline-block; font-weight: 700; font-size: 0.82rem;
+    text-transform: uppercase; letter-spacing: 0.1em; text-decoration: none;
+    background: var(--acid); color: var(--ink); padding: 0.7rem 1.3rem;
+    border: 2px solid var(--acid);
+  }
+  .firm .btn-sm a:hover { background: transparent; color: var(--acid); }
+
+  /* ════ FAQ ════ */
+  .faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
+  .faq > div { border: 2px solid var(--ink); padding: 1.4rem 1.5rem 1.5rem; background: var(--paper); }
+  .faq h3 { font-family: var(--display); font-size: 1rem; text-transform: uppercase; margin-bottom: 0.6rem; }
+  .faq h3::before { content: "Q · "; color: var(--leaf); }
+  .faq p { font-size: 0.86rem; }
+
+  /* ════ CTA ════ */
+  .cta { padding-bottom: 6rem; }
+  .cta .big {
+    font-family: var(--display); text-transform: uppercase;
+    font-size: clamp(2rem, 6vw, 4.6rem); line-height: 1.05; margin-bottom: 2.2rem;
+  }
+  .cta .big em { font-style: normal; background: var(--acid); padding: 0 0.8rem; }
+  .btn {
+    display: inline-block; font-family: var(--mono); font-weight: 700;
+    font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em;
+    background: var(--acid); color: var(--ink); text-decoration: none;
+    padding: 1.1rem 2rem; border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .btn:hover { transform: translate(3px, 3px); box-shadow: 3px 3px 0 var(--ink); }
+  .btn:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--ink); }
+  .cta .alt { margin-top: 1.4rem; font-size: 0.84rem; color: var(--grey); }
+  .cta .alt code { background: var(--ink); color: var(--acid); padding: 0.1rem 0.4rem; }
+
+  /* louka — vyroste, když dojedete na konec */
+  .meadow {
+    display: flex; align-items: flex-end; justify-content: space-around;
+    height: 62px; padding: 0 3vw; overflow: hidden;
+  }
+  .meadow svg {
+    transform: scale(0); transform-origin: bottom center;
+    transition: transform 0.55s cubic-bezier(.2,1.35,.4,1);
+  }
+  .meadow.in svg { transform: scale(1); }
+  .meadow .m-st { stroke: var(--ink); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+  .meadow .m-gr { stroke: var(--leaf); stroke-width: 2.6; fill: none; stroke-linecap: round; }
+  .meadow .m-pt { fill: #FFFFFF; stroke: var(--ink); stroke-width: 1.5; }
+  .meadow .m-ct { fill: var(--acid); stroke: var(--ink); stroke-width: 1.6; }
+  .meadow .m-lf { fill: var(--leaf); }
+
+  footer { border-top: 2px solid var(--ink); padding: 1.4rem 0 3.4rem; font-size: 0.78rem; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .poster .row { animation: none; opacity: 1; transform: none; }
+    .struck svg path { animation: none; stroke-dashoffset: 0; }
+    .reveal, .reveal-l, .reveal-r { opacity: 1; transform: none; transition: none; }
+    .caret { animation: none; }
+    .ai-band::after { animation: none; display: none; }
+    .js .type-seq .ln { visibility: visible; }
+    .btn:hover, .btn:active { transform: none; }
+    .sprout { animation: none; transform: translateX(-50%) scale(1); }
+    .stamp { opacity: 0.92; transform: rotate(-12deg) scale(1); }
+    .tl-step.in .stamp, .tl-step.in .stamp ~ * { animation: none; }
+    .tear .half, .tear .behind, .meadow svg { transition: none; }
+  }
+  @media (max-width: 980px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .tl-wrap { grid-template-columns: 1fr; }
+    .tl-side { display: none; }
+    .silos { grid-template-columns: 1fr; }
+    .three { grid-template-columns: 1fr; }
+    .three > div + div { border-left: none; border-top: 2px solid var(--ink); }
+    .three .arrow { right: auto; left: 1.6rem; top: auto; bottom: -1.05rem; transform: none; }
+    .numbers { grid-template-columns: repeat(2, 1fr); }
+    .numbers > div + div { border-left: none; }
+    .numbers > div:nth-child(even) { border-left: 2px solid var(--ink); }
+    .numbers > div:nth-child(n+3) { border-top: 2px solid var(--ink); }
+    .faq { grid-template-columns: 1fr; }
+    .free-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .tl-rail { left: 1.1rem; }
+    .tl-step { grid-template-columns: 2.4rem 1fr; }
+    .tl-step .when { display: none; }
+    .tl-sum { margin-left: 0; }
+    .vs-row { grid-template-columns: 1fr; }
+    .vs-row > div:first-child { border-right: none; border-bottom: 1px dashed var(--line); }
+    .frame { font-size: 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress" aria-hidden="true"></div>
+
+<div class="frame frame-top">
+  <span>Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <nav class="langs" id="langs" aria-label="Language"></nav>
+</div>
+
+<main>
+  <!-- ════ HERO ════ -->
+  <header class="hero">
+    <div class="wrap">
+      <p class="kicker" data-i="kicker">Otevřená metodika · zdarma (MIT) <b>· 14 dní k produkci</b></p>
+      <h1 class="poster" aria-label="Žádná specka. Produkt.">
+        <span class="row" data-i="hno">Žádná</span>
+        <span class="row"><span class="struck"><span data-i="hspec">specka.</span>
+          <svg viewBox="0 0 1000 220" aria-hidden="true" preserveAspectRatio="none">
+            <path d="M10,150 C220,90 480,170 990,70" />
+          </svg></span></span>
+        <span class="row"><span class="product"><span data-i="hprod">Produkt</span><span class="dot">.<svg class="sprout" viewBox="0 0 40 64" aria-hidden="true">
+          <path class="st" d="M20 62 C20 50 19 40 20 28" />
+          <path class="lf" d="M20 48 C20 38 12 35 6 36 C7 45 14 48 20 48 Z" />
+          <path class="lf" d="M20 41 C20 31 28 28 34 29 C33 38 26 41 20 41 Z" />
+          <ellipse class="pt" cx="20" cy="6" rx="4.4" ry="6" />
+          <ellipse class="pt" cx="29.5" cy="13" rx="4.4" ry="6" transform="rotate(72 29.5 13)" />
+          <ellipse class="pt" cx="26" cy="24" rx="4.4" ry="6" transform="rotate(144 26 24)" />
+          <ellipse class="pt" cx="14" cy="24" rx="4.4" ry="6" transform="rotate(-144 14 24)" />
+          <ellipse class="pt" cx="10.5" cy="13" rx="4.4" ry="6" transform="rotate(-72 10.5 13)" />
+          <circle class="ct" cx="20" cy="15" r="4" />
+        </svg></span></span></span>
+      </h1>
+
+      <nav class="hero-nav" aria-label="Obsah stránky">
+        <a href="#proc" data-i="navwhy">Proč</a>
+        <a href="#co" data-i="navhow">Jak to funguje</a>
+        <a href="#dny" data-i="navdays">14 dní</a>
+        <a href="#srovnani" data-i="navcmp">Srovnání</a>
+        <a href="#zdarma" data-i="navfree">Zdarma</a>
+      </nav>
+
+      <div class="hero-grid">
+        <div class="hero-sub reveal">
+          <div class="bar" aria-hidden="true"></div>
+          <div>
+            <p data-i="lead">Sepíšete <span class="hl">problém</span> na jednu stránku.
+            AI s vaším vývojářem postaví <span class="hl">3 běžící varianty</span> řešení.
+            Tým si je proklikne, vybere, a <span class="hl">tentýž kód jde do produkce</span>.</p>
+            <p class="more" data-i="more">Žádné dlouhé zadání. Žádné předávání mezi odděleními.
+            Žádné přepisování skoro hotové věci. <b>6 lidí, 14 dní, asi 4 hodiny
+            schůzek na osobu.</b></p>
+          </div>
+        </div>
+
+        <div class="term reveal" aria-label="Ukázka průběhu metody jako terminálová session">
+          <div class="term-bar" aria-hidden="true">
+            <span class="led"></span><span class="led"></span><span class="led"></span>
+            <span>pflanzer · /pm session</span>
+          </div>
+          <div class="term-body type-seq" id="hero-term">
+<div class="ln" data-i="t1"><span class="p">tým@firma:~$</span> <span class="cmd">/pm start "onboarding zákazníků trvá 3 týdny"</span></div>
+<div class="ln" data-i="t2"><span class="day">[den 0]</span>    charter ✎ <span class="dim">1 stránka · 60 min</span></div>
+<div class="ln" data-i="t3"><span class="day">[den 1–4]</span>  AI staví varianty… <span class="ok">✓ A</span> <span class="ok">✓ B</span> <span class="ok">✓ C</span></div>
+<div class="ln" data-i="t4"><span class="day">[den 5]</span>    steering 90 min → shortlist</div>
+<div class="ln" data-i="t5"><span class="day">[den 6–9]</span>  feedback z prohlížeče <span class="dim">(žádná schůzka)</span></div>
+<div class="ln" data-i="t6"><span class="day">[den 10]</span>   rozhodnutí → <span class="ok">GO: varianta B</span></div>
+<div class="ln" data-i="t7"><span class="day">[den 11–14]</span> kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
+<div class="ln" data-i="t8"><span class="p">tým@firma:~$</span> <span class="caret" aria-hidden="true"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ════ 01 · PROČ: AI v silech ════ -->
+  <section id="proc">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">01</span><h2 data-i="s1h">AI už ve firmě máte. V silech.</h2></div>
+      <p class="sec-lede reveal" data-i="s1l">Byznys si nechává psát podklady, produkťáci zadání,
+      vývojáři generují kód. Každý zvlášť. Jenže <b>cesta od nápadu k nasazení zůstává
+      stejně pomalá</b>, protože mezi odděleními pořád putují dokumenty a tikety.
+      Pflanzer Method zapojí AI tam, kde to bolí: do celého procesu dodání.</p>
+
+      <div class="silos">
+        <div class="silo-card today reveal-l">
+          <h3 data-i="silth">Dnes: každý sám</h3>
+          <div class="silo-row">
+            <div class="silo-box"><span data-i="sb1">Byznys</span><br /><span class="ai-badge">AI ✓</span></div>
+            <div class="silo-wall" aria-hidden="true"></div>
+            <div class="silo-box"><span data-i="sb2">Produkt</span><br /><span class="ai-badge">AI ✓</span></div>
+            <div class="silo-wall" aria-hidden="true"></div>
+            <div class="silo-box"><span data-i="sb3">Vývoj</span><br /><span class="ai-badge">AI ✓</span></div>
+          </div>
+          <p class="silo-note" data-i="siltnote">Tři chytrá oddělení, mezi nimi zadání, fronty
+          a schvalovací kolečka. Nápad putuje měsíce.</p>
+        </div>
+
+        <div class="silo-card method reveal-r">
+          <h3 data-i="silmh">S Pflanzer Method: jeden tok</h3>
+          <div class="flow-row">
+            <div class="flow-box" data-i="fb1">Problém</div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-box" data-i="fb2">3 varianty</div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-box" data-i="fb3">Produkce</div>
+          </div>
+          <div class="ai-band" data-i="band">AI + celý tým, po celou dobu</div>
+          <p class="silo-note" data-i="silmnote">Všechny role u jednoho stolu, AI staví průběžně.
+          <b>Nápad doputuje za 14 dní.</b></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 02 · JAK TO FUNGUJE ════ -->
+  <section id="co" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">02</span><h2 data-i="s2h">Jak to funguje: tři kroky</h2></div>
+      <p class="sec-lede reveal" data-i="s2l">Místo psaní zadání se řešení rovnou staví.
+      Rozhodujete se nad něčím, na co si můžete <b>kliknout</b>, ne nad dokumentem.</p>
+
+      <div class="three">
+        <div class="reveal">
+          <div class="big-no">1</div>
+          <h3 data-i="st1h">Sepíšete problém</h3>
+          <p data-i="st1p">Ne řešení, ale problém. Jedna stránka: co nefunguje, pro koho,
+          podle čeho poznáte úspěch. Hotovo za hodinu u kávy.</p>
+          <span class="arrow" aria-hidden="true">→</span>
+        </div>
+        <div class="reveal" style="transition-delay:0.12s">
+          <div class="big-no">2</div>
+          <h3 data-i="st2h">AI postaví 3 varianty</h3>
+          <p data-i="st2p">Váš vývojář s AI postaví tři různé běžící verze řešení.
+          Ne obrázky, ne klikací atrapa. Skutečný software na adrese,
+          kterou si otevřete v prohlížeči.</p>
+          <span class="arrow" aria-hidden="true">→</span>
+        </div>
+        <div class="reveal" style="transition-delay:0.24s">
+          <div class="big-no">3</div>
+          <h3 data-i="st3h">Vyberete a nasadíte</h3>
+          <p data-i="st3p">Tým si varianty proklikne a vybere vítěze. Tentýž kód projde
+          kontrolami kvality a jde do produkce. Nic se nestaví znovu.</p>
+        </div>
+      </div>
+      <p class="three-pointe reveal" data-i="pointe">Klasické zadání zafixuje řešení dřív, než ho kdokoliv
+      viděl běžet. Pflanzer zafixuje jen problém. <span class="hl">Řešení se vybírá,
+      až když na něj jde sáhnout.</span></p>
+    </div>
+  </section>
+
+  <!-- ════ 03 · 14 DNÍ ════ -->
+  <section id="dny" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">03</span><h2 data-i="s3h">14 dní, den po dni</h2></div>
+      <p class="sec-lede reveal" data-i="s3l">Jen tři schůzky. Všechno ostatní běží asynchronně,
+      nebo to udělá AI. <b>Celkem asi 4 hodiny společného času na osobu.</b><br />
+      <span style="font-size:0.82rem;">Pflanzer znamená německy pěstitel.
+      A přesně tak to běží: ze semínka (problém) vyroste za 14 dní květ (produkt).</span></p>
+
+      <div class="tl-wrap">
+      <div class="tl" id="tl">
+        <div class="tl-rail"><div class="tl-fill" id="tl-fill"></div></div>
+
+        <div class="tl-step">
+          <div class="when">Den 0</div>
+          <div class="node" aria-hidden="true">
+            <!-- semínko -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <ellipse class="fill" cx="16" cy="31" rx="5" ry="6.5" transform="rotate(-18 16 31)" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <h3><span data-i="c1h">Káva a Charter</span> <span class="chip go" data-i="chipm60">schůzka · 60 min</span></h3>
+            <p data-i="c1p">Sponzor, produkťák a vývojář sepíšou Charter. Jedna stránka:
+            co řešíme, pro koho, jaká metrika určí úspěch. Nic o tom,
+            jak to má vypadat.</p>
+            <div class="log" data-i="c1log"><span class="p">$</span> /pm start → charter uložen <span class="ok">✓</span></div>
+          </div>
+        </div>
+
+        <div class="tl-step">
+          <div class="when">Den 1–4</div>
+          <div class="node" aria-hidden="true">
+            <!-- klíček -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <path d="M16 36 V24" />
+              <path d="M16 24 C16 18 11 17 8 18 C9 23 13 24 16 24 Z" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <h3><span data-i="c2h">AI staví</span> <span class="chip" data-i="chipasync">bez schůzky</span></h3>
+            <p data-i="c2p">Vývojář zadá Charter AI a nechá postavit tři záměrně odlišné
+            varianty. Třeba průvodce, samoobslužný portál a automatizaci.
+            Každá běží na vlastní adrese.</p>
+            <div class="log" data-i="c2log"><span class="p">$</span> /pm build → varianta A <span class="ok">✓</span> · B <span class="ok">✓</span> · C <span class="ok">✓</span></div>
+          </div>
+        </div>
+
+        <div class="tl-step">
+          <div class="when">Den 5</div>
+          <div class="node" aria-hidden="true">
+            <!-- dva lístky -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <path d="M16 36 V18" />
+              <path d="M16 24 C16 18 11 17 8 18 C9 23 13 24 16 24 Z" />
+              <path d="M16 21 C16 15 21 14 24 15 C23 20 19 21 16 21 Z" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <h3><span data-i="c3h">Steering</span> <span class="chip go" data-i="chipm90">schůzka · 90 min</span></h3>
+            <p data-i="c3p">Tým (asi 6 lidí) si varianty proklikne naživo. „Tohle předělat takhle":
+            AI změnu udělá během minut, ještě na schůzce. Pak tiché hlasování.
+            Šéf hlasuje poslední, aby nestrhl ostatní.</p>
+            <div class="log" data-i="c3log"><span class="p">$</span> /pm review → shortlist: B, C</div>
+          </div>
+        </div>
+
+        <div class="tl-step">
+          <div class="when">Den 6–9</div>
+          <div class="node" aria-hidden="true">
+            <!-- stonek s listy -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <path d="M16 36 V10" />
+              <path d="M16 28 C16 22 11 21 8 22 C9 27 13 28 16 28 Z" />
+              <path d="M16 24 C16 18 21 17 24 18 C23 23 19 24 16 24 Z" />
+              <path d="M16 17 C16 12 12 11 9.5 12 C10.5 16 13.5 17 16 17 Z" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <h3><span data-i="c4h">Feedback</span> <span class="chip" data-i="chipasync">bez schůzky</span></h3>
+            <p data-i="c4p">Každý, kdo do toho má co mluvit, dostane jen odkaz.
+            Kliká ve svém prohlížeči, kdy se mu to hodí, hodnotí ve formuláři.
+            Vývojář podle toho varianty dolaďuje.</p>
+            <div class="log" data-i="c4log"><span class="p">$</span> /pm feedback → 14 hodnocení · 0 blokací</div>
+          </div>
+        </div>
+
+        <div class="tl-step">
+          <div class="when">Den 10</div>
+          <div class="node" aria-hidden="true">
+            <!-- poupě -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <path d="M16 36 V12" />
+              <path d="M16 26 C16 20 11 19 8 20 C9 25 13 26 16 26 Z" />
+              <path d="M16 22 C16 16 21 15 24 16 C23 21 19 22 16 22 Z" />
+              <ellipse class="sig-fill" cx="16" cy="8" rx="4" ry="5.5" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <span class="stamp" aria-hidden="true">GO</span>
+            <h3><span data-i="c5h">Rozhodnutí</span> <span class="chip go" data-i="chipm60">schůzka · 60 min</span></h3>
+            <p data-i="c5p">Vyřeší se sporné body a padne rozhodnutí: pokračovat, upravit,
+            nebo zastavit. Každé rozhodnutí má jméno a důvod v decision logu.
+            Za půl roku dohledáte, kdo co rozhodl a proč.</p>
+            <div class="log" data-i="c5log"><span class="p">$</span> /pm decide → <span class="ok">GO: varianta B</span></div>
+          </div>
+        </div>
+
+        <div class="tl-step">
+          <div class="when">Den 11–14</div>
+          <div class="node" aria-hidden="true">
+            <!-- květ -->
+            <svg viewBox="0 0 32 38"><g class="plant">
+              <path d="M16 36 V16" />
+              <path d="M16 28 C16 22 11 21 8 22 C9 27 13 28 16 28 Z" />
+              <path d="M16 24 C16 18 21 17 24 18 C23 23 19 24 16 24 Z" />
+              <ellipse class="petal" cx="16" cy="2.5" rx="2.6" ry="3.4" />
+              <ellipse class="petal" cx="22.5" cy="7" rx="2.6" ry="3.4" transform="rotate(72 22.5 7)" />
+              <ellipse class="petal" cx="20" cy="14.5" rx="2.6" ry="3.4" transform="rotate(144 20 14.5)" />
+              <ellipse class="petal" cx="12" cy="14.5" rx="2.6" ry="3.4" transform="rotate(-144 12 14.5)" />
+              <ellipse class="petal" cx="9.5" cy="7" rx="2.6" ry="3.4" transform="rotate(-72 9.5 7)" />
+              <circle class="sig-fill" cx="16" cy="9" r="3" />
+            </g></svg>
+          </div>
+          <div class="tl-card reveal-r">
+            <h3><span data-i="c6h">Nasazení</span> <span class="chip" data-i="chipdev">vývojáři · 1–2 dny</span></h3>
+            <p data-i="c6p">Vítězný kód projde kontrolami kvality (testy, bezpečnost,
+            přístupnost, build) a tíž lidé, co byli u toho, ho nasadí do
+            produkce s monitoringem. Nic se nestaví znovu.</p>
+            <div class="log" data-i="c6log"><span class="p">$</span> /pm ship → kontroly <span class="ok">86/100 ✓</span> → <span class="ok">produkce ✓</span></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="tl-side" aria-hidden="true">
+        <div class="tl-plant">
+          <div id="tl-plant-anim"></div>
+          <div class="cap" id="tl-plant-cap">Den 0 · semínko</div>
+        </div>
+      </aside>
+      </div>
+
+      <p class="tl-sum reveal" data-i="tlsum">Schůzky dohromady: <span class="hl">60 + 90 + 60 minut</span>.
+      Běžný projekt spolkne víc už jen na úvodním kolečku.</p>
+    </div>
+  </section>
+
+  <!-- ════ ČÍSLA ════ -->
+  <section style="padding-top:0">
+    <div class="wrap">
+      <div class="numbers reveal" role="list">
+        <div role="listitem"><div class="n"><span class="cnt" data-n="14">0</span> <em data-i="n1u">dní</em></div><div class="l" data-i="n1l">od nápadu k produkci</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="4">0</span> <em data-i="n2u">hod</em></div><div class="l" data-i="n2l">schůzek na osobu, celkem</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="3">0</span> <em data-i="n3u">varianty</em></div><div class="l" data-i="n3l">k výběru, ne jeden návrh</div></div>
+        <div role="listitem"><div class="n"><span class="cnt" data-n="0">0</span> <em data-i="n4u">×</em></div><div class="l" data-i="n4l">přepisování podle zadání</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ CLAIM ════ -->
+  <div class="claim">
+    <div class="wrap">
+      <p class="reveal" data-i="claim">Zadání je nejdražší dokument ve firmě. Platíte ho <em>dvakrát</em>:
+      jednou když se píše, podruhé když se podle něj postaví <em>něco jiného.</em></p>
+      <p class="sub reveal" data-i="claimsub">Výzkum: hotová implementace se od specifikace liší
+      o <b>9,8 až 42 %</b> (Yan et al. 2025). Každé předání mezi týmy stojí
+      <b>8 % propustnosti</b> (DORA 2024). Pflanzer obě ztráty škrtá: kód, který
+      tým odsouhlasil, je kód, který se nasadí.</p>
+    </div>
+  </div>
+
+  <!-- ════ 04 · SROVNÁNÍ ════ -->
+  <section id="srovnani">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">04</span><h2 data-i="s4h">Specka vs. Pflanzer</h2></div>
+      <p class="sec-lede reveal" data-i="s4l">Stejný nápad, dva procesy. Vlevo, jak to chodí dnes.
+      Vpravo, jak to běží s Pflanzer Method.</p>
+
+      <div class="tear" aria-hidden="true">
+        <div class="tear-paper">
+          <div class="behind"><span class="hl" data-i="tearbehind">✓ Produkt.</span></div>
+          <div class="half left">
+            <span class="fn" data-i="tearfn">SPECKA_v7_final_final2.pdf</span>
+            <span class="meta" data-i="tearmeta">40 stran · 6 týdnů · 3 kola připomínek</span>
+          </div>
+          <div class="half right">
+            <span class="fn" data-i="tearfn">SPECKA_v7_final_final2.pdf</span>
+            <span class="meta" data-i="tearmeta">40 stran · 6 týdnů · 3 kola připomínek</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vs-table">
+        <div class="vs-row head reveal">
+          <div data-i="vshl">Vývoj podle specky</div>
+          <div data-i="vshr">Pflanzer Method</div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v1l"><span class="x">✕</span>Týdny psaní zadání, kola připomínek</div>
+          <div class="reveal-r" data-i="v1r"><span class="ok2">→</span>Charter: <span class="hl">1 stránka, 60 minut</span></div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v2l"><span class="x">✕</span>Stakeholdeři komentují dokument a obrázky</div>
+          <div class="reveal-r" data-i="v2r"><span class="ok2">→</span>Stakeholdeři klikají na <span class="hl">běžící produkt</span></div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v3l"><span class="x">✕</span>Předání: vývoj dostane spec a staví znovu</div>
+          <div class="reveal-r" data-i="v3r"><span class="ok2">→</span>Vývojář u toho od minuty 0, <span class="hl">nic se nepředává</span></div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v4l"><span class="x">✕</span>Výsledek se od zadání liší o 9,8 až 42 %</div>
+          <div class="reveal-r" data-i="v4r"><span class="ok2">→</span>Kód ze sezení <span class="hl">= kód v produkci</span></div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v5l"><span class="x">✕</span>Rozhoduje nejlépe placený názor v místnosti</div>
+          <div class="reveal-r" data-i="v5r"><span class="ok2">→</span>Tiché hlasování, šéf hlasuje <span class="hl">poslední</span></div>
+        </div>
+        <div class="vs-row">
+          <div class="reveal-l" data-i="v6l"><span class="x">✕</span>Měsíce do první verze, kterou někdo vidí</div>
+          <div class="reveal-r" data-i="v6r"><span class="ok2">→</span><span class="hl">14 dní</span> do produkce</div>
+        </div>
+      </div>
+      <p class="vs-src reveal" data-i="vssrc">Zdroje: rozdíl spec vs. implementace 9,8 až 42,1 %: Yan et al. 2025 ·
+      předání = ztráta 8 % propustnosti: DORA 2024.</p>
+    </div>
+  </section>
+
+  <!-- ════ 05 · ZDARMA + PRO FIRMY ════ -->
+  <section id="zdarma" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">05</span><h2 data-i="s5h">K dispozici zdarma</h2></div>
+      <p class="sec-lede reveal" data-i="s5l">Celá metodika je open source (MIT): dokumentace,
+      šablony, příkazy. Žádná registrace, žádný trial. <b>Dobrý proces má dávat
+      smysl, jinak ho nikdo nepoužije.</b></p>
+      <div class="free-grid">
+        <div class="free reveal-l">
+          <h3 data-i="freeh">Přídavek do Claude Code</h3>
+          <p data-i="freep1">Nainstalujete na jeden řádek a metoda vás provede sama,
+          od Charteru po nasazení:</p>
+          <div class="install" data-i="inst"><span class="c"># instalace (jednou)</span>
+<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/pflanzer-method/PflanzerMethod/main/install.sh | bash
+
+<span class="c"># a v Claude Code už jen</span>
+<span class="p">$</span> /pm start</div>
+          <p data-i="freep2"><b>/pm</b> pozná, kde v cyklu jste, a sám nabídne další krok.</p>
+        </div>
+        <div class="firm reveal-r">
+          <h3 data-i="firmh">Pro firmy</h3>
+          <p data-i="firmp">Chcete metodu zavést bez pokusů a omylů? Pomůžeme:</p>
+          <ul>
+            <li data-i="fli1">školení týmu (facilitátor, builder, stakeholdeři)</li>
+            <li data-i="fli2">první cyklus vedený autorem metody, na vašem problému</li>
+            <li data-i="fli3">zavedení do firemních procesů a governance</li>
+          </ul>
+          <p class="btn-sm"><a href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pro%20firmu" data-i="firmbtn">Ozvěte se →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ FAQ ════ -->
+  <section style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head reveal"><span class="no">06</span><h2 data-i="s6h">Na co se ptáte</h2></div>
+      <div class="faq">
+        <div class="reveal">
+          <h3 data-i="q1h">My už víme, co chceme postavit.</h3>
+          <p data-i="q1p">Dobře, vaše představa bude varianta A. Postavit ji stojí s AI hodiny,
+          ne sprinty, takže B a C přihodíme jako levné vyzývatele. Buď potvrdí,
+          že A je správně, nebo vás zachrání před drahou předělávkou.</p>
+        </div>
+        <div class="reveal" style="transition-delay:0.1s">
+          <h3 data-i="q2h">Co bezpečnost a kvalita AI kódu?</h3>
+          <p data-i="q2p">Do produkce nejde nic bez kontrol: testy, typy, lint, bezpečnostní
+          skeny, přístupnost, build. Skóre aspoň 80 ze 100 je podmínka nasazení,
+          ne doporučení.</p>
+        </div>
+        <div class="reveal" style="transition-delay:0.2s">
+          <h3 data-i="q3h">Kolik lidí to reálně stojí?</h3>
+          <p data-i="q3p">Asi 6 lidí, každý kolem 4 hodin schůzek. K tomu vývojář zhruba
+          3 dny stavění. Celkem kolem 10 člověkodní na celý cyklus. Méně,
+          než kolik běžně spolkne samotné sepsání a vypořádání zadání.</p>
+        </div>
+        <div class="reveal" style="transition-delay:0.3s">
+          <h3 data-i="q4h">A když to jiný tým nepřevezme?</h3>
+          <p data-i="q4p">Není co předávat. Vývojář z přebírajícího týmu je členem od první
+          minuty. Dokumentace (API spec, testy, decision log) se generuje
+          z kódu, ne naopak.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ CTA ════ -->
+  <section class="cta" style="padding-top:0">
+    <div class="wrap">
+      <p class="big reveal" data-i="ctabig">Přineste problém.<br />Odejděte s <em>produktem.</em></p>
+      <div class="reveal">
+        <a class="btn" href="mailto:tom@pflanzer.cz?subject=Pflanzer%20pilot%20call" data-i="ctabtn">Domluvit pilot →</a>
+      </div>
+      <p class="alt reveal" data-i="ctaalt">Nebo rovnou sami: metodika je k dispozici zdarma jako
+      přídavek do Claude Code. Instalace na jeden řádek, pak <code>/pm start</code>.</p>
+    </div>
+  </section>
+
+  <div class="meadow anim-trigger" id="meadow" aria-hidden="true"></div>
+
+  <footer>
+    <div class="wrap">
+      <span><strong>Pflanzer Method</strong> | pflanzer.cz/method</span>
+      <span>Tom Pflanzer · GiZMaX · Praha · <a href="mailto:tom@pflanzer.cz">tom@pflanzer.cz</a></span>
+      <span>v0.4 · MIT</span>
+    </div>
+  </footer>
+</main>
+
+<div class="frame frame-bottom">
+  <span>↳ Pflanzer&nbsp;Method&nbsp;|&nbsp;pflanzer.cz/method</span>
+  <span data-i="fbr">Manuál · ne manifesto</span>
+</div>
+
+<script src="bold-hybrid.i18n.js"></script>
+<script>
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* louka v patičce — kytky a tráva, deterministická variace per index */
+  var meadow = document.getElementById('meadow');
+  if (meadow) {
+    var FLOWER = function (h, side) {
+      var ly = h - 16;  // kde na stonku sedí lístek
+      var leaf = (side < 0)
+        ? '<path class="m-lf" d="M11 ' + ly + ' C11 ' + (ly - 8) + ' 4 ' + (ly - 10) + ' 1 ' + (ly - 9) + ' C2 ' + (ly - 3) + ' 7 ' + ly + ' 11 ' + ly + ' Z" />'
+        : '<path class="m-lf" d="M11 ' + ly + ' C11 ' + (ly - 8) + ' 18 ' + (ly - 10) + ' 21 ' + (ly - 9) + ' C20 ' + (ly - 3) + ' 15 ' + ly + ' 11 ' + ly + ' Z" />';
+      return '<svg width="22" height="' + h + '" viewBox="0 0 22 ' + h + '">' +
+        '<path class="m-st" d="M11 ' + h + ' V14" />' + leaf +
+        '<ellipse class="m-pt" cx="11" cy="4.6" rx="2.7" ry="3.7" />' +
+        '<ellipse class="m-pt" cx="16.7" cy="8.8" rx="2.7" ry="3.7" transform="rotate(72 16.7 8.8)" />' +
+        '<ellipse class="m-pt" cx="14.6" cy="15.4" rx="2.7" ry="3.7" transform="rotate(144 14.6 15.4)" />' +
+        '<ellipse class="m-pt" cx="7.4" cy="15.4" rx="2.7" ry="3.7" transform="rotate(-144 7.4 15.4)" />' +
+        '<ellipse class="m-pt" cx="5.3" cy="8.8" rx="2.7" ry="3.7" transform="rotate(-72 5.3 8.8)" />' +
+        '<circle class="m-ct" cx="11" cy="10" r="3" /></svg>';
+    };
+    var GRASS = function (h) {
+      return '<svg width="20" height="' + h + '" viewBox="0 0 20 ' + h + '">' +
+        '<path class="m-gr" d="M10 ' + h + ' C10 ' + (h - 14) + ' 5 ' + (h - 20) + ' 4 ' + (h - 26) + '" />' +
+        '<path class="m-gr" d="M10 ' + h + ' C10 ' + (h - 12) + ' 15 ' + (h - 18) + ' 16 ' + (h - 24) + '" /></svg>';
+    };
+    var heights = [52, 38, 46, 34, 56, 40, 50, 36, 54, 42, 48, 38, 52, 44];
+    var html = '';
+    for (var m = 0; m < heights.length; m++) {
+      html += (m % 2 === 0) ? FLOWER(heights[m], (m % 4 === 0) ? -1 : 1) : GRASS(heights[m]);
+    }
+    meadow.innerHTML = html;
+    var kids = meadow.children;
+    for (var d = 0; d < kids.length; d++) {
+      kids[d].style.transitionDelay = (d * 55) + 'ms';
+    }
+  }
+
+  /* scroll progress bar */
+  var bar = document.getElementById('progress');
+  function onScroll() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+    fillTimeline();
+  }
+
+  /* timeline: zelená linka roste se scrollem */
+  var tl = document.getElementById('tl'), tlFill = document.getElementById('tl-fill');
+  function fillTimeline() {
+    if (!tl) return;
+    var r = tl.getBoundingClientRect();
+    var vh = window.innerHeight;
+    var progress = (vh * 0.75 - r.top) / r.height;
+    tlFill.style.height = Math.max(0, Math.min(1, progress)) * 100 + '%';
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  onScroll();
+
+  if (reduced) {
+    document.querySelectorAll('.reveal, .reveal-l, .reveal-r, .tl-step, .anim-trigger, .tear').forEach(function (el) { el.classList.add('in'); });
+    if (tlFill) tlFill.style.height = '100%';
+    return;
+  }
+
+  /* reveal on scroll */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.18 });
+  document.querySelectorAll('.reveal, .reveal-l, .reveal-r, .tl-step, .anim-trigger').forEach(function (el) { io.observe(el); });
+
+  /* trhání specky: spustit až když je papír pohodlně ve viewportu,
+     ne hned u spodní hrany — jinak proběhne mimo zorné pole */
+  var tear = document.querySelector('.tear');
+  if (tear) {
+    var tio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { tear.classList.add('in'); tio.disconnect(); }
+      });
+    }, { threshold: 0.6, rootMargin: '0px 0px -22% 0px' });
+    tio.observe(tear);
+  }
+
+  /* count-up čísla */
+  var cio = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      cio.unobserve(e.target);
+      var el = e.target, target = parseInt(el.dataset.n, 10), t0 = null;
+      function tick(t) {
+        if (!t0) t0 = t;
+        var k = Math.min(1, (t - t0) / 900);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }, { threshold: 0.6 });
+  document.querySelectorAll('.cnt').forEach(function (el) { cio.observe(el); });
+
+  /* hero terminál: postupné odehrání session */
+  document.body.classList.add('js');
+  var lines = document.querySelectorAll('#hero-term .ln');
+  var i = 0;
+  function next() {
+    if (i >= lines.length) return;
+    lines[i].classList.add('is-typed');
+    i++;
+    setTimeout(next, i === 1 ? 850 : 600);
+  }
+  setTimeout(next, 600);
+})();
+</script>
+
+<!-- Lottie: rostlina vedle časové osy roste se scrollem (scrub po framech).
+     Když CDN nejede, zbytek stránky se nerozbije. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie_light.min.js" defer></script>
+<script>
+(function () {
+  var holder = document.getElementById('tl-plant-anim');
+  var cap = document.getElementById('tl-plant-cap');
+  var tl = document.getElementById('tl');
+  if (!holder || !tl) return;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var anim = null, total = 0, ready = false;
+  var FALLBACK = ['Den 0 · semínko', 'Den 1–4 · AI staví', 'Den 5 · steering',
+    'Den 6–9 · feedback', 'Den 10 · rozhodnutí', 'Den 11–14 · v produkci'];
+  function LBL() { return window.__plantLabels || FALLBACK; }
+
+  /* stejný průběh jako zelená linka osy: 0 na začátku dnů, 1 na konci */
+  function progress() {
+    var r = tl.getBoundingClientRect();
+    var p = (window.innerHeight * 0.75 - r.top) / r.height;
+    return Math.max(0, Math.min(1, p));
+  }
+
+  function update() {
+    if (!ready) return;
+    var p = progress();
+    anim.goToAndStop(Math.round(p * (total - 1)), true);
+    var L = LBL();
+    cap.textContent = L[Math.min(L.length - 1, Math.floor(p * L.length))];
+  }
+
+  function init() {
+    if (anim || typeof lottie === 'undefined') return;
+    anim = lottie.loadAnimation({
+      container: holder, renderer: 'svg',
+      loop: false, autoplay: false, path: 'plant-lottie.json'
+    });
+    anim.addEventListener('DOMLoaded', function () {
+      total = anim.totalFrames; ready = true;
+      if (reduced) {
+        anim.goToAndStop(total - 1, true);
+        cap.textContent = LBL()[LBL().length - 1];
+        return;
+      }
+      update();
+      window.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+    });
+  }
+  window.__plantUpdate = update;
+  window.addEventListener('load', init);
+})();
+</script>
+
+</body>
+</html>

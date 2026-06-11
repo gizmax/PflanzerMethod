@@ -21,6 +21,14 @@ fáze 1 uživatelem.
 
 ## Konvence specifické pro tento projekt
 
+### Branding (povinné)
+Oficiální brand lockup je **`Pflanzer Method | pflanzer.cz/method`**.
+- Každý user-facing výstup toolu (slash commandy, web hub, reporty, handoff
+  package, generované dokumenty) začíná tímto brand line.
+- V marketingu a na webu vždy „Pflanzer Method" (EN wordmark, i v českém
+  textu) + doména `pflanzer.cz/method` ve frame/footer.
+- Zkratka „PM" se používá **jen** v názvech commandů (`/pm`), nikdy v textu.
+
 ### Jazyk
 - Veškerá **dokumentace metodiky** (`docs/methodology/`, `docs/research/`,
   `docs/decisions/`): **čeština**.
