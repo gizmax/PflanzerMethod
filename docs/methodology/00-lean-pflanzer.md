@@ -105,7 +105,7 @@ Přidej kompletní overhead z `method-charter.md` v0.3, pokud platí **kterékol
    (Pflanzer méně než pilot = nepotřebuješ ADR-0011/12/13/14.)
 
 Pokud projekt **nesplňuje ANI JEDEN bod výše**, jdeš s default profilem.
-Pro e-shop-style eshop → default. Tečka.
+Pro běžný e-shop → default. Tečka.
 
 ## Role catalog v default profilu
 

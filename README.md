@@ -15,7 +15,7 @@
 - **`docs/case-studies/eshop-2026.md`** — reálný průběh e-shop pilotu (3h vibe, 3 weby, ship to prod).
 - Quick start níže (`/pflanzer ...` commands).
 
-**Audit-grade overhead** (Method Steward, pre-registration, compliance score, AI Act Fáze A/B/C, DORA prompt audit pipeline) → relevantní jen pro regulated industries (banky, pojišťovny EU, AI Act High-risk). Viz `method-charter.md` + ADR-0011/0012/0013/0014. e-shop-style projekt tohle **nepotřebuje**.
+**Audit-grade overhead** (Method Steward, pre-registration, compliance score, AI Act Fáze A/B/C, DORA prompt audit pipeline) → relevantní jen pro regulated industries (banky, pojišťovny EU, AI Act High-risk). Viz `method-charter.md` + ADR-0011/0012/0013/0014. Běžný e-shop projekt tohle **nepotřebuje**.
 
 ## Co řeší
 

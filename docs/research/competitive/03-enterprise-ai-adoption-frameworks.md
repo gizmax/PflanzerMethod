@@ -18,7 +18,7 @@ engagementy** v rozmezí $1M–$10M za 12+ týdnů s deliverable = governance
 framework + roadmapa + CoE blueprint. Jejich nejlevnější produkt je „AI pilot"
 v rámci větší transformace (typicky 8–12 týdnů, $300k–$1.5M, deliverable Figma +
 PoC notebook). **Pflanzer je o dva řády levnější a o řád rychlejší, ale neexistuje
-jako standalone produkt** — dnes je to ad-hoc praktika tří CEE firem (e-shop-style
+jako standalone produkt** — dnes je to ad-hoc praktika tří CEE firem (e-shop
 pilot). Pokud Pflanzer chce být v Q3 2026 buyable, musí (1) získat partner channel
 přes ICAgile / PMI nebo BCG X / Accenture Anthropic Business Group, (2) zarámovat
 se jako **„IP iteration play pro SAFe + AI pilot fixture pro CoE roadmapu"**, ne

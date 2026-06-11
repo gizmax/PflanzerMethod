@@ -699,7 +699,7 @@ neoči-přečte „e-shop" z H2.)
 
 #### Přidat CTA pod field-notes:
 ```html
-<a href="/case/eshop.pdf" class="btn ghost">
+<a href="/case/e-shop.pdf" class="btn ghost">
   <span class="lang-cs">Stáhnout celý case (PDF, 8 str.) ↓</span>
   <span class="lang-en">Download full case (PDF, 8 pages) ↓</span>
 </a>
@@ -720,7 +720,7 @@ neoči-přečte „e-shop" z H2.)
 
 #### 1. Clarity & Friction
 
-`Default (e-shop-style, ~80 % korporátních case-ů) ti stačí jeden 1-pager.`
+`Default (běžný e-shop, ~80 % korporátních case-ů) ti stačí jeden 1-pager.`
 — „case-ů" je gramaticky špatně v CS (sg. „case" pl. „cases", ne „case-ů").
 **P0 fix.** Lepší: `~80 % případů` nebo `~80 % korporátních situací`.
 
@@ -1148,7 +1148,7 @@ Citibank?"* nebo *„Jsem v 5000-FTE bance, je to pro mě dost robust?"*
 
 ### 3. Track record / proof beyond e-shop
 
-**Currently:** Field Notes = e-shop. 1 case study. *„e-shop-style ~80 %
+**Currently:** Field Notes = e-shop. 1 case study. *„běžný e-shop ~80 %
 korporátních case-ů"* implikuje, že existují další.
 
 **Reader friction:** *„Jediný case je e-commerce. Funguje to v bance?"*
