@@ -59,7 +59,9 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, P
     monkeypatch.setenv("PFLANZER_DB", str(db_path))
     monkeypatch.setenv("PFLANZER_TARGETS_DIR", str(targets))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "XDG_CONFIG_HOME"):
+    # CLAUDE_CONFIG_DIR / PFLANZER_AI_PRICES: ai_usage.py must read only the test HOME.
+    for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "XDG_CONFIG_HOME",
+                "CLAUDE_CONFIG_DIR", "PFLANZER_AI_PRICES"):
         monkeypatch.delenv(var, raising=False)
 
     # Module-level constants were computed at import time — repoint them.

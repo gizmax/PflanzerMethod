@@ -166,6 +166,16 @@ checklistu):
 | **Security** | scan — secret scan + SBOM / license scan clean | Promote-to-prod gate |
 | **EM** | kapacitu — dev tým na D11-14 hardening + review | True Cost Worksheet (`03` § Krok 1a) |
 
+### AI náklady (viditelnost)
+
+SHIP.md má sekci **„AI náklady (viditelnost)"**: tokeny (input / output /
+cache write / cache read) per varianta a celkem za cyklus, načtené ze
+session logů Claude Code pro worktrees projektu na stroji, kde běžel build
+(`tool/cli/ai_usage.py`, snapshot do DB přes `--record`). Je to jen viditelnost
+pro EM („session stála X"), žádný limit ani gate. Jiné stroje a hosted buildery
+se nezapočítají. Odhad v USD se zobrazí jen s lokálním ceníkem
+(`pflanzer.prices.json`, viz `tool/templates/README-ai-usage.md`).
+
 ## Track S — precision spec do vývoje (fallback)
 
 ### Když Track S
