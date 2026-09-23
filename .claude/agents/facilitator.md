@@ -81,9 +81,9 @@ Vrať **POUZE JSON** v tomto formátu (slash command ho zapíše do
       "name": "A",
       "builder": "v0",
       "prototype_url": "https://sandbox.invalid/demo-widget/A",
-      "description_md": "## Variant A — single-screen wizard\n\nOST node: ...\nHypothesis: ...\nThrowaway.",
+      "description_md": "## Variant A — single-screen wizard\n\nOST node: ...\nHypothesis: ...\nEvolve.",
       "ost_node": "Reduce time-to-first-action",
-      "throwaway_or_evolve": "throwaway",
+      "throwaway_or_evolve": "evolve",
       "role_preferences": [
         {
           "role_idx": 1,

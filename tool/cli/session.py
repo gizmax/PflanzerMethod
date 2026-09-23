@@ -45,6 +45,12 @@ AI_ONLY_CAP = 0.5
 # --------------------------------------------------------------------------
 
 
+
+def _is_placeholder_url(url: str | None) -> bool:
+    """Sandbox placeholder emitted by the facilitator / quick_session before a real preview exists."""
+    return not url or "sandbox.invalid" in url
+
+
 def _normalize(value: float | None) -> float | None:
     if value is None:
         return None
@@ -104,6 +110,41 @@ def _aggregate_variant_score(
 # --------------------------------------------------------------------------
 
 
+DIFF_SUMMARY_LABELS = {
+    "stat": "Diff stat",
+    "touched_existing": "Upravené existující soubory",
+    "reuse": "Reuse",
+    "new": "Nové",
+    "mock": "Mock / stub",
+    "acceptance_pass": "Acceptance pass",
+}
+
+
+def diff_summary_to_md(diff_summary: Any) -> str | None:
+    """Diff walkthrough (pflanzer.md KROK 4.5) → markdown bullet list.
+
+    Accepts the dict from the vote spec (known keys first, unknown keys kept),
+    a plain string (stored as-is) or None.
+    """
+    if not diff_summary:
+        return None
+    if isinstance(diff_summary, str):
+        return diff_summary.strip() or None
+    if not isinstance(diff_summary, dict):
+        return json.dumps(diff_summary, ensure_ascii=False)
+    keys = [k for k in DIFF_SUMMARY_LABELS if k in diff_summary]
+    keys += [k for k in diff_summary if k not in DIFF_SUMMARY_LABELS]
+    lines = []
+    for k in keys:
+        val = diff_summary[k]
+        if val in (None, "", []):
+            continue
+        if isinstance(val, (list, tuple)):
+            val = ", ".join(f"`{x}`" for x in val)
+        lines.append(f"- **{DIFF_SUMMARY_LABELS.get(k, k)}**: {val}")
+    return "\n".join(lines) or None
+
+
 def _validate_spec(spec: dict[str, Any]) -> None:
     if "slug" not in spec:
         raise ValueError("spec missing 'slug'")
@@ -149,6 +190,8 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
               "description_md": "...",
               "ost_node": "...",
               "throwaway_or_evolve": "throwaway",
+              "diff_summary": {"stat": "...", "reuse": "...", "new": "...",
+                               "mock": "...", "acceptance_pass": "3/4"},
               "role_preferences": [
                 {
                   "role_idx": 1,            # catalog_idx 1..18
@@ -210,11 +253,21 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         ).fetchone()
         if sess:
             session_id = int(sess[0])
+            # Keep real preview URLs (e.g. stored by `worktree.py preview --run` or
+            # `set-url`) when a re-vote only carries the sandbox placeholder.
+            kept_urls = {
+                r[0]: r[1] for r in conn.execute(
+                    "SELECT name, prototype_url FROM variants WHERE session_id = ?",
+                    (session_id,),
+                ).fetchall()
+                if r[1] and not _is_placeholder_url(r[1])
+            }
             # Reset variants for re-run idempotency
             conn.execute(
                 "DELETE FROM variants WHERE session_id = ?", (session_id,),
             )
         else:
+            kept_urls = {}
             cur = conn.execute(
                 "INSERT INTO sessions (project_id, type, starts_at, decision) "
                 "VALUES (?, 1, ?, 'pending')",
@@ -223,6 +276,12 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             session_id = cur.lastrowid
 
         # Persist variants + role_preferences
+        # diff_summary_md is an additive column (audit N10) — older DBs
+        # without `migrate.py` run simply skip it.
+        has_diff_col = any(
+            r[1] == "diff_summary_md"
+            for r in conn.execute("PRAGMA table_info(variants)").fetchall()
+        )
         persisted_variants: list[dict[str, Any]] = []
         for v in spec["variants"]:
             role_prefs_raw = v.get("role_preferences", [])
@@ -256,11 +315,19 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    session_id, v["name"], v["builder"], v["prototype_url"],
+                    session_id, v["name"], v["builder"],
+                    kept_urls.get(v["name"], v["prototype_url"])
+                    if _is_placeholder_url(v["prototype_url"]) else v["prototype_url"],
                     v.get("description_md"), agg_score,
                 ),
             )
             variant_id = cur.lastrowid
+            diff_md = diff_summary_to_md(v.get("diff_summary"))
+            if diff_md and has_diff_col:
+                conn.execute(
+                    "UPDATE variants SET diff_summary_md = ? WHERE id = ?",
+                    (diff_md, variant_id),
+                )
 
             for rp in resolved:
                 conn.execute(
@@ -283,6 +350,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 "prototype_url": v["prototype_url"],
                 "preference_score": agg_score,
                 "description_md": v.get("description_md"),
+                "diff_summary_md": diff_md,
                 "role_preferences": resolved,
             })
 

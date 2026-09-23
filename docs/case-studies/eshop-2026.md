@@ -52,7 +52,7 @@ Method Steward — non-regulated default profil je nepotřebuje v místnosti.
 
 ## Průběh
 
-### Setkání #1 — vibe session (3 h, in-room)
+### Setkání #1 — vibe session (3 h, in-room, Lean stupeň)
 
 **Setup:** Všech 6 lidí ve stejné místnosti. AI vibe-coding tools připraveny
 (Bolt + v0 + Lovable, paralelně). Sponzor přinesl 1-věty problém,
@@ -110,6 +110,17 @@ _< Doplnit po skutečném deploy:_
 - Jaká byla stakeholder reakce při retrospective?
 _>_
 
+Hodnoty se doplní z `/pm retro eshop-2026` (tabulka `outcomes`, report
+`data/retro/eshop-2026-retro.md`), ne ručním odhadem. Mapping otázek na
+metriky:
+
+| Otázka | Metrika (`outcomes.metric`) | Milník | Jak vzniká |
+|--------|-----------------------------|--------|------------|
+| % winner kódu v prod commitu | `loc_reused_pct` (+ `loc_winner`, `loc_merged_unchanged`) | `ship` | `retro.py measure` z winner branch vs merge commit |
+| Dny od Session 2 → prod | `days_to_prod` | `ship` | `retro.py measure` (Session 2 GO → merge) |
+| Bugy post-handoff (T+7) | `t7_bugs`, `t7_hotfix_commits` | `t7` | `retro.py record` |
+| Stakeholder reakce při retro | `t30_handoff_acceptance_pct` + `--notes` | `t30` | `retro.py record` |
+
 ## Learnings (initial)
 
 **Co fungovalo:**
@@ -161,7 +172,9 @@ Pod 3 piloty: zůstává jako **case study v `docs/case-studies/`**, ne method-l
 
 ## Open items (post-T+30 / T+90)
 
-- [ ] Doplnit production deploy outcome (% kódu, dny do prodů, bugy T+7).
+- [ ] Doplnit production deploy outcome (% kódu, dny do prodů, bugy T+7) —
+  z `/pm retro eshop-2026` (`data/retro/eshop-2026-retro.md`): `loc_reused_pct`,
+  `days_to_prod`, `t7_bugs`; lagging metrika vs baseline = `t90_lagging_metric`.
 - [ ] Stakeholder retrospective notes — co by sponzor / PM / vývojáři dělali jinak.
 - [ ] Lagging metric vs baseline — historicky podobný projekt v Notinu trval kolik dní?
 - [ ] Pokud druhý e-shop pilot startuje, link sem.
@@ -170,7 +183,8 @@ Pod 3 piloty: zůstává jako **case study v `docs/case-studies/`**, ne method-l
 
 - `docs/methodology/00-lean-pflanzer.md` — default profil definice.
 - `docs/methodology/01-filozofie-a-kdy-pouzit.md` — fit criteria + anti-patterns.
-- `docs/methodology/04-session-1.md` — Session 1 detail (kde e-shop použil
-  3h core vibe místo 5-6h audit-grade variantu).
+- `docs/methodology/04-session-1.md` — Session 1 detail pro Full stupeň
+  (e-shop použil Lean stupeň — 3 h — místo 5–6h Full; stupně viz
+  `00-lean-pflanzer.md` § Tři stupně jedné metody).
 - `docs/research/method-falsifiability/` — proč method-level metrics
   vyžadují N=12+ (e-shop samotný do toho nezapadá).

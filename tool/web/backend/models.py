@@ -6,13 +6,31 @@ The CC side (tool/cli/*.py) writes most rows; the web hub adds variants
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 
 from sqlmodel import Field, SQLModel, create_engine
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DB_PATH = REPO_ROOT / "data" / "pflanzer.db"
+
+
+def _resolve_db_path() -> Path:
+    """Resolve the DB exactly like tool/cli/db.py so the hub and the CLI share one DB.
+
+    Order: PFLANZER_DB env > ~/.pflanzer/pflanzer.db (installed plugin, file must
+    exist) > <repo>/data/pflanzer.db (dev mode). Kept in sync with
+    tool/cli/db.py::_resolve_db_path (covered by tests/test_db_path.py).
+    """
+    if env := os.environ.get("PFLANZER_DB"):
+        return Path(env).expanduser()
+    user_db = Path.home() / ".pflanzer" / "pflanzer.db"
+    if user_db.is_file():
+        return user_db
+    return REPO_ROOT / "data" / "pflanzer.db"
+
+
+DB_PATH = _resolve_db_path()
 
 
 class Project(SQLModel, table=True):
@@ -131,5 +149,7 @@ class AuditLog(SQLModel, table=True):
     retention_until: str | None = None  # ISO date string
 
 
-def get_engine() -> "object":
-    return create_engine(f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False})
+def get_engine() -> object:
+    return create_engine(
+        f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False}
+    )

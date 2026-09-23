@@ -87,8 +87,9 @@ step "Setup runtime dir ${RUNTIME_DIR}"
 mkdir -p "$RUNTIME_DIR"/{targets,handoffs,charters,sessions,feedback,quick,production_reports}
 ok "Vytvořeny pod-adresáře (targets, handoffs, charters, sessions, ...)"
 
-# Apply DB migration (idempotent)
-if PYTHONPATH="$PLUGIN_DIR" python3 "$PLUGIN_DIR/tool/db/migrate.py"; then
+# Apply DB migration (idempotent). PFLANZER_DB explicitly: db.py only picks
+# ~/.pflanzer/pflanzer.db once the file exists, so the first run must name it.
+if PFLANZER_DB="${RUNTIME_DIR}/pflanzer.db" PYTHONPATH="$PLUGIN_DIR" python3 "$PLUGIN_DIR/tool/db/migrate.py"; then
   ok "DB schema aplikováno: ${RUNTIME_DIR}/pflanzer.db"
 else
   fail "Migration selhalo — zkontroluj ${PLUGIN_DIR}/tool/db/schema.sql"

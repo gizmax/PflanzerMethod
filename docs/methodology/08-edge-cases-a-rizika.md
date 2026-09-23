@@ -198,9 +198,14 @@ pre-flight artefakt (feature → team → typ → required by → owner)
 
 ## 8. Prototyp shipnut do prod bez review
 
-**Situace.** Sponzor vidí Bolt deploy URL, dá ji enterprise zákazníkovi,
-zákazník ji začne používat „na ostro". Throw-away kontrakt v Charteru
-ignorován [perspektivy 04, 08, 15; synthesis 01 osa A].
+**Situace.** Charter je (default) Track P + evolve — winner varianta
+*půjde* do produkce. Sponzor ale nečeká na Ship gate ani sign-off: vidí
+sandbox URL varianty po Session 1 nebo 2, dá ji enterprise zákazníkovi
+a zákazník ji začne používat „na ostro". Problém není, že by sponzor
+obešel throw-away (ten je od ADR-0005 v0.4 jen explicit opt-in), ale že
+**evolve zkrátil o Ship gate** — kód, který ještě neprošel quality gates
+≥ 80/100 ani sign-off paketem, běží s reálnými uživateli
+[perspektivy 04, 08, 15; synthesis 01 osa A; ADR-0005 v0.4].
 
 **Co dělat:**
 
@@ -210,22 +215,31 @@ ignorován [perspektivy 04, 08, 15; synthesis 01 osa A].
    neeliminují.
 2. **Blame-free retro do 48 h** [perspektiva 03] — co failnulo:
    technický enforcement (sandbox spec), sociální enforcement
-   (Charter), nebo komunikace (sponzor nečetl)?
-3. **Šance vrátit**: pokud zákazník prototyp viděl, ale ještě nepoužívá
-   v provozu, sponzor osobně volá s vysvětlením + timeline pro proper
-   delivery (paved-road template + P2P gate).
-4. **Governance update**: každý handoff přidává explicit *„Throw-away
-   kontrakt"* podpis sponzora s definicí *„nepoužívat s reálnými daty
-   ani 1 minutu"*.
+   (Charter / sign-off), nebo komunikace (sponzor nevěděl, že evolve
+   ≠ „hned do prod")?
+3. **Šance vrátit**: pokud zákazník variantu viděl, ale ještě nepoužívá
+   v provozu, sponzor osobně volá s vysvětlením + timeline. U evolve
+   je timeline krátká: stejný kód projde Ship gate (quality gates
+   ≥ 80/100) + sign-off a nasadí se proper cestou — žádná
+   re-implementace.
+4. **Governance update**: Charter explicit uvádí, že evolve = „kód jde
+   do prod **přes** Ship gate + sign-off", a sponzor podpisem potvrzuje,
+   že sandbox URL před Ship gate se externě nesdílí a nepoužívá
+   s reálnými daty. U throw-away Charteru (opt-in) platí totéž
+   absolutně — artifact do prod nejde nikdy.
 
 **Kdo rozhoduje.** Security + DevOps společně mají takedown autoritu;
-EM + sponzor řeší zákaznickou komunikaci.
+EM + sponzor řeší zákaznickou komunikaci; o urychleném průchodu Ship
+gate rozhoduje Decider s EM (gate se nesnižuje, jen priorizuje).
 
 **Mitigace.** Sandbox jako **technická pojistka, ne důvěra** [perspektiva
 15]: VPC, watermark, noindex, 24h TTL, žádný route do prod sítě.
-Throw-away je default v Charteru; evolve vyžaduje 5-podpisový balíček
-[synthesis 01 osa A]. *„Production by stealth"* je organizační bug, ne
-technický [perspektiva 04].
+Evolve je default v Charteru, ale prod deploy je podmíněn Ship gate
+(quality gates ≥ 80/100) + kompletním sign-off paketem (FE + EM +
+Security + Legal + Platform + QA) [ADR-0005 v0.4; synthesis 01 osa A].
+Throw-away zůstává explicit opt-in pro 3 use-casy s rationale
+v Charteru. *„Production by stealth"* je organizační bug, ne technický
+[perspektiva 04].
 
 ## 9. Score se stane politickým nástrojem
 
@@ -314,7 +328,8 @@ po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
 - **Decider říká „potřebuju víc času"** (Scenario B): T+48 h písemné
   rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
   (chrání před tichým úmrtím).
-- **Iterate exhausted** (Scenario C): Session 3 hard cap, pak automatický Kill.
+- **Iterate exhausted** (Scenario C): hard cap 1 další iterační rozhodovací
+  session (Session 2b per ADR-0001; nezaměňovat se Ship gate), pak automatický Kill.
 
 **Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
 ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,

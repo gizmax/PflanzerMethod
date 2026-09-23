@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from ..audit import write_audit
-from ..models import Feedback, Project, Session as PSession, Variant
+from ..models import Feedback, Project, Variant
+from ..models import Session as PSession
 
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
@@ -59,7 +60,9 @@ def list_feedback(
     if not proj:
         raise HTTPException(404, f"Project '{project}' not found")
 
-    session_ids = [s.id for s in db.exec(select(PSession).where(PSession.project_id == proj.id)).all()]
+    session_ids = [
+        s.id for s in db.exec(select(PSession).where(PSession.project_id == proj.id)).all()
+    ]
     if not session_ids:
         return []
     variant_ids = [

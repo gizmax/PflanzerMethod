@@ -1,128 +1,254 @@
 ---
-description: Session 3 — Production hardening. Extract code z buildru, projet 7 quality gates, vrátit production-ready verdikt + winner. Gate score >= target = většina kódu použitelná.
+description: Ship gate — quality gates + winner + SHIP.md; alias pro `/pm ship`
 ---
 
-# /pflanzer-session-3 — Production hardening
+# /pflanzer-session-3 — Ship gate (dříve Session 3)
+
+> **Branding:** Každý user-facing výstup tohoto commandu začíná brand line
+> **`Pflanzer Method | pflanzer.cz/method`** (první řádek, pak prázdný řádek).
 
 Argumenty: `$ARGUMENTS` = projekt slug.
 
-Předpoklad: `projects.status = 'handoff'` (= Decider's Go ze Session 2).
+Předpoklad: `projects.status = 'handoff'` (= Decider's Go v Session 2).
 
 ## Co tento command dělá
 
-Nový **3-session production path** (vs. původní 2-session exploration):
-- Session 1 (in-room) = explore — generujeme 2-3 funkční varianty.
-- Session 2 (decisional) = decide — Decider Go/Iterate/Kill.
-- **Session 3 (hardening) = ship** — extract → gate → produktion-ready verdict.
+**Ship gate není meeting.** Je to pipeline, kterou po Decider's Go spustí
+jeden člověk (typicky dev u klávesnice nebo facilitátor) a výsledek ukáže
+Deciderovi. Název `/pflanzer-session-3` a `tool/cli/session_3.py` zůstávají
+jen jako technické názvy; v dokumentaci a u stolu je to **Ship gate**
+(`/pm ship`).
 
-Pod kapotou:
-1. Pro každou shortlist variantu: **extract** code z Bolt/v0/Lovable
-   (přes GitHub URL) nebo skeleton scaffold.
-2. **Run 7 quality gates** na každém extracted projektu:
-   lint / types / tests / security / a11y / build / observability.
-3. Aggregate **gate_score 0-100**, porovnat s `production_readiness_target`
-   z Charteru (default 80).
-4. Vyber **winner** (highest gate_score; tie-break = Session 1 preference_score).
-5. Pokud winner.score >= target → **production-ready**. Většina kódu použitelná.
-6. Pokud ne → konkrétní list, co dofixovat (per gate fail).
+Default cesta metody: varianty staví 3× Claude Code ve **worktrees target
+repa** (`python tool/cli/worktree.py setup --slug <slug>` →
+`~/.pflanzer/targets/<slug>-{A,B,C}/`, branche `pflanzer/<slug>-{A,B,C}`).
+Ship gate proto kód nikam nekopíruje a na GitHub URL se neptá:
+
+1. **Autodetekce worktrees** — pro každou variantu najde její worktree,
+   ověří `git remote get-url origin == projects.target_repo_url`
+   (pre-flight, ADR-0009) a gates pouští **přímo ve worktree**
+   (`extracted_code.extraction_method = 'worktree'`, `local_path` = worktree).
+2. **Quality gates** na každé variantě (build / types / lint / tests /
+   coverage / acceptance / security / a11y / observability) → `gate_score
+   0-100` vs `production_readiness_target` z Charteru. Příkazy gates bere
+   z adaptéru `pflanzer.gates.yml` **z base branche** target repa, ne
+   z variant branche (integrita — agent ve worktree ho mohl „zjednodušit").
+3. **Minimum gates pro verdikt** — `production_ready` jen když běžely
+   (pass / warn / fail) aspoň 4 gates a mezi nimi `build` i `tests`. Jinak
+   `blocked_by: ["gates:insufficient (3/9 run, missing: build, tests)"]`.
+4. **Winner** = nejvyšší gate_score (tie-break = preference_score ze Session 1).
+5. **Triage hard gate** — pro risk profil `pilot` / `production` musí mít
+   všechny 4 triage tracky (discovery / security / legal / platform) status
+   `ok`. Jinak `production_ready = false` bez ohledu na gate score
+   a výstup nese `blocked_by: ["triage:security deferred", …]`.
+6. Výstup: `data/production_reports/<slug>-readiness.md` a pak SHIP.md
+   (`/pm handoff`).
+
+Pořadí zdrojů kódu per varianta (`tool/cli/extract.py` `plan_extraction`):
+
+| Priorita | Zdroj | Kdy |
+|----------|-------|-----|
+| 1 | `--method-overrides` | explicitní volba týmu |
+| 2 | `worktree` | worktree varianty existuje (default cesta) |
+| 3 | `git_clone` (`--repo-urls`) | hosted builder (Bolt / v0 / Lovable) u projektu s `--prefer-hosted` |
+| 4 | `skeleton` | **jen risk profil `throwaway`** |
+
+Pro `pilot` / `production` bez worktree a bez hosted URL Ship gate
+**fail-loud** skončí hláškou „spusť `python tool/cli/worktree.py setup --slug
+<slug>`" — skeleton by vyrobil greenfield kód, který do target repa nepůjde
+(reuse ~0 %).
 
 ## Jak postupuj
 
-### Krok 1 — Validace + GitHub URL prompt
+### Krok 1 — Autodetekce worktrees (žádná otázka na GitHub URL)
 
-Zjisti aktuální shortlist (z Session 1 variants TOP-N).
+Ověř, že worktrees existují a patří do target repa:
 
-Pro každou variantu se zeptej Decidera:
+```bash
+python tool/cli/worktree.py verify --slug $ARGUMENTS --cwd ~/.pflanzer/targets/$ARGUMENTS-A
+# … totéž pro -B, -C (resp. -mob v mob mode)
+```
+
+- Všechny worktrees existují a `verify` vrací `ok` → pokračuj Krokem 2
+  **bez otázek**.
+- Worktree chybí a varianta vznikla v Claude Code / Codex CLI / Cursoru →
+  nic se neptej; řekni týmu, ať spustí
+  `python tool/cli/worktree.py setup --slug $ARGUMENTS` a variantu ve
+  worktree postaví (resp. commitne na branch `pflanzer/<slug>-<X>`).
+- Worktree chybí **a** projekt jel přes `--prefer-hosted` (builder varianty
+  je `v0` / `bolt` / `lovable`) → teprve teď se zeptej:
 
 ```
-AskUserQuestion: "Variant A — máš GitHub URL z Boltu/v0/Lovable?"
+AskUserQuestion: "Varianta {X} ({builder}) nemá worktree. Máš GitHub URL z buildru?"
 options:
-  - "Ano, vlož URL" [text input → https://github.com/user/repo]
-  - "Ne, použij skeleton (tým doplní ručně)"
-  - "Cursor — code už v lokálním repu (manual paste)"
+  - "Ano, vlož URL" [text input → https://github.com/<org>/<repo>]
+  - "Ne — varianta do Ship gate nepůjde" (vyřaď ji ze shortlistu)
+  - "Throwaway projekt — použij skeleton" (jen pokud risk profil = throwaway)
 ```
 
-### Krok 2 — Spusť hardening run
+- Skeleton nikdy nenabízej pro `pilot` / `production`.
 
-Sestav JSON spec:
+### Krok 2 — Spusť Ship gate
 
-```json
-{
-  "repo_urls": {
-    "A": "https://github.com/team/onboarding-fast-a",
-    "C": "https://github.com/team/onboarding-smart-c"
-  },
-  "method_overrides": {
-    "B": "skeleton"
-  }
-}
+Default (worktrees):
+
+```bash
+python3 tool/cli/session_3.py --slug $ARGUMENTS
 ```
 
-Spusť:
+Jen pro hosted varianty bez worktree (`--prefer-hosted`):
 
 ```bash
 python3 tool/cli/session_3.py --slug $ARGUMENTS \
-  --repo-urls "$(cat /tmp/<slug>-repos.json | jq -c .repo_urls)" \
-  --method-overrides "$(cat /tmp/<slug>-repos.json | jq -c .method_overrides)"
+  --repo-urls '{"B": "https://github.com/team/onboarding-b"}'
 ```
 
-### Krok 3 — Vyhodnocení & Decider call
+Pokud příkaz skončí `✖ Ship gate zastaven: …` (exit 2), ukaž hlášku týmu
+doslova — typicky chybí worktree, nesedí `origin` vs `target_repo_url`, nebo
+je požadovaný skeleton u pilot/production. Nic neobcházej přes
+`--method-overrides skeleton`; pro pilot/production ho tool stejně odmítne.
+
+### Krok 3 — Minimum gates + adaptér z base
+
+Ship gate před gates načte `pflanzer.gates.yml` (resp. `.yaml` / `.json`)
+z base branche target repa (`git -C <worktree> show origin/<target_branch>:pflanzer.gates.yml`,
+fallback `<target_branch>:…`) a pustí gates s touto verzí. V base žádný
+adaptér není → autodetekce stacku.
+
+- V reportu (`Adaptér` sloupec + sekce „Gate adaptér — integrita") zkontroluj
+  warning **„adapter modified in variant branch — ignored"**: varianta
+  adaptér změnila, gates běžely s verzí z base. Změnu adaptéru řeš jako
+  změnu CI configu — PR do base branche s review, ne ve variant branchi.
+- Pokud `per_variant[].gates_sufficient = false` a winner nese
+  `gates:insufficient (…)` v `blocked_by`: gates nemají dost důkazů pro
+  verdikt (typicky Java / .NET / Go repo bez adaptéru, `build`/`tests`
+  jako `unsupported`). Řekni týmu, ať doplní adaptér do **base branche**
+  (`pflanzer init gates-template --path <repo>`, viz
+  `tool/templates/README-gates.md`) a Ship gate spustí znovu. Tohle se
+  neoverriduje — bez `build` a `tests` není co podepsat.
+
+### Krok 4 — Triage gate
+
+Ve stdout zkontroluj `blocked_by` a `triage.tracks`.
+
+Pokud `blocked_by` není prázdné (typicky po in-room `/pflanzer`, který
+triage záměrně odkládá jako `deferred`):
+
+```
+Pflanzer Method | pflanzer.cz/method
+
+⛔ Blokováno: spusť `/pm triage <slug>`
+   triage:security deferred, triage:legal deferred
+   production_ready = false (gate score {N}/{target} na tom nic nemění)
+```
+
+Zeptej se Decidera:
+
+```
+AskUserQuestion: "Triage není podepsaný ({blocked_by}). Co teď?"
+options:
+  - "Spustit /pm triage teď, pak Ship gate znovu" (doporučeno)
+  - "Pilot v sandboxu bez production launche, triage paralelně"
+  - "Decider override (rationale do decision logu)"
+```
+
+Override jen explicitně a s rationale — zapíše řádek do `decisions`
+(`type = 'triage'`) a do `audit_log`:
+
+```bash
+python3 tool/cli/session_3.py --slug $ARGUMENTS \
+  --override-triage --rationale "Security podepsal ústně 2026-09-20, písemně do T+2d; pilot bez L3 dat."
+```
+
+Override pokrývá jen blokace, které existovaly v okamžiku override; nová
+blokace (např. security přejde na `blocked`) Ship gate znovu zablokuje.
+
+### Krok 5 — Vyhodnocení & Decider call
 
 Stdout obsahuje:
-- `winner` s `gate_score`, `production_ready` flag, `local_path`, `next_step`
-- `per_variant[]` s každou variantou + score + status
+- `production_ready`, `blocked_by`, `risk_profile`, `triage`
+- `winner` s `gate_score`, `gate_ready`, `local_path` (= worktree), `next_step`
+- `per_variant[]` s každou variantou + score + `method` + `gates_run` /
+  `gates_sufficient` + `adapter` (zdroj + warnings)
 
 Ukaž týmu na velký TV:
 
 ```
-Variant A (v0)      → gate score 85/100  🚀 ready
-Variant C (lovable) → gate score 72/100  ⚠ pilot-only
+Pflanzer Method | pflanzer.cz/method
+
+Variant A (claude-code) → gate score 85/100  🚀 ready     worktree
+Variant C (claude-code) → gate score 72/100  ⚠ pilot-only worktree
+Triage: discovery ok · security ok · legal ok · platform ok
 ```
 
 Pokud `production_ready=true`:
 ```
-✅ Winner: Variant A. Většina kódu v extracted/{slug}/A/ je použitelná.
-   Next: /pflanzer-handoff $ARGUMENTS → per-role package s odkazy na soubory.
+✅ Winner: Variant A (branch pflanzer/<slug>-A). Většina kódu je použitelná.
+   Next: /pm handoff $ARGUMENTS → SHIP.md + gh pr create.
 ```
 
-Pokud `production_ready=false`:
+Pokud `production_ready=false` kvůli gate score (triage i minimum gates OK):
 - Ukaž failed gates (security/tests = blocker, lint/observability = warn).
-- Zeptej se Decider:
+- Zeptej se Decidera:
 
 ```
 AskUserQuestion: "Score {N}/{target} pod targetem. Co teď?"
 options:
   - "Pilot s 5 uživateli, paralelně fix gates" (žádný production launch)
-  - "Pause — tým 1-2 sprinty harduje, pak re-run /pflanzer-session-3"
+  - "Pause — tým 1-2 sprinty harduje ve worktree, pak re-run Ship gate"
   - "Ship anyway (Decider override + rationale do decision logu)"
 ```
 
-### Krok 4 — Handoff + deploy
+### Krok 6 — SHIP.md + PR
 
-Po session 3 (a Decider OK):
 ```bash
-/pflanzer-handoff $ARGUMENTS
+/pm handoff $ARGUMENTS
 ```
 
-Handoff package teď bude obsahovat:
-- **Skutečné soubory** v `extracted/$ARGUMENTS/<winner>/`, ne TBD placeholders.
-- Gate score per file v `data/handoffs/$ARGUMENTS/quality-<variant>.md`.
-- Open-PR-ready commit message + reference na Charter target_repo_url.
+SHIP.md (`data/handoffs/$ARGUMENTS/SHIP.md`) obsahuje:
+- blok **„Blokováno"** nahoře, pokud triage gate neprošel,
+- winnera **ze Ship gate** (nejvyšší gate_score, tie-break preference_score)
+  s řádkem „Vybrán podle"; preference_score jen jako fallback, když Ship
+  gate ještě neběžel,
+- počet spuštěných gates a warning, pokud se adaptér ve worktree liší od base,
+- sekci **„Triage stav"** (per track ok / deferred / failed + signed_by),
+- sekci **„AI provenance"** + read-only kontrolu trailerů na
+  `base..pflanzer/<slug>-<W>` (chybějící trailery / AI `Co-Authored-By` /
+  bot autor = warning, historie se nepřepisuje),
+- copy-paste `git commit` s trailery `Pflanzer-Variant` /
+  `Pflanzer-Session: ship` / `AI-Assisted` (autor = dev u klávesnice)
+  a `gh pr create` s labely `pflanzer`, `ai-generated`, `pflanzer:<slug>`.
 
 ## Co NEDĚLAT
 
+- **Neptej se na GitHub URL**, když worktrees existují — default cesta je
+  Claude Code ve worktree target repa, URL je jen fallback pro `--prefer-hosted`.
+- **Nenabízej skeleton** pro `pilot` / `production` — greenfield scaffold
+  do target repa nepůjde. Skeleton je jen pro `throwaway`.
+- **Neobcházej triage gate** — `production_ready` s `deferred` trackem jde
+  jen přes `--override-triage --rationale "…"` (decision log, DORA / AI Act
+  čl. 14). Ústní „security to ví" nestačí.
+- **Neupravuj `pflanzer.gates.yml` ve variant branchi** — Ship gate ho
+  stejně ignoruje a bere verzi z base branche.
 - **Nepřeskakuj quality gates** kvůli rychlosti — gate fail = production
-  bug. Decider override musí mít rationale do logu (DORA / AI Act).
+  bug. Decider override musí mít rationale do logu.
 - **Nepřebíj winner** ručně — score je deterministicky weighted (security
   + tests = 2× váha). Pokud Decider nesouhlasí, řešit přes preference_score
   v Session 1, ne tady.
-- **Nezapomeň na node_modules** — gates `skipped` pokud `npm install`
-  v extracted dir nikdy neběžel. Tým musí ručně pustit `cd extracted/X &&
-  npm install` před session 3, nebo se gates skipnou (= score klesne).
+- **Nesvolávej meeting** — Ship gate je pipeline; lidi potřebuješ až na
+  Decider call (Krok 4–5), a i ten může proběhnout async.
+- **Nenastavuj AI jako autora commitu** ani `Co-Authored-By` s AI — AI
+  asistenci značí jen trailery.
 
 ## Reference
 
-- `tool/cli/extract.py` (code extractor: git clone / skeleton / manual paste)
-- `tool/cli/quality_gates.py` (7 gates + scoring)
-- `tool/cli/session_3.py` (orchestrator)
-- `data/production_reports/<slug>-readiness.md` (output)
+- `tool/cli/session_3.py` (Ship gate orchestrator, triage hard gate, `--override-triage`)
+- `tool/cli/extract.py` (`plan_extraction`: worktree > hosted URL > skeleton jen throwaway)
+- `tool/cli/worktree.py` (`setup` / `verify`, cesty `~/.pflanzer/targets/<slug>-<X>/`)
+- `tool/cli/quality_gates.py` (gates + scoring, adaptér `pflanzer.gates.yml`)
+- `tool/templates/README-gates.md` (adaptér pro Java / .NET / Go / vlastní příkazy)
+- `tool/cli/triage.py` (`ship_triage_gate`, `record_triage_override`)
+- `tool/cli/handoff_pr.py` (SHIP.md, trailery, labely, AI provenance)
+- `docs/methodology/07-handoff-do-vyvoje.md` § AI code provenance
+- `docs/decisions/0009-worktree-in-target-repo.md`
+- `data/production_reports/<slug>-readiness.md` (výstup)

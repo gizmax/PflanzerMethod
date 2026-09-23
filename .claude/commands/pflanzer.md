@@ -12,6 +12,7 @@ Pokud chybí, zeptáš se v kroku 1.
 Tým 4-6 lidí v zasedačce, jeden notebook připojený k velkému TV.
 Cíl: do 60-90 min mít **shortlist + akční handoff** (kdo / co / do kdy),
 bez čekání na pre-sessions a 4 separátních wizardů.
+Toto je **Quick stupeň** (viz `00-lean-pflanzer.md` § Tři stupně).
 
 Pod kapotou tento command volá Charter + Roles + Triage (deferred) +
 Builder Decision + Session 1 persistenci. Sofistikovanost zachována,
@@ -95,9 +96,18 @@ options:
 
 ```
 AskUserQuestion (3 otázky):
-1. "Target git repo URL?" [text → https://github.com/<org>/<repo>]
-   → projects.target_repo_url (POVINNÝ pro pilot/production — bez něj
-     bootstrap raise ValueError per ADR-0009)
+1. "Target repo(s): FE / BE / monorepo workspace?" [text]
+   Formát: `role=url[#branch][:workspace]`, víc repozitářů odděl čárkou.
+   - jednoduchý případ (jako dřív) = jedna URL: `https://github.com/<org>/<repo>`
+   - FE + BE: `fe=https://github.com/org/web, be=https://github.com/org/api#develop`
+   - monorepo workspace: `app=https://github.com/org/mono#main:apps/web`
+   → jedna URL = `target_repo_url` ve spec JSON; jinak celý text jako
+     `target_repos` (bootstrap ho naparsuje a validuje; primární FE/app repo
+     jde i do projects.target_repo_url). POVINNÉ pro pilot/production — bez
+     něj bootstrap raise ValueError per ADR-0009.
+   → BE repo (role `be`/`api`) dostane v promptech angle „contract-first:
+     nejdřív OpenAPI diff, pak implementace"; `workspace` = hint „pracuj v
+     `apps/web`" v promptu i v INTEGRATION_GUIDE.
 2. "Branch owner / kdo merguje PR?" [text → GitHub handle, např. @petra]
    → projects.target_branch_owner (auto-fills `gh pr create --reviewer`
      v SHIP.md per ADR-0010)
@@ -126,9 +136,17 @@ Vyrob JSON spec do `/tmp/quick-bootstrap-<slug>.json`:
   "decider_name": "<z kroku 2A>",
   "room_role_idx": [1, 2, 3, 4, 6],
   "risk_profile": "throwaway|pilot|production",
-  "role_owners": {"1": "Honza", "2": "Petra", ...}
+  "role_owners": {"1": "Honza", "2": "Petra", ...},
+  "target_repo_url": "https://github.com/<org>/<repo>",
+  "target_branch_owner": "@petra",
+  "shadow_pm": "<jméno>"
 }
 ```
+
+Více repozitářů / monorepo: místo `target_repo_url` dej `"target_repos"` —
+buď text z otázky 1 (`"fe=https://…/web, be=https://…/api#develop"`), nebo
+pole `[{"role": "fe", "url": "…", "branch": "main", "workspace": "apps/web"},
+{"role": "be", "url": "…"}]`.
 
 Spusť:
 
@@ -140,6 +158,26 @@ python3 tool/cli/quick_session.py bootstrap --spec /tmp/quick-bootstrap-<slug>.j
 do web hubu: `http://localhost:8000/<slug>`).
 
 ### KROK 4 — BUILDER PROMPTS (paralelní vibe-coding)
+
+> ⛔ **HARD RULE: U klávesnice sedí dev (#4/#5). Facilitátor nekóduje.**
+> Pokud v místnosti není žádný dev, zastav a řekni týmu, že Track P nelze —
+> nabídni odložení (per ADR-0020 decision tree, Q1 = NE). Facilitátor ani
+> Claude jako „AI proxy" za dev tým není náhradní builder
+> (per `04-session-1.md` § Hard rule: Builder = dev pár).
+
+**Dev check (před generováním prompts):** pokud v KROK 2B není vybraný
+Frontend (#4) ani Backend (#5):
+
+```
+AskUserQuestion: "⚠ V místnosti není žádný dev (#4/#5). Track P vyžaduje
+dev v driver-seat (ADR-0020). Co dál?"
+options:
+  - "Dev dorazí / přidat" — doplň #4 a/nebo #5 do room_role_idx
+    (+ jméno do role_owners), pak pokračuj KROK 4
+  - "Pokračovat jako throwaway demo (ne Track P)" — risk_profile přepni
+    na throwaway, v handoffu explicitně „NE Track P, kód nejde do prod";
+    pro pilot/production navrhni odložení session
+```
 
 **Default = 3× Claude Code v 3 git worktrees** (žádný browser tab, žádný extract).
 
@@ -155,16 +193,44 @@ python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 **Setup (facilitátor, 1× per session, ~1-3 minuty):**
 
 ```bash
-# 1. Pflanzer naclonuje target repo do ~/.pflanzer/targets/<repo-slug>/
-#    a vyrobí 3 worktree A/B/C jako siblings + spustí pnpm/yarn/npm install
-python tool/cli/worktree.py setup --slug <your-slug>
+# Pro každý target repo (FE / BE / monorepo): cached clone v
+# ~/.pflanzer/targets/<repo-slug>/ + worktrees A/B/C (branch pflanzer/<slug>-X
+# ve všech repech) + git config & prepare-commit-msg hook (trailery
+# Pflanzer-Variant / Pflanzer-Session / AI-Assisted) + data leakage guard
+# + CLAUDE.md „Pflanzer session rules" + pnpm/yarn/npm install (non-JS skip)
+python tool/cli/worktree.py setup --slug <your-slug>          # --mode mob, --no-install, --strict
 ```
+
+Výstup ukaž týmu na TV — tabulka **repo × varianta × path**, např.:
+
+```
+| Repo          | Varianta | Branch            | Path                              | Workspace | Install | CLAUDE.md |
+|---------------|----------|-------------------|-----------------------------------|-----------|---------|-----------|
+| fe (primary)  | A        | pflanzer/<slug>-A | ~/.pflanzer/targets/<slug>-A      | apps/web  | ok      | created   |
+| be            | A        | pflanzer/<slug>-A | ~/.pflanzer/targets/<slug>-A-be   | —         | skipped | created   |
+```
+
+Pod ní je stav hooku (`installed` / `chain-needed` + návod pro husky/lefthook)
+a tabulka **data leakage guard** (secrets, `.env*` trackované / ignorované,
+prod dumpy). `FAIL` v guardu = **stop před klávesnicí**: vyřeš (odstraň
+secret, `git rm --cached .env`) a spusť `python tool/cli/worktree.py guard
+--slug <slug>` znovu. Pokud setup připomene `init-pr`, spusť
+`python tool/cli/worktree.py init-pr --slug <slug>` — první PR pilotu
+(`docs/INTEGRATION_GUIDE.md` + `CLAUDE.md`) do target repa.
 
 > ⚠ **KRITICKÉ (ADR-0009 P0 fix)**: Tento command spawne worktree v
 > **target zákazníkově repu**, ne v PflanzerMethod meta-repu. Jinak by
 > CC kódoval do tohoto toolu a reuse by byl 0 %.
 >
-> Vyžaduje `projects.target_repo_url` (settnut v Charteru pro pilot/production).
+> Vyžaduje `projects.target_repo_url` / `target_repos` (KROK 3 pro pilot/production).
+>
+> Po Session 1 (mezi sessions): `python tool/cli/worktree.py preview --slug <slug>`
+> vytiskne draft PR per varianta (preview URL z Vercel/Netlify v PR checks,
+> `--run` je opravdu pushne do remote target repa a založí; před tím vypíše
+> remote + branche a chce potvrzení „ano“, v CI/bez terminálu `--run --yes`;
+> URL se uloží do `variants.prototype_url` a přežije opakované hlasování);
+> `--mode playwright` nahraje průchod acceptance scénáři (video + trace).
+> Session 2: `python tool/cli/worktree.py set-session --slug <slug> --session 2`.
 
 **Tým rozdělí po dvojicích, každá:**
 ```bash
@@ -186,12 +252,55 @@ claude                                    # otevře CC session v target worktree
 >
 > → mix `claude-code + codex-cli + v0` s instrukcemi pro Push to GitHub.
 
-Facilitátor (ty) hlídá čas — **30 min cap**, pak voting bez ohledu na hotovost.
+Facilitátor (ty) hlídá čas — **30 min cap**, pak diff walkthrough (KROK 4.5)
+a voting bez ohledu na hotovost.
 
 **Žádná AskUserQuestion za URL** — pro CC mode je branch deterministický
-(`feat/<slug>-A`). Voting v kroku 5 dostává branch path.
+(`pflanzer/<slug>-A`, per `tool/cli/worktree.py`). Voting v kroku 5
+dostává branch path.
+
+### KROK 4.5 — DIFF WALKTHROUGH (dev vysvětlí, co AI napsalo)
+
+> **Hard rule:** bez diff walkthroughu se voting (KROK 5) nekoná.
+> AI kód bez lidského výkladu = stakeholdeři hlasují o UI, ne o kódu
+> (per `04-session-1.md` § Detailní agenda + Failure modes).
+
+**5 min per varianta**, facilitátor hlídá čas. Pro každou variantu (A, B, C):
+
+1. Facilitátor vyzve dev pár dané varianty (jméno z KROK 2B owners).
+2. V jejich worktree spusť (base = `projects.target_branch`, default `main`):
+
+   ```bash
+   cd ~/.pflanzer/targets/<your-slug>-X      # X = A / B / C
+   git diff --stat <base>...HEAD
+   git log --oneline <base>..HEAD
+   ```
+
+   Výstup vyhoď na TV.
+3. Dev pár řekne **3 věci** (každá 1 věta):
+   - **Reuse** — které existující komponenty/soubory použil nebo upravil,
+   - **Nové** — co přibylo (nové soubory, endpointy, komponenty),
+   - **Mock** — co je mock/stub/hardcoded a v prod by chybělo.
+   Volitelně: které scénáře z `tests/acceptance/<slug>.feature` projely.
+
+Výsledek ulož per varianta do pole `diff_summary` ve vote JSON specu
+(KROK 6), např.:
+
+```json
+"diff_summary": {
+  "stat": "<výstup git diff --stat, poslední řádek stačí>",
+  "touched_existing": ["src/components/Form.tsx", "..."],
+  "reuse": "<1 věta>", "new": "<1 věta>", "mock": "<1 věta>",
+  "acceptance_pass": "3/4"
+}
+```
+
+Dimenze `effort` a `risk` v KROK 5 se skórují **až po** tomto kroku —
+podložené diffem, ne pocitem z UI.
 
 ### KROK 5 — VOTING (silent dot voting)
+
+Voting začíná **až po dokončení KROK 4.5** (diff walkthrough všech variant).
 
 Pro každého člena u stolu (jméno z kroku 2B/owners) projdi tento mini-loop:
 
@@ -218,6 +327,7 @@ Sestav `votes` array per variant:
 [
   {
     "name": "A", "builder": "v0", "description": "happy-path minimum",
+    "diff_summary": {"stat": "...", "reuse": "...", "new": "...", "mock": "..."},
     "role_preferences": [
       {"role_idx": 1, "user_value": 0.8, "effort": 0.3, "risk": 0.2,
        "strategic_fit": 0.85, "commitment_level": 3,
