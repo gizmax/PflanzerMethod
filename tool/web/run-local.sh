@@ -7,6 +7,10 @@
 
 set -euo pipefail
 
+# Local run = dev auth mode: backend trusts the X-User header (no SSO).
+# Company deployment (OIDC mode): see tool/web/README-auth.md.
+export PFLANZER_HUB_AUTH_MODE=dev
+
 REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
 cd "$REPO_ROOT"
 
@@ -22,7 +26,8 @@ fi
     python3 -m venv .venv
     .venv/bin/pip install -q -e .
   fi
-  exec .venv/bin/uvicorn main:app --reload --port 8000
+  # Run as package "backend" (main.py uses relative imports)
+  exec .venv/bin/uvicorn backend.main:app --app-dir "$REPO_ROOT/tool/web" --reload --port 8000
 ) &
 BACKEND_PID=$!
 
@@ -42,6 +47,7 @@ echo "────────────────────────�
 echo "Pflanzer web hub (local)"
 echo "  Backend:  http://localhost:8000/api/docs"
 echo "  Frontend: http://localhost:5173/method/"
+echo "  Auth:     PFLANZER_HUB_AUTH_MODE=dev (X-User, no SSO)"
 echo "─────────────────────────────────────────"
 echo "Stop: Ctrl-C"
 

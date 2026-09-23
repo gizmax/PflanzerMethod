@@ -1,0 +1,21 @@
+# Pflanzer Method | pflanzer.cz/method
+# Dev tooling config for the meta-repo (tool/cli + tests). The web hub
+# backend keeps its own tool/web/backend/pyproject.toml.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["website", "tool/web/frontend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# The CLI carries long Czech user-facing messages and SQL; re-wrapping ~140
+# lines is churn without value. Tests are held to the 100-char limit.
+"tool/**" = ["E501"]

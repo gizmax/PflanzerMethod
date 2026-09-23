@@ -45,8 +45,8 @@ rolí**. Role catalog řeší dvě věci:
 ### 3. Facilitátor (lidský + AI) — POVINNÁ
 - **Vede session**, hlídá agendu a energy curve, deeskaluje konflikty,
   orchestrouje AI co-pilot.
-- **Vstup:** energy curve plán (Session 1 = 5–6 h s koncem 16:00, mezi-session
-  = 5–7 dní, Session 2 = 3 h rozhodovací), tří-režimová AI-human matice
+- **Vstup:** energy curve plán (Session 1 = 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně),
+  mezi-session = 3–7 dní podle stupně, Session 2 = 3 h rozhodovací), tří-režimová AI-human matice
   (viz níže).
 - **Výstup:** facilitační notes, conflict log, decision log s lidskou atribucí.
 - **AI proxy:** ❌ Lidský facilitátor nutný — AI samotná konflikt mezi

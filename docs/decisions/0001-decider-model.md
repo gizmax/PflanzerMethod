@@ -83,19 +83,21 @@ své rozhodnutí později popřít. Bez explicitního Decideru končí Pflanzer 
    se SSO atribucí.
 3. **T+48 h → T+72 h**: Pokud Decider mlčí, automatická eskalace na
    **CPO/sponzora**. CPO má 24 h.
-4. **T+72 h**: Pokud CPO mlčí → projekt defaultuje na **Iterate (Session 3)**
+4. **T+72 h**: Pokud CPO mlčí → projekt defaultuje na **Iterate (Session 2b)**
    s explicit write-up *„Decider+CPO silence triggered iterate default"*.
    Sponzor musí **aktivně Kill**, ne pasivně.
 
 **Důvod „Iterate default" místo „Kill default"**: chrání před tichým úmrtím
 projektu, do kterého už týmy investovaly — Decider/CPO mají druhou šanci se
-ozvat v Session 3.
+ozvat v Session 2b.
 
 ### Scenario C — Iterate exhausted
 
-1. **Iterate má hard cap: max 1 další iterace** (Session 3).
-2. Session 3 musí skončit Go nebo Kill rozhodnutím.
-3. Pokud Session 3 končí znovu *„decision pending"* → automatický **Kill**
+1. **Iterate má hard cap: max 1 další iterace** (Session 2b — iterační rozhodovací
+   session, 3 h, stejný formát jako Session 2; dříve nazývaná „Session 3“,
+   přejmenováno v0.4, aby se nepletla se Ship gate).
+2. Session 2b musí skončit Go nebo Kill rozhodnutím.
+3. Pokud Session 2b končí znovu *„decision pending"* → automatický **Kill**
    (žádný další iterate default).
 
 ### Eskalační kontaktní řetězec

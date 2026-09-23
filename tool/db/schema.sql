@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS projects (
     CHECK (ai_act_tier IN ('minimal','limited','high','unacceptable')),
   data_class TEXT
     CHECK (data_class IN ('L1','L2','L3','L4')),
-  throwaway_or_evolve TEXT
+  throwaway_or_evolve TEXT DEFAULT 'evolve'
     CHECK (throwaway_or_evolve IN ('throwaway','evolve')),
+  -- ADR-0005 v0.4: throwaway = explicit opt-in, requires one of 3 use cases
+  throwaway_rationale TEXT,
   capacity_profile TEXT
     CHECK (capacity_profile IN ('default','regulated','audit-grade')),
   capacity_person_days INTEGER,
@@ -43,6 +45,9 @@ CREATE TABLE IF NOT EXISTS projects (
   -- Production-ready fields (3-session path) ---------------------------------
   target_repo_url TEXT,                  -- git URL kam exportujeme kód
   target_branch TEXT DEFAULT 'main',     -- výchozí branch (vetvy se feat/<slug>-...)
+  -- Audit N8: více target repozitářů / monorepo workspace (JSON pole
+  -- [{role, url, branch, workspace}]); NULL = odvoď z target_repo_url.
+  target_repos TEXT,
   production_readiness_target INTEGER DEFAULT 80
     CHECK (production_readiness_target BETWEEN 0 AND 100),
   -- gate score 0..100; pod tímto = nejít do prod, jen pilot
@@ -60,7 +65,7 @@ CREATE TABLE IF NOT EXISTS extracted_code (
   source_repo_url TEXT,                 -- builder GitHub URL (pokud exportováno)
   local_path TEXT NOT NULL,             -- extracted/<slug>/<variant>/
   extraction_method TEXT NOT NULL
-    CHECK (extraction_method IN ('git_clone','manual_paste','builder_api','skeleton','in_repo_branch')),
+    CHECK (extraction_method IN ('worktree','git_clone','manual_paste','builder_api','skeleton','in_repo_branch')),
   files_count INTEGER DEFAULT 0,
   total_loc INTEGER DEFAULT 0,
   extracted_by TEXT NOT NULL,
@@ -156,6 +161,7 @@ CREATE TABLE IF NOT EXISTS variants (
     CHECK (builder IN ('claude-code','codex-cli','cursor','v0','bolt','lovable','stitch','figma-make','manual')),
   prototype_url TEXT NOT NULL,
   description_md TEXT,
+  diff_summary_md TEXT,                 -- diff walkthrough (KROK 4.5, audit N10)
   preference_score REAL,                -- 0..1, AI-only deflated max 0.5
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -257,3 +263,26 @@ CREATE TABLE IF NOT EXISTS prompts (
 
 CREATE INDEX IF NOT EXISTS idx_prompts_project ON prompts(project_id);
 CREATE INDEX IF NOT EXISTS idx_prompts_ts ON prompts(ts);
+
+-- ==========================================================================
+-- outcomes (audit N4 — measures the method's core claim)
+-- milestone 'ship' = automatic measurement from the target repo
+-- (`retro.py measure`: loc_winner, loc_merged_unchanged, loc_reused_pct,
+-- days_to_prod, winner_commits); t7/t30/t60/t90 = reinforcement readouts
+-- recorded manually (`retro.py record`).
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS outcomes (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  milestone TEXT NOT NULL
+    CHECK (milestone IN ('t7','t30','t60','t90','ship')),
+  metric TEXT NOT NULL,
+  value REAL,
+  unit TEXT,
+  evidence_url TEXT,
+  notes TEXT,
+  recorded_by TEXT NOT NULL,
+  recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcomes_project ON outcomes(project_id, milestone);

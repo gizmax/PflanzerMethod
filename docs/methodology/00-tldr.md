@@ -25,7 +25,7 @@ aby kód šel rovnou do prod
    Gate (persona ≤6 měsíců, JTBD, OST), Security & Data triage (L1–L4
    classification, AI Act tier, DPIA), Platform Triage (sandbox spec, runtime),
    Capacity pre-sign-off od EM. Bez podpisů S1 nestartuje [synthesis 01 — B].
-2. **Session 1** (5–6 h, end v 16:00): všichni v místnosti **včetně programátora
+2. **Session 1** (3–6 h podle stupně, viz `00-lean-pflanzer.md` § Tři stupně): všichni v místnosti **včetně programátora
    od minuty 0**, AI generuje 1–3 **běžící produkční-ready varianty**, BE shadow
    agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
    ticket prediction. Výstup = anotované varianty + risk register + score

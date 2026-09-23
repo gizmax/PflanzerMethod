@@ -102,6 +102,19 @@ src/
 - Big PR test suite + Playwright runs in CI per push
 - All gates must pass for merge to `main`
 
+## AI code provenance
+
+- Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
+  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: <AI>` trailer.
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: <slug>-<A|B|C>`,
+  `Pflanzer-Session: <1|2|ship>`, `AI-Assisted: <claude-code | codex-cli | cursor>`.
+- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
+- Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
+  jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
+- Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
+- **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická
+  data dle Data Classification (`<L1 | L2 | L3>`).
+
 ## Folder for Pflanzer artefakty
 
 Pflanzer session artefakty (Charter, handoffs) drží v `docs/pflanzer/<slug>/`,

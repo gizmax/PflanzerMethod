@@ -177,7 +177,7 @@ Zadavatel hlasuje **poslední** (anti-HiPPO).
 
 | Profil | Total PD (orientačně) | Trigger |
 |--------|----------------------|---------|
-| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, throw-away default |
+| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, Track P + evolve (default per ADR-0005 v0.4) |
 | **Regulated** | ~14 PD | Finance (mimo PSD2 SCA), telco, healthtech non-PII, AI Act Limited risk |
 | **Audit-grade** | ~18–22 PD | DORA scope, AI Act High-risk, PSD2 SCA proximity, public sector |
 
@@ -351,8 +351,8 @@ log export, opt-out trainingu. Bez toho = neschváleno.
 - **Capacity check**: EM má **veto na workshop**, pokud PI > 80 % committed
   [synthesis 02, perspektiva 09]. Bez kapacity = no session, ne „domluvíme
   to potom".
-- **Délka Session 1**: 5–6 h, konec v 16:00 [perspektiva 03]. Ne 8 h.
-- **Mezi-session**: 5–7 pracovních dní (ne 14).
+- **Délka Session 1**: 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně); Full konec v 16:00 [perspektiva 03]. Ne 8 h.
+- **Mezi-session**: 3–7 pracovních dní podle stupně (ne 14).
 - **Senior delegate**: každá vetovací role posílá senior s explicit
   veto/sign-off mandátem; junior bez mandátu = session se odkládá
   [perspektiva 01].
@@ -383,7 +383,7 @@ session odložena**, ne začata s improvizací.
 [ ] WCAG 2.2 AA baseline a persona disability set (pokud customer-facing)
 [ ] Event taxonomy + measurement plan draft (pokud release intent)
 [ ] Top-10 ticket kategorií + 20 verbatim (pokud existující customer base)
-[ ] Throw-away/evolve flag explicit (default = throw-away)
+[ ] Evolve/throw-away flag explicit (default = evolve; throw-away jen s rationale z 3 use-casů ADR-0005 v0.4)
 [ ] Pre-read materiál distribuován 5–7 prac. dní předem
 [ ] Builder volba potvrzena per stack (decision tree výše)
 ```

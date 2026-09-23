@@ -18,7 +18,8 @@ export default function FeedbackForm() {
   // Form state
   const [roleId, setRoleId] = useState<number | null>(null);
   const [severity, setSeverity] = useState<Feedback["severity"]>("medium");
-  const [department, setDepartment] = useState("");
+  // Department is derived from the selected role; no free-text input (yet).
+  const [department] = useState("");
   const [category, setCategory] = useState("");
   const [score, setScore] = useState(0.7);
   const [rationale, setRationale] = useState("");

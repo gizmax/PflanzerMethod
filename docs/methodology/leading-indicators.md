@@ -141,21 +141,28 @@ LI-4 = (# Session 2 decisions kde Decider final pick ≠ majority silent vote)
 **Interpretace:** Anti-HiPPO je core differentiator Pflanzeru (per `09-srovnani-...md`).
 LI-4 sleduje, jestli ho organizace **operacionálně** používá, nebo jen formálně.
 
-### LI-5 — Throwaway → Evolve slip rate
+### LI-5 — Pre-Ship-gate prod slip rate
 
-**Co měří:** % pilotů, které začaly s **`throw-away` flag** v Charteru (ADR-0005
-default) a **mid-cycle pivot na `evolve`** bez formal sign-off (FE + EM + Security
-+ Legal + Platform per ADR-0005).
+**Co měří:** % pilotů, jejichž varianta se dostala do produkce / ke
+customer-facing použití **dřív, než prošla Ship gate** (quality gates
+≥ 80/100) **a sign-off paketem** (FE + EM + Security + Legal + Platform + QA
+per ADR-0005 v0.4). U evolve Charteru (default) jde o zkrácení cesty do
+prod; u throw-away Charteru (explicit opt-in) je slip jakékoli routování
+artifactu do prod.
 
 **Formula:**
 ```
-LI-5 = (# pilots s charter.flag = throwaway AND post-handoff prototype routed to
-        production/customer-facing AND missing one or more required evolve sign-offs)
+LI-5 = (# pilots s prototype/variantou routed to production/customer-facing
+        AND (charter.flag = throwaway
+             OR gate_score < production_readiness_target
+             OR missing one or more required sign-offs))
        / (# pilots celkem completed v rolling 90-day window)
 ```
 
 **Data source:**
-- Pflanzer tool DB `pilots.throwaway_flag` (initial) + `pilots.evolve_signoffs` array.
+- Pflanzer tool DB `projects.throwaway_or_evolve` + `throwaway_rationale`,
+  `projects.gate_score_latest` vs `production_readiness_target`, sign-off záznamy
+  v `decisions`.
 - Cross-check: Audit log of sandbox URL access logs (per Platform Triage spec) —
   pokud sandbox URL je accessed > 24h TTL nebo z external IP, flag.
 
@@ -165,14 +172,15 @@ LI-5 = (# pilots s charter.flag = throwaway AND post-handoff prototype routed to
 
 | Hodnota | Stav | Action |
 |---------|------|--------|
-| 0 — 0.05 | Healthy | Throw-away default is enforced |
+| 0 — 0.05 | Healthy | Ship gate + sign-off is enforced before prod |
 | 0.05 — 0.15 | Watch | Sledovat per-sponsor pattern (jedna BU evade?) |
-| 0.15 — 0.30 | **Warning** | Throw-away default deteriorating; Method Steward review of sponsor education |
+| 0.15 — 0.30 | **Warning** | Ship gate discipline deteriorating; Method Steward review of sponsor education |
 | > 0.30 | **Veto trigger** | Charter sign-off discipline broken. Sustained > 60 dní → emergency review + **stopping-for-harm escalation** (per Method Charter § Kill criteria). Production-by-stealth risk (Útok 5 DEFERRED v0.3 — re-eskalovat na FULL FIX). |
 | **Single L4 data leak event** | **Hard alert** | Immediate CISO escalation, ne čekat na threshold. Method Charter Sunset trigger candidate. |
 
 **Interpretace:** LI-5 je **safety guardrail**. Pflanzer hodnotová proposice
-*„rapid prototyping"* závisí na throw-away default. Slip do evolve bez sign-off
+*„kód jde do produkce"* (Track P + evolve default, ADR-0005 v0.4) stojí na tom,
+že do prod jde **přes** Ship gate + sign-off. Slip do prod před Ship gate
 = organizace metodu používá pro production-by-stealth, čímž ji **zničí
 governance trust** (Útok 5 vector).
 
@@ -195,7 +203,7 @@ Method Steward má **single-pane weekly dashboard**:
 │         [Healthy:0.5-1.5 Watch:-2.5 Warn:-3.5 Veto:>3.5]             │
 │  LI-4 Decider override rate               0.22     →        0       │
 │         [Healthy:0-0.15 Watch:-0.30 Warn:-0.50 Veto:>0.50]           │
-│  LI-5 Throwaway→Evolve slip               0.04     ↘        0       │
+│  LI-5 Pre-Ship-gate prod slip             0.04     ↘        0       │
 │         [Healthy:0-0.05 Watch:-0.15 Warn:-0.30 Veto:>0.30]           │
 │                                                                      │
 │  ACTIVE PILOTS: 7 (5 Pflanzer, 2 Pflanzer-inspired pending audit)   │
@@ -238,7 +246,7 @@ Korelace pozorovat (Method Steward T+6 analysis):
   pilots = missed elements).
 - LI-4 ↑ (Decider override) by mělo korelovat s Compliance element #8 fail
   (decider voted last not enforced).
-- LI-5 ↑ (throwaway slip) by mělo korelovat s element #10 fail (throwaway/evolve
+- LI-5 ↑ (pre-Ship-gate slip) by mělo korelovat s element #10 fail (evolve/throw-away
   flag missing or wrong).
 
 Pokud korelace **chybí**, je to signál, že buď indicators nebo Compliance Score

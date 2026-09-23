@@ -255,7 +255,7 @@ data jsou unreliable).
     indicators porušují threshold > 60 dní nebo stopping-for-harm rule triggers.
   - **Operacionální definice leading indicators** v `docs/methodology/leading-indicators.md`
     (LI-1 pre-flight rejection rate, LI-2 S1→S2 churn, LI-3 Champion overload,
-    LI-4 Decider override rate, LI-5 throwaway→evolve slip) — dashboard +
+    LI-4 Decider override rate, LI-5 pre-Ship-gate prod slip) — dashboard +
     threshold + veto trigger workflow.
 - **Method Decider** rozhoduje Keep / Iterate / Sunset.
 - **Default Sunset po T+18 mo** bez explicit Keep memo.

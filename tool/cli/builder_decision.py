@@ -13,8 +13,9 @@ Hard rules (veto):
 - L4 data → no builder allowed (session blocked already by triage).
 - AI Act `unacceptable` → blocked.
 - Free tier vendors → excluded (Enterprise/Business only — Approved AI Tool list).
-- `evolve` profil + brownfield → manual / cursor preferenced (AI builder
-  jako prototyp je throw-away).
+- `evolve` profil (default per ADR-0005 v0.4) + brownfield → in-repo builders
+  preferenced (claude-code / codex-cli / cursor); hosted AI builders
+  (v0/Bolt/Lovable) mají u evolve nízký reuse do target repa.
 """
 from __future__ import annotations
 
@@ -299,7 +300,7 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         slug=slug,
         data_class=proj[1] or "L2",
         ai_act_tier=proj[2] or "minimal",
-        throwaway_or_evolve=proj[3] or "throwaway",
+        throwaway_or_evolve=proj[3] or "evolve",  # ADR-0005 v0.4 default
         has_sandbox=has_sandbox,
         stack_hint=stack_hint,
         customer_facing=customer_facing,

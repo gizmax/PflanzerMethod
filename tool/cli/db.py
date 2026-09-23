@@ -23,15 +23,19 @@ def _resolve_db_path() -> Path:
 
     Order:
     1. PFLANZER_DB env var (explicit override)
-    2. ~/.pflanzer/pflanzer.db if ~/.pflanzer/ exists (installed plugin path)
+    2. ~/.pflanzer/pflanzer.db if that *file* exists (installed plugin path)
     3. <repo>/data/pflanzer.db (dev mode — running from cloned source)
+
+    The decision keys on the DB file, not on the ~/.pflanzer/ directory:
+    `worktree.py setup` creates ~/.pflanzer/targets/ as a clone cache, which
+    must not silently move a dev-mode DB away from data/pflanzer.db.
     """
     import os
     if env := os.environ.get("PFLANZER_DB"):
         return Path(env).expanduser()
-    user_dir = Path.home() / ".pflanzer"
-    if user_dir.exists():
-        return user_dir / "pflanzer.db"
+    user_db = Path.home() / ".pflanzer" / "pflanzer.db"
+    if user_db.is_file():
+        return user_db
     return REPO_ROOT / "data" / "pflanzer.db"
 
 

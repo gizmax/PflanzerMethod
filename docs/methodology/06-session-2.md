@@ -84,9 +84,13 @@ silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
 
 [synthesis 01]:
 
-- **Prototyp do prod**: throw-away je default v Charteru. „Evolve" jen po
-  kompletním sign-off paketu (FE + EM + Security + Legal + Platform + QA
-  P2P checklist).
+- **Prototyp do prod**: evolve je default v Charteru (Track P + evolve,
+  ADR-0005 v0.4) — winner varianta jde do produkce bez re-implementace.
+  Samotný prod deploy je ale podmíněn Ship gate (quality gates ≥ 80/100)
+  + kompletním sign-off paketem (FE + EM + Security + Legal + Platform + QA
+  P2P checklist); do té doby žije varianta jen v sandboxu. Throw-away je
+  explicit opt-in s rationale z Charteru (discovery-only pilot, audit-grade
+  evidence separate od prod, regulated certified production).
 - **Security veto + zadavatel push**: Pre-charter triage zachytí 80 %.
   Critical = pivot. L4 data v promptu = okamžitý stop.
 - **EM kapacita vs business timeline**: T-shirt v session, story points

@@ -24,7 +24,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,10 +33,23 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.builder_decision import recommend_for_slug  # noqa: E402
-from tool.cli.charter import CharterInput, persist_charter, render_charter_md  # noqa: E402
+from tool.cli.charter import (  # noqa: E402
+    THROWAWAY_USE_CASES,
+    CharterInput,
+    persist_charter,
+    render_charter_md,
+)
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.roles import RoleAnswers, resolve_roles, persist_roles  # noqa: E402
+from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
+from tool.cli.worktree import (  # noqa: E402
+    TargetRepo,
+    load_target_repos,
+    normalize_target_repos,
+    pick_primary,
+    validate_repo_url,
+    variant_worktrees,
+)
 
 QUICK_DIR = REPO_ROOT / "data" / "quick"
 
@@ -146,6 +159,9 @@ def bootstrap(
     acceptance_criteria_md: str | None = None,
     target_branch_owner: str | None = None,
     shadow_pm: str | None = None,
+    target_repos: list[dict[str, Any]] | str | None = None,
+    target_branch: str | None = None,
+    throwaway_rationale: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -156,11 +172,23 @@ def bootstrap(
         risk_profile: 'throwaway' | 'pilot' | 'production'.
         slug: explicit slug; default = slugify(hook).
         role_owners: catalog_idx → human name (kdo z týmu tu roli zastává).
+        target_repos: volitelně více repozitářů (audit N8) — list
+            `[{"role": "fe", "url": ..., "branch": "main", "workspace": "apps/web"}]`
+            nebo wizard text `fe=<url>[#branch][:workspace], be=<url>`.
+            Primární repo (FE / app) se zapíše i do `target_repo_url`.
+        target_branch: base branch pro jednorepo případ (default 'main').
+        throwaway_rationale: jen pro risk_profile='throwaway' (ADR-0005 v0.4);
+            default = use case „discovery-only pilot“ (interní demo).
 
     Returns dict s project_id, slug, roles_count, defer_note.
     """
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
+
+    repos, target_repo_url = _resolve_target_repos(
+        target_repos=target_repos, target_repo_url=target_repo_url,
+        target_branch=target_branch,
+    )
 
     # Sprint 1 — Mandatory target_repo_url pro pilot/production
     # (per autoresearch synthesis ADR candidate 1, P0 fix).
@@ -168,7 +196,8 @@ def bootstrap(
         raise ValueError(
             f"target_repo_url je povinný pro risk_profile='{risk_profile}'. "
             "Bez něj /pflanzer-session-3 vyrobí worktree v meta-repu = reuse 0 %. "
-            "Příklad: target_repo_url='https://github.com/yourorg/yourapp'."
+            "Příklad: target_repo_url='https://github.com/yourorg/yourapp' "
+            "nebo target_repos='fe=https://github.com/org/web, be=https://github.com/org/api'."
         )
 
     # 1. Charter — minimal but valid per ADR-0004 schema
@@ -195,6 +224,12 @@ def bootstrap(
         ai_act_tier=profile["ai_act_tier"],
         data_class=profile["data_class"],
         throwaway_or_evolve=profile["throwaway_or_evolve"],
+        # ADR-0005 v0.4: throwaway needs a rationale naming one of the use cases.
+        throwaway_rationale=(
+            (throwaway_rationale or f"{THROWAWAY_USE_CASES[0]} — quick wizard, "
+                                    "risk profil 'throwaway' (interní demo)")
+            if profile["throwaway_or_evolve"] == "throwaway" else None
+        ),
         reinforcement_t7="tým retro 7 dní po decision",
         reinforcement_t30="metric review (po fixaci v handoff)",
         reinforcement_t60="—",
@@ -212,17 +247,30 @@ def bootstrap(
     _set_triage_deferred(project_id, profile)
 
     # 4. Production-path fields
+    primary_branch = repos[0].branch if repos else (target_branch or None)
+    repos_json = (
+        json.dumps([r.to_dict() for r in repos], ensure_ascii=False)
+        if repos and (len(repos) > 1 or repos[0].workspace or target_repos) else None
+    )
     with transaction() as conn:
         conn.execute(
             "UPDATE projects SET target_repo_url = ?, "
+            "target_branch = COALESCE(?, target_branch), "
             "production_readiness_target = ?, "
             "acceptance_criteria_md = COALESCE(?, acceptance_criteria_md), "
             "target_branch_owner = COALESCE(?, target_branch_owner), "
             "shadow_pm = COALESCE(?, shadow_pm) "
             "WHERE id = ?",
-            (target_repo_url, profile.get("production_readiness_target", 0),
+            (target_repo_url, primary_branch, profile.get("production_readiness_target", 0),
              acceptance_criteria_md, target_branch_owner, shadow_pm, project_id),
         )
+        if repos_json:
+            if not _has_column(conn, "projects", "target_repos"):
+                raise ValueError(
+                    "DB nemá sloupec projects.target_repos — spusť `python3 tool/db/migrate.py`."
+                )
+            conn.execute("UPDATE projects SET target_repos = ? WHERE id = ?",
+                         (repos_json, project_id))
         audit(
             conn,
             action="quick.bootstrap",
@@ -232,6 +280,7 @@ def bootstrap(
                 "slug": slug, "decider": decider_name,
                 "risk_profile": risk_profile, "roles": room_role_idx,
                 "target_repo_url": target_repo_url,
+                "target_repos": [r.to_dict() for r in repos],
                 "production_readiness_target": profile.get("production_readiness_target", 0),
             },
         )
@@ -244,11 +293,49 @@ def bootstrap(
         "roles_count": len(selected),
         "production_readiness_target": profile.get("production_readiness_target", 0),
         "target_repo_url": target_repo_url,
+        "target_repos": [r.to_dict() for r in repos],
         "defer_note": (
             "Triage deferred (in-room mode). Před pilotem/production spusť "
             f"`/pflanzer-triage {slug}`."
         ),
     }
+
+
+def _has_column(conn: Any, table: str, column: str) -> bool:
+    return any(r[1] == column for r in conn.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def _resolve_target_repos(
+    *, target_repos: Any, target_repo_url: str | None, target_branch: str | None,
+) -> tuple[list[TargetRepo], str | None]:
+    """Validate target repo input (N8). Returns (repos primary-first, primary URL).
+
+    - `target_repos` (list / JSON / wizard text) wins; primary = FE/app repo
+      unless `target_repo_url` names one of them explicitly.
+    - Only `target_repo_url`: a plain URL → single repo; wizard-style text
+      (`role=url#branch:workspace, ...`) is accepted there too.
+    """
+    if not target_repos and target_repo_url and re.search(r"[,=#\s]", target_repo_url.strip()):
+        target_repos, target_repo_url = target_repo_url, None
+    if target_repos:
+        repos = normalize_target_repos(target_repos, fallback_branch=target_branch or "main")
+        if not repos:
+            raise ValueError("target_repos je prázdné.")
+        if target_repo_url and not validate_repo_url(target_repo_url):
+            raise ValueError(f"target_repo_url '{target_repo_url}' není platná git URL.")
+        idx = pick_primary(repos, target_repo_url)
+        repos = [repos[idx]] + [r for i, r in enumerate(repos) if i != idx]
+        return repos, repos[0].url
+    if target_repo_url:
+        if not validate_repo_url(target_repo_url):
+            raise ValueError(
+                f"target_repo_url '{target_repo_url}' není platná git URL "
+                "(očekávám https://<host>/<org>/<repo> nebo git@<host>:<org>/<repo>.git)."
+            )
+        return (normalize_target_repos(None, fallback_url=target_repo_url.strip(),
+                                       fallback_branch=target_branch or "main"),
+                target_repo_url.strip())
+    return [], None
 
 
 def _resolve_quick_roles(
@@ -434,6 +521,12 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             constraints.append("Evolve target — drž se design system tokenů, žádné inline styly")
     constraints.append("Žádné credentials v kódu, žádné .env. WCAG 2.2 AA.")
 
+    # Audit N8: FE + BE + monorepo workspace — every variant gets all repos.
+    try:
+        repos = load_target_repos(slug)
+    except ValueError:
+        repos = []
+
     angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
 
     prompts: list[VariantPrompt] = []
@@ -442,14 +535,14 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         if mode == "mob" and builder == "claude-code":
             prompt_text = _render_mob_iteration_prompt(
                 hook, brief, constraints, slug=slug, iteration=name,
-                iteration_idx=i, total_iterations=n_variants,
+                iteration_idx=i, total_iterations=n_variants, repos=repos,
             )
             placeholder_url = f"local://pflanzer/{slug}-mob (npm run dev)"
         else:
             prompt_text = _render_builder_prompt(hook, brief, constraints, builder,
-                                                 slug=slug, variant=name)
+                                                 slug=slug, variant=name, repos=repos)
             if builder in ("claude-code", "codex-cli"):
-                placeholder_url = f"local://feat/{slug}-{name} (npm run dev)"
+                placeholder_url = f"local://pflanzer/{slug}-{name} (npm run dev)"
             else:
                 placeholder_url = f"https://sandbox.invalid/{slug}/{name}"
         prompts.append(VariantPrompt(
@@ -464,6 +557,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "slug": slug,
         "mode": mode,
         "diversity_hint": rec.get("diversity_hint", ""),
+        "target_repos": [r.to_dict() for r in repos],
         "prompts": [
             {
                 "name": p.name, "builder": p.builder, "builder_url": p.builder_url,
@@ -475,9 +569,42 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     }
 
 
+BE_CONTRACT_FIRST = (
+    "CONTRACT-FIRST: nejdřív OpenAPI diff (změna `openapi.yaml` / kontraktu, "
+    "ukaž ji týmu a FE páru), pak implementace endpointu + testy. FE staví "
+    "proti kontraktu (mock z OpenAPI), ne proti hotovému BE."
+)
+
+
+def _tilde(path: Path) -> str:
+    home = str(Path.home())
+    p = str(path)
+    return "~" + p[len(home):] if p.startswith(home + "/") else p
+
+
+def _repo_lines(slug: str, variant: str, repos: list[TargetRepo]) -> list[str]:
+    """One line per repo worktree of a variant (N8): path, workspace, BE angle."""
+    lines = []
+    for idx, (repo, path) in enumerate(variant_worktrees(slug, repos, variant)):
+        line = f"- `{repo.role}`{' (primární)' if idx == 0 else ''}: `{_tilde(path)}`"
+        if repo.workspace:
+            line += f" — pracuj v `{repo.workspace}/`"
+        if repo.is_backend:
+            line += f" — {BE_CONTRACT_FIRST}"
+        lines.append(line)
+    return lines
+
+
+def _primary_path(slug: str, variant: str, repos: list[TargetRepo]) -> str:
+    if repos:
+        return _tilde(variant_worktrees(slug, repos, variant)[0][1])
+    return f"~/.pflanzer/targets/{slug}-{variant}"
+
+
 def _render_mob_iteration_prompt(
     hook: str, brief: str, constraints: list[str], *,
     slug: str, iteration: str, iteration_idx: int, total_iterations: int,
+    repos: list[TargetRepo] | None = None,
 ) -> str:
     """Mob mode prompt — sequential iteration v 1 worktree.
 
@@ -485,6 +612,14 @@ def _render_mob_iteration_prompt(
     8-min driver rotation, observer-task assignment, single shared branch.
     """
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
+    repos = repos or []
+    mob_path = _primary_path(slug, "mob", repos)
+    mob_add_dirs = "".join(f" --add-dir {_tilde(pth)}"
+                           for _, pth in variant_worktrees(slug, repos, "mob")[1:]) if repos else ""
+    repo_block = ""
+    if len(repos) > 1 or any(r.workspace for r in repos):
+        repo_block = ("\nRepozitáře (všechny na branchi pflanzer/" + slug + "-mob):\n"
+                      + "\n".join(_repo_lines(slug, "mob", repos)) + "\n")
 
     setup_block = ""
     if iteration_idx == 0:
@@ -499,8 +634,8 @@ python tool/cli/worktree.py setup --slug {slug} --mode mob
 **Tým u 1 monitoru** (≤ 5 lidí; pokud 6+, force re-confirm v wizardu):
 
 ```bash
-cd ~/.pflanzer/targets/{slug}-mob
-claude
+cd {mob_path}
+claude{mob_add_dirs}
 ```
 
 **Driver/navigator/observer rotation** (per facilitator perspektiva):
@@ -560,9 +695,9 @@ jednu poslední iteraci, nebo voting?"
 Cíl týmu: {hook}
 
 Tato iterace ({iteration}, {iteration_idx + 1}/{total_iterations}): {brief}
-
+{repo_block}
 POVINNÝ POSTUP (mob mode):
-1. **Read INTEGRATION_GUIDE.md** v root repa (1× per session).
+1. **Read CLAUDE.md + docs/INTEGRATION_GUIDE.md** (nebo INTEGRATION_GUIDE.md v rootu), 1× per session.
 2. **Read tests/acceptance/{slug}.feature** — Decider's spec.
 3. **Read 3-5 existing components** podobného typu (find via glob).
 4. **Driver rotuje každých 8 min** — sebevědomé "pause" pro handoff.
@@ -570,6 +705,7 @@ POVINNÝ POSTUP (mob mode):
 6. Pre-commit hook: lint + types + tests.
 7. Commit s Conventional Commits:
    `feat({slug}): mob {iteration} — <jednověté co iter dělá>`
+   Trailery Pflanzer-* doplní git hook; žádný `Co-Authored-By` za AI.
 
 Constraints:
 {constraint_lines}
@@ -586,11 +722,25 @@ Output:
 def _render_builder_prompt(
     hook: str, brief: str, constraints: list[str], builder: str,
     slug: str | None = None, variant: str | None = None,
+    repos: list[TargetRepo] | None = None,
 ) -> str:
     """Render a copy-paste prompt block per builder type."""
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
     slug = slug or "<slug>"
     variant = variant or "X"
+    repos = repos or []
+    primary_ws = repos[0].workspace if repos else None
+    feature_dir = f"{primary_ws + '/' if primary_ws else ''}src/features/{slug}/"
+    multi = len(repos) > 1 or bool(primary_ws)
+    repo_block = ""
+    add_dirs = "".join(f" --add-dir {_tilde(pth)}"
+                       for _, pth in variant_worktrees(slug, repos, variant)[1:]) if repos else ""
+    cd_block = f"cd {_primary_path(slug, variant, repos)}\nclaude{add_dirs}"
+    if add_dirs:
+        cd_block += "   # --add-dir = BE / další repa varianty ve stejné CC session"
+    if multi:
+        repo_block = (f"\nRepozitáře varianty {variant} (všechny na branchi pflanzer/{slug}-{variant}):\n"
+                      + "\n".join(_repo_lines(slug, variant, repos)) + "\n")
 
     # In-repo CLI builders (Claude Code, Codex CLI) → git worktree protocol
     if builder == "claude-code":
@@ -598,15 +748,14 @@ def _render_builder_prompt(
 
 ```bash
 python tool/cli/worktree.py setup --slug {slug}
-# → Naclonuje target_repo_url do ~/.pflanzer/targets/<repo-slug>/
-# → Vyrobí 3 worktree A/B/C jako siblings + pnpm/npm install
+# → Naclonuje target repo(s) do ~/.pflanzer/targets/<repo-slug>/
+# → Vyrobí worktrees A/B/C per repo + hook s trailery + guard + install
 ```
 
 **Tvoje dvojice (variant {variant}):**
 
 ```bash
-cd ~/.pflanzer/targets/{slug}-{variant}
-claude
+{cd_block}
 ```
 
 Vlož v Claude Code:
@@ -615,9 +764,10 @@ Vlož v Claude Code:
 Cíl týmu: {hook}
 
 Postav variantu {variant} v tomto repu: {brief}.
-
+{repo_block}
 POVINNÝ POSTUP (NEKÓDUJ DOKUD KROKY 1-3 NEHOTOVÉ):
-1. **Read INTEGRATION_GUIDE.md** v root repa. Pokud chybí, halt
+1. **Read CLAUDE.md + docs/INTEGRATION_GUIDE.md** (nebo INTEGRATION_GUIDE.md
+   v rootu). Pokud guide chybí, halt
    a zeptej se týmu na auth pattern, API client, state lib, logger,
    feature flags, folder layout, test runner.
 2. **Read tests/acceptance/{slug}.feature** (Gherkin scenarios) — to JE
@@ -627,7 +777,7 @@ POVINNÝ POSTUP (NEKÓDUJ DOKUD KROKY 1-3 NEHOTOVÉ):
 
 PAK kóduj:
 4. {brief}
-5. Žádné new files mimo `src/features/{slug}/` (drž se folder layout repa).
+5. Žádné new files mimo `{feature_dir}` (drž se folder layout repa).
 6. Žádné nové libraries — použij to, co je v package.json.
 7. Constraints:
 {constraint_lines}
@@ -635,6 +785,8 @@ PAK kóduj:
    Pokud failuje, fix je tvoje práce před commitem.
 9. Commit s Conventional Commits formátem:
    `feat({slug}): variant {variant} — <jednověté co se mění>`
+   Trailery Pflanzer-Variant / Pflanzer-Session / AI-Assisted doplní git hook;
+   NIKDY nepřidávej `Co-Authored-By` trailer za AI.
 
 Output:
 - Branch: pflanzer/{slug}-{variant} (v target repu)
@@ -719,7 +871,10 @@ def record_voting(
         slug: project slug.
         facilitator: jméno fyzického facilitátora.
         votes: list[{ "variant": "A", "name": str, "builder": str,
-                      "description": str, "role_preferences": [...] }].
+                      "description": str, "diff_summary": {...} | str,
+                      "role_preferences": [...] }].
+                diff_summary (KROK 4.5 diff walkthrough) se persistuje do
+                variants.diff_summary_md a vypíše v handoffu.
         decider_call: { shortlist, rationale, veto_register, parking_lot }.
         real_urls: optional dict[variant_name → real preview URL]; pokud chybí,
                    použije se placeholder z builder_prompts step.
@@ -737,6 +892,7 @@ def record_voting(
             "builder": v["builder"],
             "prototype_url": url,
             "description_md": v.get("description", ""),
+            "diff_summary": v.get("diff_summary"),
             "role_preferences": v["role_preferences"],
         })
 
@@ -780,10 +936,13 @@ def render_handoff(slug: str) -> str:
             (pid,),
         ).fetchone()
         variants = []
+        diff_col = (", diff_summary_md" if _has_column(conn, "variants", "diff_summary_md")
+                    else ", NULL")
         if sess:
             variants = list(conn.execute(
-                "SELECT name, builder, prototype_url, preference_score, description_md "
-                "FROM variants WHERE session_id = ? ORDER BY preference_score DESC",
+                "SELECT name, builder, prototype_url, preference_score, description_md"
+                + diff_col + " FROM variants WHERE session_id = ? "
+                "ORDER BY preference_score DESC",
                 (sess[0],),
             ).fetchall())
 
@@ -824,6 +983,15 @@ def render_handoff(slug: str) -> str:
         f"| {v[0]} | `{v[1]}` | {v[3]:.2f} | [preview]({v[2]}) |"
         for v in variants
     ) or "| — | — | — | — |"
+
+    diff_block = ""
+    diff_parts = [f"### Varianta {v[0]}\n\n{v[5]}\n" for v in variants if v[5]]
+    if diff_parts:
+        diff_block = (
+            "\n## Diff walkthrough (per varianta)\n\n"
+            "> Co AI napsalo podle dev páru (KROK 4.5): reuse / nové / mock.\n\n"
+            + "\n".join(diff_parts)
+        )
 
     commit_rows = "\n".join(
         f"| {c[0]} | {c[1] or '—'} | **{c[2] or '—'}** | {c[3]} |"
@@ -866,7 +1034,7 @@ def render_handoff(slug: str) -> str:
 | Variant | Builder | Score | Preview |
 |---------|---------|-------|---------|
 {var_table}
-
+{diff_block}
 ## Kdo / co / commitment
 
 | Role | Owner | Commitment 0-3 | Rationale |
@@ -918,7 +1086,8 @@ def main() -> None:
 
     p_boot = sub.add_parser("bootstrap", help="Create project + Charter + roles + deferred triage")
     p_boot.add_argument("--spec", type=Path, required=True,
-                        help="JSON: {hook, decider_name, room_role_idx, risk_profile, slug?, role_owners?}")
+                        help="JSON: {hook, decider_name, room_role_idx, risk_profile, slug?, role_owners?, "
+                             "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url')}")
 
     p_prompts = sub.add_parser("prompts", help="Generate 2-3 builder prompts")
     p_prompts.add_argument("--slug", required=True)

@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..audit import write_audit
-from ..models import Project, Session as PSession, Variant
+from ..models import Project, Variant
+from ..models import Session as PSession
 
 router = APIRouter(prefix="/api/projects", tags=["variants"])
 

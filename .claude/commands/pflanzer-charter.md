@@ -69,17 +69,23 @@ projektový záznam do `data/pflanzer.db` + Charter markdown do
    - **Pokud `unacceptable` nebo `L4`** → **STOP**: session se nekoná.
      Zaznamenej do decision logu a nepokračuj.
 
-   **G) Throw-away vs evolve (ADR-0005):**
-   - Default: `throwaway`
-   - Pokud uživatel chce `evolve`, ptej se na 6 podmínek z ADR-0005 a vyžaduj
-     splnění všech:
-       1. Tým, který bude v produkci, je v Session 1 přítomen v plné síle.
-       2. Stack v session = stack v produkci.
-       3. Code review aplikuje se i na vibe-generated code.
-       4. Design system compliance ≥ 90 %.
-       5. Test pyramide split předem stanoven.
-       6. Promote-to-prod gate checklist projde.
-     Ulož pole splněných podmínek do `evolve_conditions_met`.
+   **G) Evolve vs throw-away (ADR-0005 v0.4):**
+   - Default: `evolve` (Track P + evolve) — winner varianta jde do produkce.
+     Charter pro evolve nevyžaduje žádné extra podmínky; prod deploy je podmíněn **Ship gate**
+     (quality gates ≥ 80/100 per `production_readiness_target`) + sign-off
+     po Session 2, ne Charterem.
+   - `throwaway` je **explicit opt-in**. Nabídni ho jen, když ho uživatel sám
+     chce, a vyžaduj rationale = jeden ze 3 povolených use-casů z ADR-0005 v0.4:
+       1. **Discovery-only pilot** — XYZ falsifikace, žádný produkční záměr
+          (success metric = team alignment + go/no-go, ne prod deploy).
+       2. **Audit-grade evidence separate od prod** — artifact pro compliance /
+          regulatorní show-case, prod implementace běží v normálním SDLC.
+       3. **Regulated certified production** — FDA, IEC 62304, DO-178C, PSD2 SCA
+          apod., kde change-of-record vyžaduje separátní verified implementaci.
+     Pokud důvod nespadá do žádného z nich → zůstává `evolve`.
+     Ulož `throwaway_or_evolve` + rationale (use-case + 1–2 věty proč) do
+     `throwaway_rationale`. `charter.py` bez rationale u `throwaway` vyhodí
+     `ValueError`.
 
    **H) Reinforcement track (ADR-0004 + devil's advocate Útok 11):**
    - T+7: kdo měří co
