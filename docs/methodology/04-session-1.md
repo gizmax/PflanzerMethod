@@ -25,7 +25,7 @@ tým v Slacku [perspektiva 03]. Proto:
 
 - **Délka 5–6 h**, ne 8 h. Konec v 16:00, tým musí mít rezervu.
 - **Break každých 90 min nediskutuju**, pulsní check-in (1–5 prst) každé 2 h.
-- **Mezi-session okno: 5–7 pracovních dní** (ne 14, ne 3).
+- **Mezi-session okno: 5–7 pracovních dní** (Full stupeň; Lean 3–5, Quick 3 — per ADR-0021).
 - AI nese execution-heavy zátěž (mockup generation, transcript summary,
   clustering) v okamžicích, kdy lidská energie klesá.
 

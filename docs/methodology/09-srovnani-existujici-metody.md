@@ -44,7 +44,7 @@
 | **Kategorie** | AI pilot fixture (cross-fn, 14d, prod handoff) | AI development lifecycle methodology (mob, continuous bolts) | Enterprise AI delivery (90-day idea→MVP) | Pre-implementation strategic foundation (2h) | AI agent orchestration framework (12+ rolí jako AI personas) | Spec-driven development (specification discipline) |
 | **Origin** | Pflanzer (Tom, v0.3 2026) | AWS / Raja SP (DevOps blog 07/2025, re:Invent DVT214 12/2025) | Thoughtworks consulting (Q1 2026) | Jake Knapp + John Zeratsky (kniha *Click*, 2025) | OSS community (MIT, `bmad-code-org`) | GitHub Spec Kit (93k stars), Amazon Kiro, OpenSpec |
 | **Cíl** | Cross-functional alignment + production code z 2 sessions | Engineering velocity přes AI-led mob (BA/PM/eng/QA/ops) | 90-day production AI MVP s enterprise governance | Strategic problem framing před implementací | AI agent personas pro 12+ rolí | Specification-first development discipline |
-| **Délka** | 2 sessions (3-6h + 3h) + 5-7d async + reinforcement T+7/30/60/90 (~14d default) | Continuous „bolts" (3-4h Mob Elaboration) | 90 dní idea → MVP | 2h foundation phase | Continuous (agent-based) | Variable (specification iteration) |
+| **Délka** | 2 sessions (3-6h + 3h) + 3-7d async podle stupně + reinforcement T+7/30/60/90 (~14d default) | Continuous „bolts" (3-4h Mob Elaboration) | 90 dní idea → MVP | 2h foundation phase | Continuous (agent-based) | Variable (specification iteration) |
 | **Lidé** | 4-7 cross-fn (vč. Security/Legal/A11y/UX-writer/CS-proxy v audit-grade) | Engineering tým + AI navigator (jen tech role) | Consulting team + client stakeholders | 3-5 leadership stakeholders | Solo + AI agents (no humans in „room") | Variable (developer-centric) |
 | **AI role** | Co-pilot v session (Bolt/v0/Lovable/Claude Code) + AI-mediated synthesis v S2 | AI navrhuje → mob validuje (continuous loop) | AI augmented delivery (multi-tool stack) | (Žádná explicit AI role) | AI = primary actor (orchestrated agents) | AI generuje code from spec |
 | **Compliance / audit** | **Native AI Act čl. 14 decision log + DORA-grade audit + dvoufázový AI Act protokol (Fáze A/B/C)** | Žádný explicit audit trail | Enterprise governance vrstva (consulting-grade) | (Out of scope) | Žádný | Žádný |
@@ -209,7 +209,7 @@ artefakt, který velcí poradci nemají.
 
 ### 5. 2-session formát s týdenním asyncem + reinforcement track (operational moat)
 
-**Co:** Session 1 (vibe, 3-6h) → 5-7 dní async iterace → Session 2 (rozhodnutí,
+**Co:** Session 1 (vibe, 3-6h) → 3-7 dní async iterace (podle stupně, ADR-0021) → Session 2 (rozhodnutí,
 3h) → handoff → reinforcement T+7/30/60/90. Default profil ~14 dní calendar,
 ~10 PD effort.
 
@@ -219,7 +219,7 @@ non-stop (corporate stakeholder unavail). Foundation Sprint je 2h foundation
 (žádná implementation phase). 14-day production cycle = unique cadence.
 
 **Co to umožňuje:** Corporate stakeholder availability (async window),
-context retention (5-7 dní < window of forgetting), reinforcement loop
+context retention (3-7 dní < window of forgetting), reinforcement loop
 (T+7/30/60/90 kalibrace).
 
 ### Bývalé USPs (v0.2), nyní commoditizované

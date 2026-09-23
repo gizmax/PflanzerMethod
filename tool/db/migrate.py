@@ -54,6 +54,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
 ADDITIVE_TABLES: tuple[str, ...] = (
     # Audit N4: outcome measurement (tool/cli/retro.py)
     "outcomes",
+    # Audit N16: Claude Code token usage snapshots (tool/cli/ai_usage.py)
+    "ai_usage",
 )
 
 

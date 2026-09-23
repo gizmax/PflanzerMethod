@@ -397,7 +397,7 @@ Pokud tým chce **kód reálně použít**:
 
 ```
 > 🚀 Production path:
-> 1. Sběr feedbacku (5-7 dní) přes web hub: /pflanzer-feedback-pull <slug>
+> 1. Sběr feedbacku (Quick: 3 pracovní dny, ADR-0021) přes web hub: /pflanzer-feedback-pull <slug>
 > 2. Decisional session: /pflanzer-session-2 <slug>  (Decider Go/Iterate/Kill)
 > 3. Production hardening: /pflanzer-session-3 <slug>
 >    → extract code z buildru → 7 quality gates → score 0-100

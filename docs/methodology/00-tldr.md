@@ -30,7 +30,7 @@ aby kód šel rovnou do prod
    agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
    ticket prediction. Výstup = anotované varianty + risk register + score
    závaznosti per role [synthesis 02 — sekce 3].
-3. **Mezi-session** (5–7 dní): běžící produkt na sandbox URL (24 h TTL,
+3. **Mezi-session** (3–7 pracovních dní podle stupně, per ADR-0021): běžící produkt na sandbox URL (24 h TTL,
    watermark). Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
    rationale; AI-only feedback deflated max 0.5).
 4. **Session 2** (3 h, rozhodovací): AI moderuje výklad připomínek per role,

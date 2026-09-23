@@ -293,7 +293,7 @@ sleduje champion turnover jako signal o sustainability metody.
 
 ## 11. Mezi-session feedback windowless
 
-**Situace.** Mezi Session 1 a 2 je 5–7 dní, ale 3 z 8 stakeholderů jsou
+**Situace.** Mezi Session 1 a 2 je 3–7 pracovních dní (podle stupně, ADR-0021), ale 3 z 8 stakeholderů jsou
 na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
 
 **Co dělat:**
@@ -305,15 +305,18 @@ na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
    nahraje, sdílí s PTO stakeholdery, ti hlasují async.
 3. **Quorum rule**: pokud <60 % povinných rolí dosáhne deadline,
    Session 2 se posune o ≤5 dní. Pokud >60 % a missing role je
-   nevetovací → Session 2 běží, async input se započítává.
+   nevetovací → Session 2 běží, async input se započítává; mlčení nevetovací role po
+   deadline = „no objection“ zapsané do decision logu (ADR-0021).
 4. Vetovací role (Security, Legal, EM kapacita) bez async sign-offu =
    Session 2 ne-decision-making, jen review.
 
 **Kdo rozhoduje.** Facilitátor + PM. PM vlastní stakeholder kalendář.
 
-**Mitigace.** Mezi-session 5–7 dní (ne 14), prototyp deployed do 48 h,
-scoring window 3 dny, syntéza 1 den [perspektiva 03]; PTO check při
-plánování Session 1 (≥10 dní předem).
+**Mitigace.** Mezi-session podle stupně (Quick 3 / Lean 3–5 / Full 5–7
+pracovních dní, ADR-0021), prototyp deployed do 48 h, připomínka 48 h
+a 24 h před deadline [perspektiva 03]; PTO check při plánování Session 1
+(≥10 dní předem). Pokud vetovací role okno nestihne, upgrade stupně nebo
+odklad Session 2, ne prodlužování okna.
 
 ## 12. Session 2 končí bez rozhodnutí
 
