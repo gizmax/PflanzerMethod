@@ -12,6 +12,7 @@ Pokud chybí, zeptáš se v kroku 1.
 Tým 4-6 lidí v zasedačce, jeden notebook připojený k velkému TV.
 Cíl: do 60-90 min mít **shortlist + akční handoff** (kdo / co / do kdy),
 bez čekání na pre-sessions a 4 separátních wizardů.
+Toto je **Quick stupeň** (viz `00-lean-pflanzer.md` § Tři stupně).
 
 Pod kapotou tento command volá Charter + Roles + Triage (deferred) +
 Builder Decision + Session 1 persistenci. Sofistikovanost zachována,
@@ -141,6 +142,26 @@ do web hubu: `http://localhost:8000/<slug>`).
 
 ### KROK 4 — BUILDER PROMPTS (paralelní vibe-coding)
 
+> ⛔ **HARD RULE: U klávesnice sedí dev (#4/#5). Facilitátor nekóduje.**
+> Pokud v místnosti není žádný dev, zastav a řekni týmu, že Track P nelze —
+> nabídni odložení (per ADR-0020 decision tree, Q1 = NE). Facilitátor ani
+> Claude jako „AI proxy" za dev tým není náhradní builder
+> (per `04-session-1.md` § Hard rule: Builder = dev pár).
+
+**Dev check (před generováním prompts):** pokud v KROK 2B není vybraný
+Frontend (#4) ani Backend (#5):
+
+```
+AskUserQuestion: "⚠ V místnosti není žádný dev (#4/#5). Track P vyžaduje
+dev v driver-seat (ADR-0020). Co dál?"
+options:
+  - "Dev dorazí / přidat" — doplň #4 a/nebo #5 do room_role_idx
+    (+ jméno do role_owners), pak pokračuj KROK 4
+  - "Pokračovat jako throwaway demo (ne Track P)" — risk_profile přepni
+    na throwaway, v handoffu explicitně „NE Track P, kód nejde do prod";
+    pro pilot/production navrhni odložení session
+```
+
 **Default = 3× Claude Code v 3 git worktrees** (žádný browser tab, žádný extract).
 
 ```bash
@@ -186,12 +207,59 @@ claude                                    # otevře CC session v target worktree
 >
 > → mix `claude-code + codex-cli + v0` s instrukcemi pro Push to GitHub.
 
-Facilitátor (ty) hlídá čas — **30 min cap**, pak voting bez ohledu na hotovost.
+Facilitátor (ty) hlídá čas — **30 min cap**, pak diff walkthrough (KROK 4.5)
+a voting bez ohledu na hotovost.
 
 **Žádná AskUserQuestion za URL** — pro CC mode je branch deterministický
-(`feat/<slug>-A`). Voting v kroku 5 dostává branch path.
+(`pflanzer/<slug>-A`, per `tool/cli/worktree.py`). Voting v kroku 5
+dostává branch path.
+
+### KROK 4.5 — DIFF WALKTHROUGH (dev vysvětlí, co AI napsalo)
+
+> **Hard rule:** bez diff walkthroughu se voting (KROK 5) nekoná.
+> AI kód bez lidského výkladu = stakeholdeři hlasují o UI, ne o kódu
+> (per `04-session-1.md` § Detailní agenda + Failure modes).
+
+**5 min per varianta**, facilitátor hlídá čas. Pro každou variantu (A, B, C):
+
+1. Facilitátor vyzve dev pár dané varianty (jméno z KROK 2B owners).
+2. V jejich worktree spusť (base = `projects.target_branch`, default `main`):
+
+   ```bash
+   cd ~/.pflanzer/targets/<your-slug>-X      # X = A / B / C
+   git diff --stat <base>...HEAD
+   git log --oneline <base>..HEAD
+   ```
+
+   Výstup vyhoď na TV.
+3. Dev pár řekne **3 věci** (každá 1 věta):
+   - **Reuse** — které existující komponenty/soubory použil nebo upravil,
+   - **Nové** — co přibylo (nové soubory, endpointy, komponenty),
+   - **Mock** — co je mock/stub/hardcoded a v prod by chybělo.
+   Volitelně: které scénáře z `tests/acceptance/<slug>.feature` projely.
+
+Výsledek ulož per varianta do pole `diff_summary` ve vote JSON specu
+(KROK 6), např.:
+
+```json
+"diff_summary": {
+  "stat": "<výstup git diff --stat, poslední řádek stačí>",
+  "touched_existing": ["src/components/Form.tsx", "..."],
+  "reuse": "<1 věta>", "new": "<1 věta>", "mock": "<1 věta>",
+  "acceptance_pass": "3/4"
+}
+```
+
+> Dokud `record_voting()` v `quick_session.py` pole `diff_summary`
+> nepersistuje, **připoj 3 věty i na konec `description`** dané varianty
+> (jinak se ztratí).
+
+Dimenze `effort` a `risk` v KROK 5 se skórují **až po** tomto kroku —
+podložené diffem, ne pocitem z UI.
 
 ### KROK 5 — VOTING (silent dot voting)
+
+Voting začíná **až po dokončení KROK 4.5** (diff walkthrough všech variant).
 
 Pro každého člena u stolu (jméno z kroku 2B/owners) projdi tento mini-loop:
 
@@ -218,6 +286,7 @@ Sestav `votes` array per variant:
 [
   {
     "name": "A", "builder": "v0", "description": "happy-path minimum",
+    "diff_summary": {"stat": "...", "reuse": "...", "new": "...", "mock": "..."},
     "role_preferences": [
       {"role_idx": 1, "user_value": 0.8, "effort": 0.3, "risk": 0.2,
        "strategic_fit": 0.85, "commitment_level": 3,

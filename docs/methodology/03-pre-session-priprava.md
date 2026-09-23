@@ -177,7 +177,7 @@ Zadavatel hlasuje **poslední** (anti-HiPPO).
 
 | Profil | Total PD (orientačně) | Trigger |
 |--------|----------------------|---------|
-| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, throw-away default |
+| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, Track P + evolve (default per ADR-0005 v0.4) |
 | **Regulated** | ~14 PD | Finance (mimo PSD2 SCA), telco, healthtech non-PII, AI Act Limited risk |
 | **Audit-grade** | ~18–22 PD | DORA scope, AI Act High-risk, PSD2 SCA proximity, public sector |
 
@@ -383,7 +383,7 @@ session odložena**, ne začata s improvizací.
 [ ] WCAG 2.2 AA baseline a persona disability set (pokud customer-facing)
 [ ] Event taxonomy + measurement plan draft (pokud release intent)
 [ ] Top-10 ticket kategorií + 20 verbatim (pokud existující customer base)
-[ ] Throw-away/evolve flag explicit (default = throw-away)
+[ ] Evolve/throw-away flag explicit (default = evolve; throw-away jen s rationale z 3 use-casů ADR-0005 v0.4)
 [ ] Pre-read materiál distribuován 5–7 prac. dní předem
 [ ] Builder volba potvrzena per stack (decision tree výše)
 ```

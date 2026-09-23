@@ -28,12 +28,12 @@ projekt je, a nabídne další krok.
 | `start` | `/pflanzer-charter` | Nový projekt — Charter wizard (Den 0) |
 | `roles` | `/pflanzer-roles` | Výběr rolí po Charteru |
 | `triage` | `/pflanzer-triage` | Pre-flight gate před Session 1 |
-| `build` | `/pflanzer-session-1` | Generování variant (Session 1) |
+| `build` | `/pflanzer-session-1` | Session 1 (Lean/Full stupeň) |
 | `feedback` | `/pflanzer-feedback-pull` | Stažení mezi-session feedbacku z hubu |
 | `decide` | `/pflanzer-session-2` | Rozhodovací session — Go/Iterate/Kill |
-| `ship` | `/pflanzer-session-3` | Production hardening + quality gates |
+| `ship` | `/pflanzer-session-3` | Ship gate — quality gates + SHIP.md (po Session 2 GO) |
 | `handoff` | `/pflanzer-handoff` | Per-role handoff package |
-| `live` | `/pflanzer` | In-room session 60–90 min (vše v jednom) |
+| `live` | `/pflanzer` | Quick stupeň, 60–90 min (vše v jednom) |
 | `status` | — (řeší router sám) | Přehled stavu projektu/ů |
 
 **Delegace = přečti `.claude/commands/pflanzer-<cíl>.md` přes Read a postupuj
@@ -91,4 +91,5 @@ další krok v cyklu **vždy ve tvaru `/pm <sloveso> <slug>`** (ne dlouhým
 
 - `.claude/commands/pflanzer*.md` — implementace kroků
 - `docs/methodology/00-lean-pflanzer.md` — default profil průběhu
+- `docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody — autoritativní tabulka Quick / Lean / Full (délka Session 1, kola buildu, triage, mezi-session okno)
 - `README.md` § Quick start

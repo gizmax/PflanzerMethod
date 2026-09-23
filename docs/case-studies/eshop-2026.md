@@ -52,7 +52,7 @@ Method Steward — non-regulated default profil je nepotřebuje v místnosti.
 
 ## Průběh
 
-### Setkání #1 — vibe session (3 h, in-room)
+### Setkání #1 — vibe session (3 h, in-room, Lean stupeň)
 
 **Setup:** Všech 6 lidí ve stejné místnosti. AI vibe-coding tools připraveny
 (Bolt + v0 + Lovable, paralelně). Sponzor přinesl 1-věty problém,
@@ -170,7 +170,8 @@ Pod 3 piloty: zůstává jako **case study v `docs/case-studies/`**, ne method-l
 
 - `docs/methodology/00-lean-pflanzer.md` — default profil definice.
 - `docs/methodology/01-filozofie-a-kdy-pouzit.md` — fit criteria + anti-patterns.
-- `docs/methodology/04-session-1.md` — Session 1 detail (kde e-shop použil
-  3h core vibe místo 5-6h audit-grade variantu).
+- `docs/methodology/04-session-1.md` — Session 1 detail pro Full stupeň
+  (e-shop použil Lean stupeň — 3 h — místo 5–6h Full; stupně viz
+  `00-lean-pflanzer.md` § Tři stupně jedné metody).
 - `docs/research/method-falsifiability/` — proč method-level metrics
   vyžadují N=12+ (e-shop samotný do toho nezapadá).

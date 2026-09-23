@@ -50,6 +50,122 @@ Dev tým (same people kteří byli v Session 1 + 2):
 
 **Žádná re-implementace.** Winner kód z Session 2 → polish → prod.
 
+## AI code provenance (Track P i Track S)
+
+Decision log řeší atribuci **rozhodnutí** (kdo navrhl, kdo schválil —
+AI Act čl. 14). Tato sekce řeší atribuci **kódu**: kdo je autor
+AI-generovaného commitu, jak se značí, jak se reviewuje a jaké má IP /
+licenční implikace. Platí pro Track P (winner kód jde do prod) i Track S
+(reference prototype ze Session 1 + implementace dev týmem).
+
+### Pravidlo 1 — autor commitu = dev u klávesnice
+
+- Git `author` (a `committer`) je vždy **člověk, který seděl u klávesnice**
+  a řídil builder — typicky #4 FE / Vibe-coding lead nebo #5 BE / API lead
+  (viz `glossary.md` § dev-in-room). Nikdy facilitátor s AI proxy, nikdy
+  sdílený bot účet.
+- Autor **ručí za kód jako za vlastní** — stejná odpovědnost za bugy,
+  bezpečnost a licence jako u ručně psaného kódu.
+- **AI nikdy jako autor ani spoluautor.** Žádný `Co-Authored-By: <AI>`
+  trailer (GitHub ho zobrazuje jako spoluautorství) — automatickou
+  atribuci builderu vypnout v jeho nastavení. AI asistence se značí
+  výhradně trailery z pravidla 2.
+- Mob mode (1 sdílený worktree, ADR-0011): autor = aktuální driver;
+  při rotaci driveru se commituje před předáním klávesnice.
+
+### Pravidlo 2 — commit trailery (zapisuje Pflanzer tool)
+
+Pflanzer tool zapisuje trailery **automaticky**: `worktree.py` je nastaví
+per worktree při zakládání variant (Session 1), `handoff_pr.py` je
+přepne na `ship` a ověří jejich přítomnost před otevřením PR.
+
+| Trailer | Hodnota | Kdy |
+|---------|---------|-----|
+| `Pflanzer-Variant` | `<slug>-A` / `-B` / `-C` / `-mob` | každý commit ve worktree varianty |
+| `Pflanzer-Session` | `1` \| `2` \| `ship` | fáze, ve které commit vznikl (`ship` = Ship gate + D11-14 hardening, resp. Track S implementace) |
+| `AI-Assisted` | `claude-code` (nebo jiný builder: `codex-cli`, `cursor`, …) | builder z variant registru; u builderu `manual` se trailer vynechává |
+
+Ukázka commit message:
+
+```
+feat(onboarding): add plan-upgrade retry CTA
+
+Idempotency-key reused on retry so gateway timeout never double-charges.
+
+Pflanzer-Variant: onboarding-2026-A
+Pflanzer-Session: 2
+AI-Assisted: claude-code
+```
+
+Trailery jsou strojově čitelné (`git log --format='%(trailers:key=AI-Assisted)'`)
+— compliance si z nich vytáhne podíl AI-asistovaných commitů bez ručního
+dohledávání.
+
+### Pravidlo 3 — PR labely + sekce „AI provenance"
+
+- PR labely: `ai-generated` + `pflanzer:<slug>` (vedle stávajícího
+  `pflanzer`). `handoff_pr.py` je předvyplní v `gh pr create`.
+- PR body obsahuje sekci **„AI provenance"**:
+
+  ```markdown
+  ## AI provenance
+  - **Builder**: claude-code
+  - **Model family**: Claude (přesná verze není nutná)
+  - **Varianty**: 3 postaveny (A/B/C), do PR jde winner A
+  - **U klávesnice**: <jméno> (git author commitů)
+  - **Decision log**: <odkaz na decision log / SHIP.md>
+  ```
+
+### Pravidlo 4 — review AI kódu = stejná code review jako lidský kód
+
+AI-asistovaný kód prochází **stejnou** code review jako lidský (stejní
+reviewers, stejné CODEOWNERS, stejné CI gates). Žádný „AI review-only"
+(AI reviewer může pomoct, ale approve dává člověk mimo autora). Navíc
+reviewer odpoví na **3 povinné otázky** (do review komentáře nebo PR
+checklistu):
+
+1. **Existující vs nové komponenty** — použila varianta existující
+   komponenty / helpery repa (`INTEGRATION_GUIDE.md`), nebo vytvořila
+   paralelní nové? Každá nová musí mít důvod.
+2. **Mocky a stuby** — jsou v kódu mocky, stuby, hardcoded data nebo
+   TODO z session, které musí pryč před prod? Jsou vyjmenované a mají
+   ownera?
+3. **AI-generované testy** — ověřil člověk, že testy testují skutečné
+   chování (ne jen zrcadlí implementaci, ne `expect(true)`)?
+
+### Pravidlo 5 — IP a licence
+
+- Vygenerovaný kód podléhá **firemní licence policy** stejně jako
+  lidský kód nebo third-party dependency.
+- **Secret scan + license scan (SBOM) před merge** — viz Promote-to-prod
+  gate níže (SBOM řádek zahrnuje i licence mimo firemní allowlist).
+- **Zákaz vkládat do promptů** produkční data a cizí licencovaný kód
+  (zkopírované snippety z proprietárních zdrojů, kód pod nekompatibilní
+  licencí). Hranice dat se řídí Data Classification Statement L1–L4
+  (`03-pre-session-priprava.md` § Security & Data Triage): L4 = session
+  se nekoná, v promptech jen syntetická data se správnou shape.
+- Builder musí mít podepsaný DPA (viz sekce 8 Compliance handoff).
+
+### Pravidlo 6 — retence
+
+- **Default profil:** git history (autor + trailery) + PR (labely,
+  „AI provenance" sekce, review) stačí jako audit trail kódu.
+- **Regulated / audit-grade profil:** navíc `prompts` tabulka a
+  `audit_log` v Pflanzer DB drží prompt history s 7letou retencí (viz
+  Track P sign-off package — DORA 7y audit log, a sekce 8 — audit trail
+  s retencí 7 let dle DORA; human oversight per AI Act čl. 14). Vazba
+  prompt → varianta jde přes trailer `Pflanzer-Variant`; transkript
+  builder session se archivuje ve stejném retenčním režimu.
+
+### Kdo podepisuje co
+
+| Kdo | Podepisuje | Kde |
+|-----|------------|-----|
+| **Dev** (u klávesnice) | kód — git author, ručí jako za vlastní | commit + PR |
+| **Decider** | rozhodnutí — výběr winner varianty, Go/Iterate/Kill | decision log |
+| **Security** | scan — secret scan + SBOM / license scan clean | Promote-to-prod gate |
+| **EM** | kapacitu — dev tým na D11-14 hardening + review | True Cost Worksheet (`03` § Krok 1a) |
+
 ## Track S — precision spec do vývoje (fallback)
 
 ### Když Track S
@@ -311,8 +427,10 @@ bodů merge nemožný.
 ```
 [ ] OpenAPI lintovaný (Spectral) + Pact contract testy passující
 [ ] P2P checklist 9/9 (sekce 4)
-[ ] SBOM (cyclonedx/syft) clean, žádné Critical/High CVE
+[ ] SBOM (cyclonedx/syft) clean, žádné Critical/High CVE ani licence
+    mimo firemní allowlist
 [ ] Secret scan (gitleaks/trufflehog) clean
+[ ] AI provenance: trailery + PR labely přítomné, autor = člověk z room
 [ ] IaC v platform monorepu, terraform plan + OPA policy check pass
 [ ] OpenTelemetry instrumented (logs/metrics/traces), 4 golden signals
     dashboard live

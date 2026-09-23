@@ -111,6 +111,15 @@ nestaví produkt — ten je už v target repo. Sign-off package slouží **audit
 **Deprecated:** *„handoff package"* — slovo *„handoff"* implies *„throw to
 dev team"*, což protiřečí Pflanzer claimu *„dev was in room from minute 0"*.
 
+### AI code provenance
+
+**Atribuce AI-asistovaného kódu** (doplněk k atribuci rozhodnutí v decision
+logu). Autor commitu = dev, který seděl u klávesnice, a ručí za kód jako za
+vlastní; AI nikdy není autor. AI asistence se značí commit trailery
+(`Pflanzer-Variant`, `Pflanzer-Session`, `AI-Assisted`) a PR labely
+(`ai-generated`, `pflanzer:<slug>`); review je stejná jako u lidského kódu.
+Definováno v `07-handoff-do-vyvoje.md` § AI code provenance.
+
 ## Profile terms
 
 ### evolve (default)
@@ -147,10 +156,26 @@ ne *„prototype playground"*.
 
 **Winner varianta selected for prod** + sign-off package.
 
-### Session 3 (optional)
+### Stupeň (Quick / Lean / Full)
 
-Nice-to-have polish + observability + monitoring setup. **Není mandatory
-production prerequisite** — quality gates již proběhly v Session 2.
+Míra rituálů kolem stejného jádra metody (dev v room, 3 paralelní varianty,
+anti-HiPPO, Decider). **Quick** = 60–90 min in-room, 1 kolo buildu, triage
+deferred, jen `throwaway` / `pilot` (`/pm live`). **Lean** = 3 h, 2 kola
+buildu s mid-checkpointem, default pro Track P (`/pm build`). **Full** =
+5–6 h, kompletní agenda `04-session-1.md`, 4 triage tracks povinné,
+audit-grade / regulated. Session 2 je ve všech stupních 3 h. Autoritativní
+tabulka: `00-lean-pflanzer.md` § Tři stupně jedné metody.
+
+### Ship gate
+
+**Pipeline, ne setkání.** Po Go rozhodnutí v Session 2 ji pouští dev pár:
+quality gates (score 0–100) + `SHIP.md` → PR připravený k mergi
+(`/pm ship` + `/pm handoff`). Pflanzer cyklus = **2 sezení + Ship gate**.
+
+**Alias (deprecated):** *„Session 3"* — starší název v toolu; command
+`/pflanzer-session-3` zůstává jako implementace pod kapotou `/pm ship`.
+Pozor: ADR-0001 používá *„Session 3"* ve významu **iterační** rozhodovací
+session po Iterate (Scenario B/C) — to není Ship gate.
 
 ## Anti-patterns (deprecated language)
 
@@ -162,11 +187,12 @@ production prerequisite** — quality gates již proběhly v Session 2.
 | „handoff package" | „sign-off package" | „Handoff" implies dev re-implementation; Pflanzer dev was in room |
 | „dev team picks up the prototype" | „dev team byl v room, kód jde do prod" | Contradicts core claim |
 | „Prototype-to-Prod (P2P) checklist" | „Production readiness checklist" | Naming |
-| „extract code" (Session 3) | „polish + observability" | „Extract" implies code wasn't prod-ready |
+| „extract code" (Ship gate) | „polish + observability" | „Extract" implies code wasn't prod-ready |
+| „Session 3" / „3 sezení" | „Ship gate" / „2 sezení + Ship gate" | Ship gate je pipeline, ne setkání |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
 
 ## Reference
 
-- ADR-0005 throw-away vs evolve prototype (note: pending v0.3.1 invert per audit)
+- ADR-0005 throw-away vs evolve prototype (v0.4: default = evolve, throw-away = explicit opt-in pro 3 use cases)
 - `docs/research/output-consistency/03-synthesis.md` — audit findings + recommendations
 - User clarification 2026-05-28: *„Výstup z Pflanzer metody je hotový produkt."*

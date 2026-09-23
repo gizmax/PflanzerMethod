@@ -14,10 +14,29 @@
 > NENÍ preferovaná cesta. Tento dokument je pro Track P. Track S detail
 > v `07-handoff-do-vyvoje.md` + `tool/templates/precision-spec-track-s.md.template`.
 
+## Tři stupně jedné metody
+
+> **Autoritativní definice.** Délka Session 1, počet kol buildu, rozsah triage
+> a délka mezi-session okna jsou definované **jen v této tabulce**. README,
+> `00-tldr.md`, `04-session-1.md`, `/pm` i `/pflanzer` sem odkazují.
+
+| Stupeň | Délka S1 | Kola buildu | Triage | Mezi-session | Kdy použít | Command |
+|--------|----------|-------------|--------|--------------|------------|---------|
+| **Quick** | 60–90 min in-room | 1 kolo × 30 min (3× Claude Code ve worktrees target repa) → silent vote → Decider shortlist → 1-page handoff | Deferred (před pilotem se doběhne `/pm triage`) | 3 pracovní dny | Rychlé ověření směru, první kontakt týmu s metodou; **jen risk profil `throwaway` / `pilot`** (pro `production` upgrade na Lean) | `/pm live` |
+| **Lean** (default Track P) | 3 h in-room | 2 kola × 30 min (30 + 30) s mid-checkpointem → diff walkthrough → silent vote → Decider shortlist | Lightweight (1-pager checklist) | 3–5 pracovních dní | **Default pro Track P** — e-shop, SaaS feature, interní tool, non-regulated projekt s dev týmem v room | `/pm build` |
+| **Full** (audit-grade) | 5–6 h in-room | Kompletní agenda `04-session-1.md` (VoC ritual, pre-mortem, Crazy 8s, shadow agenti, A11y quickscan) | 4 triage tracks povinné (Discovery + Security + Legal + Platform) | 5–7 pracovních dní | Regulated / audit-grade — AI Act High-risk, DORA, public sector, method-level rollout (viz § Kdy default NEstačí) | `/pm triage` → `/pm build` |
+
+Všechny tři stupně mají **stejné jádro**: dev v room od minuty 0, 3 paralelní
+varianty, anti-HiPPO (silent vote, Decider hlasuje poslední) a Decider
+s mandátem — liší se jen množstvím rituálů kolem. **Session 2 je ve všech
+stupních rozhodovací a trvá 3 h** (`/pm decide`). **Po Session 2 následuje
+Ship gate, ne třetí setkání:** pipeline (quality gates + `SHIP.md`), kterou po
+Go rozhodnutí pouští dev pár (`/pm ship` + `/pm handoff`); není to meeting.
+
 ## Co Pflanzer skutečně je
 
 Sedm lidí (sponzor + 5 z workflow **včetně programátora od minuty 0** +
-facilitátor), 2 setkání, 1 týden mezi nimi, **winner varianta jde rovnou
+facilitátor), 2 setkání + Ship gate, 1 týden mezi nimi, **winner varianta jde rovnou
 do produkce** — žádná re-implementace dev týmem (dev byl v room).
 Pomáhá korporátu nasadit AI na zrychlení rigidních procesů (sériový handoff
 zadavatel → produkt → vývoj → security → deploy).
@@ -34,25 +53,26 @@ Den 0: 1× kávový meeting (60 min)
   Sponzor + 5 lidi z workflow napříč rolemi (zadavatel → vývojář)
   → kdo, kdy, co bude na stole, jaký je success threshold (1 věta)
 
-Den 5: Session 1 — vibe (3 h, in-room)
-  /pflanzer "<problém v 1 větě>"
-  → 2-3 paralelně postavené weby v Bolt / v0 / Lovable / Claude Code
+Den 5: Session 1 — vibe (Lean stupeň: 3 h, in-room, 2 kola buildu)
+  /pm build <slug>
+  → 3 paralelní varianty (3× Claude Code ve worktrees target repa)
+  → 2 kola × 30 min s mid-checkpointem, diff walkthrough
   → silent voting + Decider's shortlist
   → 1-page MD shrnutí, kdo co reviewuje
 
 Den 6-9: async iterace (4 dni)
   Stakeholdeři klikají, komentují v shared docu nebo PR komentech
   Builder lead doplňuje variantu podle feedbacku
-  /pflanzer-feedback-pull <slug>  (volitelné, agreguje per role)
+  /pm feedback <slug>  (volitelné, agreguje per role)
 
 Den 10: Session 2 — doladění + rozhodnutí (3 h)
-  /pflanzer-session-2 <slug>
+  /pm decide <slug>
   → Decider's Go / Iterate / Kill, anti-HiPPO (hlasuje poslední)
   → Winner finalized, scope locked
 
-Den 11-14: Ship to prod (1-2 dny vývojářů)
-  /pflanzer-session-3 <slug>   # extract → quality gates score 0-100
-  /pflanzer-handoff <slug>     # PR-ready package
+Den 11-14: Ship gate + prod deploy (1-2 dny dev páru, žádné setkání)
+  /pm ship <slug>      # Ship gate: quality gates score 0-100 + SHIP.md
+  /pm handoff <slug>   # PR-ready package
   Vývojáři doladí edge-case bugy, deploy, monitorování.
 ```
 

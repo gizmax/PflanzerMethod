@@ -48,8 +48,8 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({1, 4}): {
         "axis": "Prototyp do prod (throw-away vs evolve)",
-        "resolution": "Throw-away default v Charteru; evolve vyžaduje podpis FE + EM + Security + DPO + DevOps + QA P2P.",
-        "adr": "ADR-0005 (Throw-away vs evolve)",
+        "resolution": "Evolve default v Charteru (ADR-0005 v0.4); prod deploy až po Ship gate (quality gates >= 80/100) + sign-off FE + EM + Security + DPO + DevOps + QA P2P. Throw-away jen jako explicit opt-in s rationale.",
+        "adr": "ADR-0005 v0.4 (Track x Output: evolve default)",
     },
     frozenset({1, 5}): {
         "axis": "Vibe-coding speed vs migrace timeline",

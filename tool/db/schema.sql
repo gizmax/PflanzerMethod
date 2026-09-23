@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS projects (
     CHECK (ai_act_tier IN ('minimal','limited','high','unacceptable')),
   data_class TEXT
     CHECK (data_class IN ('L1','L2','L3','L4')),
-  throwaway_or_evolve TEXT
+  throwaway_or_evolve TEXT DEFAULT 'evolve'
     CHECK (throwaway_or_evolve IN ('throwaway','evolve')),
+  -- ADR-0005 v0.4: throwaway = explicit opt-in, requires one of 3 use cases
+  throwaway_rationale TEXT,
   capacity_profile TEXT
     CHECK (capacity_profile IN ('default','regulated','audit-grade')),
   capacity_person_days INTEGER,

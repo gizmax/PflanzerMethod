@@ -3,6 +3,10 @@
 > Status: v1.0. Generativní session: cross-functional alignment, 1–3 funkční
 > mockupy, preference matrix, score závaznosti per role, Decider's go/no-go
 > shortlist. Délka 5–6 h, konec **16:00** (ne 17:30) [perspektiva 03].
+>
+> Tento dokument popisuje **Full stupeň** (audit-grade / regulated). Stupně
+> Lean (3 h, default Track P) a Quick (60–90 min) jsou definované
+> v `00-lean-pflanzer.md` § Tři stupně jedné metody.
 
 ## Cíl Session 1
 
@@ -46,6 +50,19 @@ Per Decision tree z `02-role-catalog.md` + tato pravidla:
 - **Senior delegate** povinně pro vetovací role (Security, Legal, EM); junior
   bez mandátu = session se odkládá [perspektiva 01].
 
+### Hard rule: Builder = dev pár
+
+U klávesnice Claude Code sedí **vždy dev (#4 a/nebo #5)** — nikdy
+facilitátor, nikdy „AI proxy" (facilitátor, který promptuje za dev tým).
+Facilitátor během vibe-coding kola **nemá otevřené IDE**; hlídá čas,
+energii a parking lot. Důvod: ADR-0020 (Track P — „builder lead = dev
+v driver-seat, NE facilitátor s AI proxy") + failure mode **Captured by
+tool** (facilitátor, který debuguje, přestává facilitovat).
+
+Pokud dev pár není k dispozici → **Track P není možný**. Postupuj podle
+decision tree v ADR-0020 (Q1 = NE → Track S jen při splnění triggeru,
+jinak odložit projekt). Facilitátor jako náhradní builder není varianta.
+
 ## Detailní agenda
 
 | Čas | Blok | Aktivita | Vede |
@@ -55,7 +72,8 @@ Per Decision tree z `02-role-catalog.md` + tato pravidla:
 | 10:00–10:15 | **Pre-mortem TRIZ** | *„Je 6 měsíců po launchi, fíčura selhala, proč?"* — kondenzát 15 min, generuje rizika dřív, než tým zamiluje variantu [perspektiva 02] | Facilitátor + AI |
 | 10:15–10:45 | **Crazy 8s / silent ideation** | 8 minut × 8 sketches per účastník, individuálně. Bez diskuse | Facilitátor |
 | 10:45–11:00 | **Break** | Fyzický reset, ne networking [perspektiva 03] | — |
-| 11:00–12:30 | **AI vibe-coding kolo 1 — 3 paralelní varianty** | AI builder generuje 3 varianty paralelně z merged Crazy 8s. FE/UX/BE/A11y shadow ve svých kanálech: token compliance, OpenAPI shadow, axe-core run | **AI vede, lidé direction** |
+| 11:00–12:15 | **AI vibe-coding kolo 1 — 3 paralelní varianty** | AI builder generuje 3 varianty paralelně z merged Crazy 8s; u klávesnice každé varianty sedí dev pár (viz hard rule *Builder = dev pár*). FE/UX/BE/A11y shadow ve svých kanálech: token compliance, OpenAPI shadow, axe-core run | **AI vede, lidé direction** |
+| 12:15–12:30 | **Diff walkthrough** | Každý dev pár **5 min per varianta** ukáže `git diff --stat` + `git log --oneline` své worktree branche `pflanzer/<slug>-X`: kam sáhl v existujících komponentách, co je nové, co je mock/stub, které acceptance scénáře z `tests/acceptance/<slug>.feature` projely. **Hard rule: bez tohoto bloku se voting nekoná** | Dev páry (facilitátor hlídá čas) |
 | 12:30–13:00 | **Oběd + parking lot review** | Async; AI klasifikuje parking lot items | — |
 | 13:00–13:30 | **A11y quickscan + tech feasibility check** | 8–10 položek WCAG 2.2 AA, axe-core report. BE feasibility: breaking-change check proti existujícím consumer ownerům. EM T-shirt sizing | A11y + BE + EM |
 | 13:30–14:00 | **Silent dot voting + preference matrix** | 1-2-4-All. Hlasy SILENT, score se zveřejňuje **až po hlasování**. Zadavatel hlasuje **poslední** [perspektiva 03] | Facilitátor + AI |
@@ -81,6 +99,7 @@ Tříreřežimová matice ze syntézy [synthesis 02 + perspektiva 03]:
 | Score agregace + rationale extrakce | **AI** | Dataset, ne názor |
 | **JTBD framing & persona lock** | **Člověk** (PM + UX) | AI nepozná persona drift |
 | **Konflikt mezi rolemi** | **Člověk** (Facilitátor) | AI nemá political authority |
+| **Diff walkthrough** | **Člověk** (dev pár) | AI kód bez lidského výkladu = stakeholdeři hlasují o UI, ne o kódu |
 | **Dot voting interpretation** | **Člověk** | „8 hlasů pro A" může být HiPPO |
 | **Veto handling** (Security/Legal) | **Člověk** | AI nemá podpis |
 | **Commitment moment** | **Člověk** | Závaznost je sociální akt |
@@ -159,6 +178,8 @@ po session.
     aid pro spec authors, ne deployable).
 - **Preference matrix** — varianty × dimenze (user value, effort, risk,
   strategic fit) × role. Hlasy per role + commitment level [perspektiva 02].
+- **Diff summary per varianta** (`git diff --stat` + seznam dotčených
+  existujících souborů + acceptance pass rate) — příloha preference matrix.
 - **Score závaznosti per role** s rationale field; AI-only persona feedback
   deflated max 0.5 [synthesis 02].
 - **Veto registr** — kdo co flagoval, severity, mitigation deadline; podepsaný
@@ -211,5 +232,7 @@ po session.
   každé 2 h.
 - **AI as authority** → každý AI insight má human override; decision log
   atribuuje **člověka**, ne „AI navrhla".
+- **Voting o UI, ne o kódu** → Diff walkthrough povinný před votingem;
+  dimenze `effort` a `risk` se skórují až po něm.
 - **Charter creep** → MoSCoW na vstupy striktní; pokud chybí MUST, session
   se odkládá.

@@ -21,21 +21,26 @@
 
 V korporátu typicky cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
 s produktem, produkt s vývojem, schvalovací kola, security audit, atd. Metoda to
-zkracuje na **2–3 sezení** — tým se sejde, společně provibe-koduje 2–3 varianty,
+zkracuje na **2 sezení + Ship gate** — tým se sejde, společně provibe-koduje 2–3 varianty,
 rozhodne, kód projde production gates, ven jde **PR připravený k mergi**.
 
 **Většina kódu z vibe-coding session je použitelná**, ne jen reference pro re-implementaci.
 
-## Quick start (3 sezení = ship to production)
+## Quick start (2 sezení + Ship gate = ship to production)
 
 **Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu pozná,
 kde v cyklu projekt je, a nabídne další krok. (Dlouhé `/pflanzer-*` commandy
 žijí dál jako implementace pod kapotou.)
 
+Délka Session 1 závisí na zvoleném **stupni** (Quick 60–90 min / Lean 3 h /
+Full 5–6 h) — jediná autoritativní tabulka je v
+[`docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody](docs/methodology/00-lean-pflanzer.md#tři-stupně-jedné-metody).
+
 ```
-Session 1: Explore (in-room, 60-90 min)
-  /pm live "chceme zlepšit onboarding"
-  → 2-3 paralelně postavené varianty v Bolt/v0/Lovable
+Session 1: Explore (in-room, délka podle stupně Quick / Lean / Full)
+  /pm live "chceme zlepšit onboarding"   # Quick, 60–90 min
+  /pm build <slug>                       # Lean (default Track P) / Full
+  → 3 paralelní varianty (3× Claude Code ve worktrees target repa)
   → silent voting + Decider's shortlist
   → 1-page handoff MD
 
@@ -43,12 +48,12 @@ Session 2: Decide (3 h)
   /pm feedback <slug>     # async feedback od stakeholderů
   /pm decide <slug>       # Decider's Go/Iterate/Kill
 
-Session 3: Ship (1-2 h)
-  /pm ship <slug>         # extract → 7 quality gates → score 0-100
+Ship gate (pipeline po Session 2 GO, pouští dev pár — není to setkání)
+  /pm ship <slug>         # quality gates → score 0-100 + SHIP.md
   /pm handoff <slug>      # PR-ready package s odkazy na soubory
 ```
 
-**Po session 3 dostane tým**:
+**Po Ship gate dostane tým**:
 - Funkční kód v `extracted/<slug>/<winner>/` (Vite + React + TS, ESLint, Vitest)
 - Quality gate score (lint + types + tests + security + a11y + build + observability)
 - Per-role handoff balíčky s **odkazy na skutečné soubory** (ne TBD placeholders)
@@ -80,7 +85,7 @@ cd ../proto-${SLUG}-X && claude
 # Vloží prompt (z `quick_session.py prompts` output) → 30 min koduje
 # → npm test && npm run lint && npm run build → commit
 
-# 3. Po skončení: 3 feature branche v repu, gate-scored přes session 3
+# 3. Po skončení: 3 feature branche v repu, gate-scored přes Ship gate (/pm ship)
 ```
 
 Diversity skrz **3 různé prompty** (happy-path / multi-step / smart defaults),
@@ -123,7 +128,7 @@ Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
 /pm start <slug>      # Plný Charter wizard (XYZ, kapacita, Decider mandate, …)
 /pm roles <slug>      # Decision tree pro 18 rolí
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
-/pm build <slug>      # Session 1 orchestrator (5–6 h)
+/pm build <slug>      # Session 1 orchestrator (délka podle stupně Quick/Lean/Full)
 # … mezi-session 5–7 dní (web hub) …
 /pm decide <slug>     # Session 2 (decisional, 3 h)
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
@@ -151,7 +156,7 @@ Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog
 - Slice 8 ✅ Handoff package generator (8 per-role artefakty)
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
 - **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
-  → kód po 3 sezeních ready k mergi (gate_score 0-100)
+  → kód po 2 sezeních + Ship gate ready k mergi (gate_score 0-100)
 
 ## Struktura repa
 

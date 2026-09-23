@@ -33,6 +33,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("shadow_pm", "TEXT"),
         # Mob mode autoresearch (Sprint 4 — ADR-0011)
         ("session_mode", "TEXT DEFAULT 'parallel'"),
+        # ADR-0005 v0.4 (audit N2): throwaway is opt-in and needs a rationale
+        ("throwaway_rationale", "TEXT"),
     ],
 }
 
