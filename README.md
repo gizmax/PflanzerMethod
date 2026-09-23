@@ -247,8 +247,10 @@ PFLANZER_HUB_AUTH_MODE=dev uvicorn backend.main:app --app-dir tool/web --reload 
 cd tool/web/frontend && npm install && npm run dev
 ```
 
-> DB lokace: pokud `~/.pflanzer/` existuje, použije se `~/.pflanzer/pflanzer.db`
-> (installed plugin mode). Jinak `<repo>/data/pflanzer.db` (dev mode).
+> DB lokace: pokud existuje soubor `~/.pflanzer/pflanzer.db` (vytvoří ho
+> `install.sh`), použije se ten (installed plugin mode). Jinak
+> `<repo>/data/pflanzer.db` (dev mode) — samotný adresář `~/.pflanzer/targets/`
+> (cache target repozitářů z `worktree.py setup`) DB nepřepne.
 > Override: `export PFLANZER_DB=/path/to/db.sqlite`.
 
 **Deploy web hubu ve firmě.** Backend je defaultně v `oidc` módu (bez SSO identity
@@ -259,6 +261,19 @@ Keycloak): `cp tool/web/.env.example tool/web/.env`, vyplnit a
 `docker compose --profile oidc up`. Hodnotitel ve feedbacku je pak SSO e-mail
 (auditovatelná atribuce, AI Act čl. 14 / DORA). Detail:
 [`tool/web/README-auth.md`](tool/web/README-auth.md).
+
+### Testy a CI
+
+```bash
+pip install pytest ruff pyyaml         # + fastapi sqlmodel httpx pro test web auth
+python3 -m pytest -q                   # tests/ — hermetické: tmp DB, tmp HOME, lokální git repa
+ruff check tool tests                  # konfigurace v pyproject.toml
+python3 tool/cli/quality_gates.py --path tool/web/frontend --adapter tool/pflanzer.gates.yml
+```
+
+GitHub Actions (`.github/workflows/ci.yml`, push + PR): `tool` (ruff + pytest),
+`web-backend` (auth testy), `web-frontend` (`tsc --noEmit` + build) a `dogfood`
+(quality gates toolu na vlastním repu — jen report, na skóre nepadá).
 
 ## Plán fáze 2 (full)
 

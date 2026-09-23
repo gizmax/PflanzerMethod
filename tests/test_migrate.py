@@ -75,7 +75,8 @@ def test_migration_upgrades_v0_db(old_db: Path) -> None:
         "SELECT id, extraction_method FROM extracted_code WHERE id = 7"
     ).fetchone()
     assert row == (7, "in_repo_branch")
-    assert conn.execute("SELECT COUNT(*) FROM quality_gates WHERE extracted_id = 7").fetchone()[0] == 1
+    gates = conn.execute("SELECT COUNT(*) FROM quality_gates WHERE extracted_id = 7")
+    assert gates.fetchone()[0] == 1
     assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
     idx = {r[1] for r in conn.execute("PRAGMA index_list(extracted_code)")}
     assert "idx_extracted_variant" in idx

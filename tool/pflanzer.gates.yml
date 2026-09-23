@@ -1,0 +1,29 @@
+# Pflanzer Method | pflanzer.cz/method
+#
+# Dogfood gate adapter for THIS repo (the Pflanzer tool itself), used by the
+# `dogfood` job in .github/workflows/ci.yml:
+#
+#   python tool/cli/quality_gates.py --path tool/web/frontend --adapter tool/pflanzer.gates.yml
+#
+# Commands cd to the git toplevel first, so they work no matter which
+# directory is checked (external `--adapter` resolves `cwd` against the
+# checked path; an in-tree adapter against this file's directory).
+# Gates not listed here report `unsupported` (excluded from the score).
+# Format: tool/templates/pflanzer.gates.yml.template, docs: tool/templates/README-gates.md.
+
+version: 1
+
+# build — every CLI / migration module byte-compiles.
+build:
+  cmd: 'cd "$(git rev-parse --show-toplevel)" && python3 -m compileall -q tool/cli tool/db tests'
+  timeout: 120
+
+# lint — ruff (config in the root pyproject.toml).
+lint:
+  cmd: 'cd "$(git rev-parse --show-toplevel)" && ruff check tool tests'
+  timeout: 120
+
+# tests — pytest suite in tests/ (hermetic: tmp DB, tmp HOME, local git repos).
+tests:
+  cmd: 'cd "$(git rev-parse --show-toplevel)" && python3 -m pytest -q -p no:cacheprovider'
+  timeout: 600

@@ -1,0 +1,109 @@
+# Pflanzer Method | pflanzer.cz/method
+# CI for the Pflanzer tool: CLI tests + lint, web hub backend auth, frontend build,
+# and a dogfood run of the tool's own quality gates.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tool:
+    name: tool (ruff + pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: python -m pip install --upgrade pip pytest ruff pyyaml
+      - name: Ruff
+        run: ruff check tool tests
+      - name: Pytest
+        run: python -m pytest -q
+
+  web-backend:
+    name: web hub backend (auth)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend deps (from tool/web/backend/pyproject.toml)
+        run: |
+          python - <<'PY' > "$RUNNER_TEMP/backend-requirements.txt"
+          import tomllib
+          with open("tool/web/backend/pyproject.toml", "rb") as fh:
+              print("\n".join(tomllib.load(fh)["project"]["dependencies"]))
+          PY
+          python -m pip install --upgrade pip
+          python -m pip install -r "$RUNNER_TEMP/backend-requirements.txt" pytest httpx pyyaml
+      - name: Pytest (web auth)
+        run: python -m pytest -q tests/test_web_auth.py
+
+  web-frontend:
+    name: web hub frontend (tsc + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tool/web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  dogfood:
+    name: dogfood (quality gates on this repo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install gate tools
+        run: python -m pip install --upgrade pip pytest ruff pyyaml
+      - name: Quality gates (report only, never fails on score)
+        run: |
+          python tool/cli/quality_gates.py --path tool/web/frontend \
+            --adapter tool/pflanzer.gates.yml | tee "$RUNNER_TEMP/gates.json"
+      - name: Gate summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          path = os.path.join(os.environ["RUNNER_TEMP"], "gates.json")
+          try:
+              data = json.load(open(path, encoding="utf-8"))
+          except (OSError, ValueError):
+              print("Pflanzer Method | pflanzer.cz/method\n\nGate report not available.")
+              raise SystemExit(0)
+          print("Pflanzer Method | pflanzer.cz/method\n")
+          print(f"**Gate score:** {data['gate_score']}/100 · gates run: {data['gates_run']}\n")
+          print("| Gate | Status |\n|---|---|")
+          for r in data["results"]:
+              print(f"| {r['gate']} | {r['status']} |")
+          PY
