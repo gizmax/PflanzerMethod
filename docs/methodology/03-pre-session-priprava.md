@@ -351,8 +351,8 @@ log export, opt-out trainingu. Bez toho = neschváleno.
 - **Capacity check**: EM má **veto na workshop**, pokud PI > 80 % committed
   [synthesis 02, perspektiva 09]. Bez kapacity = no session, ne „domluvíme
   to potom".
-- **Délka Session 1**: 5–6 h, konec v 16:00 [perspektiva 03]. Ne 8 h.
-- **Mezi-session**: 5–7 pracovních dní (ne 14).
+- **Délka Session 1**: 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně); Full konec v 16:00 [perspektiva 03]. Ne 8 h.
+- **Mezi-session**: 3–7 pracovních dní podle stupně (ne 14).
 - **Senior delegate**: každá vetovací role posílá senior s explicit
   veto/sign-off mandátem; junior bez mandátu = session se odkládá
   [perspektiva 01].

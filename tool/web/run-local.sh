@@ -7,6 +7,10 @@
 
 set -euo pipefail
 
+# Local run = dev auth mode: backend trusts the X-User header (no SSO).
+# Company deployment (OIDC mode): see tool/web/README-auth.md.
+export PFLANZER_HUB_AUTH_MODE=dev
+
 REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
 cd "$REPO_ROOT"
 
@@ -42,6 +46,7 @@ echo "────────────────────────�
 echo "Pflanzer web hub (local)"
 echo "  Backend:  http://localhost:8000/api/docs"
 echo "  Frontend: http://localhost:5173/method/"
+echo "  Auth:     PFLANZER_HUB_AUTH_MODE=dev (X-User, no SSO)"
 echo "─────────────────────────────────────────"
 echo "Stop: Ctrl-C"
 

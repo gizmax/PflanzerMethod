@@ -11,11 +11,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      "X-User": "tom@gizmax.cz", // TODO Slice X: real SSO
+      // Dev mode only (PFLANZER_HUB_AUTH_MODE=dev). In OIDC mode nginx drops this
+      // header and the identity comes from the SSO session (see README-auth.md).
+      "X-User": "tom@gizmax.cz",
       ...(init?.headers || {}),
     },
     ...init,
   });
+  if (r.status === 401) {
+    // No SSO identity (session expired or hub not behind oauth2-proxy).
+    // Pages render thrown errors via their error state.
+    throw new Error(
+      "HTTP 401: nejste přihlášeni přes SSO — obnovte stránku (F5) pro nové přihlášení."
+    );
+  }
   if (!r.ok) {
     const text = await r.text();
     throw new Error(`HTTP ${r.status}: ${text}`);
