@@ -57,8 +57,7 @@ BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
 PFLANZER_START = "<!-- pflanzer:start -->"
 PFLANZER_END = "<!-- pflanzer:end -->"
 HOOK_MARKER = "pflanzer-trailers-hook"
-HOOK_NAME = "prepare-commit-msg"
-HOOK_STANDALONE = "pflanzer-prepare-commit-msg"
+HOOK_CORE_NAME = "pflanzer-trailers"
 
 PARALLEL_VARIANTS = ("A", "B", "C")
 MOB_VARIANTS = ("mob",)
@@ -425,12 +424,14 @@ def _install_cmd(wt: Path, pm: str) -> list[str]:
         "yarn": (wt / "yarn.lock").exists(),
         "npm": (wt / "package-lock.json").exists() or (wt / "npm-shrinkwrap.json").exists(),
     }[pm]
+    # Without a lockfile, don't generate one — it would show up as an
+    # untracked file in every variant diff.
     if pm == "pnpm":
-        return ["pnpm", "install", "--frozen-lockfile"] if has_lock else ["pnpm", "install"]
+        return ["pnpm", "install", "--frozen-lockfile"] if has_lock else ["pnpm", "install", "--no-lockfile"]
     if pm == "yarn":
         return ["yarn", "install", "--frozen-lockfile"] if has_lock else ["yarn", "install"]
     return (["npm", "ci", "--no-audit", "--no-fund"] if has_lock
-            else ["npm", "install", "--no-audit", "--no-fund"])
+            else ["npm", "install", "--no-audit", "--no-fund", "--no-package-lock"])
 
 
 def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]:
@@ -462,16 +463,29 @@ def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]
 # Trailers (N11): per-worktree config + prepare-commit-msg hook
 # --------------------------------------------------------------------------
 
-HOOK_SCRIPT = f"""#!/bin/sh
-# {HOOK_MARKER} v1 — managed by Pflanzer Method (tool/cli/worktree.py).
+HOOK_CORE = f"""#!/bin/sh
+# {HOOK_MARKER} v2 — managed by Pflanzer Method (tool/cli/worktree.py).
 # Adds commit trailers per docs/methodology/07-handoff-do-vyvoje.md
 # (AI code provenance): Pflanzer-Variant, Pflanzer-Session, AI-Assisted.
 # Values come from `git config --worktree pflanzer.*`; worktrees without
-# them (e.g. the cached clone itself) are left untouched.
-# Never adds Co-Authored-By — AI is never an author.
-msg_file="$1"
-case "$2" in merge|squash) exit 0 ;; esac
+# them (e.g. the cached clone itself) are left untouched. Idempotent
+# (--if-exists doNothing). Never adds Co-Authored-By — AI is never an author.
+#
+# Usage: {HOOK_CORE_NAME} prepare <msg-file> [<source> [<sha>]]   (prepare-commit-msg)
+#        {HOOK_CORE_NAME} commit-msg <msg-file>                    (commit-msg)
+# prepare handles -m/-F/amend commits; a plain editor commit (empty source)
+# is left to commit-msg, so trailers never pre-fill the editor and an empty
+# message still aborts the commit.
+mode="$1"; msg_file="$2"; source="$3"
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+case "$mode" in
+  prepare)
+    case "$source" in ''|merge|squash) exit 0 ;; esac ;;
+  commit-msg)
+    git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+    grep -v '^#' "$msg_file" | grep -q '[^[:space:]]' || exit 0 ;;
+  *) exit 0 ;;
+esac
 variant=$(git config --get pflanzer.variant 2>/dev/null) || exit 0
 [ -n "$variant" ] || exit 0
 session=$(git config --get pflanzer.session 2>/dev/null) || session=1
@@ -482,59 +496,85 @@ if [ "$builder" != "manual" ]; then
   set -- "$@" --trailer "AI-Assisted: $builder"
 fi
 git interpret-trailers "$@" "$msg_file" || exit 0
-if grep -qiE '^co-authored-by:.*(claude|anthropic|copilot|openai|codex|cursor|gpt|gemini)' "$msg_file"; then
+if [ "$mode" = commit-msg ] && grep -qiE '^co-authored-by:.*(claude|anthropic|copilot|openai|codex|cursor|gpt|gemini)' "$msg_file"; then
   echo "[pflanzer] WARNING: Co-Authored-By trailer za AI — AI není autor; odstraň ho (07-handoff § AI code provenance)." >&2
 fi
 exit 0
 """
 
-CHAIN_LINE = 'sh "$(git rev-parse --git-common-dir)/hooks/' + HOOK_STANDALONE + '" "$@"'
 
-
-def _chain_help(hooks_path: str | None, existing: Path | None = None) -> str:
-    if hooks_path:
-        return (
-            f"Repo má core.hooksPath='{hooks_path}' (husky/lefthook) — Pflanzer hook "
-            "NEpřepisuji. Zřetězení: husky → do `.husky/prepare-commit-msg` přidej řádek "
-            f"`{CHAIN_LINE}`; lefthook → v lefthook.yml `prepare-commit-msg: commands: "
-            f"pflanzer-trailers: run: sh \"$(git rev-parse --git-common-dir)/hooks/{HOOK_STANDALONE}\" "
-            "{1} {2} {3}`."
-        )
+def _hook_wrapper(mode: str) -> str:
     return (
-        f"Existující hook {existing} není od Pflanzeru — NEpřepisuji. Zřetězení: na jeho "
-        f"konec přidej řádek `{CHAIN_LINE}`."
+        "#!/bin/sh\n"
+        f"# {HOOK_MARKER} — managed by Pflanzer Method (tool/cli/worktree.py).\n"
+        f'exec sh "$(dirname "$0")/{HOOK_CORE_NAME}" {mode} "$@"\n'
     )
 
 
+HOOK_MODES = {"prepare-commit-msg": "prepare", "commit-msg": "commit-msg"}
+
+
+def _chain_line(hook: str) -> str:
+    return (f'sh "$(git rev-parse --git-common-dir)/hooks/{HOOK_CORE_NAME}" '
+            f'{HOOK_MODES[hook]} "$@"')
+
+
+def _chain_help(hooks_path: str | None, existing: list[Path] | None = None) -> str:
+    lines = " a ".join(f"`{h}`: `{_chain_line(h)}`" for h in HOOK_MODES)
+    if hooks_path:
+        return (
+            f"Repo má core.hooksPath='{hooks_path}' (husky/lefthook) — Pflanzer hooky "
+            f"NEpřepisuji. Zřetězení: husky → do `.husky/<hook>` přidej řádek ({lines}); "
+            "lefthook → v lefthook.yml pod `prepare-commit-msg` / `commit-msg` přidej "
+            f"command `run: sh \"$(git rev-parse --git-common-dir)/hooks/{HOOK_CORE_NAME}\" "
+            "prepare {1} {2} {3}` resp. `... commit-msg {1}`."
+        )
+    names = ", ".join(str(e) for e in (existing or []))
+    return (f"Existující hook(y) {names} nejsou od Pflanzeru — NEpřepisuji. Zřetězení: "
+            f"na konec přidej řádek ({lines}).")
+
+
 def _install_trailer_hook(clone: Path) -> dict[str, Any]:
-    """Install the trailer hook into the clone's common hooks dir (shared by worktrees)."""
+    """Install trailer hooks into the clone's common hooks dir (shared by worktrees).
+
+    `prepare-commit-msg` covers -m/-F/amend commits (what AI builders use),
+    `commit-msg` covers plain editor commits. Foreign hooks and core.hooksPath
+    (husky/lefthook) are never overwritten — the result carries chaining help.
+    """
     hooks_dir = _git_common_dir(clone) / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    standalone = hooks_dir / HOOK_STANDALONE
-    if not standalone.exists() or standalone.read_text(encoding="utf-8") != HOOK_SCRIPT:
-        standalone.write_text(HOOK_SCRIPT, encoding="utf-8")
-    standalone.chmod(0o755)
+    core = hooks_dir / HOOK_CORE_NAME
+    if not core.exists() or core.read_text(encoding="utf-8") != HOOK_CORE:
+        core.write_text(HOOK_CORE, encoding="utf-8")
+    core.chmod(0o755)
 
     rc, out, _ = _git(clone, "config", "--get", "core.hooksPath")
     hooks_path = out.strip() if rc == 0 else ""
     if hooks_path:
-        return {"status": "chain-needed", "hook": str(standalone), "message": _chain_help(hooks_path)}
+        return {"status": "chain-needed", "hook": str(core), "message": _chain_help(hooks_path)}
 
-    target = hooks_dir / HOOK_NAME
-    if target.exists():
-        content = target.read_text(encoding="utf-8", errors="replace")
-        if HOOK_MARKER not in content:
-            return {"status": "chain-needed", "hook": str(standalone),
-                    "message": _chain_help(None, target)}
-        if content == HOOK_SCRIPT:
-            target.chmod(0o755)
-            return {"status": "unchanged", "hook": str(target)}
-        status = "updated"
-    else:
-        status = "installed"
-    target.write_text(HOOK_SCRIPT, encoding="utf-8")
-    target.chmod(0o755)
-    return {"status": status, "hook": str(target)}
+    statuses, foreign = [], []
+    for hook, mode in HOOK_MODES.items():
+        target = hooks_dir / hook
+        wrapper = _hook_wrapper(mode)
+        if target.exists():
+            content = target.read_text(encoding="utf-8", errors="replace")
+            if HOOK_MARKER not in content:
+                foreign.append(target)
+                continue
+            if content == wrapper:
+                target.chmod(0o755)
+                statuses.append("unchanged")
+                continue
+            statuses.append("updated")
+        else:
+            statuses.append("installed")
+        target.write_text(wrapper, encoding="utf-8")
+        target.chmod(0o755)
+    if foreign:
+        return {"status": "chain-needed", "hook": str(core), "message": _chain_help(None, foreign)}
+    status = "installed" if "installed" in statuses else ("updated" if "updated" in statuses else "unchanged")
+    return {"status": status, "hook": str(hooks_dir / "prepare-commit-msg")}
 
 
 def _configure_worktree(clone: Path, wt: Path, *, variant: str, builder: str,
@@ -1260,6 +1300,11 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                     res["status"] = "skipped (no commits)"
                     results.append(res)
                     continue
+                if not shutil.which("gh"):
+                    res["status"] = ("skipped: GitHub CLI `gh` není na PATH — nainstaluj a přihlas "
+                                     "(`gh auth login`), nebo spusť vytištěné příkazy ručně")
+                    results.append(res)
+                    continue
                 rc, out, err = _run(push_cmd, timeout=300)
                 if rc != 0:
                     res["status"] = f"push failed: {err.strip()[-200:]}"
@@ -1433,9 +1478,17 @@ def render_setup(s: WorktreeSetup) -> str:
         lines.append(f"- `cd {s.worktrees[0]} && claude` — MOB session, všichni u 1 monitoru (ADR-0011); "
                      "driver/navigator rotace 8 min, hard break 25 min")
     else:
-        for r in s.repos:
-            for v, p in r["worktrees"].items():
-                lines.append(f"- `cd {p} && claude`  # varianta {v} ({r['role']})")
+        primary, others = s.repos[0], s.repos[1:]
+        for v, p in primary["worktrees"].items():
+            extra = "".join(f" --add-dir {o['worktrees'][v]}" for o in others if v in o["worktrees"])
+            roles = "+".join(r["role"] for r in s.repos)
+            lines.append(f"- `cd {p} && claude{extra}`  # varianta {v} ({roles})")
+    notes = sorted({f"{r['role']}: install {x['status']} — {x['reason']}"
+                    for r in s.repos for x in r["install_results"] if x.get("reason")})
+    notes += [f"{r['role']}: install failed v {x['path']} (`{x.get('cmd')}`)"
+              for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
+    if notes:
+        lines += ["", "### Install", ""] + [f"- {n}" for n in notes]
     if s.init_missing:
         miss = "; ".join(f"{m['repo']}: {', '.join(m['missing'])}" for m in s.init_missing)
         lines += ["", f"> Připomínka (N14): target repo nemá AI-readiness soubory ({miss}). "

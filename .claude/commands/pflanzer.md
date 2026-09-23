@@ -96,9 +96,18 @@ options:
 
 ```
 AskUserQuestion (3 otázky):
-1. "Target git repo URL?" [text → https://github.com/<org>/<repo>]
-   → projects.target_repo_url (POVINNÝ pro pilot/production — bez něj
-     bootstrap raise ValueError per ADR-0009)
+1. "Target repo(s): FE / BE / monorepo workspace?" [text]
+   Formát: `role=url[#branch][:workspace]`, víc repozitářů odděl čárkou.
+   - jednoduchý případ (jako dřív) = jedna URL: `https://github.com/<org>/<repo>`
+   - FE + BE: `fe=https://github.com/org/web, be=https://github.com/org/api#develop`
+   - monorepo workspace: `app=https://github.com/org/mono#main:apps/web`
+   → jedna URL = `target_repo_url` ve spec JSON; jinak celý text jako
+     `target_repos` (bootstrap ho naparsuje a validuje; primární FE/app repo
+     jde i do projects.target_repo_url). POVINNÉ pro pilot/production — bez
+     něj bootstrap raise ValueError per ADR-0009.
+   → BE repo (role `be`/`api`) dostane v promptech angle „contract-first:
+     nejdřív OpenAPI diff, pak implementace"; `workspace` = hint „pracuj v
+     `apps/web`" v promptu i v INTEGRATION_GUIDE.
 2. "Branch owner / kdo merguje PR?" [text → GitHub handle, např. @petra]
    → projects.target_branch_owner (auto-fills `gh pr create --reviewer`
      v SHIP.md per ADR-0010)
@@ -127,9 +136,17 @@ Vyrob JSON spec do `/tmp/quick-bootstrap-<slug>.json`:
   "decider_name": "<z kroku 2A>",
   "room_role_idx": [1, 2, 3, 4, 6],
   "risk_profile": "throwaway|pilot|production",
-  "role_owners": {"1": "Honza", "2": "Petra", ...}
+  "role_owners": {"1": "Honza", "2": "Petra", ...},
+  "target_repo_url": "https://github.com/<org>/<repo>",
+  "target_branch_owner": "@petra",
+  "shadow_pm": "<jméno>"
 }
 ```
+
+Více repozitářů / monorepo: místo `target_repo_url` dej `"target_repos"` —
+buď text z otázky 1 (`"fe=https://…/web, be=https://…/api#develop"`), nebo
+pole `[{"role": "fe", "url": "…", "branch": "main", "workspace": "apps/web"},
+{"role": "be", "url": "…"}]`.
 
 Spusť:
 
@@ -176,16 +193,42 @@ python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 **Setup (facilitátor, 1× per session, ~1-3 minuty):**
 
 ```bash
-# 1. Pflanzer naclonuje target repo do ~/.pflanzer/targets/<repo-slug>/
-#    a vyrobí 3 worktree A/B/C jako siblings + spustí pnpm/yarn/npm install
-python tool/cli/worktree.py setup --slug <your-slug>
+# Pro každý target repo (FE / BE / monorepo): cached clone v
+# ~/.pflanzer/targets/<repo-slug>/ + worktrees A/B/C (branch pflanzer/<slug>-X
+# ve všech repech) + git config & prepare-commit-msg hook (trailery
+# Pflanzer-Variant / Pflanzer-Session / AI-Assisted) + data leakage guard
+# + CLAUDE.md „Pflanzer session rules" + pnpm/yarn/npm install (non-JS skip)
+python tool/cli/worktree.py setup --slug <your-slug>          # --mode mob, --no-install, --strict
 ```
+
+Výstup ukaž týmu na TV — tabulka **repo × varianta × path**, např.:
+
+```
+| Repo          | Varianta | Branch            | Path                              | Workspace | Install | CLAUDE.md |
+|---------------|----------|-------------------|-----------------------------------|-----------|---------|-----------|
+| fe (primary)  | A        | pflanzer/<slug>-A | ~/.pflanzer/targets/<slug>-A      | apps/web  | ok      | created   |
+| be            | A        | pflanzer/<slug>-A | ~/.pflanzer/targets/<slug>-A-be   | —         | skipped | created   |
+```
+
+Pod ní je stav hooku (`installed` / `chain-needed` + návod pro husky/lefthook)
+a tabulka **data leakage guard** (secrets, `.env*` trackované / ignorované,
+prod dumpy). `FAIL` v guardu = **stop před klávesnicí**: vyřeš (odstraň
+secret, `git rm --cached .env`) a spusť `python tool/cli/worktree.py guard
+--slug <slug>` znovu. Pokud setup připomene `init-pr`, spusť
+`python tool/cli/worktree.py init-pr --slug <slug>` — první PR pilotu
+(`docs/INTEGRATION_GUIDE.md` + `CLAUDE.md`) do target repa.
 
 > ⚠ **KRITICKÉ (ADR-0009 P0 fix)**: Tento command spawne worktree v
 > **target zákazníkově repu**, ne v PflanzerMethod meta-repu. Jinak by
 > CC kódoval do tohoto toolu a reuse by byl 0 %.
 >
-> Vyžaduje `projects.target_repo_url` (settnut v Charteru pro pilot/production).
+> Vyžaduje `projects.target_repo_url` / `target_repos` (KROK 3 pro pilot/production).
+>
+> Po Session 1 (mezi sessions): `python tool/cli/worktree.py preview --slug <slug>`
+> vytiskne draft PR per varianta (preview URL z Vercel/Netlify v PR checks,
+> `--run` je opravdu založí a uloží URL do `variants.prototype_url`);
+> `--mode playwright` nahraje průchod acceptance scénáři (video + trace).
+> Session 2: `python tool/cli/worktree.py set-session --slug <slug> --session 2`.
 
 **Tým rozdělí po dvojicích, každá:**
 ```bash

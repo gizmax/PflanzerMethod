@@ -503,6 +503,12 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             constraints.append("Evolve target — drž se design system tokenů, žádné inline styly")
     constraints.append("Žádné credentials v kódu, žádné .env. WCAG 2.2 AA.")
 
+    # Audit N8: FE + BE + monorepo workspace — every variant gets all repos.
+    try:
+        repos = load_target_repos(slug)
+    except ValueError:
+        repos = []
+
     angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
 
     prompts: list[VariantPrompt] = []
@@ -511,14 +517,14 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         if mode == "mob" and builder == "claude-code":
             prompt_text = _render_mob_iteration_prompt(
                 hook, brief, constraints, slug=slug, iteration=name,
-                iteration_idx=i, total_iterations=n_variants,
+                iteration_idx=i, total_iterations=n_variants, repos=repos,
             )
             placeholder_url = f"local://pflanzer/{slug}-mob (npm run dev)"
         else:
             prompt_text = _render_builder_prompt(hook, brief, constraints, builder,
-                                                 slug=slug, variant=name)
+                                                 slug=slug, variant=name, repos=repos)
             if builder in ("claude-code", "codex-cli"):
-                placeholder_url = f"local://feat/{slug}-{name} (npm run dev)"
+                placeholder_url = f"local://pflanzer/{slug}-{name} (npm run dev)"
             else:
                 placeholder_url = f"https://sandbox.invalid/{slug}/{name}"
         prompts.append(VariantPrompt(
@@ -533,6 +539,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "slug": slug,
         "mode": mode,
         "diversity_hint": rec.get("diversity_hint", ""),
+        "target_repos": [r.to_dict() for r in repos],
         "prompts": [
             {
                 "name": p.name, "builder": p.builder, "builder_url": p.builder_url,
@@ -544,9 +551,42 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     }
 
 
+BE_CONTRACT_FIRST = (
+    "CONTRACT-FIRST: nejdřív OpenAPI diff (změna `openapi.yaml` / kontraktu, "
+    "ukaž ji týmu a FE páru), pak implementace endpointu + testy. FE staví "
+    "proti kontraktu (mock z OpenAPI), ne proti hotovému BE."
+)
+
+
+def _tilde(path: Path) -> str:
+    home = str(Path.home())
+    p = str(path)
+    return "~" + p[len(home):] if p.startswith(home + "/") else p
+
+
+def _repo_lines(slug: str, variant: str, repos: list[TargetRepo]) -> list[str]:
+    """One line per repo worktree of a variant (N8): path, workspace, BE angle."""
+    lines = []
+    for idx, (repo, path) in enumerate(variant_worktrees(slug, repos, variant)):
+        line = f"- `{repo.role}`{' (primární)' if idx == 0 else ''}: `{_tilde(path)}`"
+        if repo.workspace:
+            line += f" — pracuj v `{repo.workspace}/`"
+        if repo.is_backend:
+            line += f" — {BE_CONTRACT_FIRST}"
+        lines.append(line)
+    return lines
+
+
+def _primary_path(slug: str, variant: str, repos: list[TargetRepo]) -> str:
+    if repos:
+        return _tilde(variant_worktrees(slug, repos, variant)[0][1])
+    return f"~/.pflanzer/targets/{slug}-{variant}"
+
+
 def _render_mob_iteration_prompt(
     hook: str, brief: str, constraints: list[str], *,
     slug: str, iteration: str, iteration_idx: int, total_iterations: int,
+    repos: list[TargetRepo] | None = None,
 ) -> str:
     """Mob mode prompt — sequential iteration v 1 worktree.
 
@@ -554,6 +594,14 @@ def _render_mob_iteration_prompt(
     8-min driver rotation, observer-task assignment, single shared branch.
     """
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
+    repos = repos or []
+    mob_path = _primary_path(slug, "mob", repos)
+    mob_add_dirs = "".join(f" --add-dir {_tilde(pth)}"
+                           for _, pth in variant_worktrees(slug, repos, "mob")[1:]) if repos else ""
+    repo_block = ""
+    if len(repos) > 1 or any(r.workspace for r in repos):
+        repo_block = ("\nRepozitáře (všechny na branchi pflanzer/" + slug + "-mob):\n"
+                      + "\n".join(_repo_lines(slug, "mob", repos)) + "\n")
 
     setup_block = ""
     if iteration_idx == 0:
@@ -568,8 +616,8 @@ python tool/cli/worktree.py setup --slug {slug} --mode mob
 **Tým u 1 monitoru** (≤ 5 lidí; pokud 6+, force re-confirm v wizardu):
 
 ```bash
-cd ~/.pflanzer/targets/{slug}-mob
-claude
+cd {mob_path}
+claude{mob_add_dirs}
 ```
 
 **Driver/navigator/observer rotation** (per facilitator perspektiva):
@@ -629,9 +677,9 @@ jednu poslední iteraci, nebo voting?"
 Cíl týmu: {hook}
 
 Tato iterace ({iteration}, {iteration_idx + 1}/{total_iterations}): {brief}
-
+{repo_block}
 POVINNÝ POSTUP (mob mode):
-1. **Read INTEGRATION_GUIDE.md** v root repa (1× per session).
+1. **Read CLAUDE.md + docs/INTEGRATION_GUIDE.md** (nebo INTEGRATION_GUIDE.md v rootu), 1× per session.
 2. **Read tests/acceptance/{slug}.feature** — Decider's spec.
 3. **Read 3-5 existing components** podobného typu (find via glob).
 4. **Driver rotuje každých 8 min** — sebevědomé "pause" pro handoff.
@@ -639,6 +687,7 @@ POVINNÝ POSTUP (mob mode):
 6. Pre-commit hook: lint + types + tests.
 7. Commit s Conventional Commits:
    `feat({slug}): mob {iteration} — <jednověté co iter dělá>`
+   Trailery Pflanzer-* doplní git hook; žádný `Co-Authored-By` za AI.
 
 Constraints:
 {constraint_lines}
@@ -655,11 +704,25 @@ Output:
 def _render_builder_prompt(
     hook: str, brief: str, constraints: list[str], builder: str,
     slug: str | None = None, variant: str | None = None,
+    repos: list[TargetRepo] | None = None,
 ) -> str:
     """Render a copy-paste prompt block per builder type."""
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
     slug = slug or "<slug>"
     variant = variant or "X"
+    repos = repos or []
+    primary_ws = repos[0].workspace if repos else None
+    feature_dir = f"{primary_ws + '/' if primary_ws else ''}src/features/{slug}/"
+    multi = len(repos) > 1 or bool(primary_ws)
+    repo_block = ""
+    add_dirs = "".join(f" --add-dir {_tilde(pth)}"
+                       for _, pth in variant_worktrees(slug, repos, variant)[1:]) if repos else ""
+    cd_block = f"cd {_primary_path(slug, variant, repos)}\nclaude{add_dirs}"
+    if add_dirs:
+        cd_block += "   # --add-dir = BE / další repa varianty ve stejné CC session"
+    if multi:
+        repo_block = (f"\nRepozitáře varianty {variant} (všechny na branchi pflanzer/{slug}-{variant}):\n"
+                      + "\n".join(_repo_lines(slug, variant, repos)) + "\n")
 
     # In-repo CLI builders (Claude Code, Codex CLI) → git worktree protocol
     if builder == "claude-code":
@@ -667,15 +730,14 @@ def _render_builder_prompt(
 
 ```bash
 python tool/cli/worktree.py setup --slug {slug}
-# → Naclonuje target_repo_url do ~/.pflanzer/targets/<repo-slug>/
-# → Vyrobí 3 worktree A/B/C jako siblings + pnpm/npm install
+# → Naclonuje target repo(s) do ~/.pflanzer/targets/<repo-slug>/
+# → Vyrobí worktrees A/B/C per repo + hook s trailery + guard + install
 ```
 
 **Tvoje dvojice (variant {variant}):**
 
 ```bash
-cd ~/.pflanzer/targets/{slug}-{variant}
-claude
+{cd_block}
 ```
 
 Vlož v Claude Code:
@@ -684,9 +746,10 @@ Vlož v Claude Code:
 Cíl týmu: {hook}
 
 Postav variantu {variant} v tomto repu: {brief}.
-
+{repo_block}
 POVINNÝ POSTUP (NEKÓDUJ DOKUD KROKY 1-3 NEHOTOVÉ):
-1. **Read INTEGRATION_GUIDE.md** v root repa. Pokud chybí, halt
+1. **Read CLAUDE.md + docs/INTEGRATION_GUIDE.md** (nebo INTEGRATION_GUIDE.md
+   v rootu). Pokud guide chybí, halt
    a zeptej se týmu na auth pattern, API client, state lib, logger,
    feature flags, folder layout, test runner.
 2. **Read tests/acceptance/{slug}.feature** (Gherkin scenarios) — to JE
@@ -696,7 +759,7 @@ POVINNÝ POSTUP (NEKÓDUJ DOKUD KROKY 1-3 NEHOTOVÉ):
 
 PAK kóduj:
 4. {brief}
-5. Žádné new files mimo `src/features/{slug}/` (drž se folder layout repa).
+5. Žádné new files mimo `{feature_dir}` (drž se folder layout repa).
 6. Žádné nové libraries — použij to, co je v package.json.
 7. Constraints:
 {constraint_lines}
@@ -704,6 +767,8 @@ PAK kóduj:
    Pokud failuje, fix je tvoje práce před commitem.
 9. Commit s Conventional Commits formátem:
    `feat({slug}): variant {variant} — <jednověté co se mění>`
+   Trailery Pflanzer-Variant / Pflanzer-Session / AI-Assisted doplní git hook;
+   NIKDY nepřidávej `Co-Authored-By` trailer za AI.
 
 Output:
 - Branch: pflanzer/{slug}-{variant} (v target repu)
@@ -788,7 +853,10 @@ def record_voting(
         slug: project slug.
         facilitator: jméno fyzického facilitátora.
         votes: list[{ "variant": "A", "name": str, "builder": str,
-                      "description": str, "role_preferences": [...] }].
+                      "description": str, "diff_summary": {...} | str,
+                      "role_preferences": [...] }].
+                diff_summary (KROK 4.5 diff walkthrough) se persistuje do
+                variants.diff_summary_md a vypíše v handoffu.
         decider_call: { shortlist, rationale, veto_register, parking_lot }.
         real_urls: optional dict[variant_name → real preview URL]; pokud chybí,
                    použije se placeholder z builder_prompts step.
@@ -806,6 +874,7 @@ def record_voting(
             "builder": v["builder"],
             "prototype_url": url,
             "description_md": v.get("description", ""),
+            "diff_summary": v.get("diff_summary"),
             "role_preferences": v["role_preferences"],
         })
 
@@ -849,10 +918,13 @@ def render_handoff(slug: str) -> str:
             (pid,),
         ).fetchone()
         variants = []
+        diff_col = (", diff_summary_md" if _has_column(conn, "variants", "diff_summary_md")
+                    else ", NULL")
         if sess:
             variants = list(conn.execute(
-                "SELECT name, builder, prototype_url, preference_score, description_md "
-                "FROM variants WHERE session_id = ? ORDER BY preference_score DESC",
+                "SELECT name, builder, prototype_url, preference_score, description_md"
+                + diff_col + " FROM variants WHERE session_id = ? "
+                "ORDER BY preference_score DESC",
                 (sess[0],),
             ).fetchall())
 
@@ -893,6 +965,15 @@ def render_handoff(slug: str) -> str:
         f"| {v[0]} | `{v[1]}` | {v[3]:.2f} | [preview]({v[2]}) |"
         for v in variants
     ) or "| — | — | — | — |"
+
+    diff_block = ""
+    diff_parts = [f"### Varianta {v[0]}\n\n{v[5]}\n" for v in variants if v[5]]
+    if diff_parts:
+        diff_block = (
+            "\n## Diff walkthrough (per varianta)\n\n"
+            "> Co AI napsalo podle dev páru (KROK 4.5): reuse / nové / mock.\n\n"
+            + "\n".join(diff_parts)
+        )
 
     commit_rows = "\n".join(
         f"| {c[0]} | {c[1] or '—'} | **{c[2] or '—'}** | {c[3]} |"
@@ -935,7 +1016,7 @@ def render_handoff(slug: str) -> str:
 | Variant | Builder | Score | Preview |
 |---------|---------|-------|---------|
 {var_table}
-
+{diff_block}
 ## Kdo / co / commitment
 
 | Role | Owner | Commitment 0-3 | Rationale |
@@ -987,7 +1068,8 @@ def main() -> None:
 
     p_boot = sub.add_parser("bootstrap", help="Create project + Charter + roles + deferred triage")
     p_boot.add_argument("--spec", type=Path, required=True,
-                        help="JSON: {hook, decider_name, room_role_idx, risk_profile, slug?, role_owners?}")
+                        help="JSON: {hook, decider_name, room_role_idx, risk_profile, slug?, role_owners?, "
+                             "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url')}")
 
     p_prompts = sub.add_parser("prompts", help="Generate 2-3 builder prompts")
     p_prompts.add_argument("--slug", required=True)
