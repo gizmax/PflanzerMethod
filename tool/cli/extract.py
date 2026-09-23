@@ -35,7 +35,6 @@ import argparse
 import json
 import re
 import shutil
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -826,25 +825,15 @@ def extract(
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
 
-        def _insert(stored: str) -> int:
-            cur = conn.execute(
-                insert_sql,
-                (variant_id, source_url, source_repo_url, _path_for_db(dest),
-                 stored, files, loc, current_actor(), "\n".join(notes)),
-            )
-            return int(cur.lastrowid)
-
+        # 'worktree' is part of the extraction_method CHECK since the
+        # migrate.py rebuild of extracted_code — older DBs: run migrate.py.
         stored_method = method
-        try:
-            extracted_id = _insert(method)
-        except sqlite3.IntegrityError as exc:
-            # DBs created before 'worktree' joined the extraction_method CHECK
-            # constraint: store the legacy equivalent instead of crashing.
-            if method != "worktree" or "CHECK" not in str(exc):
-                raise
-            stored_method = "in_repo_branch"
-            notes.append("(DB CHECK nezná 'worktree' — uloženo jako in_repo_branch; spusť migraci.)")
-            extracted_id = _insert(stored_method)
+        cur = conn.execute(
+            insert_sql,
+            (variant_id, source_url, source_repo_url, _path_for_db(dest),
+             stored_method, files, loc, current_actor(), "\n".join(notes)),
+        )
+        extracted_id = int(cur.lastrowid)
 
         audit(
             conn,

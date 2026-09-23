@@ -24,7 +24,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,13 +33,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.builder_decision import recommend_for_slug  # noqa: E402
-from tool.cli.charter import CharterInput, persist_charter, render_charter_md  # noqa: E402
+from tool.cli.charter import (  # noqa: E402
+    THROWAWAY_USE_CASES,
+    CharterInput,
+    persist_charter,
+    render_charter_md,
+)
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.roles import RoleAnswers, resolve_roles, persist_roles  # noqa: E402
+from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
 from tool.cli.worktree import (  # noqa: E402
-    TargetRepo, load_target_repos, normalize_target_repos, pick_primary,
-    validate_repo_url, variant_worktrees,
+    TargetRepo,
+    load_target_repos,
+    normalize_target_repos,
+    pick_primary,
+    validate_repo_url,
+    variant_worktrees,
 )
 
 QUICK_DIR = REPO_ROOT / "data" / "quick"
@@ -152,6 +161,7 @@ def bootstrap(
     shadow_pm: str | None = None,
     target_repos: list[dict[str, Any]] | str | None = None,
     target_branch: str | None = None,
+    throwaway_rationale: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -167,6 +177,8 @@ def bootstrap(
             nebo wizard text `fe=<url>[#branch][:workspace], be=<url>`.
             Primární repo (FE / app) se zapíše i do `target_repo_url`.
         target_branch: base branch pro jednorepo případ (default 'main').
+        throwaway_rationale: jen pro risk_profile='throwaway' (ADR-0005 v0.4);
+            default = use case „discovery-only pilot“ (interní demo).
 
     Returns dict s project_id, slug, roles_count, defer_note.
     """
@@ -212,6 +224,12 @@ def bootstrap(
         ai_act_tier=profile["ai_act_tier"],
         data_class=profile["data_class"],
         throwaway_or_evolve=profile["throwaway_or_evolve"],
+        # ADR-0005 v0.4: throwaway needs a rationale naming one of the use cases.
+        throwaway_rationale=(
+            (throwaway_rationale or f"{THROWAWAY_USE_CASES[0]} — quick wizard, "
+                                    "risk profil 'throwaway' (interní demo)")
+            if profile["throwaway_or_evolve"] == "throwaway" else None
+        ),
         reinforcement_t7="tým retro 7 dní po decision",
         reinforcement_t30="metric review (po fixaci v handoff)",
         reinforcement_t60="—",

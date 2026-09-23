@@ -131,5 +131,7 @@ class AuditLog(SQLModel, table=True):
     retention_until: str | None = None  # ISO date string
 
 
-def get_engine() -> "object":
-    return create_engine(f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False})
+def get_engine() -> object:
+    return create_engine(
+        f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False}
+    )

@@ -38,11 +38,15 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import audit, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
-    WORKTREE_METHODS, ExtractionError, base_gates_adapter, extract, plan_extraction,
+    WORKTREE_METHODS,
+    ExtractionError,
+    base_gates_adapter,
+    extract,
+    plan_extraction,
 )
-from tool.cli.quality_gates import GATE_TYPES  # noqa: E402
+from tool.cli.quality_gates import GATE_TYPES, _display_path  # noqa: E402
 from tool.cli.quality_gates import run_all as run_gates  # noqa: E402
 from tool.cli.triage import record_triage_override, ship_triage_gate  # noqa: E402
 
@@ -143,9 +147,7 @@ def hardening_run(
     # MVP: hardenuj všechny varianty (Decider's shortlist v0 — TODO parse z decision body_md)
     per_variant_results: list[dict[str, Any]] = []
     for v in variants:
-        v_id, v_name, builder, prev_url, pref = (
-            int(v[0]), v[1], v[2], v[3], float(v[4] or 0),
-        )
+        v_name, builder, prev_url, pref = v[1], v[2], v[3], float(v[4] or 0)
 
         # Extract (idempotent — extract.py handles re-run)
         extract_result = extract(
@@ -267,7 +269,7 @@ def hardening_run(
             }
             for r in per_variant_results
         ],
-        "report_path": str(report_path.relative_to(REPO_ROOT)),
+        "report_path": _display_path(report_path),
     }
 
 

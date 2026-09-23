@@ -293,10 +293,6 @@ Výsledek ulož per varianta do pole `diff_summary` ve vote JSON specu
 }
 ```
 
-> Dokud `record_voting()` v `quick_session.py` pole `diff_summary`
-> nepersistuje, **připoj 3 věty i na konec `description`** dané varianty
-> (jinak se ztratí).
-
 Dimenze `effort` a `risk` v KROK 5 se skórují **až po** tomto kroku —
 podložené diffem, ne pocitem z UI.
 

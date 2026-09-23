@@ -231,12 +231,12 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
     docs_dir.mkdir(exist_ok=True)
     guide = docs_dir / "INTEGRATION_GUIDE.md"
     if guide.exists() and not force:
-        actions.append(f"docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
+        actions.append("docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
     else:
         if not TEMPLATE_PATH.exists():
             return {"ok": False, "reason": f"Template missing: {TEMPLATE_PATH}"}
         guide.write_text(TEMPLATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-        actions.append(f"napsáno: docs/INTEGRATION_GUIDE.md (vyplň ručně podle realit svého repa)")
+        actions.append("napsáno: docs/INTEGRATION_GUIDE.md (vyplň ručně podle realit svého repa)")
 
     # 2. tests/acceptance/.gitkeep
     acc_dir = target_repo / "tests" / "acceptance"
