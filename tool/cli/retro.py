@@ -726,14 +726,16 @@ def _ics_fold(line: str) -> str:
     return "\r\n ".join(parts)
 
 
-def _reminder_items(slug: str, from_date: str | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _reminder_items(
+    slug: str, from_date: str | None,
+) -> tuple[dict[str, Any], date, str, list[dict[str, Any]]]:
     with transaction() as conn:
         project = _load_project(conn, slug)
         go_dt, _src = _go_date(conn, int(project["id"]))
     if from_date:
-        start = date.fromisoformat(from_date)
+        start, start_source = date.fromisoformat(from_date), "--from"
     elif go_dt:
-        start = go_dt.date()
+        start, start_source = go_dt.date(), "Session 2 GO"
     else:
         raise ValueError(
             "Datum Session 2 GO v DB není. Zadej `--from YYYY-MM-DD`."
@@ -756,11 +758,11 @@ def _reminder_items(slug: str, from_date: str | None) -> tuple[dict[str, Any], l
                            f"--milestone {m} --metric {first_metric} --value <N> "
                            f"--evidence <URL>"),
         })
-    return project, items
+    return project, start, start_source, items
 
 
 def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
-    project, items = _reminder_items(slug, from_date)
+    project, start, start_source, items = _reminder_items(slug, from_date)
     name = project["name"]
 
     if fmt == "ics":
@@ -805,8 +807,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
 
     if fmt == "md":
         out = [BRAND_LINE, "", f"# Reinforcement připomínky — {name}", "",
-               f"> Slug: `{slug}` · Od: {items[0]['due'] - timedelta(days=7)} "
-               "(Session 2 GO)", ""]
+               f"> Slug: `{slug}` · Od: {start.isoformat()} ({start_source})", ""]
         for it in items:
             out.append(
                 f"- [ ] **{it['label']}** — {it['due'].isoformat()} · owner: "

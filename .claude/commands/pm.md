@@ -33,6 +33,7 @@ projekt je, a nabídne další krok.
 | `decide` | `/pflanzer-session-2` | Rozhodovací session — Go/Iterate/Kill |
 | `ship` | `/pflanzer-session-3` | Ship gate — quality gates + SHIP.md (po Session 2 GO) |
 | `handoff` | `/pflanzer-handoff` | Per-role handoff package |
+| `retro` | `/pflanzer-retro` | Měření outcome: % LOC merged, days-to-prod, T+7/30/60/90 readouty |
 | `live` | `/pflanzer` | Quick stupeň, 60–90 min (vše v jednom) |
 | `status` | — (řeší router sám) | Přehled stavu projektu/ů |
 
@@ -71,6 +72,7 @@ sqlite3 data/pflanzer.db "SELECT slug, name, status FROM projects ORDER BY updat
 | `session_1` | `feedback` (pokud `data/feedback/<slug>-summary.md` neexistuje), jinak `decide` | |
 | `session_2` | `decide` | Iterate kolo |
 | `handoff` | `ship` (pokud `data/production_reports/<slug>-readiness.md` neexistuje), jinak `handoff` | |
+| `handoff` + existuje `data/handoffs/<slug>/SHIP.md` | nabídni `retro` (vedle `handoff`) | Po merge winner PR `measure`, hned `reminders`, pak T+7/30/60/90 readouty |
 | `killed` | — | Jen oznám; nový projekt = `start` |
 
 ### 3. Deleguj

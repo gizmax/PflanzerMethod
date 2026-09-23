@@ -443,8 +443,8 @@ def render_ship_md(slug: str) -> str:
         pr_body = "\n".join(pr_body_lines)
         commit_msg = f"{pr_title}\n\n" + "\n".join(trailers)
 
-        prov_warn = "\n".join(f"- ⚠ {x}" for x in provenance["warnings"]) or (
-            f"- ✅ {provenance['commits']} commit(ů) na `{provenance['base']}..{feat_branch}` "
+        prov_warn = "\n".join(f"  - ⚠ {x}" for x in provenance["warnings"]) or (
+            f"  - ✅ {provenance['commits']} commit(ů) na `{provenance['base']}..{feat_branch}` "
             "má trailery, autor = člověk, bez AI `Co-Authored-By`."
         )
         winner_info = f"""## 🏆 Winner

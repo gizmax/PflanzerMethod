@@ -1,0 +1,59 @@
+# CLAUDE.md
+
+> Pflanzer Method | pflanzer.cz/method
+>
+> Kontext pro AI buildery (Claude Code, Codex CLI, Cursor) v tomto repu.
+> Sekci mezi značkami `pflanzer:start` / `pflanzer:end` spravuje Pflanzer
+> tool (`worktree.py`) — ruční úpravy uvnitř značek se při dalším setupu
+> přepíšou. Vlastní pravidla týmu piš mimo značky.
+
+<!-- pflanzer:start -->
+## Pflanzer session rules
+
+{{session_line}}
+
+### Data — žádná produkční data, nikdy
+
+- **Žádná produkční data** v promptech, fixtures, seedech, screenshotech ani
+  v testech. Ani „jen jeden záznam pro ukázku". Hranici určuje Data
+  Classification projektu (L1–L4); od L3 výš jen syntetická nebo
+  pseudonymizovaná data se správnou shape.
+- **Syntetická data přes factories** — generuj je v test factories repa
+  (např. `src/test/factories.ts`, `tests/factories.py`), deterministicky
+  (fixní seed), s vymyšlenými jmény / e-maily / čísly účtů.
+- **`.env*` soubory nikdy do promptu** — nečti je, necituj, necommituj.
+  Konfiguraci popisuj přes `.env.example` s placeholdery.
+- Žádné exporty ani dumpy z produkční DB (`*.sql`, `*.csv`) v repu.
+  Potřebuješ data? Napiš factory.
+- Žádné credentials, tokeny ani privátní klíče v kódu — ani „dočasně".
+
+### Než začneš kódovat
+
+1. Přečti `docs/INTEGRATION_GUIDE.md` (případně `INTEGRATION_GUIDE.md`
+   v rootu) — auth, API client, state, logger, feature flags, folder layout.
+   Pokud chybí, zastav se a zeptej se týmu.
+2. Přečti `tests/acceptance/{{slug}}.feature` — Gherkin scénáře od
+   Decidera **jsou specifikace**. Implementace musí projít všemi.
+3. Najdi 3–5 existujících komponent / modulů podobného typu a drž jejich
+   patterns (importy, error handling, styling, testy).
+
+### Commity a branche
+
+- Branch: `pflanzer/{{slug}}-<A|B|C|mob>` — nikdy nepushuj do `main`,
+  nerebasuj cizí branche.
+- Conventional Commits: `feat({{slug}}): variant <X> — <co se mění>`.
+- Trailery `Pflanzer-Variant`, `Pflanzer-Session` a `AI-Assisted` doplňuje
+  `prepare-commit-msg` hook z `git config` worktree — nepiš je ručně.
+- **Nikdy nepřidávej `Co-Authored-By` trailer za AI.** Autor commitu je
+  dev u klávesnice a ručí za kód jako za vlastní (AI code provenance).
+
+### Kód
+
+- Drž konvence repa: existující komponenty, API client, state lib, lint
+  pravidla, folder layout. Žádné nové závislosti bez souhlasu týmu.
+- Žádné `console.log` / debug `print` v produkčním kódu — použij logger repa.
+- Mocky, stuby a hardcoded data označ `TODO(pflanzer)` s důvodem — reviewer
+  je musí umět vyjmenovat.
+- Monorepo: pracuj jen ve svém workspace (viz výše), sdílené balíčky měň
+  jen po domluvě s týmem.
+<!-- pflanzer:end -->
