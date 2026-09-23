@@ -1,5 +1,7 @@
 # Role catalog — knihovna perspektiv pro Pflanzerovu metodu
 
+> **Role cards:** jednostránková karta per role (co přinést, co podepsat, kdy být v místnosti, na co hlasovat) → [`role-cards/README.md`](role-cards/README.md).
+>
 > **Status:** v0.2 (po expertním panelu, syntéze a applikaci diff `synthesis/03-role-catalog-updates.md`).
 > Změny vůči v0.1 jsou v ADR `decisions/0003-role-catalog-promotions.md`.
 

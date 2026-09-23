@@ -118,9 +118,23 @@ JSON spec format:
    - Pokud sanity warning > 10 lidí, navrhni zúžit scope.
    - Pokud audit-grade profil, připomeň co-facilitator SHOULD.
 
-8. **Souhrn pro uživatele**:
+8. **Vygeneruj role cards a rozešli je lidem** (audit N15) — 1 strana per
+   vybraná role se jménem člověka, Deciderem, termíny Session 1/2 a stupněm:
+
+```bash
+python3 tool/cli/roles.py cards --slug <slug> [--tier quick|lean|full]
+```
+
+   - Výstup: `data/role-cards/<slug>/<NN>-<role>.md` + `README.md` (tabulka
+     role → člověk → karta). Stupeň se odvodí z DB; když nesedí, předej `--tier`.
+   - Řekni uživateli, ať **každému pošle jen jeho kartu** (s pozvánkou na
+     Session 1) — sponzor ani Security nemusí číst `04-session-1.md`.
+   - Karty bez jména (`— doplň jméno`) = chybí `human_owner`; doplň a přegeneruj.
+   - Obecné karty bez projektu: `docs/methodology/role-cards/`.
+
+9. **Souhrn pro uživatele**:
    - Počet vybraných rolí + jejich seznam s AI proxy režimem.
-   - Path k summary.
+   - Path k summary a ke kartám (`data/role-cards/<slug>/README.md`).
    - Status: `charter` (zůstává — status='triage' nastaví slice 3).
    - Next krok: `/pflanzer-triage <slug>`.
 

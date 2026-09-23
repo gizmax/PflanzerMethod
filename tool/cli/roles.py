@@ -396,10 +396,10 @@ def render_card(
     ]
     if project:
         mine = project.assignments.get(int(role["idx"]), {})
-        sessions = (f"**Session 1:** {project.session_1 or 'termín v DB chybí'} · "
-                    f"**Session 2:** {project.session_2 or 'termín v DB chybí'}")
+        sessions = (f"**Session 1:** {project.session_1 or 'zatím není v DB'} · "
+                    f"**Session 2:** {project.session_2 or 'zatím není v DB'}")
         lines += [
-            "## Tvůj projekt", "",
+            "## Tvůj projekt",
             f"- **Projekt:** {project.name} (`{project.slug}`) · "
             f"**Decider:** {project.decider or '—'}",
             f"- **Ty:** {mine.get('human_owner') or '— doplň jméno před Session 1'} · "
@@ -408,9 +408,9 @@ def render_card(
             "",
         ]
 
-    lines += ["## Přines do Session 1", ""]
+    lines += ["## Přines do Session 1"]
     lines += [f"- {item}" for item in card["bring"]]
-    lines += ["", "## Podepisuješ", ""]
+    lines += ["", "## Podepisuješ"]
     lines += [f"- {item}" for item in card["sign_off"]]
 
     heading = "## Kdy jsi v místnosti"
@@ -419,25 +419,25 @@ def render_card(
         heading += f" (stupeň: **{TIER_LABELS[tier].split(' ')[0]}**, {source})"
     elif project:
         heading += " (stupeň projektu neznámý — doplň `--tier`)"
-    lines += ["", heading, ""]
+    lines += ["", heading]
     for t in TIERS:
         slot = card["when_in_room"][t]
-        text = (f"{TIER_LABELS[t]} — {presence.get(slot['presence'], slot['presence'])}: "
+        text = (f"{TIER_LABELS[t]} — **{presence.get(slot['presence'], slot['presence'])}**: "
                 f"{slot['note']}")
-        lines.append(f"- **{text}** ← tvůj stupeň" if t == tier else f"- {text}")
+        lines.append(f"- ▶ {text} ← **tvůj stupeň**" if t == tier else f"- {text}")
 
     vote = card["vote_on"]
-    lines += ["", "## Hlasuješ o", "", vote["note"]]
+    lines += ["", "## Hlasuješ o", vote["note"]]
     if vote.get("dimensions"):
         dims = " · ".join(f"`{d}`" for d in vote["dimensions"])
         focus = ", ".join(f"**{f}**" for f in vote.get("focus", []))
         lines += ["", f"Preference matrix: {dims}" + (f"; tvoje váha: {focus}" if focus else "")
                   + ". K tomu commitment level 0–3 pro mezi-session práci."]
 
-    lines += ["", "## Okamžitě hlas", ""]
+    lines += ["", "## Okamžitě hlas"]
     lines += [f"- {item}" for item in card["red_flags"]]
     lines += [
-        "", "## AI proxy", "",
+        "", "## AI proxy",
         f"**Režim {mode_no} — {mode['label']}.** {card['ai_proxy']} "
         f"Sub-agent: `.claude/agents/{role['expert_agent']}.md`.",
         "", "---", "",
@@ -479,7 +479,7 @@ kdy je v místnosti a na co hlasuje.
     rows = "\n".join(
         f"| {r['idx']} | {r['label']} | "
         f"{STATUS_LABELS.get(r['default_status'], r['default_status'])} | "
-        f"Režim {r['ai_proxy_mode'].split('_')[-1]} ({modes[r['ai_proxy_mode']]['label']}) | "
+        f"Režim {r['ai_proxy_mode'].split('_')[-1]} — {modes[r['ai_proxy_mode']]['label']} | "
         f"[{card_filename(r)}]({card_filename(r)}) |"
         for r in roles
     )

@@ -32,6 +32,8 @@ s mandátem — liší se jen množstvím rituálů kolem. **Session 2 je ve vš
 stupních rozhodovací a trvá 3 h** (`/pm decide`). **Po Session 2 následuje
 Ship gate, ne třetí setkání:** pipeline (quality gates + `SHIP.md`), kterou po
 Go rozhodnutí pouští dev pár (`/pm ship` + `/pm handoff`); není to meeting.
+Délku mezi-session okna per stupeň a pravidla pro mlčení po deadline určuje
+**ADR-0021** (`docs/decisions/0021-mezi-session-okno-per-stupen.md`).
 
 ## Co Pflanzer skutečně je
 
@@ -129,6 +131,8 @@ Pro běžný e-shop → default. Tečka.
 
 ## Role catalog v default profilu
 
+> **Role cards:** každému člověku pošli jen jeho 1stránkovou kartu → [`role-cards/README.md`](role-cards/README.md) (pro projekt: `python3 tool/cli/roles.py cards --slug <slug>`).
+
 Z 18-position catalogu (`02-role-catalog.md`) v default profilu **stačí
 6-7 lidí v místnosti**:
 
@@ -142,9 +146,10 @@ Z 18-position catalogu (`02-role-catalog.md`) v default profilu **stačí
 | UX / Designer | #6 | Doporučený |
 | EM | #9 | Doporučený (signs off capacity) |
 
-**Vynecháno proti audit-grade:** Security (#7), Legal/DPO (#10), A11y (#11),
-UX writer (#12), Data analyst (#13), Solution architect (#14), DevOps (#15),
-CS proxy (#16), Champion (#17), Compliance auditor.
+**Vynecháno proti audit-grade:** Security (#7), QA (#8), Legal/DPO (#10),
+A11y (#11), Data analyst (#12), CS proxy (#13), End-user proxy (#14),
+DevOps (#15), UX writer (#16), Champion (#17), Solution architect (#18),
+Compliance auditor.
 
 Security a Legal v default profilu **NEjsou v místnosti** — checklist
 1-pager je dostatečný (data classification L1/L2, žádný external pen test

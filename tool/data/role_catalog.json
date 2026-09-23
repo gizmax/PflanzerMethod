@@ -25,15 +25,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celých 60–90 min; bez tebe se session nekoná"
+            "note": "bez tebe se session nekoná"
           },
           "lean": {
             "presence": "full",
-            "note": "celé 3 h Session 1 i 3 h Session 2"
+            "note": "Session 1 i Session 2 (obě 3 h)"
           },
           "full": {
             "presence": "full",
-            "note": "celých 5–6 h; bez tebe se Session 1 odkládá"
+            "note": "bez tebe se Session 1 odkládá"
           }
         },
         "vote_on": {
@@ -80,15 +80,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celá session; držíš JTBD a parking lot"
+            "note": "držíš JTBD a parking lot"
           },
           "lean": {
             "presence": "full",
-            "note": "celá session 1 i 2"
+            "note": "Session 1 i Session 2; držíš JTBD"
           },
           "full": {
             "presence": "full",
-            "note": "celá session; s UX vedeš Charter alignment + JTBD warm-up"
+            "note": "s UX vedeš Charter alignment + JTBD warm-up"
           }
         },
         "vote_on": {
@@ -134,15 +134,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celá session; vedeš wizard `/pm live`"
+            "note": "vedeš wizard `/pm live`"
           },
           "lean": {
             "presence": "full",
-            "note": "celá session; během buildu nemáš otevřené IDE"
+            "note": "během buildu nemáš otevřené IDE"
           },
           "full": {
             "presence": "full",
-            "note": "celá session; pro audit-grade profil s co-facilitátorem"
+            "note": "pro audit-grade profil s co-facilitátorem"
           }
         },
         "vote_on": {
@@ -181,15 +181,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celá session; builder, 1 kolo × 30 min"
+            "note": "builder, 1 kolo × 30 min"
           },
           "lean": {
             "presence": "full",
-            "note": "celá session; 2 kola × 30 min + diff walkthrough"
+            "note": "2 kola × 30 min + diff walkthrough"
           },
           "full": {
             "presence": "full",
-            "note": "celá session od minuty 0"
+            "note": "od minuty 0"
           }
         },
         "vote_on": {
@@ -236,15 +236,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celá session, pokud projekt má backend (dev pár u klávesnice)"
+            "note": "pokud projekt má backend (dev pár u klávesnice)"
           },
           "lean": {
             "presence": "full",
-            "note": "celá session; builder backendové části"
+            "note": "builder backendové části"
           },
           "full": {
             "presence": "full",
-            "note": "celá session; vedeš BE feasibility (breaking-change check)"
+            "note": "vedeš BE feasibility (breaking-change check)"
           }
         },
         "vote_on": {
@@ -290,15 +290,15 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "celá session (default sestava místnosti)"
+            "note": "default sestava místnosti"
           },
           "lean": {
             "presence": "full",
-            "note": "celá session"
+            "note": "hlídáš flow integrity v obou kolech buildu"
           },
           "full": {
             "presence": "full",
-            "note": "celá session; s Produkt manažerem vedeš JTBD warm-up"
+            "note": "s Produkt manažerem vedeš JTBD warm-up"
           }
         },
         "vote_on": {
@@ -354,7 +354,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session jako senior delegát; triage 48–72 h předem"
+            "note": "jako senior delegát; triage 48–72 h předem"
           }
         },
         "vote_on": {
@@ -410,7 +410,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session; ve wrap-upu Gherkin seed per varianta"
+            "note": "ve wrap-upu Gherkin seed per varianta"
           }
         },
         "vote_on": {
@@ -465,7 +465,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session jako senior delegát; blok tech feasibility + T-shirt"
+            "note": "jako senior delegát; blok tech feasibility + T-shirt"
           }
         },
         "vote_on": {
@@ -521,7 +521,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session jako senior delegát; pre-read 48 h předem"
+            "note": "jako senior delegát; pre-read 48 h předem"
           }
         },
         "vote_on": {
@@ -577,7 +577,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session; před votingem vedeš A11y quickscan"
+            "note": "před votingem vedeš A11y quickscan"
           }
         },
         "vote_on": {
@@ -633,7 +633,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session"
+            "note": "měřitelnost variant proti XYZ hypotéze"
           }
         },
         "vote_on": {
@@ -687,7 +687,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session; vedeš úvodní Voice of Customer ritual (30 min)"
+            "note": "vedeš úvodní Voice of Customer ritual (30 min)"
           }
         },
         "vote_on": {
@@ -744,7 +744,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session"
+            "note": "hlídáš evidence u každé varianty"
           }
         },
         "vote_on": {
@@ -799,7 +799,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session"
+            "note": "sandbox a footprint per varianta"
           }
         },
         "vote_on": {
@@ -854,7 +854,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session, pokud platí trigger"
+            "note": "pokud platí trigger"
           }
         },
         "vote_on": {
@@ -955,7 +955,7 @@
           },
           "full": {
             "presence": "full",
-            "note": "celá session; při > 3 týmech federovaný model"
+            "note": "při > 3 týmech federovaný model"
           }
         },
         "vote_on": {
