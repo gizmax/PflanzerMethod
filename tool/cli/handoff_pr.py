@@ -15,11 +15,23 @@ Tento modul:
    - Copy-paste `gh pr create` command (s pre-filled title + body)
 2. Output je primary handoff artefakt; 8 per-role files (handoff.py)
    degraduje na supplementary.
+
+Audit N5 + N11 additions:
+- triage hard gate: pilot/production with any triage track not 'ok' renders
+  a prominent "Blokováno" block and never claims PRODUCTION-READY (unless a
+  Decider override from `session_3.py --override-triage` covers it),
+- AI code provenance (07-handoff-do-vyvoje.md § AI code provenance): commit
+  trailers `Pflanzer-Variant` / `Pflanzer-Session: ship` / `AI-Assisted`,
+  PR labels `ai-generated` + `pflanzer:<slug>`, PR body "AI provenance"
+  section, and a read-only trailer/author check of `base..pflanzer/<slug>-<W>`
+  (history is never rewritten; the commit author is always the human).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,8 +41,32 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.extract import WORKTREE_METHODS, find_worktree  # noqa: E402
+from tool.cli.triage import ship_triage_gate  # noqa: E402
 
 SHIP_DIR = REPO_ROOT / "data" / "handoffs"
+BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
+
+# Builder -> model family for the PR "AI provenance" section (no versions).
+MODEL_FAMILY = {
+    "claude-code": "Claude (Anthropic)",
+    "codex-cli": "GPT / Codex (OpenAI)",
+    "cursor": "dle nastavení Cursoru (doplň: Claude / GPT / …)",
+    "v0": "v0 (Vercel) — model dle platformy",
+    "bolt": "Bolt (StackBlitz) — model dle platformy",
+    "lovable": "Lovable — model dle platformy",
+    "stitch": "Gemini (Google Stitch)",
+    "figma-make": "Figma Make — model dle platformy",
+    "manual": "— (bez AI builderu)",
+}
+# Author / Co-Authored-By identities that must never appear on commits
+# (07-handoff-do-vyvoje.md, pravidlo 1: AI is never author or co-author).
+AI_IDENTITY_RE = re.compile(
+    r"claude|anthropic|openai|chatgpt|codex|copilot|cursor\s*agent|cursoragent|"
+    r"gemini|devin|lovable|\[bot\]",
+    re.IGNORECASE,
+)
+_FS, _RS = "\x1f", "\x1e"
 
 
 def _fetch_ship_context(slug: str) -> dict[str, Any]:
@@ -115,13 +151,197 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "ORDER BY id DESC LIMIT 1", (proj[0],),
         ).fetchone()
 
+        # Triage hard gate (N5) + provenance context (N11)
+        triage_gate = ship_triage_gate(conn, int(proj[0]))
+        variant_names = [
+            r[0] for r in conn.execute(
+                "SELECT name FROM variants WHERE session_id = ? ORDER BY name",
+                (sess1[0],),
+            ).fetchall()
+        ] if sess1 else []
+        dev_owners = [
+            r[0] for r in conn.execute(
+                "SELECT human_owner FROM roles WHERE project_id = ? "
+                "AND catalog_idx IN (4, 5) AND COALESCE(human_owner, '') != '' "
+                "ORDER BY catalog_idx", (proj[0],),
+            ).fetchall()
+        ]
+
     return {
         "project": proj,
         "winner": winner,
         "extracted": ext_rows[0] if ext_rows else None,
         "gates": gate_rows,
         "decision": decision,
+        "triage": triage_gate,
+        "variant_names": variant_names,
+        "dev_owners": dev_owners,
     }
+
+
+# --------------------------------------------------------------------------
+# AI code provenance (N11)
+# --------------------------------------------------------------------------
+
+
+def _winner_worktree(slug: str, variant: str, extracted: Any) -> Path | None:
+    """Worktree of the winner: the extracted path for worktree methods, else autodetect."""
+    if extracted and extracted[2] in WORKTREE_METHODS:
+        path = Path(extracted[1])
+        path = path if path.is_absolute() else REPO_ROOT / path
+        if path.is_dir():
+            return path
+    return find_worktree(slug, variant)
+
+
+def _git(cwd: Path, *args: str) -> tuple[int, str]:
+    try:
+        res = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, str(exc)
+    return res.returncode, res.stdout
+
+
+def check_provenance(
+    *, slug: str, variant: str, builder: str, target_branch: str, worktree: Path | None,
+) -> dict[str, Any]:
+    """Read-only trailer/author check of `base..pflanzer/<slug>-<variant>`.
+
+    Never rewrites history; problems are returned as warnings for SHIP.md.
+    """
+    branch = f"pflanzer/{slug}-{variant}"
+    expected_variant = f"{slug}-{variant}"
+    out: dict[str, Any] = {"branch": branch, "base": None, "commits": 0,
+                           "authors": [], "warnings": [], "checked": False}
+    if worktree is None:
+        out["warnings"].append(
+            f"Worktree varianty {variant} nenalezen — trailery na `{branch}` nelze ověřit."
+        )
+        return out
+
+    base = None
+    for candidate in (f"origin/{target_branch}", target_branch):
+        rc, _ = _git(worktree, "rev-parse", "--verify", "--quiet", candidate)
+        if rc == 0:
+            base = candidate
+            break
+    if base is None:
+        out["warnings"].append(
+            f"Base `{target_branch}` nenalezena ve {worktree} — trailery nelze ověřit."
+        )
+        return out
+    out["base"] = base
+
+    fmt = _FS.join([
+        "%h", "%an", "%ae",
+        "%(trailers:key=Pflanzer-Variant,valueonly,separator=%x2C)",
+        "%(trailers:key=AI-Assisted,valueonly,separator=%x2C)",
+        "%(trailers:key=Co-authored-by,valueonly,separator=%x3B)",
+    ]) + _RS
+    rc, log = _git(worktree, "log", f"--format={fmt}", f"{base}..{branch}")
+    if rc != 0:
+        out["warnings"].append(f"`git log {base}..{branch}` selhal — trailery nelze ověřit.")
+        return out
+    out["checked"] = True
+
+    missing_variant: list[str] = []
+    wrong_variant: list[str] = []
+    missing_ai: list[str] = []
+    ai_coauthors: list[str] = []
+    bot_authors: list[str] = []
+    authors: list[str] = []
+    for rec in filter(None, (r.strip("\n") for r in log.split(_RS))):
+        parts = (rec.split(_FS) + [""] * 6)[:6]
+        sha, name, email, pv, ai, coauth = (x.strip() for x in parts)
+        out["commits"] += 1
+        if AI_IDENTITY_RE.search(f"{name} <{email}>"):
+            bot_authors.append(f"{sha} ({name} <{email}>)")
+        elif name and name not in authors:
+            authors.append(name)
+        if not pv:
+            missing_variant.append(sha)
+        elif expected_variant not in [v.strip() for v in pv.split(",")]:
+            wrong_variant.append(f"{sha} ({pv})")
+        if builder != "manual" and not ai:
+            missing_ai.append(sha)
+        for co in filter(None, (c.strip() for c in coauth.split(";"))):
+            if AI_IDENTITY_RE.search(co):
+                ai_coauthors.append(f"{sha}: {co}")
+    out["authors"] = authors
+
+    def _few(items: list[str]) -> str:
+        return ", ".join(items[:5]) + (f" (+{len(items) - 5})" if len(items) > 5 else "")
+
+    w = out["warnings"]
+    if out["commits"] == 0:
+        w.append(f"`{base}..{branch}` nemá žádné commity — není co shipnout?")
+    if missing_variant:
+        w.append(f"{len(missing_variant)} commit(ů) bez traileru `Pflanzer-Variant`: {_few(missing_variant)}")
+    if wrong_variant:
+        w.append(f"Trailer `Pflanzer-Variant` ≠ `{expected_variant}`: {_few(wrong_variant)}")
+    if missing_ai:
+        w.append(f"{len(missing_ai)} commit(ů) bez traileru `AI-Assisted`: {_few(missing_ai)}")
+    if ai_coauthors:
+        w.append(
+            "`Co-Authored-By` s AI identitou (AI nesmí být spoluautor — vypni atribuci "
+            f"v builderu; historii tool nepřepisuje): {_few(ai_coauthors)}"
+        )
+    if bot_authors:
+        w.append(
+            "Autor commitu je AI / bot účet (autor musí být dev u klávesnice): "
+            f"{_few(bot_authors)}"
+        )
+    return out
+
+
+def _switch_worktree_session(worktree: Path | None) -> bool:
+    """Best-effort: flip the worktree's trailer hook config to session 'ship'.
+
+    Only when `worktree.py` enabled per-worktree config (extensions.worktreeConfig);
+    returns True when the value was written.
+    """
+    if worktree is None:
+        return False
+    rc, val = _git(worktree, "config", "--get", "extensions.worktreeConfig")
+    if rc != 0 or val.strip().lower() != "true":
+        return False
+    rc, _ = _git(worktree, "config", "--worktree", "pflanzer.session", "ship")
+    return rc == 0
+
+
+def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
+    """Return (top_block, section) markdown for the triage state."""
+    icons = {"ok": "✅", "deferred": "⏸", "failed": "❌", "pending": "⏳", "missing": "—"}
+    rows = "\n".join(
+        f"| {t['track']} | {icons.get(t['display'], '?')} {t['display']} | {t['signed_by'] or '—'} |"
+        for t in triage["tracks"]
+    )
+    note = (
+        f"Risk profil `{triage['risk_profile']}` — triage je hard gate pro production."
+        if triage["gated"] else
+        f"Risk profil `{triage['risk_profile']}` — triage gate se neuplatňuje."
+    )
+    if triage["override"]:
+        o = triage["override"]
+        note += (f"\n\n**Decider override** (decision #{o['decision_id']}, {o['by']}, {o['at']}): "
+                 f"{o['rationale']}")
+    section = f"""## Triage stav
+
+{note}
+
+| Track | Stav | Signed by |
+|-------|------|-----------|
+{rows}
+"""
+    top = ""
+    if triage["blocked_by"]:
+        top = f"""> ## ⛔ Blokováno: spusť `/pm triage {slug}`
+>
+> Production launch není povolen — {', '.join(f'`{b}`' for b in triage['blocked_by'])}.
+> Decider override jen s rationale do decision logu:
+> `python3 tool/cli/session_3.py --slug {slug} --override-triage --rationale "…"`
+"""
+    return top, section
 
 
 def _render_gate_badges(gates: list) -> str:
@@ -148,14 +368,41 @@ def render_ship_md(slug: str) -> str:
     throwaway = p[11]
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    ready = gate_score >= target
-    verdict = "🚀 **PRODUCTION-READY**" if ready else "⚠ **PILOT-ONLY**"
+    triage = ctx["triage"]
+    blocked_by = triage["blocked_by"]
+    ready = gate_score >= target and not blocked_by
+    if blocked_by:
+        verdict = "⛔ **BLOKOVÁNO (triage)**"
+    else:
+        verdict = "🚀 **PRODUCTION-READY**" if ready else "⚠ **PILOT-ONLY**"
+    triage_top, triage_section = _render_triage_block(triage, slug)
 
     winner_info = ""
     pr_command = ""
+    provenance: dict[str, Any] | None = None
     if w and e:
         feat_branch = f"pflanzer/{slug}-{w[0]}"
+        builder = w[1]
+        wt = _winner_worktree(slug, w[0], e)
+        provenance = check_provenance(
+            slug=slug, variant=w[0], builder=builder,
+            target_branch=target_branch, worktree=wt,
+        )
+        keyboard = provenance["authors"] or ctx["dev_owners"] or ["(doplň — dev u klávesnice)"]
+        variants = ctx["variant_names"] or [w[0]]
+        work_dir = str(wt) if wt else e[1]
         pr_title = f"feat({slug}): {name[:60]}"
+        trailers = [f"Pflanzer-Variant: {slug}-{w[0]}", "Pflanzer-Session: ship"]
+        if builder != "manual":
+            trailers.append(f"AI-Assisted: {builder}")
+        labels = ["pflanzer", f"pflanzer:{slug}"]
+        if builder != "manual":
+            labels.insert(1, "ai-generated")
+        label_flags = " ".join(f'--label "{lbl}"' for lbl in labels)
+        label_create = "\n".join(
+            f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
+            for lbl in labels
+        )
         pr_body_lines = [
             f"## Co se mění",
             f"{p[4]}",  # xyz_hypothesis
@@ -183,11 +430,23 @@ def render_ship_md(slug: str) -> str:
             f"- Leading: {p[18] or 'TBD'}",
             f"- Guardrail: {p[19] or 'TBD'}",
             "",
+            "## AI provenance",
+            f"- **Builder**: {builder}",
+            f"- **Model family**: {MODEL_FAMILY.get(builder, 'doplň')}",
+            f"- **Varianty**: {len(variants)} postaveny ({'/'.join(variants)}), do PR jde winner {w[0]}",
+            f"- **U klávesnice**: {', '.join(keyboard)} (git author commitů)",
+            f"- **Decision log**: `data/handoffs/{slug}/SHIP.md` + `decisions` v Pflanzer DB",
+            "",
             f"---",
-            f"*Generated by Pflanzer `/pflanzer-handoff` per ADR-0010.*",
+            f"*Generated by Pflanzer Method (pflanzer.cz/method) — `/pm handoff` per ADR-0010.*",
         ]
         pr_body = "\n".join(pr_body_lines)
+        commit_msg = f"{pr_title}\n\n" + "\n".join(trailers)
 
+        prov_warn = "\n".join(f"- ⚠ {x}" for x in provenance["warnings"]) or (
+            f"- ✅ {provenance['commits']} commit(ů) na `{provenance['base']}..{feat_branch}` "
+            "má trailery, autor = člověk, bez AI `Co-Authored-By`."
+        )
         winner_info = f"""## 🏆 Winner
 
 - **Variant**: `{w[0]}` (`{w[1]}`)
@@ -198,12 +457,36 @@ def render_ship_md(slug: str) -> str:
 ### Quality gates
 
 {_render_gate_badges(gates)}
+
+## AI provenance
+
+- **Builder**: `{builder}` · **Model family**: {MODEL_FAMILY.get(builder, 'doplň')}
+- **Varianty**: {len(variants)} postaveny ({'/'.join(variants)}), do PR jde winner {w[0]}
+- **U klávesnice**: {', '.join(keyboard)}
+- **Kontrola `{feat_branch}`** (read-only, historie se nepřepisuje):
+{prov_warn}
 """
+        reviewer = branch_owner if branch_owner != '(target_branch_owner unset)' else 'YOUR-GH-HANDLE'
+        draft_flag = " \\\n  --draft" if blocked_by else ""
         pr_command = f"""## 📤 Open PR (copy-paste)
 
+Autor commitu = **dev u klávesnice** (`git config user.name` / `user.email`
+ve worktree). AI nikdy jako author ani `Co-Authored-By` — AI asistenci
+značí jen trailery níže (07-handoff-do-vyvoje.md § AI code provenance).
+
 ```bash
-cd {e[1]}
+cd {work_dir}
+
+# Ship commit s provenance trailery (jen pokud je co commitnout)
+git add -A
+git diff --cached --quiet || git commit -F - <<'COMMITMSG'
+{commit_msg}
+COMMITMSG
+
 git push -u origin {feat_branch}
+
+# Labely musí v target repu existovat (idempotentní)
+{label_create}
 
 gh pr create \\
   --title "{pr_title}" \\
@@ -212,16 +495,19 @@ gh pr create \\
 PRBODY
 )" \\
   --base {target_branch} \\
-  --reviewer {branch_owner if branch_owner != '(target_branch_owner unset)' else 'YOUR-GH-HANDLE'} \\
-  --label pflanzer
+  --reviewer {reviewer} \\
+  {label_flags}{draft_flag}
 ```
 """
 
-    return f"""# SHIP — {name}
+    return f"""{BRAND_LINE}
+
+# SHIP — {name}
 
 > Slug: `{p[2]}` · Generated: {today} · {verdict}
 > Per ADR-0010 (1-page SHIP.md místo 8-file compliance theater).
 
+{triage_top}
 ## Co se mění
 
 {p[4]}
@@ -238,7 +524,9 @@ PRBODY
 
 ## Risk profile
 
-- **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profile**: `{throwaway}`
+- **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profile**: `{throwaway}` · **Risk profil**: `{triage['risk_profile']}`
+
+{triage_section}
 
 ## Kill criteria
 
@@ -283,6 +571,10 @@ def write_ship(slug: str) -> Path:
     project_dir = SHIP_DIR / slug
     project_dir.mkdir(parents=True, exist_ok=True)
     out = project_dir / "SHIP.md"
+    ctx = _fetch_ship_context(slug)
+    wt = _winner_worktree(slug, ctx["winner"][0], ctx["extracted"]) if ctx["winner"] else None
+    # Docs: handoff_pr flips the worktree trailer hook to Pflanzer-Session: ship.
+    session_switched = _switch_worktree_session(wt)
     out.write_text(render_ship_md(slug), encoding="utf-8")
 
     with transaction() as conn:
@@ -291,7 +583,12 @@ def write_ship(slug: str) -> Path:
             audit(
                 conn, action="ship.render",
                 target_type="project", target_id=int(proj[0]),
-                payload={"slug": slug, "path": str(out.relative_to(REPO_ROOT))},
+                payload={
+                    "slug": slug, "path": str(out.relative_to(REPO_ROOT)),
+                    "blocked_by": ctx["triage"]["blocked_by"],
+                    "worktree": str(wt) if wt else None,
+                    "worktree_session_ship": session_switched,
+                },
             )
     return out
 

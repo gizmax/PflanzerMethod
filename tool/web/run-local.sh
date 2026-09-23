@@ -26,7 +26,8 @@ fi
     python3 -m venv .venv
     .venv/bin/pip install -q -e .
   fi
-  exec .venv/bin/uvicorn main:app --reload --port 8000
+  # Run as package "backend" (main.py uses relative imports)
+  exec .venv/bin/uvicorn backend.main:app --app-dir "$REPO_ROOT/tool/web" --reload --port 8000
 ) &
 BACKEND_PID=$!
 

@@ -243,7 +243,7 @@ git clone https://github.com/gizmax/PflanzerMethod
 cd PflanzerMethod
 python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
 # Web hub (volitelně, pro async feedback dev):
-cd tool/web/backend && uvicorn main:app --reload --port 8000 &
+PFLANZER_HUB_AUTH_MODE=dev uvicorn backend.main:app --app-dir tool/web --reload --port 8000 &
 cd tool/web/frontend && npm install && npm run dev
 ```
 

@@ -7,13 +7,16 @@ import type {
 
 const API_BASE = "/api";
 
+// Dev-mode identity (PFLANZER_HUB_AUTH_MODE=dev). Set in frontend/.env.local.
+const DEV_USER: string = import.meta.env.VITE_PFLANZER_DEV_USER || "dev@local";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
       // Dev mode only (PFLANZER_HUB_AUTH_MODE=dev). In OIDC mode nginx drops this
       // header and the identity comes from the SSO session (see README-auth.md).
-      "X-User": "tom@gizmax.cz",
+      "X-User": DEV_USER,
       ...(init?.headers || {}),
     },
     ...init,
