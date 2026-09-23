@@ -35,6 +35,12 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("session_mode", "TEXT DEFAULT 'parallel'"),
         # ADR-0005 v0.4 (audit N2): throwaway is opt-in and needs a rationale
         ("throwaway_rationale", "TEXT"),
+        # Audit N8: multi-repo (FE / BE / monorepo workspace) as JSON array
+        ("target_repos", "TEXT"),
+    ],
+    "variants": [
+        # Audit N10: diff walkthrough summary per variant (markdown)
+        ("diff_summary_md", "TEXT"),
     ],
 }
 

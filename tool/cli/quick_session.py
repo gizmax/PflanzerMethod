@@ -37,6 +37,10 @@ from tool.cli.charter import CharterInput, persist_charter, render_charter_md  #
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.roles import RoleAnswers, resolve_roles, persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
+from tool.cli.worktree import (  # noqa: E402
+    TargetRepo, load_target_repos, normalize_target_repos, pick_primary,
+    validate_repo_url, variant_worktrees,
+)
 
 QUICK_DIR = REPO_ROOT / "data" / "quick"
 
@@ -146,6 +150,8 @@ def bootstrap(
     acceptance_criteria_md: str | None = None,
     target_branch_owner: str | None = None,
     shadow_pm: str | None = None,
+    target_repos: list[dict[str, Any]] | str | None = None,
+    target_branch: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -156,11 +162,21 @@ def bootstrap(
         risk_profile: 'throwaway' | 'pilot' | 'production'.
         slug: explicit slug; default = slugify(hook).
         role_owners: catalog_idx → human name (kdo z týmu tu roli zastává).
+        target_repos: volitelně více repozitářů (audit N8) — list
+            `[{"role": "fe", "url": ..., "branch": "main", "workspace": "apps/web"}]`
+            nebo wizard text `fe=<url>[#branch][:workspace], be=<url>`.
+            Primární repo (FE / app) se zapíše i do `target_repo_url`.
+        target_branch: base branch pro jednorepo případ (default 'main').
 
     Returns dict s project_id, slug, roles_count, defer_note.
     """
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
+
+    repos, target_repo_url = _resolve_target_repos(
+        target_repos=target_repos, target_repo_url=target_repo_url,
+        target_branch=target_branch,
+    )
 
     # Sprint 1 — Mandatory target_repo_url pro pilot/production
     # (per autoresearch synthesis ADR candidate 1, P0 fix).
@@ -168,7 +184,8 @@ def bootstrap(
         raise ValueError(
             f"target_repo_url je povinný pro risk_profile='{risk_profile}'. "
             "Bez něj /pflanzer-session-3 vyrobí worktree v meta-repu = reuse 0 %. "
-            "Příklad: target_repo_url='https://github.com/yourorg/yourapp'."
+            "Příklad: target_repo_url='https://github.com/yourorg/yourapp' "
+            "nebo target_repos='fe=https://github.com/org/web, be=https://github.com/org/api'."
         )
 
     # 1. Charter — minimal but valid per ADR-0004 schema
@@ -212,17 +229,30 @@ def bootstrap(
     _set_triage_deferred(project_id, profile)
 
     # 4. Production-path fields
+    primary_branch = repos[0].branch if repos else (target_branch or None)
+    repos_json = (
+        json.dumps([r.to_dict() for r in repos], ensure_ascii=False)
+        if repos and (len(repos) > 1 or repos[0].workspace or target_repos) else None
+    )
     with transaction() as conn:
         conn.execute(
             "UPDATE projects SET target_repo_url = ?, "
+            "target_branch = COALESCE(?, target_branch), "
             "production_readiness_target = ?, "
             "acceptance_criteria_md = COALESCE(?, acceptance_criteria_md), "
             "target_branch_owner = COALESCE(?, target_branch_owner), "
             "shadow_pm = COALESCE(?, shadow_pm) "
             "WHERE id = ?",
-            (target_repo_url, profile.get("production_readiness_target", 0),
+            (target_repo_url, primary_branch, profile.get("production_readiness_target", 0),
              acceptance_criteria_md, target_branch_owner, shadow_pm, project_id),
         )
+        if repos_json:
+            if not _has_column(conn, "projects", "target_repos"):
+                raise ValueError(
+                    "DB nemá sloupec projects.target_repos — spusť `python3 tool/db/migrate.py`."
+                )
+            conn.execute("UPDATE projects SET target_repos = ? WHERE id = ?",
+                         (repos_json, project_id))
         audit(
             conn,
             action="quick.bootstrap",
@@ -232,6 +262,7 @@ def bootstrap(
                 "slug": slug, "decider": decider_name,
                 "risk_profile": risk_profile, "roles": room_role_idx,
                 "target_repo_url": target_repo_url,
+                "target_repos": [r.to_dict() for r in repos],
                 "production_readiness_target": profile.get("production_readiness_target", 0),
             },
         )
@@ -244,11 +275,49 @@ def bootstrap(
         "roles_count": len(selected),
         "production_readiness_target": profile.get("production_readiness_target", 0),
         "target_repo_url": target_repo_url,
+        "target_repos": [r.to_dict() for r in repos],
         "defer_note": (
             "Triage deferred (in-room mode). Před pilotem/production spusť "
             f"`/pflanzer-triage {slug}`."
         ),
     }
+
+
+def _has_column(conn: Any, table: str, column: str) -> bool:
+    return any(r[1] == column for r in conn.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def _resolve_target_repos(
+    *, target_repos: Any, target_repo_url: str | None, target_branch: str | None,
+) -> tuple[list[TargetRepo], str | None]:
+    """Validate target repo input (N8). Returns (repos primary-first, primary URL).
+
+    - `target_repos` (list / JSON / wizard text) wins; primary = FE/app repo
+      unless `target_repo_url` names one of them explicitly.
+    - Only `target_repo_url`: a plain URL → single repo; wizard-style text
+      (`role=url#branch:workspace, ...`) is accepted there too.
+    """
+    if not target_repos and target_repo_url and re.search(r"[,=#\s]", target_repo_url.strip()):
+        target_repos, target_repo_url = target_repo_url, None
+    if target_repos:
+        repos = normalize_target_repos(target_repos, fallback_branch=target_branch or "main")
+        if not repos:
+            raise ValueError("target_repos je prázdné.")
+        if target_repo_url and not validate_repo_url(target_repo_url):
+            raise ValueError(f"target_repo_url '{target_repo_url}' není platná git URL.")
+        idx = pick_primary(repos, target_repo_url)
+        repos = [repos[idx]] + [r for i, r in enumerate(repos) if i != idx]
+        return repos, repos[0].url
+    if target_repo_url:
+        if not validate_repo_url(target_repo_url):
+            raise ValueError(
+                f"target_repo_url '{target_repo_url}' není platná git URL "
+                "(očekávám https://<host>/<org>/<repo> nebo git@<host>:<org>/<repo>.git)."
+            )
+        return (normalize_target_repos(None, fallback_url=target_repo_url.strip(),
+                                       fallback_branch=target_branch or "main"),
+                target_repo_url.strip())
+    return [], None
 
 
 def _resolve_quick_roles(

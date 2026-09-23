@@ -28,13 +28,11 @@ Ship gate (formerly "Session 3") is a pipeline, not a meeting (audit N3/N5):
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,7 +42,7 @@ from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     WORKTREE_METHODS, ExtractionError, base_gates_adapter, extract, plan_extraction,
 )
-from tool.cli.quality_gates import GATE_TYPES, aggregate_score  # noqa: E402
+from tool.cli.quality_gates import GATE_TYPES  # noqa: E402
 from tool.cli.quality_gates import run_all as run_gates  # noqa: E402
 from tool.cli.triage import record_triage_override, ship_triage_gate  # noqa: E402
 
@@ -55,7 +53,6 @@ BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
 MIN_GATES_RUN = 4
 REQUIRED_GATES = ("build", "tests")
 RAN_STATUSES = ("pass", "warn", "fail")
-_RUN_ALL_ACCEPTS_ADAPTER = "adapter_path" in inspect.signature(run_gates).parameters
 
 
 def hardening_run(
@@ -274,14 +271,6 @@ def hardening_run(
     }
 
 
-def _inside_repo(path: Path) -> bool:
-    try:
-        path.resolve().relative_to(REPO_ROOT)
-        return True
-    except ValueError:
-        return False
-
-
 def gates_sufficiency(gate_result: dict[str, Any]) -> dict[str, Any]:
     """Minimum evidence for a production verdict.
 
@@ -313,56 +302,13 @@ def gates_sufficiency(gate_result: dict[str, Any]) -> dict[str, Any]:
 
 def _run_gates(extraction: dict[str, Any], target: int,
                adapter: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Run quality gates for one extraction.
+    """Run quality gates for one extraction (in place for worktrees).
 
-    `adapter["adapter_path"]` (base-branch adapter) is passed to
-    `quality_gates.run_all` when it supports it; otherwise a warning is
-    added, because the worktree copy of the adapter would be used.
-
-    Compatibility shim: `quality_gates.run_all` persists the gate rows and
-    then reports `local_path` relative to the meta-repo, which raises for
-    worktrees outside it (`~/.pflanzer/targets/...`). In that case rebuild
-    the result from the persisted rows instead of aborting the Ship gate.
-    Drop once run_all handles absolute paths.
+    `adapter["adapter_path"]` is the base-branch adapter (see
+    `extract.base_gates_adapter`); None means autodetection.
     """
-    extracted_id = extraction["extracted_id"]
-    adapter = adapter if adapter is not None else {"adapter_path": None, "warnings": []}
-    kwargs: dict[str, Any] = {}
-    if _RUN_ALL_ACCEPTS_ADAPTER:
-        kwargs["adapter_path"] = adapter.get("adapter_path")
-    elif adapter.get("adapter_path"):
-        adapter["warnings"].append(
-            "quality_gates.run_all zatím nepodporuje adapter_path — adaptér z base "
-            "nebyl vynucen (použila se kopie ve worktree / autodetekce)."
-        )
-    try:
-        return run_gates(extracted_id, **kwargs)
-    except ValueError:
-        if _inside_repo(Path(extraction["absolute_path"])):
-            raise
-        with transaction() as conn:
-            rows = conn.execute(
-                "SELECT gate_type, status, details_md, metric_value "
-                "FROM quality_gates WHERE extracted_id = ? ORDER BY id",
-                (extracted_id,),
-            ).fetchall()
-        if not rows:
-            raise
-        results = [SimpleNamespace(gate_type=r[0], status=r[1]) for r in rows]
-        score_info = aggregate_score(results)  # type: ignore[arg-type]
-        return {
-            "extracted_id": extracted_id,
-            "variant": extraction["variant"],
-            "local_path": extraction["local_path"],
-            "gate_score": score_info["gate_score"],
-            "target": target,
-            "production_ready": score_info["gate_score"] >= target,
-            "counts": score_info["counts"],
-            "results": [
-                {"gate": r[0], "status": r[1], "metric": r[3], "details": (r[2] or "")[:200]}
-                for r in rows
-            ],
-        }
+    adapter_path = (adapter or {}).get("adapter_path")
+    return run_gates(extraction["extracted_id"], adapter_path=adapter_path)
 
 
 def _next_step(winner: dict[str, Any], ready: bool, slug: str,

@@ -31,17 +31,21 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.extract import WORKTREE_METHODS, find_worktree  # noqa: E402
+from tool.cli.extract import WORKTREE_METHODS, base_gates_adapter, find_worktree  # noqa: E402
+from tool.cli.quality_gates import GATE_TYPES, aggregate_score  # noqa: E402
+from tool.cli.session_3 import gates_sufficiency  # noqa: E402
 from tool.cli.triage import ship_triage_gate  # noqa: E402
 
 SHIP_DIR = REPO_ROOT / "data" / "handoffs"
@@ -85,42 +89,53 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
         if not proj:
             raise ValueError(f"Project '{slug}' not found.")
 
-        # Winner = variant s gate_score blízko aktuálnímu projects.gate_score_latest.
-        # Pokud žádná extracted/gates row (Session 3 ještě neběžela), fallback
-        # na preference_score winner.
+        # Winner = the Ship gate winner: highest gate_score over each variant's
+        # latest gate run (tie-break preference_score), same rule as
+        # session_3.py. Only without any gate rows fall back to preference_score.
         sess1 = conn.execute(
             "SELECT id FROM sessions WHERE project_id = ? AND type = 1",
             (proj[0],),
         ).fetchone()
         winner = None
+        winner_ext_id: int | None = None
+        winner_basis: dict[str, Any] = {"mode": "none"}
         if sess1:
-            # First try: variant with extracted code AND highest gate score
-            row = conn.execute(
+            variant_rows = conn.execute(
                 """
                 SELECT v.name, v.builder, v.prototype_url, v.preference_score,
-                       v.description_md, v.id,
-                       COALESCE(MAX(qg.metric_value), 0) AS avg_gate
+                       v.description_md, v.id
                 FROM variants v
-                LEFT JOIN extracted_code e ON e.variant_id = v.id
-                LEFT JOIN quality_gates qg ON qg.extracted_id = e.id
-                WHERE v.session_id = ? AND e.id IS NOT NULL
-                GROUP BY v.id
-                ORDER BY v.preference_score DESC, avg_gate DESC LIMIT 1
+                WHERE v.session_id = ?
+                ORDER BY v.preference_score DESC, v.name
                 """, (sess1[0],),
-            ).fetchone()
-            if row:
-                winner = row
-            else:
-                # Fallback: highest preference, no extracted code yet
-                winner = conn.execute(
-                    """
-                    SELECT v.name, v.builder, v.prototype_url, v.preference_score,
-                           v.description_md, v.id
-                    FROM variants v
-                    WHERE v.session_id = ?
-                    ORDER BY v.preference_score DESC LIMIT 1
-                    """, (sess1[0],),
+            ).fetchall()
+            scored: list[tuple[int, float, Any, int]] = []
+            for v in variant_rows:
+                ext = conn.execute(
+                    "SELECT e.id FROM extracted_code e WHERE e.variant_id = ? "
+                    "AND EXISTS (SELECT 1 FROM quality_gates qg WHERE qg.extracted_id = e.id) "
+                    "ORDER BY e.id DESC LIMIT 1", (v[5],),
                 ).fetchone()
+                if not ext:
+                    continue
+                rows = conn.execute(
+                    "SELECT gate_type, status FROM quality_gates WHERE extracted_id = ?",
+                    (ext[0],),
+                ).fetchall()
+                score = aggregate_score(
+                    [SimpleNamespace(gate_type=r[0], status=r[1]) for r in rows]  # type: ignore[misc]
+                )["gate_score"]
+                scored.append((score, float(v[3] or 0), v, int(ext[0])))
+            if scored:
+                best = max(scored, key=lambda x: (x[0], x[1]))
+                winner, winner_ext_id = best[2], best[3]
+                winner_basis = {
+                    "mode": "ship_gate", "gate_score": best[0],
+                    "compared": {x[2][0]: x[0] for x in scored},
+                }
+            elif variant_rows:
+                winner = variant_rows[0]
+                winner_basis = {"mode": "preference"}
 
         # Extracted code path + gate scores per variant
         ext_rows = []
@@ -130,9 +145,9 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
                 SELECT e.id, e.local_path, e.extraction_method, e.files_count,
                        e.total_loc
                 FROM extracted_code e
-                WHERE e.variant_id = ?
+                WHERE e.variant_id = ? AND (? IS NULL OR e.id = ?)
                 ORDER BY e.id DESC LIMIT 1
-                """, (winner[5],),
+                """, (winner[5], winner_ext_id, winner_ext_id),
             ).fetchall())
 
         # Per-gate detail
@@ -176,6 +191,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
         "triage": triage_gate,
         "variant_names": variant_names,
         "dev_owners": dev_owners,
+        "winner_basis": winner_basis,
     }
 
 
@@ -363,19 +379,38 @@ def render_ship_md(slug: str) -> str:
     branch_owner = p[8] or "(target_branch_owner unset)"
     shadow_pm = p[9] or "(shadow_pm unset — per perspektiva 02 needed)"
     kill = p[10] or "TBD"
-    gate_score = int(p[14] or 0)
-    target = int(p[15] or 80)
+    basis = ctx["winner_basis"]
+    gate_score = int(basis["gate_score"]) if basis["mode"] == "ship_gate" else int(p[14] or 0)
+    target = int(p[15] if p[15] is not None else 80)
     throwaway = p[11]
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     triage = ctx["triage"]
-    blocked_by = triage["blocked_by"]
-    ready = gate_score >= target and not blocked_by
-    if blocked_by:
+    blocked_by = list(triage["blocked_by"])
+    suff = gates_sufficiency({"results": [{"gate": g[0], "status": g[1]} for g in gates]})
+    if gates and not suff["sufficient"]:
+        blocked_by.append(suff["blocker"])
+    ready = bool(gates) and gate_score >= target and not blocked_by
+    if triage["blocked_by"]:
         verdict = "⛔ **BLOKOVÁNO (triage)**"
+    elif blocked_by:
+        verdict = "⛔ **BLOKOVÁNO (nedostatek gates)**"
     else:
         verdict = "🚀 **PRODUCTION-READY**" if ready else "⚠ **PILOT-ONLY**"
     triage_top, triage_section = _render_triage_block(triage, slug)
+
+    if basis["mode"] == "ship_gate":
+        compared = ", ".join(f"{k}={v}" for k, v in sorted(basis["compared"].items()))
+        winner_basis_md = (
+            f"Ship gate — nejvyšší gate_score (tie-break preference_score); porovnáno: {compared}"
+        )
+    elif basis["mode"] == "preference":
+        winner_basis_md = (
+            "fallback — nejvyšší preference_score ze Session 1 (Ship gate ještě neběžel, "
+            "žádné quality_gates rows)"
+        )
+    else:
+        winner_basis_md = "—"
 
     winner_info = ""
     pr_command = ""
@@ -384,6 +419,12 @@ def render_ship_md(slug: str) -> str:
         feat_branch = f"pflanzer/{slug}-{w[0]}"
         builder = w[1]
         wt = _winner_worktree(slug, w[0], e)
+        adapter_warnings: list[str] = []
+        if wt is not None:
+            adapter = base_gates_adapter(wt, target_branch)
+            if adapter.get("tmp_dir"):
+                shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
+            adapter_warnings = adapter["warnings"]
         provenance = check_provenance(
             slug=slug, variant=w[0], builder=builder,
             target_branch=target_branch, worktree=wt,
@@ -447,9 +488,17 @@ def render_ship_md(slug: str) -> str:
             f"  - ✅ {provenance['commits']} commit(ů) na `{provenance['base']}..{feat_branch}` "
             "má trailery, autor = člověk, bez AI `Co-Authored-By`."
         )
+        adapter_md = "\n".join(f"- ⚠ {x}" for x in adapter_warnings) or (
+            "- ✅ gates běžely s adaptérem z base branche (nebo autodetekcí); worktree ho nemění."
+        )
+        gates_md = (
+            f"{suff['gates_run']}/{len(GATE_TYPES)} spuštěno"
+            + ("" if suff["sufficient"] else f" — ⛔ `{suff['blocker']}` (viz tool/templates/README-gates.md)")
+        ) if gates else "(Ship gate ještě neběžel)"
         winner_info = f"""## 🏆 Winner
 
 - **Variant**: `{w[0]}` (`{w[1]}`)
+- **Vybrán podle**: {winner_basis_md}
 - **Branch**: `{feat_branch}` v `{target_repo}`
 - **Code**: `{e[1]}` ({e[3]} files / {e[4]} LOC)
 - **Gate score**: **{gate_score}/{target}** {verdict}
@@ -457,6 +506,12 @@ def render_ship_md(slug: str) -> str:
 ### Quality gates
 
 {_render_gate_badges(gates)}
+
+- **Gates run**: {gates_md}
+
+### Gate adaptér — integrita
+
+{adapter_md}
 
 ## AI provenance
 
@@ -545,10 +600,12 @@ PRBODY
 
 - **Today**: PR otevřený, branch_owner reviews
 - **T+1d**: PR merged → deploy preview link sdílen v Slack/Discord
+- **T+1d**: PR merged → `/pm retro {slug}` (`python3 tool/cli/retro.py measure --slug {slug} --pr-url <PR_URL>`) → `loc_reused_pct` (cíl ≥ 80 %), `days_to_prod` (cíl ≤ 14)
+- **Hned po merge**: připomínky T+7/30/60/90 → `python3 tool/cli/retro.py reminders --slug {slug} --format ics --out data/retro/{slug}-reminders.ics`
 - **T+7d**: feature flag rollout 10 % users; Decider checks instrumentation
 - **T+14d**: rollout 50 % users; first metrics review (hit primary lagging?)
 - **T+30d**: full rollout OR rollback dle kill criteria
-- **T+60-90d**: retrospektiva, contribution do `data/method-metrics.json`
+- **T+7/30/60/90**: readouty přes `/pm retro {slug}` (tabulka `outcomes`, report `data/retro/{slug}-retro.md`)
 
 ## Compliance audit trail
 

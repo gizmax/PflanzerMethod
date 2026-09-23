@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS projects (
   -- Production-ready fields (3-session path) ---------------------------------
   target_repo_url TEXT,                  -- git URL kam exportujeme kód
   target_branch TEXT DEFAULT 'main',     -- výchozí branch (vetvy se feat/<slug>-...)
+  -- Audit N8: více target repozitářů / monorepo workspace (JSON pole
+  -- [{role, url, branch, workspace}]); NULL = odvoď z target_repo_url.
+  target_repos TEXT,
   production_readiness_target INTEGER DEFAULT 80
     CHECK (production_readiness_target BETWEEN 0 AND 100),
   -- gate score 0..100; pod tímto = nejít do prod, jen pilot
@@ -158,6 +161,7 @@ CREATE TABLE IF NOT EXISTS variants (
     CHECK (builder IN ('claude-code','codex-cli','cursor','v0','bolt','lovable','stitch','figma-make','manual')),
   prototype_url TEXT NOT NULL,
   description_md TEXT,
+  diff_summary_md TEXT,                 -- diff walkthrough (KROK 4.5, audit N10)
   preference_score REAL,                -- 0..1, AI-only deflated max 0.5
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
