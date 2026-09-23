@@ -18,4 +18,7 @@ security: {builtin: true}                                # vestavěný secret sc
 
 **Přidání stacku.** V `quality_gates.py`: detekce `_is_<stack>_project` + pořadí v `detect_stack()`, příkazy do `STACK_COMMANDS`, jméno do `STACK_LABELS`/`OTHER_STACKS`. V `init.py`: větev v `_gate_presets()` (aktivní `gate` + zakomentovaný příklad `#gate`).
 
-**Pozor na integritu.** Adaptér leží ve stejném repu jako hodnocená varianta — agent ve worktree ho může „zjednodušit". Změny `pflanzer.gates.yml` reviewuj jako změnu CI configu; hash adaptéru je v hlavičce `quality-<variant>.md`.
+**Integrita.** Adaptér v repu může agent ve worktree „zjednodušit" (`tests: "true"`). Session 3 proto čte adaptér z base branche (`git show origin/main:pflanzer.gates.yml` do dočasného souboru) a předá ho přes `run_gates_on_path(path, adapter_path=…)` / CLI `--adapter <file>`; soubor ve worktree se pak ignoruje a `cwd` se řeší relativně ke kontrolované cestě. Dočasný soubor musí mít příponu `.yml`/`.json` (podle ní se parsuje).
+Hlavička `quality-<variant>.md` uvádí zdroj gates (externí / ze stromu / autodetekce) se sha256. Změny `pflanzer.gates.yml` v main reviewuj jako změnu CI configu.
+
+**`gates_run`.** Skóre nepočítá `unsupported` gates, takže 100/100 může stát na jediném gate. Výsledek proto nese `gates_run` (pass/warn/fail), `gates_unsupported` a v MD řádek „Gates run: N/9"; minimální počet pro verdikt řeší `session_3.py`.

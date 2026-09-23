@@ -40,6 +40,11 @@ Go (`go.mod`) -> build/tests (+ lint for .NET and Go); the remaining gates
 report 'unsupported'. A missing binary also yields 'unsupported'.
 
 DB-free entry point: `run_gates_on_path(path)` / CLI `--path <dir>`.
+`adapter_path=` / CLI `--adapter <file>` injects an adapter from outside the
+worktree (session_3 loads it from the base branch via `git show`, so an agent
+in the worktree cannot rewrite its own gates); its `cwd` resolves against the
+checked path. `aggregate_score()` also reports `gates_run` (pass/warn/fail)
+and `gates_unsupported` so callers can require a minimum number of real gates.
 """
 from __future__ import annotations
 
@@ -654,8 +659,12 @@ def load_gates_adapter(adapter: Path) -> dict[str, Any]:
     return data
 
 
-def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path) -> GateResult:
-    """Run one gate as declared in the adapter file."""
+def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
+                      cwd_base: Path | None = None) -> GateResult:
+    """Run one gate as declared in the adapter file.
+
+    `cwd` resolves against `cwd_base` (default: the adapter's directory).
+    """
     name = adapter.name
     if spec is None or spec is False:
         return GateResult(gate, "unsupported", f"disabled in {name}")
@@ -669,7 +678,7 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path) -> GateRe
     cmd = spec.get("cmd")
     if not isinstance(cmd, str) or not cmd.strip():
         return GateResult(gate, "skipped", f"{name}: `{gate}.cmd` missing")
-    cwd = (adapter.parent / str(spec.get("cwd") or ".")).resolve()
+    cwd = ((cwd_base or adapter.parent) / str(spec.get("cwd") or ".")).resolve()
     if not cwd.is_dir():
         return GateResult(gate, "skipped", f"{name}: `{gate}.cwd` not found: {cwd}")
 
@@ -739,7 +748,7 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path) -> GateRe
                       metric=metric, duration_s=duration)
 
 
-def _run_adapter(adapter: Path, path: Path) -> list[GateResult]:
+def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> list[GateResult]:
     try:
         specs = load_gates_adapter(adapter)
     except (OSError, ValueError) as e:
@@ -749,31 +758,49 @@ def _run_adapter(adapter: Path, path: Path) -> list[GateResult]:
         print(f"[gates] warning: {adapter} has unknown gate(s) {unknown}; "
               f"known: {list(GATE_TYPES)}", file=sys.stderr)
     return [
-        _run_adapter_gate(g, specs[g], adapter, path) if g in specs
+        _run_adapter_gate(g, specs[g], adapter, path, cwd_base) if g in specs
         else GateResult(g, "unsupported", f"not defined — define in {adapter.name}")
         for g in GATE_TYPES
     ]
 
 
-def describe_gate_source(path: Path) -> str:
+def _display_path(path: Path) -> str:
+    """Path relative to the meta-repo when inside it, absolute otherwise.
+
+    Worktrees now default to `~/.pflanzer/targets/...`, outside REPO_ROOT.
+    """
+    path = Path(path).resolve()
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def describe_gate_source(path: Path, adapter_path: Path | None = None) -> str:
     """Human-readable origin of the gate commands (adapter file or autodetect)."""
+    if adapter_path is not None:
+        adapter = Path(adapter_path)
+        if not adapter.is_file():
+            return f"external adapter {_display_path(adapter)} (MISSING — all gates skipped)"
+        digest = hashlib.sha256(adapter.read_bytes()).hexdigest()[:12]
+        return (f"external adapter {_display_path(adapter)} (sha256 {digest}; "
+                "supplied by caller, not read from the worktree)")
     adapter = find_gates_adapter(path)
     if adapter is None:
         stack = detect_stack(Path(path))
         return f"autodetect (stack: {STACK_LABELS.get(stack, 'unknown') if stack else 'unknown'})"
     digest = hashlib.sha256(adapter.read_bytes()).hexdigest()[:12]
-    try:
-        shown = adapter.relative_to(REPO_ROOT)
-    except ValueError:
-        shown = adapter
-    return f"adapter {shown} (sha256 {digest})"
+    return f"adapter {_display_path(adapter)} (sha256 {digest}; read from the checked tree)"
 
 
-def run_gates_on_path(path: Path) -> list[GateResult]:
+def run_gates_on_path(path: Path, adapter_path: Path | None = None) -> list[GateResult]:
     """Run all gates on a directory without touching the DB.
 
-    Adapter file present -> its commands; otherwise legacy autodetection.
-    Node deps are auto-installed in both cases (no-op for other stacks).
+    `adapter_path` given -> that adapter, `cwd` relative to `path` (used for
+    adapters loaded from the base branch). Otherwise the nearest adapter file
+    (`cwd` relative to it), else legacy autodetection. Node deps are
+    auto-installed in all cases (no-op for other stacks). Run counts come from
+    `aggregate_score()` (`gates_run`, `gates_unsupported`).
     """
     path = Path(path).resolve()
     # Auto-install node deps so gates don't false-skip (Sprint 2)
@@ -782,6 +809,8 @@ def run_gates_on_path(path: Path) -> list[GateResult]:
         print(f"[gates] warning: could not install deps in {path}; "
               "gates may report 'skipped'", file=sys.stderr)
 
+    if adapter_path is not None:
+        return _run_adapter(Path(adapter_path).resolve(), path, cwd_base=path)
     adapter = find_gates_adapter(path)
     if adapter is not None:
         return _run_adapter(adapter, path)
@@ -813,6 +842,11 @@ def aggregate_score(results: list[GateResult]) -> dict[str, Any]:
     return {
         "gate_score": score,
         "counts": counts,
+        # Gates that actually executed; unsupported ones drop out of the score
+        # denominator, so callers need this to spot a score built on 1 gate.
+        "gates_run": counts["pass"] + counts["warn"] + counts["fail"],
+        "gates_unsupported": counts["unsupported"],
+        "gates_total": len(results),
         "weighted_max": round(total_weight, 2),
         "weighted_earned": round(earned, 2),
     }
@@ -823,7 +857,7 @@ def aggregate_score(results: list[GateResult]) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def run_all(extracted_id: int) -> dict[str, Any]:
+def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, Any]:
     with transaction() as conn:
         ext = conn.execute(
             """
@@ -849,8 +883,8 @@ def run_all(extracted_id: int) -> dict[str, Any]:
     variant_name = ext[3]
     target = int(ext[6] or 80)
 
-    gate_source = describe_gate_source(local_path)
-    results = run_gates_on_path(local_path)
+    gate_source = describe_gate_source(local_path, adapter_path)
+    results = run_gates_on_path(local_path, adapter_path)
 
     score_info = aggregate_score(results)
     score = score_info["gate_score"]
@@ -878,6 +912,7 @@ def run_all(extracted_id: int) -> dict[str, Any]:
             payload={
                 "slug": slug, "variant": variant_name, "score": score,
                 "target": target, "ready": score >= target,
+                "gates_run": score_info["gates_run"], "gate_source": gate_source,
             },
         )
 
@@ -894,13 +929,15 @@ def run_all(extracted_id: int) -> dict[str, Any]:
         "extracted_id": extracted_id,
         "slug": slug,
         "variant": variant_name,
-        "local_path": str(local_path.relative_to(REPO_ROOT)),
+        "local_path": _display_path(local_path),
         "gate_score": score,
         "target": target,
         "production_ready": score >= target,
         "counts": score_info["counts"],
+        "gates_run": score_info["gates_run"],
+        "gates_unsupported": score_info["gates_unsupported"],
         "gate_source": gate_source,
-        "summary_path": str(md_path.relative_to(REPO_ROOT)),
+        "summary_path": _display_path(md_path),
         "results": [
             {"gate": r.gate_type, "status": r.status,
              "metric": r.metric, "details": r.details[:200]}
@@ -929,6 +966,7 @@ def _render_md(slug: str, variant: str, results: list[GateResult],
 
 > Score: **{score}/100** (target: {target}) · Verdict: {verdict}
 > Counts: {score_info['counts']}
+> Gates run: {score_info['gates_run']}/{score_info['gates_total']} (unsupported: {score_info['gates_unsupported']})
 > Gate source: {gate_source or 'autodetect'}
 
 | Gate | Status | Metric | Details |
@@ -955,20 +993,26 @@ def main() -> None:
     p.add_argument("--variant", default=None)
     p.add_argument("--path", default=None,
                    help="Run gates on a directory without the DB (prints JSON, persists nothing)")
+    p.add_argument("--adapter", default=None,
+                   help="Use this pflanzer.gates.yml/.json instead of searching the tree "
+                        "(cwd resolves against the checked path)")
     args = p.parse_args()
+    adapter_path = Path(args.adapter).resolve() if args.adapter else None
 
     if args.path:
         target_dir = Path(args.path).resolve()
         if not target_dir.is_dir():
             p.error(f"--path {target_dir} is not a directory")
-        source = describe_gate_source(target_dir)
-        results = run_gates_on_path(target_dir)
+        source = describe_gate_source(target_dir, adapter_path)
+        results = run_gates_on_path(target_dir, adapter_path)
         score_info = aggregate_score(results)
         print(json.dumps({
             "path": str(target_dir),
             "gate_source": source,
             "gate_score": score_info["gate_score"],
             "counts": score_info["counts"],
+            "gates_run": score_info["gates_run"],
+            "gates_unsupported": score_info["gates_unsupported"],
             "results": [
                 {"gate": r.gate_type, "status": r.status, "metric": r.metric,
                  "duration_s": r.duration_s, "details": r.details[:300]}
@@ -996,7 +1040,8 @@ def main() -> None:
                          f"Run extract.py first.")
             args.extracted_id = int(row[0])
 
-    print(json.dumps(run_all(args.extracted_id), ensure_ascii=False, indent=2, default=str))
+    print(json.dumps(run_all(args.extracted_id, adapter_path),
+                     ensure_ascii=False, indent=2, default=str))
 
 
 if __name__ == "__main__":

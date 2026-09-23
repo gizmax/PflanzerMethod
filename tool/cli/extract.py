@@ -38,6 +38,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.quality_gates import ADAPTER_FILENAMES  # noqa: E402
 from tool.cli.triage import load_risk_profile  # noqa: E402
 from tool.cli.worktree import TARGETS_CACHE, verify_cwd_in_target  # noqa: E402
 
@@ -628,6 +630,74 @@ def plan_extraction(
             f"Spusť `{_setup_hint(slug)}` a postav variantu ve worktree target repa."
         )
     return method, wt
+
+
+def _git_out(path: Path, *args: str) -> tuple[int, bytes]:
+    try:
+        res = subprocess.run(["git", "-C", str(path), *args], capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return 1, b""
+    return res.returncode, res.stdout
+
+
+def base_gates_adapter(worktree: Path, target_branch: str) -> dict[str, Any]:
+    """Load the gate adapter (`pflanzer.gates.yml|yaml|json`) from the BASE branch.
+
+    Integrity guard: the adapter lives in the same repo as the scored variant,
+    so an agent in the worktree could "simplify" it. The Ship gate therefore
+    uses the base-branch version (`origin/<target_branch>`, fallback
+    `<target_branch>`), written to a temp file, and only warns about the
+    worktree copy. The caller removes `tmp_dir` when done.
+
+    Returns {adapter_path, base_ref, name, tmp_dir, warnings}; adapter_path is
+    None when the base branch has no adapter (autodetection).
+    """
+    out: dict[str, Any] = {"adapter_path": None, "base_ref": None, "name": None,
+                           "tmp_dir": None, "warnings": []}
+    base_content: bytes | None = None
+    for ref in (f"origin/{target_branch}", target_branch):
+        rc, _ = _git_out(worktree, "rev-parse", "--verify", "--quiet", ref)
+        if rc != 0:
+            continue
+        out["base_ref"] = ref
+        for name in ADAPTER_FILENAMES:
+            rc, blob = _git_out(worktree, "show", f"{ref}:{name}")
+            if rc == 0:
+                out["name"], base_content = name, blob
+                break
+        break  # base ref exists: do not fall back to another ref
+    if out["base_ref"] is None:
+        out["warnings"].append(
+            f"Base `{target_branch}` nenalezena ve {worktree} — adaptér z base nelze načíst "
+            "(autodetekce)."
+        )
+
+    if base_content is not None:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="pflanzer-adapter-"))
+        adapter = tmp_dir / out["name"]
+        adapter.write_bytes(base_content)
+        out["adapter_path"], out["tmp_dir"] = adapter, tmp_dir
+
+    for name in ADAPTER_FILENAMES:
+        local = worktree / name
+        if not local.is_file():
+            continue
+        if base_content is None:
+            out["warnings"].append(
+                f"`{name}` přidán ve variant branchi (v base `{target_branch}` není) — "
+                "reviewuj jako změnu CI configu."
+            )
+        elif name != out["name"] or local.read_bytes() != base_content:
+            out["warnings"].append(
+                f"adapter modified in variant branch — ignored (`{name}` ≠ "
+                f"`{out['base_ref']}:{out['name']}`; gates běží s verzí z base)."
+            )
+    if base_content is not None and not (worktree / out["name"]).is_file():
+        out["warnings"].append(
+            f"adapter modified in variant branch — ignored (`{out['name']}` ve variant "
+            "branchi smazán; gates běží s verzí z base)."
+        )
+    return out
 
 
 def _current_branch(path: Path) -> str | None:
