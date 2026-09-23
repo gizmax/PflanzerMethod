@@ -259,3 +259,26 @@ CREATE TABLE IF NOT EXISTS prompts (
 
 CREATE INDEX IF NOT EXISTS idx_prompts_project ON prompts(project_id);
 CREATE INDEX IF NOT EXISTS idx_prompts_ts ON prompts(ts);
+
+-- ==========================================================================
+-- outcomes (audit N4 — measures the method's core claim)
+-- milestone 'ship' = automatic measurement from the target repo
+-- (`retro.py measure`: loc_winner, loc_merged_unchanged, loc_reused_pct,
+-- days_to_prod, winner_commits); t7/t30/t60/t90 = reinforcement readouts
+-- recorded manually (`retro.py record`).
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS outcomes (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  milestone TEXT NOT NULL
+    CHECK (milestone IN ('t7','t30','t60','t90','ship')),
+  metric TEXT NOT NULL,
+  value REAL,
+  unit TEXT,
+  evidence_url TEXT,
+  notes TEXT,
+  recorded_by TEXT NOT NULL,
+  recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcomes_project ON outcomes(project_id, milestone);

@@ -38,7 +38,7 @@ přes nginx (v compose je jen `expose`, ne `ports`) — jinak lze hlavičky podv
 ## Audit stopa
 
 - `feedback.submitted_by` = e-mail z SSO (`X-Forwarded-Email`).
-- `audit_log.actor` = totéž, u každého `feedback.create` / zápisu varianty,
+- `audit_log.actor` = totéž, u každého `feedback.create` / `variant.create`,
   s DORA retencí 7 let (`audit.py`).
 - V `dev` módu jsou tyto hodnoty neověřené — data z dev běhu nepoužívej jako
   důkaz pro Go/Iterate/Kill.

@@ -10,6 +10,11 @@ Co dělá:
 4. Vytvoří `.pflanzer/` config dir s `project.toml` (slug, target_repo_url
    pre-populated z git origin).
 5. Print onboarding steps pro tým.
+
+Subcommand `gates-template --path <repo> [--force]` (audit N7) autodetects the
+stack (package.json / pyproject / pom.xml / build.gradle / *.sln / go.mod) and
+writes a prefilled `pflanzer.gates.yml` from
+`tool/templates/pflanzer.gates.yml.template`. See `tool/templates/README-gates.md`.
 """
 from __future__ import annotations
 
@@ -24,6 +29,11 @@ from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
+GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.template"
+GATES_FILENAME = "pflanzer.gates.yml"
+
+sys.path.insert(0, str(PLUGIN_ROOT))
+from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
 
 
 def _git_origin(cwd: Path) -> str | None:
@@ -45,6 +55,164 @@ def _normalize_origin(url: str) -> str:
 
 def _is_git_repo(cwd: Path) -> bool:
     return (cwd / ".git").exists() or _git_origin(cwd) is not None
+
+
+# --------------------------------------------------------------------------
+# gates-template (audit N7)
+# --------------------------------------------------------------------------
+
+COVERAGE_THRESHOLDS = {"warn_below": 60, "fail_below": 30}
+# Commented-out fallbacks for gates a stack has no preset/example for.
+GENERIC_GATE_EXAMPLES: dict[str, dict[str, Any]] = {
+    "build": {"cmd": "<build command>"},
+    "types": {"cmd": "<type checker command>"},
+    "lint": {"cmd": "<lint command>"},
+    "tests": {"cmd": "<test command>"},
+    "coverage": {"cmd": "<command printing e.g. 'Branch coverage: 72.4%'>",
+                 "parse": r"regex:Branch coverage: (?P<metric>[\d.]+)%",
+                 **COVERAGE_THRESHOLDS},
+    "acceptance": {"cmd": "<acceptance test command over tests/acceptance/>"},
+    "security": {"cmd": "<dependency / SCA scan command>"},
+    "a11y": {"cmd": "npx @axe-core/cli http://localhost:8080 --exit"},
+    "observability": {"cmd": "<command that fails on stray console/print logging>"},
+}
+JVM_PRINT_SCAN = r"! grep -rnE 'System\.(out|err)\.print|printStackTrace\(' src/main"
+
+
+def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
+    """Per-stack gate specs. `gate` = active entry, `#gate` = commented example."""
+    security = {"security": {"builtin": True}}
+    if stack == "node":
+        # Mirrors the legacy Node autodetection in quality_gates.py.
+        return {
+            "build": {"cmd": "npm run build"},
+            "types": {"cmd": "npx tsc --noEmit"},
+            "lint": {"cmd": "npm run lint"},
+            "tests": {"cmd": "npm test"},
+            "coverage": {"cmd": "npx vitest run --coverage",
+                         "parse": r"regex:All files\s*\|\s*[\d.]+\s*\|\s*(?P<metric>[\d.]+)",
+                         **COVERAGE_THRESHOLDS},
+            "acceptance": {"cmd": "npx playwright test tests/acceptance"},
+            **security,
+            "#security": {"cmd": "npm audit --audit-level=high"},
+            "a11y": {"builtin": True},
+            "observability": {"builtin": True},
+        }
+    if stack == "python":
+        return {
+            "#build": {"cmd": "python -m build"},
+            "types": {"cmd": "mypy ."},
+            "lint": {"cmd": "ruff check ."},
+            "tests": {"cmd": "pytest -q"},
+            "#coverage": {"cmd": "pytest -q --cov --cov-branch --cov-report=term",
+                          "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
+                          **COVERAGE_THRESHOLDS},
+            **security,
+            "#security": {"cmd": "pip-audit"},
+        }
+    if stack == "maven":
+        return {
+            "build": {"cmd": "mvn -q -DskipTests compile"},
+            "tests": {"cmd": "mvn -q test"},
+            "#lint": {"cmd": "mvn -q checkstyle:check"},
+            **security,
+            "#security": {"cmd": "mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7"},
+            "#observability": {"cmd": JVM_PRINT_SCAN},
+        }
+    if stack == "gradle":
+        gradle = "./gradlew" if (target / "gradlew").exists() else "gradle"
+        return {
+            "build": {"cmd": f"{gradle} build -x test"},
+            "tests": {"cmd": f"{gradle} test"},
+            "#lint": {"cmd": f"{gradle} check -x test"},
+            **security,
+            "#security": {"cmd": f"{gradle} dependencyCheckAnalyze"},
+            "#observability": {"cmd": JVM_PRINT_SCAN},
+        }
+    if stack == "dotnet":
+        return {
+            "build": {"cmd": "dotnet build --nologo"},
+            "tests": {"cmd": "dotnet test --nologo"},
+            "lint": {"cmd": "dotnet format --verify-no-changes"},
+            **security,
+            "#observability": {"cmd": "! grep -rn --include='*.cs' 'Console.Write' ."},
+        }
+    if stack == "go":
+        return {
+            "build": {"cmd": "go build ./..."},
+            "lint": {"cmd": "go vet ./..."},
+            "tests": {"cmd": "go test ./..."},
+            "#coverage": {"cmd": "go test -coverprofile=cover.out ./... && go tool cover -func=cover.out",
+                          "parse": r"regex:^total:\s+\(statements\)\s+(?P<metric>[\d.]+)%",
+                          **COVERAGE_THRESHOLDS},
+            **security,
+            "#security": {"cmd": "govulncheck ./..."},
+        }
+    return dict(security)
+
+
+def _yaml_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    # Single quotes: backslashes in regexes stay literal; only ' is escaped.
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _gate_block(gate: str, spec: dict[str, Any], commented: bool) -> list[str]:
+    lines = [f"{gate}:"] + [f"  {k}: {_yaml_scalar(v)}" for k, v in spec.items()]
+    return [f"# {line}" for line in lines] if commented else lines
+
+
+def render_gates_template(target: Path) -> tuple[str, str | None]:
+    """Render the adapter for `target`. Returns (yaml_text, stack_id)."""
+    stack = detect_stack(target)
+    presets = _gate_presets(stack, target)
+    text = GATES_TEMPLATE_PATH.read_text(encoding="utf-8")
+    text = text.replace("{{date}}", date.today().isoformat())
+    text = text.replace("{{stack}}", STACK_LABELS.get(stack, stack) if stack
+                        else "unknown (fill in the commented examples)")
+    for gate in GATE_TYPES:
+        active, example = presets.get(gate), presets.get(f"#{gate}")
+        if active is not None:
+            lines = _gate_block(gate, active, commented=False)
+            if example is not None:
+                lines += ["# alternative:"] + _gate_block(gate, example, commented=True)
+        else:
+            lines = _gate_block(gate, example or GENERIC_GATE_EXAMPLES[gate], commented=True)
+        text = text.replace(f"{{{{gate:{gate}}}}}", "\n".join(lines))
+    return text, stack
+
+
+def write_gates_template(target: Path, force: bool = False) -> dict[str, Any]:
+    target = target.resolve()
+    if not target.is_dir():
+        return {"ok": False, "reason": f"{target} není adresář"}
+    if not GATES_TEMPLATE_PATH.exists():
+        return {"ok": False, "reason": f"Template missing: {GATES_TEMPLATE_PATH}"}
+    out_path = target / GATES_FILENAME
+    if out_path.exists() and not force:
+        return {"ok": False, "path": str(out_path),
+                "reason": f"{GATES_FILENAME} už existuje (--force pro overwrite)"}
+    text, stack = render_gates_template(target)
+    out_path.write_text(text, encoding="utf-8")
+    active = [g for g in GATE_TYPES
+              if any(line.startswith(f"{g}:") for line in text.splitlines())]
+    return {
+        "ok": True,
+        "path": str(out_path),
+        "stack": stack or "unknown",
+        "active_gates": active,
+        "unsupported_gates": [g for g in GATE_TYPES if g not in active],
+        "next_steps": [
+            f"1. Projdi `{GATES_FILENAME}` — odkomentuj příklady pro gates, které "
+            "tým umí měřit (lint, coverage, acceptance).",
+            "2. Ověř lokálně: `python3 tool/cli/quality_gates.py --path <repo>` "
+            "(bez DB, jen JSON výstup).",
+            f"3. Commitni `{GATES_FILENAME}` do main — reviewuj jeho změny jako CI config.",
+        ],
+    }
 
 
 def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
@@ -117,6 +285,16 @@ shadow_pm = "<jméno PM>"
             gitignore.write_text(text + "".join(additions), encoding="utf-8")
             actions.append(f"updated: .gitignore (+{len(additions)} entries)")
 
+    # 5. Non-Node/Python stacks need a gate adapter (audit N7); only hint,
+    # never write it implicitly (it switches quality_gates to adapter mode).
+    stack = detect_stack(target_repo)
+    gates_hint: list[str] = []
+    if stack not in (None, "node", "python") and not (target_repo / GATES_FILENAME).exists():
+        gates_hint.append(
+            f"5. Stack {STACK_LABELS[stack]}: vygeneruj gate adaptér "
+            "`pflanzer init gates-template --path .` (jinak část quality "
+            "gates skončí jako unsupported).")
+
     return {
         "ok": True,
         "target_repo": str(target_repo),
@@ -130,7 +308,7 @@ shadow_pm = "<jméno PM>"
             "3. Commit oba soubory: `git add docs/INTEGRATION_GUIDE.md .pflanzer/ "
             "&& git commit -m 'chore(pflanzer): init project'`",
             "4. V Claude Code spusť: `/pflanzer \"co dnes řešíme\"`",
-        ],
+        ] + gates_hint,
     }
 
 
@@ -138,7 +316,19 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Target repo path (default: cwd)")
     p.add_argument("--force", action="store_true", help="Overwrite existing files")
+    sub = p.add_subparsers(dest="command")
+    gt = sub.add_parser(
+        "gates-template",
+        help="Write a prefilled pflanzer.gates.yml (stack autodetect) into the target repo",
+    )
+    gt.add_argument("--path", default=".", help="Target repo path (default: cwd)")
+    gt.add_argument("--force", action="store_true", help="Overwrite existing pflanzer.gates.yml")
     args = p.parse_args()
+
+    if args.command == "gates-template":
+        out = write_gates_template(Path(args.path), force=args.force)
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        sys.exit(0 if out.get("ok") else 1)
 
     out = init(Path(args.target), force=args.force)
     print(json.dumps(out, ensure_ascii=False, indent=2))

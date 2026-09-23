@@ -251,6 +251,15 @@ cd tool/web/frontend && npm install && npm run dev
 > (installed plugin mode). Jinak `<repo>/data/pflanzer.db` (dev mode).
 > Override: `export PFLANZER_DB=/path/to/db.sqlite`.
 
+**Deploy web hubu ve firmě.** Backend je defaultně v `oidc` módu (bez SSO identity
+vrací 401); lokálně ho spouštěj s `PFLANZER_HUB_AUTH_MODE=dev` (to dělá
+`tool/web/run-local.sh`) — identita je pak neověřená hlavička `X-User`. Ve firmě
+musí hub stát za `oauth2-proxy` napojeným na firemní IdP (Entra ID / Okta /
+Keycloak): `cp tool/web/.env.example tool/web/.env`, vyplnit a
+`docker compose --profile oidc up`. Hodnotitel ve feedbacku je pak SSO e-mail
+(auditovatelná atribuce, AI Act čl. 14 / DORA). Detail:
+[`tool/web/README-auth.md`](tool/web/README-auth.md).
+
 ## Plán fáze 2 (full)
 
 Detailní plán: [`~/.claude/plans/recursive-cuddling-sonnet.md`](../../.claude/plans/recursive-cuddling-sonnet.md)

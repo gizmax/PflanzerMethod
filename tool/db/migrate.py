@@ -39,6 +39,25 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
 }
 
 
+# Additive tables — unlike columns, new tables need no ALTER: the
+# `CREATE TABLE IF NOT EXISTS` in schema.sql creates them on an existing DB
+# during executescript. Listed here only so migrate reports when a table
+# was newly created on an older database.
+ADDITIVE_TABLES: tuple[str, ...] = (
+    # Audit N4: outcome measurement (tool/cli/retro.py)
+    "outcomes",
+)
+
+
+def _existing_tables(conn) -> set[str]:
+    return {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+
+
 def _apply_additive(conn) -> list[str]:
     applied: list[str] = []
     for table, cols in ADDITIVE_COLUMNS.items():
@@ -58,7 +77,12 @@ def apply_schema(reset: bool = False) -> None:
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
     conn = get_connection()
     try:
+        tables_before = _existing_tables(conn)
         conn.executescript(schema_sql)
+        if tables_before:
+            created = [t for t in ADDITIVE_TABLES if t not in tables_before]
+            if created:
+                print(f"[migrate] created additive tables: {', '.join(created)}")
         applied_alters = _apply_additive(conn)
         if applied_alters:
             print(f"[migrate] applied additive columns: {', '.join(applied_alters)}")
