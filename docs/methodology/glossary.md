@@ -174,8 +174,8 @@ quality gates (score 0–100) + `SHIP.md` → PR připravený k mergi
 
 **Alias (deprecated):** *„Session 3"* — starší název v toolu; command
 `/pflanzer-session-3` zůstává jako implementace pod kapotou `/pm ship`.
-Pozor: ADR-0001 používá *„Session 3"* ve významu **iterační** rozhodovací
-session po Iterate (Scenario B/C) — to není Ship gate.
+Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
+**Session 2b** (dříve také „Session 3“) — to není Ship gate.
 
 ## Anti-patterns (deprecated language)
 

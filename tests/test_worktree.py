@@ -141,3 +141,41 @@ def test_verify_rejects_foreign_repo(setup_done: dict[str, Any], tmp_path: Path)
     ok, msg = worktree.verify_cwd_in_target(
         setup_done["slug"], Path(setup_done["setup"]["worktrees"][0]))
     assert ok, msg
+
+
+def _commit_in_a(setup_done: dict[str, Any], tmp_targets: Path) -> None:
+    wt = worktree_path(tmp_targets, setup_done["slug"], "A")
+    (wt / "feature.txt").write_text("variant A\n", encoding="utf-8")
+    git(wt, "add", "feature.txt")
+    git(wt, "commit", "-m", "feat: variant A")
+
+
+def test_preview_run_refuses_without_consent(setup_done: dict[str, Any], tmp_targets: Path,
+                                             monkeypatch: pytest.MonkeyPatch,
+                                             capsys: pytest.CaptureFixture[str]) -> None:
+    """`preview --run` pushes to the customer's remote: non-interactive without --yes = refuse."""
+    _commit_in_a(setup_done, tmp_targets)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+    called: list[bool] = []
+    monkeypatch.setattr(worktree, "preview_draft_pr",
+                        _spy(worktree.preview_draft_pr, called))
+    rc = _cli(monkeypatch, "preview", "--slug", setup_done["slug"], "--run")
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "zrušen" in err and "--yes" in err and "remote:" in err
+    assert called == [False]  # only the dry-run plan ran, never run=True
+
+
+def test_confirm_preview_push_interactive(setup_done: dict[str, Any], tmp_targets: Path) -> None:
+    _commit_in_a(setup_done, tmp_targets)
+    slug = setup_done["slug"]
+    assert worktree.confirm_preview_push(slug, input_fn=lambda _: "ne", isatty=True) is False
+    assert worktree.confirm_preview_push(slug, input_fn=lambda _: "ano", isatty=True) is True
+    assert worktree.confirm_preview_push(slug, assume_yes=True, isatty=False) is True
+
+
+def _spy(fn: Any, calls: list[bool]) -> Any:
+    def wrapper(slug: str, *, run: bool = False) -> Any:
+        calls.append(run)
+        return fn(slug, run=run)
+    return wrapper

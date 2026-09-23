@@ -329,7 +329,7 @@ po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
   rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
   (chrání před tichým úmrtím).
 - **Iterate exhausted** (Scenario C): hard cap 1 další iterační rozhodovací
-  session (v ADR-0001 „Session 3"; nezaměňovat se Ship gate), pak automatický Kill.
+  session (Session 2b per ADR-0001; nezaměňovat se Ship gate), pak automatický Kill.
 
 **Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
 ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,

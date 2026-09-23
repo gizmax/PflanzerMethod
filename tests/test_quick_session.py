@@ -96,3 +96,17 @@ def test_record_voting_persists_diff_summary(project: dict[str, Any],
     # A had the highest user_value -> highest preference score.
     scores = {v["name"]: v["preference_score"] for v in out["variants"]}
     assert scores["A"] > scores["B"] > scores["C"]
+
+
+def test_revote_keeps_real_preview_url(project: dict[str, Any],
+                                       vote: Callable[..., Any]) -> None:
+    """A URL stored by `preview --run` / `set-url` survives a re-vote with placeholders."""
+    from tool.cli.worktree import set_prototype_url
+
+    vote(project["slug"])
+    assert set_prototype_url(project["slug"], "A", "https://github.com/acme/app/pull/7")
+    vote(project["slug"])
+    with transaction() as conn:
+        urls = dict(conn.execute("SELECT name, prototype_url FROM variants").fetchall())
+    assert urls["A"] == "https://github.com/acme/app/pull/7"
+    assert "sandbox.invalid" in urls["B"]

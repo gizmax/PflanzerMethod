@@ -226,7 +226,9 @@ secret, `git rm --cached .env`) a spusť `python tool/cli/worktree.py guard
 >
 > Po Session 1 (mezi sessions): `python tool/cli/worktree.py preview --slug <slug>`
 > vytiskne draft PR per varianta (preview URL z Vercel/Netlify v PR checks,
-> `--run` je opravdu založí a uloží URL do `variants.prototype_url`);
+> `--run` je opravdu pushne do remote target repa a založí; před tím vypíše
+> remote + branche a chce potvrzení „ano“, v CI/bez terminálu `--run --yes`;
+> URL se uloží do `variants.prototype_url` a přežije opakované hlasování);
 > `--mode playwright` nahraje průchod acceptance scénáři (video + trace).
 > Session 2: `python tool/cli/worktree.py set-session --slug <slug> --session 2`.
 

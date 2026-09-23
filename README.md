@@ -252,6 +252,7 @@ cd tool/web/frontend && npm install && npm run dev
 > `<repo>/data/pflanzer.db` (dev mode) — samotný adresář `~/.pflanzer/targets/`
 > (cache target repozitářů z `worktree.py setup`) DB nepřepne.
 > Override: `export PFLANZER_DB=/path/to/db.sqlite`.
+> Web hub (`tool/web/backend`) používá stejné pořadí, takže CLI i hub čtou jednu DB.
 
 **Deploy web hubu ve firmě.** Backend je defaultně v `oidc` módu (bez SSO identity
 vrací 401); lokálně ho spouštěj s `PFLANZER_HUB_AUTH_MODE=dev` (to dělá

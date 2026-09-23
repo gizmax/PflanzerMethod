@@ -1244,6 +1244,31 @@ def _variants_for_mode(slug: str, repos: list[TargetRepo]) -> list[str]:
     return [v for v in PARALLEL_VARIANTS + MOB_VARIANTS if v in present]
 
 
+def confirm_preview_push(slug: str, *, assume_yes: bool = False,
+                         input_fn: Any = input, isatty: bool | None = None) -> bool:
+    """Guard for `preview --run`: it pushes branches, creates labels and draft PRs
+    in the customer's remote. Show exactly what will happen and require explicit
+    consent (interactive "ano" or `--yes`). Non-interactive without `--yes` = refuse."""
+    plan = [r for r in preview_draft_pr(slug, run=False) if r.get("commits_ahead")]
+    if not plan:
+        return True  # nothing would be pushed; preview_draft_pr skips empty variants
+    remotes = sorted({_git(Path(r["worktree"]), "remote", "get-url", "origin")[1].strip()
+                      for r in plan})
+    print(f"{BRAND_LINE}\n\npreview --run provede v remote target repa:", file=sys.stderr)
+    for url in remotes:
+        print(f"  remote: {url}", file=sys.stderr)
+    for r in plan:
+        print(f"  - push `{r['branch']}` ({r['repo']}) + draft PR + labely", file=sys.stderr)
+    if assume_yes:
+        return True
+    if isatty is None:
+        isatty = sys.stdin.isatty()
+    if not isatty:
+        return False
+    answer = input_fn("Pokračovat? Napiš 'ano': ").strip().lower()
+    return answer in ("ano", "yes", "y", "a")
+
+
 def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
     repos = load_target_repos(slug)
     builders = _variant_builders(int(load_project(slug)["id"]))
@@ -1538,6 +1563,8 @@ def main() -> None:
     p_prev.add_argument("--mode", choices=["draft-pr", "playwright"], default="draft-pr")
     p_prev.add_argument("--run", action="store_true",
                         help="draft-pr: opravdu pushnout + gh pr create (default jen vytiskne příkazy)")
+    p_prev.add_argument("--yes", action="store_true",
+                        help="draft-pr --run: potvrdit push do remote target repa bez interaktivní otázky")
 
     p_sess = sub.add_parser("set-session", help="Přepnout Pflanzer-Session trailer (1 | 2 | ship)")
     p_sess.add_argument("--slug", required=True)
@@ -1583,6 +1610,10 @@ def main() -> None:
                     print(f"    {c}")
     elif args.cmd == "preview":
         if args.mode == "draft-pr":
+            if args.run and not confirm_preview_push(args.slug, assume_yes=args.yes):
+                print(f"{BRAND_LINE}\n\n✖ preview --run zrušen: nic nebylo pushnuto. "
+                      "Bez interaktivního terminálu potvrď flagem `--yes`.", file=sys.stderr)
+                sys.exit(2)
             res = preview_draft_pr(args.slug, run=args.run)
         else:
             res = preview_playwright(args.slug)

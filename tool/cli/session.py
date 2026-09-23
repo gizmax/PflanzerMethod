@@ -45,6 +45,12 @@ AI_ONLY_CAP = 0.5
 # --------------------------------------------------------------------------
 
 
+
+def _is_placeholder_url(url: str | None) -> bool:
+    """Sandbox placeholder emitted by the facilitator / quick_session before a real preview exists."""
+    return not url or "sandbox.invalid" in url
+
+
 def _normalize(value: float | None) -> float | None:
     if value is None:
         return None
@@ -247,11 +253,21 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         ).fetchone()
         if sess:
             session_id = int(sess[0])
+            # Keep real preview URLs (e.g. stored by `worktree.py preview --run` or
+            # `set-url`) when a re-vote only carries the sandbox placeholder.
+            kept_urls = {
+                r[0]: r[1] for r in conn.execute(
+                    "SELECT name, prototype_url FROM variants WHERE session_id = ?",
+                    (session_id,),
+                ).fetchall()
+                if r[1] and not _is_placeholder_url(r[1])
+            }
             # Reset variants for re-run idempotency
             conn.execute(
                 "DELETE FROM variants WHERE session_id = ?", (session_id,),
             )
         else:
+            kept_urls = {}
             cur = conn.execute(
                 "INSERT INTO sessions (project_id, type, starts_at, decision) "
                 "VALUES (?, 1, ?, 'pending')",
@@ -299,7 +315,9 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    session_id, v["name"], v["builder"], v["prototype_url"],
+                    session_id, v["name"], v["builder"],
+                    kept_urls.get(v["name"], v["prototype_url"])
+                    if _is_placeholder_url(v["prototype_url"]) else v["prototype_url"],
                     v.get("description_md"), agg_score,
                 ),
             )
