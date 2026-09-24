@@ -67,7 +67,7 @@ v DB a generuje `data/charters/<slug>-roles.md` summary.
      **opt-out z A11y** (#11). Pokud ano, **vyžaduj justifikaci** (text důvodu —
      např. „pure internal admin tool < 50 zam, žádný WCAG závazek").
    - Pokud `customer_facing_or_new_segment` = true → zeptej se na opt-out
-     z User research (#14). Justifikace: fresh persona ≤ 3 mo + JTBD podpis PM.
+     z User research (#14). Justifikace: fresh persona ≤ 3 mo + JTBD podpis PdM.
 
 4. **Vlastnictví rolí** — pro každou vybranou roli zeptej se na human_owner
    (jméno + role v org). Pokud uživatel nezná jméno, můžeš nechat prázdné —

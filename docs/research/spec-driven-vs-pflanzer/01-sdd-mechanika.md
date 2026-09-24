@@ -155,12 +155,12 @@ gates"* — můžeš updatovat libovolný artefakt anytime.
 
 ```
 Phase 1: Discovery       — Briefs, market research
-Phase 2: Planning        — PRDs, architecture (PM agent + Architect agent)
+Phase 2: Planning        — PRDs, architecture (PdM agent + Architect agent)
 Phase 3: Execution       — Stories, sprints (Scrum Master + Dev agents)
 Phase 4: Verification    — QA, docs (QA + Technical Writer agents)
 ```
 
-12+ specialized personas (PM, Architect, Developer, UX, Scrum Master, QA, Technical Writer, …).
+12+ specialized personas (PdM, Architect, Developer, UX, Scrum Master, QA, Technical Writer, …).
 *„Party Mode"* = multi-agent v jedné session.
 
 **Claimed benefit:** *„Strict role boundaries... file-based context passing... discrete handoff protocols.

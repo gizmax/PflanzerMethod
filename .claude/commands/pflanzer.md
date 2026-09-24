@@ -35,9 +35,9 @@ Zeptej se 2 otázkami v jedné AskUserQuestion zprávě (paralelně):
 **A) Kdo má dnes finální slovo (Decider)?** [text input]
 - Default: nejstarší v místnosti / line manager / sponsor.
 
-**B) Kdo z těchto rolí je v místnosti?** [multiSelect, default: PM, FE, UX]
+**B) Kdo z těchto rolí je v místnosti?** [multiSelect, default: PdM, FE, UX]
 - Zadavatel / Business owner (#1) — vždy zahrnuto
-- PM (#2) — vždy zahrnuto
+- PdM (#2) — vždy zahrnuto
 - Facilitátor (#3) — vždy zahrnuto (může to být ty / Claude)
 - Frontend (#4) ✅ default
 - Backend (#5)
@@ -111,7 +111,7 @@ AskUserQuestion (3 otázky):
 2. "Branch owner / kdo merguje PR?" [text → GitHub handle, např. @petra]
    → projects.target_branch_owner (auto-fills `gh pr create --reviewer`
      v SHIP.md per ADR-0010)
-3. "Shadow PM (kdo babysittuje code mezi-session)?" [text → jméno]
+3. "Shadow PdM (kdo babysittuje code mezi-session)?" [text → jméno]
    → projects.shadow_pm (per perspektiva 02 vibe-product C5 — bez named
      ownera mezi-session work dies)
 ```

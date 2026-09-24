@@ -601,7 +601,7 @@ PRBODY
 |------|--------|
 | **Decider** | {decider} |
 | **Branch owner / merger** | {branch_owner} |
-| **Shadow PM** (mezi-session babysitter) | {shadow_pm} |
+| **Shadow PdM** (mezi-session babysitter) | {shadow_pm} |
 
 {winner_info}
 

@@ -41,7 +41,7 @@ Z 18-position role catalogu (`02-role-catalog.md`):
 | Role | Catalog # | e-shop assignment |
 |------|-----------|---------------------|
 | Zadavatel / Sponsor | #1 | _< business owner / VP-level >_ |
-| Produkt manažer | #2 | _< PM odpovědný za oblast >_ |
+| Produkt manažer | #2 | _< PdM odpovědný za oblast >_ |
 | Facilitátor | #3 | _< facilitator role >_ |
 | FE / Vibe-coding lead | #4 | _< FE / vibe lead >_ |
 | BE / API lead | #5 | _< BE lead >_ |
@@ -56,7 +56,7 @@ Method Steward — non-regulated default profil je nepotřebuje v místnosti.
 
 **Setup:** Všech 6 lidí ve stejné místnosti. AI vibe-coding tools připraveny
 (Bolt + v0 + Lovable, paralelně). Sponzor přinesl 1-věty problém,
-PM rámcový kontext (kdo, proč, jaký success).
+PdM rámcový kontext (kdo, proč, jaký success).
 
 **Aktivita:**
 - Tým verbálně rozkládá problém, AI poslouchá kontext.
@@ -95,7 +95,7 @@ PM rámcový kontext (kdo, proč, jaký success).
 **Output:**
 - **Winner kód** s definovaným scope.
 - Per-role handoff (BE: API contracts; FE: components; UX: design tokens;
-  PM: epic + acceptance criteria).
+  PdM: epic + acceptance criteria).
 - Konkrétní timeline pro produktové nasazení.
 
 ### Ship to production
@@ -175,7 +175,7 @@ Pod 3 piloty: zůstává jako **case study v `docs/case-studies/`**, ne method-l
 - [ ] Doplnit production deploy outcome (% kódu, dny do prodů, bugy T+7) —
   z `/pm retro eshop-2026` (`data/retro/eshop-2026-retro.md`): `loc_reused_pct`,
   `days_to_prod`, `t7_bugs`; lagging metrika vs baseline = `t90_lagging_metric`.
-- [ ] Stakeholder retrospective notes — co by sponzor / PM / vývojáři dělali jinak.
+- [ ] Stakeholder retrospective notes — co by sponzor / PdM / vývojáři dělali jinak.
 - [ ] Lagging metric vs baseline — historicky podobný projekt v Notinu trval kolik dní?
 - [ ] Pokud druhý e-shop pilot startuje, link sem.
 

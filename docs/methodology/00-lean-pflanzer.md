@@ -95,7 +95,7 @@ Default profil **vědomě vynechává**:
 |----------------------|--------------------|------|
 | Method Steward 0.5 FTE €100-150k/rok | – | Method-level kalkulace má smysl až po 3+ pilotech v org |
 | Pre-registration document signed pre-S1 | – | Stačí jednověté success threshold v meeting notes |
-| Pflanzer Compliance Score 12 elementů ex-post | – | Steward neexistuje; PM si po pilotu napíše 1 řádek learning |
+| Pflanzer Compliance Score 12 elementů ex-post | – | Steward neexistuje; PdM si po pilotu napíše 1 řádek learning |
 | AI Act Fáze A/B/C dvoufázový protokol | – | Pokud projekt není High-risk per AI Act, žádné fáze. Limited tier = checkbox. |
 | DORA prompt audit pipeline (SIEM ingest, 7y retention) | – | Pokud nejsi banka / pojišťovna, DORA tě nezajímá. |
 | True Cost Worksheet per-role × per-phase | Stačí orientační ~10 PD odhad | Detailní worksheet má smysl tam, kde sponzor hlídá KAŽDÝ PD |
@@ -105,7 +105,7 @@ Default profil **vědomě vynechává**:
 
 **Realistický effort pro default profil:** ~10 PD (per `03-pre-session-priprava.md`
 True Cost Worksheet § Default profil). Z toho:
-- Pre-flight + Charter: 1.5 PD (sponzor + PM)
+- Pre-flight + Charter: 1.5 PD (sponzor + PdM)
 - Session 1 + builder prep: 2 PD (facilitator + builder lead)
 - Mezi-session iterace: 2.5 PD (builder + stakeholder review)
 - Session 2 + Decider's call: 1.5 PD
@@ -139,8 +139,8 @@ Z 18-position catalogu (`02-role-catalog.md`) v default profilu **stačí
 | Role | Z catalogu | Default profil |
 |------|------------|----------------|
 | Zadavatel / Sponzor | #1 | Povinný |
-| PM | #2 | Povinný |
-| Facilitátor | #3 | Povinný (často PM nebo dedikovaný) |
+| PdM | #2 | Povinný |
+| Facilitátor | #3 | Povinný (často PdM nebo dedikovaný) |
 | FE / Vibe-coding lead | #4 | Povinný |
 | BE / API lead | #5 | Povinný (pokud projekt má backend) |
 | UX / Designer | #6 | Doporučený |

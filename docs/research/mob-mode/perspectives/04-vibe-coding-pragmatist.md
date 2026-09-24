@@ -12,7 +12,7 @@
 
 1. **Single-stake decision, ne 3 hypotézy**. "Jakým způsobem implementujeme onboarding flow?" (1 problem, hloubka) > "Které 3 angle onboardingu mají smysl?" (paralelní explorace).
 2. **Onboarding nového člena týmu**. Junior se za 90 min mob session naučí prompt patterns, repo conventions, CC quirks rychleji než za týden code review. ROI per-junior je tady největší.
-3. **Cross-functional alignment > exploration**. Když PM, BE a designer musí společně pochopit *proč* určitá technická volba znamená určitou UX kompromis — mob je jediný způsob jak všichni 3 vidí tu samou diskuzi v reálném čase.
+3. **Cross-functional alignment > exploration**. Když PdM, BE a designer musí společně pochopit *proč* určitá technická volba znamená určitou UX kompromis — mob je jediný způsob jak všichni 3 vidí tu samou diskuzi v reálném čase.
 4. **Audit-grade trace pro regulated kontext**. 1 commit history, 1 chat transkript, 1 set of decisions. Compliance officer / GDPR auditor ti za to políbí ruku. Paralelní = 3 čistící merge + reconcile.
 5. **Tým ≤ 5 lidí** + **≥ 1 člověk silně CC-fluent**. Pod 5 ještě nehrozí spectatorship; jeden CC-fluent unblockuje prompt churn.
 6. **Greenfield bez existujícího repa**. Mob = společná mentální mapa od nuly. Paralelní = 3 lidé musí každopádně reconcileovat 3 různé mentální mapy.

@@ -719,7 +719,7 @@
       "trigger": "customer_facing_or_new_segment",
       "trigger_question": "Customer-facing flow nebo nový segment?",
       "default_on": true,
-      "opt_out_only": "fresh persona ≤ 3 měsíce + JTBD signed by PM (zdokumentovaný důvod)",
+      "opt_out_only": "fresh persona ≤ 3 měsíce + JTBD signed by PdM (zdokumentovaný důvod)",
       "expert_agent": "user-research-expert",
       "card": {
         "why": "Hájíš skutečného uživatele proti názorům v místnosti — tvrzení bez evidence označíš.",

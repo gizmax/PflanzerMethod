@@ -114,7 +114,7 @@ Champion-of-Champions ani CoE manažera. Důvod:
 
 **Mitigace:**
 - **Acting Method Steward** delegace: pokud hire trvá > 90 dní, jednorázová
-  delegace na **senior interim** (externí konzultant nebo interní senior PM
+  delegace na **senior interim** (externí konzultant nebo interní senior PdM
   s ad-hoc 0.3 FTE) pro max **6 měsíců**, schválená Method Decider memo.
 - Po 6 měsících interim → Charter sunset trigger (per role survival rule).
 

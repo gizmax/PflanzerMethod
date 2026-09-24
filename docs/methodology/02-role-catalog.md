@@ -42,7 +42,7 @@ rolí**. Role catalog řeší dvě věci:
 - **Vstup:** JTBD formát, OST v0 (≥60 % vyplněná), success metric (leading +
   lagging), persona doc, OKR alignment, XYZ hypotéza.
 - **Výstup:** preference matrix per role, PRD-lite, updated OST.
-- **AI proxy:** ⚠️ Krátkodobě s předem připraveným briefem, finální slovo PM.
+- **AI proxy:** ⚠️ Krátkodobě s předem připraveným briefem, finální slovo PdM.
 
 ### 3. Facilitátor (lidský + AI) — POVINNÁ
 - **Vede session**, hlídá agendu a energy curve, deeskaluje konflikty,
@@ -189,7 +189,7 @@ rolí**. Role catalog řeší dvě věci:
 - **AI proxy:** ⚠️ Pokud má AI přístup k ticket history.
 
 ### 14. End-user proxy / User research — DOPORUČENÁ default-on
-- **Trigger pro opt-out:** fresh persona ≤ 3 měsíce + JTBD signed by PM
+- **Trigger pro opt-out:** fresh persona ≤ 3 měsíce + JTBD signed by PdM
   (zdokumentovaný důvod).
 - **Vstup:** persona freshness ≤ 6 mo (≥ 5 rozhovorů), JTBD card, OST v0,
   alternativy NDA (shadowing / ticket review / sales call analysis).
@@ -248,7 +248,7 @@ rolí**. Role catalog řeší dvě věci:
 ### Fáze pre-flight (PŘED Session 1)
 
 **Krok 0 — Discovery Readiness Gate.**
-- Persona ≤ 6 měsíců? + JTBD podepsaný PM? + OST v0 ≥ 60 %?
+- Persona ≤ 6 měsíců? + JTBD podepsaný PdM? + OST v0 ≥ 60 %?
 - ❌ Pokud cokoli chybí → **2-week Discovery Sprint**, Session 1 odložena.
 
 **Krok 0a — Triage tracks (paralelně, async, 48–72 h pre-read).**
@@ -261,7 +261,7 @@ rolí**. Role catalog řeší dvě věci:
 
 ### Fáze role selection (kdo do místnosti)
 
-1. **Vždy:** Zadavatel (1) + PM (2) + Facilitátor (3) → core 3.
+1. **Vždy:** Zadavatel (1) + PdM (2) + Facilitátor (3) → core 3.
 2. **Mění se UI / přidává se view?** → +Frontend (4) + UX (6).
 3. **Mění se data / API?** → +Backend (5).
 4. **Pracujeme s daty uživatelů, auth, integracemi, platbami?** → +Security (7) [POVINNĚ].
@@ -307,7 +307,7 @@ Detail v `03-pre-session-priprava.md`.
 
 Tyto role **nelze** nahradit AI:
 - #1 Zadavatel (final)
-- #2 PM (final)
+- #2 PdM (final)
 - #3 Facilitátor
 - #7 Security (final veto)
 - #9 EM (kapacita)

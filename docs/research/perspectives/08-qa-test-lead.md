@@ -111,7 +111,7 @@ Mezi „final" a „handoff" povinný gate:
 - [ ] Synthetic data sada
 - [ ] Security sign-off (role 7)
 - [ ] A11y baseline (public-facing)
-- [ ] DoD schválená QA + dev + PM
+- [ ] DoD schválená QA + dev + PdM
 
 Bez checklistu není handoff. Single biggest gap metody.
 

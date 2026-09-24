@@ -105,7 +105,7 @@ Měřena **ex-post** Method Stewardem (audit pilot artefaktů + decision logs).
 
 **13 must-have prvků (v0.4 upgrade — added #13):**
 
-1. Pre-flight Discovery Readiness Gate sign-off existuje (datovaný, signed Champion + PM).
+1. Pre-flight Discovery Readiness Gate sign-off existuje (datovaný, signed Champion + PdM).
 2. Pre-flight Security & Data triage sign-off existuje (datovaný, signed Security + DPO).
 3. Pre-flight Platform Triage sign-off existuje (datovaný, signed Platform Eng).
 4. **Pre-registration document** (per § A) podepsaný před Session 1.

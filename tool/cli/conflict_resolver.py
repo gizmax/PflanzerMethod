@@ -58,7 +58,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({1, 6}): {
         "axis": "Speed vs research rigor",
-        "resolution": "XYZ hypotéza jako falsifikovatelný marker; persona ownership shared (PM + UX podpisují před session).",
+        "resolution": "XYZ hypotéza jako falsifikovatelný marker; persona ownership shared (PdM + UX podpisují před session).",
         "adr": "ADR-0004 (Business Charter)",
     },
     frozenset({1, 13}): {
@@ -73,7 +73,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({2, 6}): {
         "axis": "Persona ownership (prioritization vs flow)",
-        "resolution": "Shared artefakt; PM tie-breaker na scope, UX na flow. Persona doc podepsaný oběma před session.",
+        "resolution": "Shared artefakt; PdM tie-breaker na scope, UX na flow. Persona doc podepsaný oběma před session.",
         "adr": None,
     },
     frozenset({2, 7}): {
@@ -87,13 +87,13 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
         "adr": None,
     },
     frozenset({2, 13}): {
-        "axis": "Interpretace pain (PM vs CS)",
+        "axis": "Interpretace pain (PdM vs CS)",
         "resolution": "VoC ritual prvních 30 min Session 1; ticket data jako vstup, ne názor jako rozhodnutí.",
         "adr": None,
     },
     frozenset({2, 12}): {
         "axis": "Outcome vs output",
-        "resolution": "Measurement v DoD; PM + Analytics interlock — PM definuje outcome, Analytics měřitelný proxy.",
+        "resolution": "Measurement v DoD; PdM + Analytics interlock — PdM definuje outcome, Analytics měřitelný proxy.",
         "adr": None,
     },
     frozenset({2, 14}): {

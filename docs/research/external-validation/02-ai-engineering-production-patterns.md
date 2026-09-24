@@ -425,14 +425,14 @@ mature CI/CD a quality gates, jinak ne"*.
 
 - **Swapped:** 48h od v0 draft k production, 43 % drop v ticket volume v 5 dnech, $1 400 saved.
 - **SeekFast:** customer dashboard v <40 min (vs 2 devs + 1 designer × týden).
-- **Vanta:** every PM má v0 license; non-technical PMs staví prototypy přímo pro zákazníky.
+- **Vanta:** every PdM má v0 license; non-technical PMs staví prototypy přímo pro zákazníky.
 - **Stripe Projects:** John Collison: *„Leading edge is now in vibe deploying"*.
 
 Source: [Vercel blog ship-ai-2025-recap](https://vercel.com/blog/ship-ai-2025-recap),
 [SaaStr v0 review](https://www.saastr.com/saastr-ai-app-of-the-week-v0-by-vercel-the-vibe-coding-tool-that-4-million-people-use-to-ship-real-software-not-just-demos/)
 
 **Pflanzer dopad [strong]:** *„Funkční prototyp v session"* claim
-(Pflanzer S1) má v industry direct analog. Vanta *„every PM má v0 license"*
+(Pflanzer S1) má v industry direct analog. Vanta *„every PdM má v0 license"*
 je intermediate pattern — ne workshop methodology, ale democratized prototyping.
 Pflanzer differentiator = **cross-fn alignment**, ne demokratizace.
 
@@ -747,7 +747,7 @@ Source: [Hogan Lovells ELTEMATE](https://www.hoganlovells.com/en/case-studies/tr
 ### 9.4 *„Design Sprint nás zklamal — funkční prototyp v session změnil výsledek"*
 
 - **NEFOUND v exact citation.**
-- Closest: Vanta *„Every PM has v0 license […] non-technical PMs are building
+- Closest: Vanta *„Every PdM has v0 license […] non-technical PMs are building
   interactive prototypes and putting them in front of customers"* — demokratizace,
   ne Pflanzer style.
 - Closest: NxCode review *„live demo in 30 seconds rather than a spec that needs

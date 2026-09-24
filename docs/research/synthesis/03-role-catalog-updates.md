@@ -47,7 +47,7 @@
 ### Decision tree změny
 
 - **Krok 0 — Discovery Readiness Gate.** Persona ≤6 mo + JTBD podepsaný
-  PM + OST v0. Pokud chybí → 2-week Discovery Sprint, session odložena.
+  PdM + OST v0. Pokud chybí → 2-week Discovery Sprint, session odložena.
   *(2, 6, 14.)*
 - **Krok 0a — Security & Data + Legal & Privacy + Platform Triage**
   (paralelně async, 48 h). Data Classification L1–L4 (DPO), AI Act
@@ -79,7 +79,7 @@ Tabulka doplňků (vstup / výstup); detail v perspektivách.
 | # | Role | Doplnit vstup | Doplnit výstup |
 |---|------|---------------|----------------|
 | 1 | Zadavatel | One-pager business case (ARR impact), XYZ hypotéza, decider mandate od CPO písemně, capacity pre-check | Go/iterate/kill s commitment index threshold; reinforcement track 30/60/90 |
-| 2 | PM | JTBD formát, OST 60 % vyplněná, success + leading metric, OKR alignment, XYZ | Preference matrix per role; PRD-lite; updated OST |
+| 2 | PdM | JTBD formát, OST 60 % vyplněná, success + leading metric, OKR alignment, XYZ | Preference matrix per role; PRD-lite; updated OST |
 | 3 | Facilitátor | Block **Energy curve** (S1 5–6 h, end 16:00; mezi-session 5–7 d; S2 3 h rozhodovací) | Tří-režimová AI-human matice (viz níže) |
 | 4 | FE lead | Design tokens, component manifest + Storybook, tech stack contract, ESLint/Prettier, a11y baseline, anti-pattern list | Komponentový mapping; token compliance >90 %; throw-away/evolve decision; repo + commit history |
 | 5 | BE lead | Backend Context Pack (OpenAPI URL, ERD, NFR baseline, ADR archiv 12 mo, event taxonomy, RFC 7807 conventions) | Draft OpenAPI 3.1 per varianta (BE shadow agent); breaking-change registr; 3–5 ADR; contract test skeleton (Pact/Schemathesis); migration plan stub |

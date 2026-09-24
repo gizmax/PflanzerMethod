@@ -80,7 +80,7 @@ Trend ↑ → varianta která nezhorší = baseline win.
 
 ## 6. Konflikty s ostatními rolemi
 
-- **PM (#2):** ship rychle vs ship-with-readiness. Readiness v DoD, ne post-launch backlog.
+- **PdM (#2):** ship rychle vs ship-with-readiness. Readiness v DoD, ne post-launch backlog.
 - **UX (#6):** čistý flow vs error states (90 % support = recovery from broken state). UX zapomíná na unhappy path.
 - **Engineering (#4, #5):** „edge case, fixneme později" = nejhorší týden. Top-3 predikované tickety = P1 v acceptance criteria.
 - **Security (#7):** PII v ticketech vs „bez verbatim nemůžu dělat práci". Pseudonymizovaný VoC dataset.

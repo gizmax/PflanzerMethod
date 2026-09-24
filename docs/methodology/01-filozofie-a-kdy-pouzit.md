@@ -1,6 +1,6 @@
 # Filozofie a kdy Pflanzerovu metodu použít
 
-> Cílový čtenář: praktikant (PM, EM, Tech Lead, facilitátor), který zvažuje
+> Cílový čtenář: praktikant (PdM, EM, Tech Lead, facilitátor), který zvažuje
 > konkrétní zadání a potřebuje fit/no-fit rozhodnutí dřív, než svolá místnost.
 
 ## Filozofie
@@ -52,7 +52,7 @@ Pflanzer dává smysl, pokud **současně** platí ≥5 z následujících:
    nedokážou rozhodnout nad mockupem nebo PRD; je potřeba klikací artefakt
    pro „a-ha moment".
 3. **Discovery je hotový nebo dohledatelný.** Persona freshness ≤6 měsíců
-   (5+ rozhovorů), JTBD podepsaný PM, OST v0 existuje, success metric je
+   (5+ rozhovorů), JTBD podepsaný PdM, OST v0 existuje, success metric je
    měřitelná. Pokud chybí, předřaď 2-week Discovery Sprint [synthesis 01 — E].
 4. **Scope vejde do kapacitního footprintu.** ~8–10 person-days/cyklus,
    max 2–3 cykly per PI. Default mounting: SAFe IP iteration. Mimo SAFe:

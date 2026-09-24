@@ -26,7 +26,7 @@ catalog] označuje jejich role jako POVINNÉ.
   categories, profiling, novel vendor, marketing claims — **lidský DPO
   povinně**, session se odkládá.
 
-**Kdo rozhoduje.** Facilitátor + PM. Facilitátor má *„právo zadavateli
+**Kdo rozhoduje.** Facilitátor + PdM. Facilitátor má *„právo zadavateli
 podržte slovo"* [perspektiva 03], stejně tak právo session zrušit, když
 není kvórum.
 
@@ -103,15 +103,15 @@ všichni jsme, přidáme i export do PDF / SSO / multi-tenant"*.
 
 1. **Parking lot okamžitě** — facilitátor zapíše návrh do viditelného
    sloupce *„Parking lot — Session 2 review"*. Žádná diskuse v Session 1.
-2. **PM vlastní parking lot review** — každý bod má owner + due date
+2. **PdM vlastní parking lot review** — každý bod má owner + due date
    + decision (in-scope / next iteration / never).
 3. Pokud se scope creep opakuje 3× v jedné session, facilitátor
    zastaví práci a explicitně připomene Charter scope. *„Tato session
    řeší X. Y a Z patří do separátní iterace"* [perspektiva 03 §
    conflict avoidance].
 
-**Kdo rozhoduje.** PM + Facilitátor. PM má tie-breaker na scope, UX
-na flow [synthesis 01 § PM × UX].
+**Kdo rozhoduje.** PdM + Facilitátor. PdM má tie-breaker na scope, UX
+na flow [synthesis 01 § PdM × UX].
 
 **Mitigace.** XYZ hypotéza v Charteru s explicit *„Out-of-scope"*
 sekcí; facilitátor *„konflikt nadojmem v 5. minutě výskytu, ne ke
@@ -157,13 +157,13 @@ Detector [synthesis 02 § Discovery] vrací skóre ≥7 z 10 (= STOP).
 1. **Facilitátor zastaví session** — žádné další divergence. *„Pflanzer
    řeší alignment, ne discovery"* [perspektiva 02].
 2. **Předřadit 2-week Discovery Sprint** [synthesis 01 osa E]: 15
-   user rozhovorů, JTBD statement podepsaný PM, OST v0, persona
+   user rozhovorů, JTBD statement podepsaný PdM, OST v0, persona
    freshness ≤6 měsíců (5+ rozhovorů).
 3. Session 1 se reschedule po Discovery Sprintu, ne dříve.
 4. Náklady na discovery (~10 person-days) jdou na účet projektu, ne
    metody.
 
-**Kdo rozhoduje.** Facilitátor (právo session zastavit) + PM (vlastní
+**Kdo rozhoduje.** Facilitátor (právo session zastavit) + PdM (vlastní
 discovery deliverable) + UX (vlastní persona research).
 
 **Mitigace.** Discovery Readiness Gate jako krok 0 [synthesis 03];
@@ -285,7 +285,7 @@ Reinforcement track (T+30/60/90) ohrožen [perspektivy 07, 13].
 3. **CoP notification** — odchod championa je signál o adopci/burnout,
    loguje se pro pattern detection.
 
-**Kdo rozhoduje.** EM (alokace buddy) + PM (re-commit od přijímajícího
+**Kdo rozhoduje.** EM (alokace buddy) + PdM (re-commit od přijímajícího
 týmu).
 
 **Mitigace.** Champion buddy povinný od začátku [methodology 07]; CoP
@@ -310,7 +310,7 @@ na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
 4. Vetovací role (Security, Legal, EM kapacita) bez async sign-offu =
    Session 2 ne-decision-making, jen review.
 
-**Kdo rozhoduje.** Facilitátor + PM. PM vlastní stakeholder kalendář.
+**Kdo rozhoduje.** Facilitátor + PdM. PdM vlastní stakeholder kalendář.
 
 **Mitigace.** Mezi-session podle stupně (Quick 3 / Lean 3–5 / Full 5–7
 pracovních dní, ADR-0021), prototyp deployed do 48 h, připomínka 48 h

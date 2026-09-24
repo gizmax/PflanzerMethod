@@ -31,7 +31,7 @@ neutralita mezi rolemi.
    re-run, ale generuj alespoň synteticky pro propustnost.
 
 2. **JTBD lock + OST review** — re-extract z Charteru. Pokud chybí JTBD card,
-   PM expert agent musí dodat (mode_2).
+   PdM expert agent musí dodat (mode_2).
 
 3. **Crazy 8s placeholder** — neimitujeme silent ideation v AI běhu. Místo
    toho z Charteru + triage **dedukuj 3-6 distinct hypotéz**, které by tým

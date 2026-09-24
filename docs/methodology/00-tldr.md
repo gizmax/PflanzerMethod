@@ -11,7 +11,7 @@
 Korporátní handoff hell. Zadavatel dostane nápad, pošle ho produktu, pinká se to,
 vznikne zadání, pinká se to s programátory, security to vetuje na konci, a za
 chvíli je rok pryč bez funkčního výstupu. Pflanzerova metoda nahrazuje sériový
-pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PM,
+pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PdM,
 programátoři od minuty 0, security, legal, UX, …) jsou v jedné místnosti
 a AI slouží jako páka, která z verbálního inputu týmu generuje **běžící
 produkční-ready varianty** v reálném čase. **Výstup cyklu je hotový produkt,

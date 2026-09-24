@@ -2,13 +2,13 @@
 
 ## Kdo jsem
 
-Senior UX Designer / Design Lead v korporátu, 12+ let praxe (Adobe → in-house → agency → in-house). Posedlost: jasné mentální modely, výzkumem ověřené persony, JTBD framing, accessibility jako default ne addon. Denní bolesti: design system drift, spor o ownership persony s PM, "Figma vs kód jako source of truth", a teď i vibe-coding tooly, které generují krásnou kosmetiku přes špatný flow.
+Senior UX Designer / Design Lead v korporátu, 12+ let praxe (Adobe → in-house → agency → in-house). Posedlost: jasné mentální modely, výzkumem ověřené persony, JTBD framing, accessibility jako default ne addon. Denní bolesti: design system drift, spor o ownership persony s PdM, "Figma vs kód jako source of truth", a teď i vibe-coding tooly, které generují krásnou kosmetiku přes špatný flow.
 
 ## 1. Posouzení (pomáhá / chybí / ohrožuje)
 
-**Pomáhá.** PM řeší přesně to, co mě na Design Sprintu štve — Figma fasáda, kterou pak vývoj rozbije. Funkční mockup s programátorem v místnosti = handoff bez retranslace. "Together alone" princip a silent ideation z LDJ jsou pro UX zlato (HiPPO mě v korporátu zabíjí). Score závaznosti per oddělení konečně řeší, že "líbí se mi" není commitment. AI proxy pro user research je elegantní úhybný manévr, kde reálná persona není po ruce.
+**Pomáhá.** PdM řeší přesně to, co mě na Design Sprintu štve — Figma fasáda, kterou pak vývoj rozbije. Funkční mockup s programátorem v místnosti = handoff bez retranslace. "Together alone" princip a silent ideation z LDJ jsou pro UX zlato (HiPPO mě v korporátu zabíjí). Score závaznosti per oddělení konečně řeší, že "líbí se mi" není commitment. AI proxy pro user research je elegantní úhybný manévr, kde reálná persona není po ruce.
 
-**Chybí.** (a) **Persona ownership** není nikde definovaný — kdo přinese personu do session 1? PM ji typicky vlastní, ale UX má research insight. Bez tohohle vznikne "persona-by-committee" během dne, což je kosmetická fikce. (b) **JTBD framing** úplně absentuje — bez něj AI generuje řešení na vágní problém ("dashboard pro manažery") místo na job ("when I prep for board meeting, I want to spot anomalies, so I avoid surprise"). (c) **Design system jako vstup** chybí v původním popisu úplně. (d) **Accessibility checklist** není v Session 1 inputs, jen jako volitelná role 11 — to je v EU 2026 (EAA platí) malus. (e) **Flow integrity** napříč variantami: 3 mockupy mohou řešit 3 různé jobs — a nikdo to nezkontroluje. (f) **Source of truth po session 2** — vibe-coded artefakt nebo Figma file? Bez rozhodnutí vznikne drift.
+**Chybí.** (a) **Persona ownership** není nikde definovaný — kdo přinese personu do session 1? PdM ji typicky vlastní, ale UX má research insight. Bez tohohle vznikne "persona-by-committee" během dne, což je kosmetická fikce. (b) **JTBD framing** úplně absentuje — bez něj AI generuje řešení na vágní problém ("dashboard pro manažery") místo na job ("when I prep for board meeting, I want to spot anomalies, so I avoid surprise"). (c) **Design system jako vstup** chybí v původním popisu úplně. (d) **Accessibility checklist** není v Session 1 inputs, jen jako volitelná role 11 — to je v EU 2026 (EAA platí) malus. (e) **Flow integrity** napříč variantami: 3 mockupy mohou řešit 3 různé jobs — a nikdo to nezkontroluje. (f) **Source of truth po session 2** — vibe-coded artefakt nebo Figma file? Bez rozhodnutí vznikne drift.
 
 **Ohrožuje.** AI vygeneruje přesvědčivé UI nad nejasnou personou a tým ho potvrdí, protože "vypadá hezky". Rapid prototyping bez research guardrails = design theatre s lepší produkční hodnotou. Druhé riziko: Frontend lead u stolu povede UI rozhodnutí přes implementační pohodlí (shadcn defaults), ne přes user need. Třetí: skóre závaznosti odměňuje hlasité role (security, eng) a podhodnocuje "měkká" UX rizika, která se projeví až v produkci.
 
@@ -16,7 +16,7 @@ Senior UX Designer / Design Lead v korporátu, 12+ let praxe (Adobe → in-house
 
 Bez těchto artefaktů Session 1 odkládám:
 
-1. **Persona doc (1–3 primárních)** — JTBD věta, top 3 frustrace, kontext použití, accessibility needs. Vlastník: PM, contributor: UX.
+1. **Persona doc (1–3 primárních)** — JTBD věta, top 3 frustrace, kontext použití, accessibility needs. Vlastník: PdM, contributor: UX.
 2. **Current-state journey map** s pain points (pokud brownfield) nebo **assumption journey** (greenfield) s explicitními hypotézami.
 3. **Design tokens manifest** (colors, type scale, spacing, radii, motion) export z design systému + link na živou komponentní knihovnu (Storybook nebo Figma library URL).
 4. **Component inventory** — co reusneme (Button v3, DataTable v2…) a co je legitimně nové.
@@ -43,7 +43,7 @@ Po Session 2: **rozhodnutí o source of truth** (Figma file ↔ kódový repo se
 
 ## 5. Vylepšení
 
-1. **Přidej UX writera / content designera** jako trigger-volitelnou roli #16 (trigger: user-facing copy, error states, empty states). Microcopy je 30 % UX a v PM zatím nikde.
+1. **Přidej UX writera / content designera** jako trigger-volitelnou roli #16 (trigger: user-facing copy, error states, empty states). Microcopy je 30 % UX a v PdM zatím nikde.
 2. **JTBD warm-up** prvních 30 min Session 1 — facilitátor + AI vygenerují 3 JTBD karty, tým vybere jednu. To ukotví scope a brání persona drift.
 3. **Design system gate v in-session toolu** — vibe-coding tool (Bolt/Lovable) musí dostat design tokens jako MCP context; každá deviation se loguje. Implementace: generovat `tokens.json` z DS a injektovat ho jako system prompt.
 4. **Dual-track artefakt po session 2** — Figma file zůstává *source of truth pro design rationale a anotace* (persona, JTBD, accessibility notes), kódový repo *source of truth pro implementaci*. Vztah: Figma odkazuje na commit hash, kód odkazuje na Figma node ID. Žádný "Figma vs kód" konflikt, jen jasné vrstvy.
@@ -51,7 +51,7 @@ Po Session 2: **rozhodnutí o source of truth** (Figma file ↔ kódový repo se
 
 ## 6. Konflikty
 
-- **PM vs UX o persona ownership.** Pflanzer to nezná — defaultně to PM "ukradne". Návrh: persona je *shared artefakt*, PM ji prioritizuje, UX ji validuje researchem; v PM kontextu vyžadovat **podpis obou** na persona doc před session.
+- **PdM vs UX o persona ownership.** Pflanzer to nezná — defaultně to PdM "ukradne". Návrh: persona je *shared artefakt*, PdM ji prioritizuje, UX ji validuje researchem; v PdM kontextu vyžadovat **podpis obou** na persona doc před session.
 - **Frontend lead vs UX o komponentní rozhodnutí.** FE tlačí na shadcn default, UX na DS variantu. Bez explicit DS authority v místnosti vyhraje rychlost. Návrh: design system steward (může být UX nebo dedicated) má **veto na nové komponenty**, podobně jako security na critical risk.
 - **Eng manager kapacita vs UX kvalita.** "Tahle varianta je 2× delší, vezmeme tu jednodušší." Skóre závaznosti to neřeší, protože UX nemá vetovací sloupec. Návrh: UX dostává *yellow flag* (ne veto, ale viditelný warning v rozhodovací matici) pro varianty s known usability debt.
 

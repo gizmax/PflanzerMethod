@@ -26,8 +26,8 @@ sandbox_ttl: <date — extended to 30 days for Track S>
 
 # Authorship
 authors:
-  - name: <Spec lead PM>
-    role: PM
+  - name: <Spec lead PdM>
+    role: PdM
     pilot_role: facilitator
   - name: <BE lead>
     role: BE
@@ -43,7 +43,7 @@ signers:
     name: <name>
     date: <YYYY-MM-DD>
     veto_scope: overall
-  - role: PM
+  - role: PdM
     name: <name>
     date: <YYYY-MM-DD>
     veto_scope: A.functional

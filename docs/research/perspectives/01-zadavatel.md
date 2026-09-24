@@ -73,7 +73,7 @@ Director / VP Product v B2B SaaS, 15+ let — prošel jsem od enterprise sales p
 
 - **Security/Compliance (#7):** budu tlačit synthetic data + sandbox scope, oni budou tlačit live integraci pro „realistický test". Konflikt se vyhrocuje při Session 1 minutě 45 — řeším pre-charterem (data classification fixed před session).
 - **Engineering manager (#9):** moje business urgency vs jeho roadmap commitment. Klasický fight o Q3 kapacitu. Řeším capacity pre-sign-off a champion alternativou.
-- **PM (#2):** můj scope ambition vs jeho prioritization framework. Pokud PM má jiný OKR view, Session 1 se přetahuje o problem framing místo o řešení. Řeším explicit decider hierarchií v charteru.
+- **PdM (#2):** můj scope ambition vs jeho prioritization framework. Pokud PdM má jiný OKR view, Session 1 se přetahuje o problem framing místo o řešení. Řeším explicit decider hierarchií v charteru.
 - **UX/Designer (#6):** moje rychlost vs jejich research rigor. „Persona není dost prozkoumaná" vs „ship to learn". Řeším XYZ hypotézou — měřitelné, ne vibe.
 - **Legal/GDPR (#10):** můj go-to-market timeline vs jejich risk-aversion default. Async pre-review + on-call slot to řeší v 80 % případů, zbytek je political escalation k CPO.
 
