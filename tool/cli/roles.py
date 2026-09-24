@@ -26,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, transaction  # noqa: E402
+from tool.cli.tier import infer_tier  # noqa: E402
 
 CATALOG_PATH = REPO_ROOT / "tool" / "data" / "role_catalog.json"
 SUMMARY_DIR = REPO_ROOT / "data" / "charters"
@@ -272,7 +273,11 @@ STATUS_LABELS = {
     "excluded": "vyřazená",
 }
 TIER_LABELS = {"quick": "Quick (60–90 min)", "lean": "Lean (3 h)", "full": "Full (5–6 h)"}
-TIER_SOURCES = {"arg": "zadáno přes `--tier`", "db": "odvozeno z DB, přepiš přes `--tier`"}
+TIER_SOURCES = {
+    "arg": "zadáno přes `--tier`",
+    "db": "z Charteru (`projects.tier`)",
+    "inferred": "odhad pro starší projekt bez `projects.tier`, přepiš přes `--tier`",
+}
 
 
 @dataclass
@@ -311,25 +316,17 @@ def missing_card_fields(role: dict[str, Any]) -> list[str]:
     return missing
 
 
-def _infer_tier(conn: Any, project_id: int, capacity_profile: str | None) -> str | None:
-    """Best-effort tier from DB (the tier itself is not a DB column).
+def _project_tier(conn: Any, project_id: int, capacity_profile: str | None) -> tuple[str, str]:
+    """Tier from `projects.tier`; falls back to inference for legacy rows.
 
-    audit-grade capacity profile -> Full; project bootstrapped by the in-room
-    `/pm live` wizard with the default profile -> Quick; any other known
-    profile -> Lean (the Track P default).
+    Returns (tier, source) where source is "db" (stored column) or "inferred".
     """
-    if capacity_profile == "audit-grade":
-        return "full"
-    quick = conn.execute(
-        "SELECT 1 FROM audit_log WHERE action = 'quick.bootstrap' "
-        "AND target_type = 'project' AND target_id = ? LIMIT 1",
-        (project_id,),
-    ).fetchone()
-    if quick and capacity_profile in (None, "default"):
-        return "quick"
-    if capacity_profile in ("default", "regulated"):
-        return "lean"
-    return None
+    has_col = any(r[1] == "tier" for r in conn.execute("PRAGMA table_info(projects)"))
+    if has_col:
+        row = conn.execute("SELECT tier FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if row and row[0]:
+            return str(row[0]), "db"
+    return infer_tier(conn, project_id, capacity_profile), "inferred"
 
 
 def load_card_project(slug: str, tier: str | None = None) -> CardProject:
@@ -353,15 +350,15 @@ def load_card_project(slug: str, tier: str | None = None) -> CardProject:
                 (project_id,),
             ).fetchall()
         }
-        inferred = _infer_tier(conn, project_id, row["capacity_profile"])
+        db_tier, db_source = _project_tier(conn, project_id, row["capacity_profile"])
     if not roles:
         raise ValueError(f"Project '{slug}' has no selected roles. Run /pflanzer-roles first.")
-    tier_source = "arg" if tier else ("db" if inferred else None)
+    tier_source = "arg" if tier else db_source
     return CardProject(
         slug=slug,
         name=row["name"],
         decider=row["decider_name"],
-        tier=tier or inferred,
+        tier=tier or db_tier,
         tier_source=tier_source,
         session_1=(sessions.get(1) or "")[:10] or None,
         session_2=(sessions.get(2) or "")[:10] or None,

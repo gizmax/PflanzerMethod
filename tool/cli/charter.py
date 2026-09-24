@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import REPO_ROOT as DB_REPO_ROOT  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.tier import TIER_LABELS, WINDOW_DAYS, default_tier, validate_tier  # noqa: E402
 
 CHARTER_DIR = DB_REPO_ROOT / "data" / "charters"
 
@@ -64,12 +65,17 @@ class CharterInput:
     # names one of THROWAWAY_USE_CASES.
     throwaway_or_evolve: str = "evolve"  # evolve | throwaway
     throwaway_rationale: str | None = None
+    # Stupeň Quick / Lean / Full (ADR-0021). None = derive from capacity_profile.
+    tier: str | None = None
     # Deprecated (v0.2 "6 conditions for evolve" gate). Accepted so older
     # JSON specs still load, but ignored: production deploy is gated by
     # Ship gate quality gates >= 80/100 + sign-off, not by Charter.
     evolve_conditions_met: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.tier = validate_tier(
+            self.tier or default_tier(self.capacity_profile), self.capacity_profile
+        )
         if self.throwaway_or_evolve not in OUTPUT_MODES:
             raise ValueError(
                 f"throwaway_or_evolve must be one of {OUTPUT_MODES}, "
@@ -129,6 +135,7 @@ def render_charter_md(c: CharterInput) -> str:
 - **Profil**: `{c.capacity_profile}` (default ~10 PD / regulated ~14 PD /
   audit-grade ~18–22 PD per ADR-0008 + devil's advocate Útok 1)
 - **Person-days commit**: **{c.capacity_person_days}**
+- **Stupeň**: **{TIER_LABELS[c.tier]}** · mezi-session okno {WINDOW_DAYS[c.tier]} pracovních dní (ADR-0021)
 
 ## Risk profile
 - **AI Act risk-tier**: `{c.ai_act_tier}` *(provisional, re-assessed v Session 2 —
@@ -171,7 +178,7 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
                 slug, name, charter_md, status,
                 decider_name, decider_mandate_from, cpo_escalation_contact, sponsor_name,
                 ai_act_tier, data_class, throwaway_or_evolve, throwaway_rationale,
-                capacity_profile, capacity_person_days,
+                capacity_profile, capacity_person_days, tier,
                 xyz_hypothesis, primary_lagging_metric, leading_metric, guardrail_metric,
                 kill_criteria,
                 reinforcement_t7, reinforcement_t30, reinforcement_t60, reinforcement_t90,
@@ -179,7 +186,7 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
             ) VALUES (?, ?, ?, 'charter',
                       ?, ?, ?, ?,
                       ?, ?, ?, ?,
-                      ?, ?,
+                      ?, ?, ?,
                       ?, ?, ?, ?,
                       ?,
                       ?, ?, ?, ?,
@@ -198,6 +205,7 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
                 throwaway_rationale = excluded.throwaway_rationale,
                 capacity_profile = excluded.capacity_profile,
                 capacity_person_days = excluded.capacity_person_days,
+                tier = excluded.tier,
                 xyz_hypothesis = excluded.xyz_hypothesis,
                 primary_lagging_metric = excluded.primary_lagging_metric,
                 leading_metric = excluded.leading_metric,
@@ -214,7 +222,7 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
                 c.slug, c.name, charter_md,
                 c.decider_name, c.decider_mandate_from, c.cpo_escalation_contact, c.sponsor_name,
                 c.ai_act_tier, c.data_class, c.throwaway_or_evolve, c.throwaway_rationale,
-                c.capacity_profile, c.capacity_person_days,
+                c.capacity_profile, c.capacity_person_days, c.tier,
                 c.xyz_hypothesis, c.primary_lagging_metric, c.leading_metric, c.guardrail_metric,
                 c.kill_criteria,
                 c.reinforcement_t7, c.reinforcement_t30, c.reinforcement_t60, c.reinforcement_t90,

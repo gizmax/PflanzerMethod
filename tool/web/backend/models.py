@@ -51,6 +51,7 @@ class Project(SQLModel, table=True):
     data_class: str | None = None
     throwaway_or_evolve: str | None = None
     capacity_profile: str | None = None
+    tier: str | None = None  # quick | lean | full (ADR-0021)
     capacity_person_days: int | None = None
     xyz_hypothesis: str | None = None
     primary_lagging_metric: str | None = None

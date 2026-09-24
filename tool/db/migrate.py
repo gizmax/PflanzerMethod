@@ -39,6 +39,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("throwaway_rationale", "TEXT"),
         # Audit N8: multi-repo (FE / BE / monorepo workspace) as JSON array
         ("target_repos", "TEXT"),
+        # Stupeň metody Quick / Lean / Full (ADR-0021); backfilled below
+        ("tier", "TEXT CHECK (tier IN ('quick','lean','full'))"),
     ],
     "variants": [
         # Audit N10: diff walkthrough summary per variant (markdown)
@@ -87,6 +89,21 @@ def _apply_additive(conn) -> list[str]:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {type_}")
                 applied.append(f"{table}.{name}")
     return applied
+
+
+def _backfill_tier(conn) -> int:
+    """Fill projects.tier for rows created before the column existed."""
+    from tool.cli.tier import infer_tier
+
+    rows = conn.execute(
+        "SELECT id, capacity_profile FROM projects WHERE tier IS NULL"
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            "UPDATE projects SET tier = ? WHERE id = ?",
+            (infer_tier(conn, int(row[0]), row[1]), int(row[0])),
+        )
+    return len(rows)
 
 
 def _schema_ddl(schema_sql: str, table: str) -> tuple[str, list[str]]:
@@ -168,6 +185,9 @@ def apply_schema(reset: bool = False) -> None:
         applied_alters = _apply_additive(conn)
         if applied_alters:
             print(f"[migrate] applied additive columns: {', '.join(applied_alters)}")
+        backfilled = _backfill_tier(conn)
+        if backfilled:
+            print(f"[migrate] backfilled projects.tier for {backfilled} project(s)")
         rebuilt = _rebuild_check_tables(conn, schema_sql)
         if rebuilt:
             print(f"[migrate] rebuilt tables (CHECK update): {', '.join(rebuilt)}")

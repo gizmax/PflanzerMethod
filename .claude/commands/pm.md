@@ -54,7 +54,7 @@ cílového commandu po svém.
 Načti projekty:
 
 ```bash
-sqlite3 data/pflanzer.db "SELECT slug, name, status FROM projects ORDER BY updated_at DESC"
+sqlite3 data/pflanzer.db "SELECT slug, name, status, tier FROM projects ORDER BY updated_at DESC"
 ```
 
 - **Žádný projekt** → nabídni `start` (nový projekt) nebo `live`

@@ -162,7 +162,8 @@ deferred, jen `throwaway` / `pilot` (`/pm live`). **Lean** = 3 h, 2 kola
 buildu s mid-checkpointem, default pro Track P (`/pm build`). **Full** =
 5–6 h, kompletní agenda `04-session-1.md`, 4 triage tracks povinné,
 audit-grade / regulated. Session 2 je ve všech stupních 3 h. Autoritativní
-tabulka: `00-lean-pflanzer.md` § Tři stupně jedné metody.
+tabulka: `00-lean-pflanzer.md` § Tři stupně jedné metody. Tool ukládá stupeň
+do `projects.tier` (Charter / bootstrap; starší projekty doplní `migrate.py`).
 
 ### Ship gate
 

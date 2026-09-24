@@ -136,6 +136,7 @@ Vyrob JSON spec do `/tmp/quick-bootstrap-<slug>.json`:
   "decider_name": "<z kroku 2A>",
   "room_role_idx": [1, 2, 3, 4, 6],
   "risk_profile": "throwaway|pilot|production",
+  "tier": "quick",  // volitelné; default quick, pro production lean (ADR-0021)
   "role_owners": {"1": "Honza", "2": "Petra", ...},
   "target_repo_url": "https://github.com/<org>/<repo>",
   "target_branch_owner": "@petra",

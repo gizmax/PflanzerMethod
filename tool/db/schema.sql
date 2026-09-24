@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS projects (
   throwaway_rationale TEXT,
   capacity_profile TEXT
     CHECK (capacity_profile IN ('default','regulated','audit-grade')),
+  -- Stupeň metody (00-lean-pflanzer.md § Tři stupně, ADR-0021); NULL = neznámý (legacy)
+  tier TEXT
+    CHECK (tier IN ('quick','lean','full')),
   capacity_person_days INTEGER,
   xyz_hypothesis TEXT,
   primary_lagging_metric TEXT,
