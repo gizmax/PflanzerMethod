@@ -19,7 +19,7 @@ Principal BE engineer v korporátu, 15+ let. Java monolity, Go microservices, DD
 **Co mě v ní ohrožuje**
 - "Programátoři jsou u tvorby prototypu → handoff bude hladký" je nebezpečný předpoklad. Hladký handoff znamená *commitment*, ne vibe. Bez ADR a contractu commitment není.
 - AI v session 2 "navrhuje, jak to zapracovat" — pokud nemá kontext na existující domain model, navrhne věci, které lokálně dávají smysl a globálně rozbijí bounded context.
-- Scope creep skrz UI: PM přidá pole do mockupu, BE má v ten moment "schváleno" něco, co znamená migraci 200M řádků.
+- Scope creep skrz UI: PdM přidá pole do mockupu, BE má v ten moment "schváleno" něco, co znamená migraci 200M řádků.
 
 ## 2. Must-have vstupy do Session 1
 
@@ -55,7 +55,7 @@ Bez 1, 2, 3, 5 se Session 1 z mé role **nespouští**. Je to pre-flight, ne nic
 2. **Idempotence ignored.** Mockup nemá retry, prototype nemá `Idempotency-Key`. FE pak v prod při timeoutu duplikuje objednávky. Mitigace: idempotency je default v API conventions, ne opt-in.
 3. **Breaking change pro existing consumers** schovaná v UI změně. Field rename v mockupu = field rename v API = rozbité 4 mobilní apps v marketu. Mitigace: BE shadow agent fl aguje každou změnu signatury proti registrovaným consumerům.
 4. **Datový model navržený UI-first.** Denormalizace pro pohodlí FE, která rozbije source-of-truth. "User má addressLine kombinovaný" — a najednou nemůžeš dělat fakturační reporty. Mitigace: ERD-first warm-up s Event Stormingem na komplexní domény (per baseline 01).
-5. **Eventual consistency lež.** Mockup ukáže "okamžitě se zobrazí v dashboardu", ale reálná architektura má 2 s propagaci přes Kafku. PM commitne UX, který nelze postavit. Mitigace: každý mockup screen má anotaci "data freshness: realtime / <Xs / async".
+5. **Eventual consistency lež.** Mockup ukáže "okamžitě se zobrazí v dashboardu", ale reálná architektura má 2 s propagaci přes Kafku. PdM commitne UX, který nelze postavit. Mitigace: každý mockup screen má anotaci "data freshness: realtime / <Xs / async".
 
 ## 5. Konkrétní vylepšení metody
 

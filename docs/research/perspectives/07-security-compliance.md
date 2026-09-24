@@ -118,7 +118,7 @@ veto na první session, kde někdo zmíní „pojďme to napojit na prod API“.
 
 ## 6. Konflikty s ostatními rolemi
 
-- **vs Zadavatel / PM:** „Chceme to rychle, security to zdrží.“ Můj
+- **vs Zadavatel / PdM:** „Chceme to rychle, security to zdrží.“ Můj
   protiargument: pre-approved sandbox a tool list **zrychlují**, protože
   eliminují late-stage review. Veto používám jen na L4 data nebo
   unapproved tooly.

@@ -430,7 +430,7 @@ Feature: {p[1]}
 
 ## P2P (Prototype-to-Prod) checklist (9 položek)
 
-- [ ] Acceptance criteria reviewed + signed by PM
+- [ ] Acceptance criteria reviewed + signed by PdM
 - [ ] Contract tests (Pact) zelené
 - [ ] A11y axe-core run pass (žádné Critical / Serious)
 - [ ] Security: SBOM (`cyclonedx`/`syft`) + CVE scan (Trivy/Snyk) clean

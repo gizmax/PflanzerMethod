@@ -95,7 +95,7 @@ silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
   Critical = pivot. L4 data v promptu = okamžitý stop.
 - **EM kapacita vs business timeline**: T-shirt v session, story points
   až po 2-day capped spike. Persistence konflikt = eskalace mimo místnost.
-- **PM + UX persona ownership**: shared artefakt; PM tie-breaker na scope,
+- **PdM + UX persona ownership**: shared artefakt; PdM tie-breaker na scope,
   UX na flow. Persona doc podepsaný oběma.
 - **FE + BE contract**: contract-first, OpenAPI shadow paralelní.
   Breaking-change registr.
@@ -150,7 +150,7 @@ Každá zúčastněná role potvrzuje commitment level **0–3** [synthesis 03]:
 | **2** | Active scoring | Bude reviewovat handoff artefakty, on-call pro otázky |
 | **3** | Co-creation | Aktivně se podílí na delivery, owns dependency |
 
-**Critical role** (PM, EM, Security, Legal pokud relevantní) musí mít **≥ 2**;
+**Critical role** (PdM, EM, Security, Legal pokud relevantní) musí mít **≥ 2**;
 pokud kterákoli má 0, automatické iterate / re-charter.
 
 **AI-assisted commitment** se započítává deflated max 0.5 (AI proxy nemá

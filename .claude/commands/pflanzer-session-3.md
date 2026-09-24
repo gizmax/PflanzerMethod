@@ -215,6 +215,9 @@ SHIP.md (`data/handoffs/$ARGUMENTS/SHIP.md`) obsahuje:
 - sekci **„AI provenance"** + read-only kontrolu trailerů na
   `base..pflanzer/<slug>-<W>` (chybějící trailery / AI `Co-Authored-By` /
   bot autor = warning, historie se nepřepisuje),
+- sekci **„AI náklady (viditelnost)"** — tokeny Claude Code per varianta
+  + celkem za cyklus ze session logů na tomto stroji (USD jen s ceníkem,
+  `tool/templates/README-ai-usage.md`; bez limitu),
 - copy-paste `git commit` s trailery `Pflanzer-Variant` /
   `Pflanzer-Session: ship` / `AI-Assisted` (autor = dev u klávesnice)
   a `gh pr create` s labely `pflanzer`, `ai-generated`, `pflanzer:<slug>`.

@@ -15,7 +15,7 @@ Bez fresh persony / JTBD / OST je Pflanzer „feature factory s AI uprostřed"
 1. **Persona freshness ≤ 6 měsíců** (B2C) / ≤ 9 měsíců (B2B) /
    ≤ 12 měsíců (internal). Definováno: persona doc s posledním update v rámci
    tohoto okna, založená na ≥ 5 user interviews / shadowings / ticket reviews.
-2. **JTBD card podepsaná PM** — explicit Job-to-be-done formulace
+2. **JTBD card podepsaná PdM** — explicit Job-to-be-done formulace
    (ne *„uživatelé chtějí X"*, ale *„když [situace], chci [motivation],
    abych mohl [outcome]"*).
 3. **OST v0** ≥ 60 % vyplněná — Opportunity Solution Tree (Torres). Top-level
@@ -26,11 +26,11 @@ Bez fresh persony / JTBD / OST je Pflanzer „feature factory s AI uprostřed"
 1. Načti `data/charters/<slug>.md` a project DB row.
 2. Ptej se uživatele přes AskUserQuestion na 3 otázky (jednou):
    - Existuje aktuální persona doc (≤ 6/9/12 mo)? Pokud ano, kde je?
-   - Existuje JTBD card podepsaná PM? Cesta?
+   - Existuje JTBD card podepsaná PdM? Cesta?
    - Existuje OST v0 ≥ 60 %? Cesta?
 3. Pokud uživatel chce **opt-out** s důvodem (např. „je to internal admin tool,
    personu intuitivně známe"), zaznamenej justifikaci a flagni jako
-   `status='deferred'` (ne `ok`, ne `blocked`) — eskalace na PM v session 1.
+   `status='deferred'` (ne `ok`, ne `blocked`) — eskalace na PdM v session 1.
 4. Spočítej **Discovery Debt Detector skóre** (0–10):
    - 0–2 = healthy (status='ok')
    - 3–6 = warning (status='ok' s warning flagem)

@@ -11,7 +11,7 @@
 Korporátní handoff hell. Zadavatel dostane nápad, pošle ho produktu, pinká se to,
 vznikne zadání, pinká se to s programátory, security to vetuje na konci, a za
 chvíli je rok pryč bez funkčního výstupu. Pflanzerova metoda nahrazuje sériový
-pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PM,
+pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PdM,
 programátoři od minuty 0, security, legal, UX, …) jsou v jedné místnosti
 a AI slouží jako páka, která z verbálního inputu týmu generuje **běžící
 produkční-ready varianty** v reálném čase. **Výstup cyklu je hotový produkt,
@@ -30,7 +30,7 @@ aby kód šel rovnou do prod
    agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
    ticket prediction. Výstup = anotované varianty + risk register + score
    závaznosti per role [synthesis 02 — sekce 3].
-3. **Mezi-session** (5–7 dní): běžící produkt na sandbox URL (24 h TTL,
+3. **Mezi-session** (3–7 pracovních dní podle stupně, per ADR-0021): běžící produkt na sandbox URL (24 h TTL,
    watermark). Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
    rationale; AI-only feedback deflated max 0.5).
 4. **Session 2** (3 h, rozhodovací): AI moderuje výklad připomínek per role,

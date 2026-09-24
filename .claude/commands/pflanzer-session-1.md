@@ -131,7 +131,7 @@ Pokud web hub neběží — neselhej, jen logni warning a doporuč
 - Tabulka variant × score × shortlist flag.
 - Veto registr (pokud nějaký).
 - Path k `data/sessions/<slug>/_summary.md`.
-- Next: `/pflanzer-feedback-pull <slug>` (Slice 6) za 5-7 pracovních dní.
+- Next: `/pflanzer-feedback-pull <slug>` (Slice 6) po mezi-session okně (Lean 3–5 / Full 5–7 pracovních dní, ADR-0021).
 
 ## Co NEDĚLAT
 

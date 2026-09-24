@@ -142,14 +142,14 @@ kolo a my v platformě platíme úklid.
 5. **Deploy footprint kalkulačka jako AI sub-agent v session 1.**
    Bere mockup spec + variant description, vrací estimate (services,
    compute, data, third-party). Lidský platform engineer schvaluje async.
-   Šetří moji kapacitu a dává PM/zadavateli reálné cost-aware varianty.
+   Šetří moji kapacitu a dává PdM/zadavateli reálné cost-aware varianty.
 6. **GitOps od minuty 0.** Prototyp commitne do firemního monorepa
    (subfolder `prototypes/<session-id>/`), ArgoCD ho deployne do
    sandbox namespace. Žádné manuální `kubectl`, žádné "u mě to běží".
 
 ## 6. Konflikty s ostatními rolemi
 
-- **vs Zadavatel / PM:** "Chceme prototyp dnes, paved-road je overhead."
+- **vs Zadavatel / PdM:** "Chceme prototyp dnes, paved-road je overhead."
   Protiargument: paved-road je rychlejší, protože sandbox máš za hodinu
   a observability hned. Ad-hoc deploy ti vezme 2 dny v týdnu 6.
 - **vs Frontend / Backend lead:** "Naše service má vlastní conventions."

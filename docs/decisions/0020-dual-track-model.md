@@ -84,7 +84,7 @@ Decider (per ADR-0011) má autoritu hard-gate.
 - 5. pre-flight track: Trigger Validation by Method Steward
 
 **Session 1 mechanika:**
-- Spec authors (PM, UX, BE/API lead pokud available, Solution Architect) +
+- Spec authors (PdM, UX, BE/API lead pokud available, Solution Architect) +
   facilitátor + AI co-pilot
 - AI generuje **1-3 reference prototypy** (lightweight, ne production-ready)
   jako navigation aid pro spec
@@ -99,7 +99,7 @@ Decider (per ADR-0011) má autoritu hard-gate.
 - 5-stage handoff ritual triggered
 
 **5-stage handoff ritual (Track S unique):**
-1. 90-min walkthrough (PM + dev lead + spec authors)
+1. 90-min walkthrough (PdM + dev lead + spec authors)
 2. 5-day Q&A window (dev tým může klást otázky, spec authors odpovídají)
 3. Amendment protocol (dev requests changes, sponsor approves)
 4. First milestone review (dev demos first slice, spec authors verify alignment)

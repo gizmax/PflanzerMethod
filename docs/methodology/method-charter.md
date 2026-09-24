@@ -18,7 +18,7 @@
   Engineering Excellence, Head of Process Portfolio), pozice 2 úrovně pod
   CTO/CIO, tenure profile 3+ roky, JD explicitně zahrnuje sunset authority.
   **NESMÍ být CPO** (per ADR-0011 rationale).
-- **Method Steward:** **0.5-0.7 FTE dedikovaný Senior PM** v Engineering Excellence
+- **Method Steward:** **0.5-0.7 FTE dedikovaný Senior PdM** v Engineering Excellence
   CoE, €100-150k OPEX/rok. Selekční kritéria + conflict-of-interest disclosure
   per ADR-0012. Direct reporting line k Method Decider.
 
@@ -229,9 +229,9 @@ Měříme proti **current state v dané organizaci**: sériový handoff
 | Readout | Scope | Owner | Min. PD per pilot | Co se musí stát |
 |---------|-------|-------|-------------------|------------------|
 | T+7 | per pilot | Champion (#17) | 0.5 | Handoff přijatý dev týmem, SHIP.md aktualizovaný |
-| T+30 | per pilot | PM + EM + Champion | 2.0 (souhrnně) | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min + **blind external EM panel** trigger |
-| T+60 | per pilot | PM + Champion | 1.0 | Scope creep audit, 1-page update do Method Steward inboxu |
-| T+90 | per pilot | Decider + PM + EM + Champion | 2.5 | Guardrail metric (re-work %), Go/Iterate/Kill **v ADR** per ADR-0001 |
+| T+30 | per pilot | PdM + EM + Champion | 2.0 (souhrnně) | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min + **blind external EM panel** trigger |
+| T+60 | per pilot | PdM + Champion | 1.0 | Scope creep audit, 1-page update do Method Steward inboxu |
+| T+90 | per pilot | Decider + PdM + EM + Champion | 2.5 | Guardrail metric (re-work %), Go/Iterate/Kill **v ADR** per ADR-0001 |
 | **T+30 compliance audit** | **method-level** | Method Steward | 0.5 | 12-bodový compliance check, score publikován v dashboardu |
 | T+6 mo | **method-level** | Method Steward | 2 PD/report + 0.25 PD/měsíc průběžně | Agregace metrik napříč 3+ piloty, **Process Portfolio Review** publikace (NE Confluence-only) |
 | T+12 mo | **method-level** | Method Decider (VP Eng Effectiveness) | review session 4 h + prep | Keep / iterate / sunset rozhodnutí, **external red team observer** přítomen (P2 follow-up), ADR commit |

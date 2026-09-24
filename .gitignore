@@ -43,3 +43,6 @@ logs/
 
 # Local config
 .claude/settings.local.json
+
+# AI usage price list (tool/cli/ai_usage.py) — local, prices change
+/pflanzer.prices.json

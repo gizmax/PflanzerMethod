@@ -32,6 +32,8 @@ s mandátem — liší se jen množstvím rituálů kolem. **Session 2 je ve vš
 stupních rozhodovací a trvá 3 h** (`/pm decide`). **Po Session 2 následuje
 Ship gate, ne třetí setkání:** pipeline (quality gates + `SHIP.md`), kterou po
 Go rozhodnutí pouští dev pár (`/pm ship` + `/pm handoff`); není to meeting.
+Délku mezi-session okna per stupeň a pravidla pro mlčení po deadline určuje
+**ADR-0021** (`docs/decisions/0021-mezi-session-okno-per-stupen.md`).
 
 ## Co Pflanzer skutečně je
 
@@ -93,7 +95,7 @@ Default profil **vědomě vynechává**:
 |----------------------|--------------------|------|
 | Method Steward 0.5 FTE €100-150k/rok | – | Method-level kalkulace má smysl až po 3+ pilotech v org |
 | Pre-registration document signed pre-S1 | – | Stačí jednověté success threshold v meeting notes |
-| Pflanzer Compliance Score 12 elementů ex-post | – | Steward neexistuje; PM si po pilotu napíše 1 řádek learning |
+| Pflanzer Compliance Score 12 elementů ex-post | – | Steward neexistuje; PdM si po pilotu napíše 1 řádek learning |
 | AI Act Fáze A/B/C dvoufázový protokol | – | Pokud projekt není High-risk per AI Act, žádné fáze. Limited tier = checkbox. |
 | DORA prompt audit pipeline (SIEM ingest, 7y retention) | – | Pokud nejsi banka / pojišťovna, DORA tě nezajímá. |
 | True Cost Worksheet per-role × per-phase | Stačí orientační ~10 PD odhad | Detailní worksheet má smysl tam, kde sponzor hlídá KAŽDÝ PD |
@@ -103,7 +105,7 @@ Default profil **vědomě vynechává**:
 
 **Realistický effort pro default profil:** ~10 PD (per `03-pre-session-priprava.md`
 True Cost Worksheet § Default profil). Z toho:
-- Pre-flight + Charter: 1.5 PD (sponzor + PM)
+- Pre-flight + Charter: 1.5 PD (sponzor + PdM)
 - Session 1 + builder prep: 2 PD (facilitator + builder lead)
 - Mezi-session iterace: 2.5 PD (builder + stakeholder review)
 - Session 2 + Decider's call: 1.5 PD
@@ -129,22 +131,25 @@ Pro běžný e-shop → default. Tečka.
 
 ## Role catalog v default profilu
 
+> **Role cards:** každému člověku pošli jen jeho 1stránkovou kartu → [`role-cards/README.md`](role-cards/README.md) (pro projekt: `python3 tool/cli/roles.py cards --slug <slug>`).
+
 Z 18-position catalogu (`02-role-catalog.md`) v default profilu **stačí
 6-7 lidí v místnosti**:
 
 | Role | Z catalogu | Default profil |
 |------|------------|----------------|
 | Zadavatel / Sponzor | #1 | Povinný |
-| PM | #2 | Povinný |
-| Facilitátor | #3 | Povinný (často PM nebo dedikovaný) |
+| PdM | #2 | Povinný |
+| Facilitátor | #3 | Povinný (často PdM nebo dedikovaný) |
 | FE / Vibe-coding lead | #4 | Povinný |
 | BE / API lead | #5 | Povinný (pokud projekt má backend) |
 | UX / Designer | #6 | Doporučený |
 | EM | #9 | Doporučený (signs off capacity) |
 
-**Vynecháno proti audit-grade:** Security (#7), Legal/DPO (#10), A11y (#11),
-UX writer (#12), Data analyst (#13), Solution architect (#14), DevOps (#15),
-CS proxy (#16), Champion (#17), Compliance auditor.
+**Vynecháno proti audit-grade:** Security (#7), QA (#8), Legal/DPO (#10),
+A11y (#11), Data analyst (#12), CS proxy (#13), End-user proxy (#14),
+DevOps (#15), UX writer (#16), Champion (#17), Solution architect (#18),
+Compliance auditor.
 
 Security a Legal v default profilu **NEjsou v místnosti** — checklist
 1-pager je dostatečný (data classification L1/L2, žádný external pen test

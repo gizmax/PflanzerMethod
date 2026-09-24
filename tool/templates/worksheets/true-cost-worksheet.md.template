@@ -25,7 +25,7 @@
 | Role | Pre-flight | S1 | Mezi | S2 | Handoff | T+7 | T+30 | T+60 | T+90 | **Total PD** |
 |------|-----------|----|----|----|---------|-----|------|------|------|-------------|
 | Zadavatel (#1) | | | | | | | | | | |
-| PM (#2) | | | | | | | | | | |
+| PdM (#2) | | | | | | | | | | |
 | Facilitátor (#3) | | | | | | | | | | |
 | FE / Vibe-coding (#4) | | | | | | | | | | |
 | BE / API (#5) | | | | | | | | | | |
@@ -60,9 +60,9 @@
 | Readout | Plánované PD | Owner | Akceptační kritérium | Trigger pro flag |
 |---------|--------------|-------|---------------------|-------------------|
 | T+7 | | Champion (#17) | Handoff přijatý dev týmem, SHIP.md status updatovaný | Pokud Champion nedodá 0.5 PD = flag do T+30 retro |
-| T+30 | | PM + EM + Champion | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Pokud acceptance < 80 % nebo retro vynechán = data feed Method Steward |
-| T+60 | | PM + Champion | Scope creep audit, Method Steward 1-pager | Pokud Method Steward update vynechán = method-level warning |
-| T+90 | | Decider + PM + EM + Champion | Guardrail metric (re-work %), Go/Iterate/Kill rozhodnutí per pilot | Pokud rozhodnutí není v ADR formě = silence-triggered Kill (ADR-0001 Scenario B) |
+| T+30 | | PdM + EM + Champion | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Pokud acceptance < 80 % nebo retro vynechán = data feed Method Steward |
+| T+60 | | PdM + Champion | Scope creep audit, Method Steward 1-pager | Pokud Method Steward update vynechán = method-level warning |
+| T+90 | | Decider + PdM + EM + Champion | Guardrail metric (re-work %), Go/Iterate/Kill rozhodnutí per pilot | Pokud rozhodnutí není v ADR formě = silence-triggered Kill (ADR-0001 Scenario B) |
 
 **Σ Reinforcement PD: `<celkem>` — minimální 6 PD (default profil).**
 

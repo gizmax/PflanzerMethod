@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-05
-**Context source:** perspektivy 02 (PM), 07 (Security), 10 (Legal), 14 (User research), 15 (DevOps), synthesis 02 (key themes)
+**Context source:** perspektivy 02 (PdM), 07 (Security), 10 (Legal), 14 (User research), 15 (DevOps), synthesis 02 (key themes)
 
 ## Kontext
 
@@ -33,10 +33,10 @@ nestačí — bez **tvrdého gate** se metoda spouští do mlhy.
 
 ### Krok 0 — Discovery Readiness Gate
 
-**Vlastník:** PM (#2) + User research (#14).
+**Vlastník:** PdM (#2) + User research (#14).
 **Kritéria (všechna povinná):**
 - Persona freshness ≤ 6 mo (B2C) / 9 mo (B2B) / 12 mo (internal).
-- JTBD card podepsaná PM.
+- JTBD card podepsaná PdM.
 - OST v0 ≥ 60 % vyplněná.
 
 **Pokud chybí:** předřadit **2-week Continuous Discovery sprint** (Torres

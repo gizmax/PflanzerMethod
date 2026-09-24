@@ -59,15 +59,13 @@ Template: `tool/templates/precision-spec-track-s.md.template`.
 
 Když dev tým není v room a spec jde k nim:
 
-1. **90-min walkthrough** — PM + dev lead + spec authors
+1. **90-min walkthrough** — PdM + dev lead + spec authors
 2. **5-day Q&A window** — dev klade otázky, spec authors odpovídají
 3. **Amendment protocol** — dev requests changes, sponzor approves
 4. **First milestone review** — dev demos first slice, spec authors verify
 5. **T+30 embedded reviewer** — spec author shadows dev sprint, detects drift early
 
 Definováno v ADR-0020.
-
-## Core deliverable terms
 
 ## Core deliverable terms
 
@@ -177,6 +175,18 @@ quality gates (score 0–100) + `SHIP.md` → PR připravený k mergi
 Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
 **Session 2b** (dříve také „Session 3“) — to není Ship gate.
 
+## Zkratky
+
+### PdM
+
+**Produkt manažer** (role #2 v `02-role-catalog.md`). Zkratka „PdM" se
+v češtině neskloňuje, takže sedí do vět beze změny tvaru.
+
+### PM
+
+**Pflanzer Method.** Používá se **jen** v názvu commandu `/pm`, nikdy v textu
+(brand pravidlo v `CLAUDE.md`). Pro produkt manažera piš „PdM".
+
 ## Anti-patterns (deprecated language)
 
 | ❌ Deprecated | ✅ Use instead | Why |
@@ -190,6 +200,7 @@ Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
 | „extract code" (Ship gate) | „polish + observability" | „Extract" implies code wasn't prod-ready |
 | „Session 3" / „3 sezení" | „Ship gate" / „2 sezení + Ship gate" | Ship gate je pipeline, ne setkání |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
+| „PM" pro produkt manažera | „PdM" (nebo „produkt manažer") | „PM" je vyhrazeno pro Pflanzer Method a smí být jen v názvu commandu `/pm` |
 
 ## Reference
 

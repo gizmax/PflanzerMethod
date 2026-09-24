@@ -38,7 +38,7 @@ Validation → Spec update. Reálný měřený overhead z industry reports
 2025, Augment Code 2026):
 
 ### Round 0 — Vision / Stakeholder intake
-- **Effort:** 2–3 PD (PM + business sponsor + tech lead)
+- **Effort:** 2–3 PD (PdM + business sponsor + tech lead)
 - **Elapsed:** 3–5 kalendářních dní (scheduling napříč 3–5 lidmi)
 - **Output:** vision document, success criteria, scope.
 - **Friction:** standardní waterfall intake, sponzor obvykle delegate.
@@ -96,7 +96,7 @@ aby spec měl o čem mluvit.*
     Isoform blog 2025.
 
 ### Round 5 — QA finds reimpl ≠ original intent
-- **Effort:** 3–7 PD (QA + dev + PM ping-pong, 2–4 rounds)
+- **Effort:** 3–7 PD (QA + dev + PdM ping-pong, 2–4 rounds)
 - **Elapsed:** 3–7 dní calendar, často protažené na 2 týdny při scheduling
 - **Output:** bug list, spec interpretation disputes.
 - **Friction (kvantifikováno):**
@@ -150,7 +150,7 @@ Z `00-lean-pflanzer.md` (default profil, ne audit-grade):
 - **Friction:** žádný handoff, všechno už v místnosti.
 
 ### Den 1–4 — Pre-flight triage (Discovery + Security + Legal + Platform)
-- **Effort:** 1 PD (4 paralelní sub-agents + PM aggregation)
+- **Effort:** 1 PD (4 paralelní sub-agents + PdM aggregation)
 - **Elapsed:** 1–2 dni async
 - **Output:** Gate decision (Go / Iterate / Kill) before any code.
 - **Friction:** shift-left per Boehm (cost-of-defect 1× vs 100× post-
@@ -209,7 +209,7 @@ ready evidence."*
 
 | Krok | SDD (industry typical) | Pflanzer (default profil) | Delta |
 |------|-----------------------|---------------------------|-------|
-| **Discovery / Vision** | Round 0: 2–3 PD, 3–5 d elapsed (PM + sponsor delegate + tech lead asynchronně) | Den 0 coffee: 0,5 PD, 1 d elapsed (sponzor osobně + 5 z workflow) | **~4× méně PD, 3–5× rychlejší calendar** |
+| **Discovery / Vision** | Round 0: 2–3 PD, 3–5 d elapsed (PdM + sponsor delegate + tech lead asynchronně) | Den 0 coffee: 0,5 PD, 1 d elapsed (sponzor osobně + 5 z workflow) | **~4× méně PD, 3–5× rychlejší calendar** |
 | **Pre-flight risk gate** | Implicitní v Round 0 PRD (často skipnuté) | Den 1–4 triage 4 paralelní agents, 1 PD, gate decision pre-build | **Pflanzer má, SDD nemá → defect prevention shift-left per Boehm 50–200×** |
 | **Build prototype** | Round 1 (volitelný): 2–5 PD, 1–5 d (jeden engineer + AI) | Den 5 Session 1: 2 PD, 1 d (6 lidí, 3h, 2–3 paralelní weby in-room) | **Pflanzer staví 2–3 varianty paralelně; SDD jednu** |
 | **Spec** | Round 2: 1–2 PD + 0,5–1 PD review, 2–4 d elapsed | n/a (artifact-first, kód JE spec) | **Pflanzer ušetří 1,5–3 PD + 2–4 d elapsed** |
@@ -338,7 +338,7 @@ Pflanzer 2,4× mid-point je defensible konzervativní claim).
 
 - Anti-HiPPO Decider's call (Lu, Yuan & McLeod 2012, 41 % bias reduction)
   funguje jen pokud sponzor je **přítomen, ale hlasuje poslední**.
-- SDD nemá ekvivalent — Round 0 vision je obvykle PM proxy bez sponsor
+- SDD nemá ekvivalent — Round 0 vision je obvykle PdM proxy bez sponsor
   presence.
 
 **Verdikt:** Pflanzer wins; SDD nemá nástroj.

@@ -266,7 +266,7 @@ default_risk_profile = "pilot"  # throwaway | pilot | production
 
 # Owner GitHub handles (pre-populated do SHIP.md gh pr create --reviewer)
 target_branch_owner = "<@github-handle>"
-shadow_pm = "<jméno PM>"
+shadow_pm = "<jméno PdM>"
 
 # Vygenerováno: {date.today().isoformat()}
 """, encoding="utf-8")

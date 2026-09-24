@@ -24,7 +24,7 @@
 Konkrétní decision criteria, na kterých bych v `/pflanzer` wizardu mob doporučil:
 
 1. **Greenfield + cross-functional disagreement.** Tým nemá shodu na tom,
-   *co* staví (ne *jak*). Příklad: PM si představuje multi-step wizard,
+   *co* staví (ne *jak*). Příklad: PdM si představuje multi-step wizard,
    FE chce single-screen, UX chce conversational. Paralelní mode v této situaci
    prostě postaví všechny tři a hlasování ukáže preferenci — ale **týmu zbyde
    3× rozdílný mental model winning fíčury**. Mob mode je donutí se na společný
