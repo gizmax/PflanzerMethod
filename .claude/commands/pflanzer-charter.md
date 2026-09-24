@@ -60,6 +60,12 @@ projektový záznam do `data/pflanzer.db` + Charter markdown do
      - regulated = data/integrace/AI Act limited, ~14 PD
      - audit-grade = high-risk AI Act, regulated SDLC, ~18–22 PD
    - Person-days commit (číslo) — připomeň reálný range pro vybraný profil
+   - **Stupeň** (`tier`): `quick` | `lean` | `full`
+     (`docs/methodology/00-lean-pflanzer.md` § Tři stupně, ADR-0021).
+     Default podle profilu: `audit-grade` → `full`, jinak `lean`.
+     `quick` s `audit-grade` `charter.py` odmítne. Stupeň určuje délku
+     Session 1, rozsah triage a mezi-session okno (Quick 3 / Lean 3–5 /
+     Full 5–7 pracovních dní).
 
    **F) Risk profile:**
    - AI Act risk-tier: `minimal` | `limited` | `high` | `unacceptable`

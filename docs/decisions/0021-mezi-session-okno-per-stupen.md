@@ -36,7 +36,7 @@ nezprůměrovává, rozhoduje se ADR.
 | **Lean** (default Track P) | **3–5 pracovních dní**, default **4** | Triage je lightweight checklist, vetovací role nejsou povinně v místnosti. Odpovídá receptu Den 6–9. | Lidé z místnosti + stakeholdeři dotčených oddělení |
 | **Full** | **5–7 pracovních dní** | Async vetovací role (Security, Legal/DPO, EM), AI Act Fáze B a triage updates do Den 5 (`05-mezi-sessions.md`). Kratší okno by je vyřadilo. | Všechny role včetně async vetovacích |
 
-Stupeň je zapsaný v Charteru / bootstrapu. Okno se **neprodlužuje nad horní
+Stupeň je zapsaný v Charteru / bootstrapu a uložený v `projects.tier`. Okno se **neprodlužuje nad horní
 hranici stupně**; potřeba delšího okna je signál k upgradu stupně nebo
 k odložení Session 2 podle eskalačních pravidel v `05-mezi-sessions.md`.
 
@@ -81,7 +81,8 @@ navíc upozorní vetovací role na Den 3.
 - Diff review dává feedback, který jde přímo do kódu, ne jen preference.
 
 **Negativní / cost**
-- Tým musí znát svůj stupeň už v Session 1 (je v Charteru / bootstrapu).
+- Tým musí znát svůj stupeň už v Session 1 (Charter / bootstrap ho ukládá do
+  `projects.tier`; starší projekty doplní odhadem `migrate.py`).
 - Pravidlo „ticho = no objection" vyžaduje, aby decision log zapisoval
   i mlčení.
 
