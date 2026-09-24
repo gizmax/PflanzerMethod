@@ -52,7 +52,7 @@ Anti-metrika (no-go):
 
 ### Wave 1 (paralelně)
 1. **CC-coding-expert** — senior eng, 10+ let s AI assistants, ví jak nastavit prompt aby AI vyrobila reusable code
-2. **Vibe-product-expert** — ex-Bolt PM, ex-v0 user, ví jak product flow přinutí team shippovat
+2. **Vibe-product-expert** — ex-Bolt PdM, ex-v0 user, ví jak product flow přinutí team shippovat
 3. **DevEx-expert** — engineering productivity, dotfiles, monorepo lead, ví jak nastavit defaults
 
 ### Wave 2 (paralelně po wave 1)

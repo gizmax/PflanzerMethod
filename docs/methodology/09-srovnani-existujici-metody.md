@@ -28,7 +28,7 @@
 |---|---|---|---|---|---|---|
 | **Cíl** | Cross-functional alignment na funkčním klikacím prototypu + handoff package | Validace strategické otázky přes high-fidelity prototyp testovaný s 5 uživateli | Z problémů prioritizovaný seznam akcí + ownery | Alignment na MVP přes vyplněný MVP Canvas | Mapování domény (events, bounded contexts, pain points) | Test tržní hypotézy XYZ přes nejmenší možný experiment |
 | **Délka** | 2 sessions (S1 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně) + S2 3 h) + 3–7 dní mezi-session podle stupně + Ship gate + pre-flight 48 h + reinforcement T+7/30/60/90 | 5 dní (Knapp 2016), 4 dny (Sprint 2.0), 1 den (mikro) | 30–60 min | 5 dní (full), 2 dny (zkrácená) | 2–8 h až 2 dny | Hodiny až týdny dle pretotype typu |
-| **Lidé** | 4–7 v místnosti default, 8–10 max; MoSCoW gradace; vždy core 3 (zadavatel, PM, facilitátor) + role z decision tree | 7 + Decider | 4–10 | PO + tech lead + UX + business (typicky 5–8) | Doménoví experti + dev (5–15) | 1–3 (autor hypotézy + MVP buddy) |
+| **Lidé** | 4–7 v místnosti default, 8–10 max; MoSCoW gradace; vždy core 3 (zadavatel, PdM, facilitátor) + role z decision tree | 7 + Decider | 4–10 | PO + tech lead + UX + business (typicky 5–8) | Doménoví experti + dev (5–15) | 1–3 (autor hypotézy + MVP buddy) |
 | **Hlavní výstup** | 1–3 anotované klikací prototypy, draft OpenAPI 3.1, score závaznosti per role, decision package s lidskou atribucí, P2P checklist | High-fidelity prototyp (v 2026 Lovable / Bolt místo Figmy) + go/no-go/pivot z 5 user testů | Akční seznam s impact/effort + ownery | MVP Canvas (segment, hypotézy, metriky, features, journey, schedule) | Stěna post-itů s eventy, aktéry, pain points; 50+ painpointů bez prioritizace | Validovaná/falsifikovaná XYZ hypotéza („alespoň X % z Y udělá Z") |
 | **Kde selhává v korp** | Pokud chybí discovery / persona / decider mandate, vyrobí „nejhladší feature factory" | 5 dní seniorů nereálných; security/legal/non-tech nejsou v místnosti od minuty 0 (v 2026 už ne Figma fasáda — Lovable produkuje live URL, ale **stakeholder alignment vrstva chybí**) | Mělká hloubka; HiPPO přebíjí silent voting; akce nikdo nerozjede | Týden non-stop blocker; Canvas končí v Confluence; alignment verbální, ne vizuální | Vyžaduje DDD-literate facilitátora; mapuje, neřeší — exec ztrácí trpělivost; zeď post-itů obtížně přenositelná | Fake Door reputačně rizikový pro compliance; B2B sample <100 statisticky neprůkazný; interní IT nemá „trh" |
 | **Kde excels** | Cross-functional alignment problem na nové feature s funkčním prototypem v regulovaném prostředí; AI Act / DORA compliance gates; SAFe IP iteration mounting | Novel problem space pro consumer-facing s persona výzkumem v sprintu | Quick prioritizace problémů v existujícím týmu (<1 hod) | Greenfield startup MVP s diskovaným segmentem | Mapování existující komplexní domény před refaktoringem / DDD | Test poptávky před investicí do dev (B2C, externí trh) |
@@ -44,7 +44,7 @@
 | **Kategorie** | AI pilot fixture (cross-fn, 14d, prod handoff) | AI development lifecycle methodology (mob, continuous bolts) | Enterprise AI delivery (90-day idea→MVP) | Pre-implementation strategic foundation (2h) | AI agent orchestration framework (12+ rolí jako AI personas) | Spec-driven development (specification discipline) |
 | **Origin** | Pflanzer (Tom, v0.3 2026) | AWS / Raja SP (DevOps blog 07/2025, re:Invent DVT214 12/2025) | Thoughtworks consulting (Q1 2026) | Jake Knapp + John Zeratsky (kniha *Click*, 2025) | OSS community (MIT, `bmad-code-org`) | GitHub Spec Kit (93k stars), Amazon Kiro, OpenSpec |
 | **Cíl** | Cross-functional alignment + production code z 2 sessions | Engineering velocity přes AI-led mob (BA/PM/eng/QA/ops) | 90-day production AI MVP s enterprise governance | Strategic problem framing před implementací | AI agent personas pro 12+ rolí | Specification-first development discipline |
-| **Délka** | 2 sessions (3-6h + 3h) + 5-7d async + reinforcement T+7/30/60/90 (~14d default) | Continuous „bolts" (3-4h Mob Elaboration) | 90 dní idea → MVP | 2h foundation phase | Continuous (agent-based) | Variable (specification iteration) |
+| **Délka** | 2 sessions (3-6h + 3h) + 3-7d async podle stupně + reinforcement T+7/30/60/90 (~14d default) | Continuous „bolts" (3-4h Mob Elaboration) | 90 dní idea → MVP | 2h foundation phase | Continuous (agent-based) | Variable (specification iteration) |
 | **Lidé** | 4-7 cross-fn (vč. Security/Legal/A11y/UX-writer/CS-proxy v audit-grade) | Engineering tým + AI navigator (jen tech role) | Consulting team + client stakeholders | 3-5 leadership stakeholders | Solo + AI agents (no humans in „room") | Variable (developer-centric) |
 | **AI role** | Co-pilot v session (Bolt/v0/Lovable/Claude Code) + AI-mediated synthesis v S2 | AI navrhuje → mob validuje (continuous loop) | AI augmented delivery (multi-tool stack) | (Žádná explicit AI role) | AI = primary actor (orchestrated agents) | AI generuje code from spec |
 | **Compliance / audit** | **Native AI Act čl. 14 decision log + DORA-grade audit + dvoufázový AI Act protokol (Fáze A/B/C)** | Žádný explicit audit trail | Enterprise governance vrstva (consulting-grade) | (Out of scope) | Žádný | Žádný |
@@ -209,7 +209,7 @@ artefakt, který velcí poradci nemají.
 
 ### 5. 2-session formát s týdenním asyncem + reinforcement track (operational moat)
 
-**Co:** Session 1 (vibe, 3-6h) → 5-7 dní async iterace → Session 2 (rozhodnutí,
+**Co:** Session 1 (vibe, 3-6h) → 3-7 dní async iterace (podle stupně, ADR-0021) → Session 2 (rozhodnutí,
 3h) → handoff → reinforcement T+7/30/60/90. Default profil ~14 dní calendar,
 ~10 PD effort.
 
@@ -219,7 +219,7 @@ non-stop (corporate stakeholder unavail). Foundation Sprint je 2h foundation
 (žádná implementation phase). 14-day production cycle = unique cadence.
 
 **Co to umožňuje:** Corporate stakeholder availability (async window),
-context retention (5-7 dní < window of forgetting), reinforcement loop
+context retention (3-7 dní < window of forgetting), reinforcement loop
 (T+7/30/60/90 kalibrace).
 
 ### Bývalé USPs (v0.2), nyní commoditizované

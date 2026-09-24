@@ -166,6 +166,16 @@ checklistu):
 | **Security** | scan — secret scan + SBOM / license scan clean | Promote-to-prod gate |
 | **EM** | kapacitu — dev tým na D11-14 hardening + review | True Cost Worksheet (`03` § Krok 1a) |
 
+### AI náklady (viditelnost)
+
+SHIP.md má sekci **„AI náklady (viditelnost)"**: tokeny (input / output /
+cache write / cache read) per varianta a celkem za cyklus, načtené ze
+session logů Claude Code pro worktrees projektu na stroji, kde běžel build
+(`tool/cli/ai_usage.py`, snapshot do DB přes `--record`). Je to jen viditelnost
+pro EM („session stála X"), žádný limit ani gate. Jiné stroje a hosted buildery
+se nezapočítají. Odhad v USD se zobrazí jen s lokálním ceníkem
+(`pflanzer.prices.json`, viz `tool/templates/README-ai-usage.md`).
+
 ## Track S — precision spec do vývoje (fallback)
 
 ### Když Track S
@@ -205,7 +215,7 @@ Track S sign-off = **spec navigation + audit trail**:
 
 **Critical:** žádný „throw spec over the wall". 5 stages:
 
-1. **90-min walkthrough** (PM + dev tým lead + spec authors)
+1. **90-min walkthrough** (PdM + dev tým lead + spec authors)
    - Spec authors present each section (A-E)
    - Reference prototype demonstrated
    - Q&A inline
@@ -262,7 +272,7 @@ handoff nepodepisuje a Session 2 končí ve stavu „iterate".
 
 ## Handoff Package — 7 + 1 sekcí
 
-### 1. Decision package (PM + Facilitátor)
+### 1. Decision package (PdM + Facilitátor)
 
 - **Business Charter** finální: problém, segment, ARR impact, success
   metric (lagging + ≥1 leading), XYZ hypotéza, decider mandate podepsaný
@@ -332,7 +342,7 @@ handoff nepodepisuje a Session 2 končí ve stavu „iterate".
   6. Synthetic data sada (žádné prod data v testech).
   7. Security sign-off (SBOM clean, secret scan clean).
   8. A11y baseline (Critical/Serious clean pro public-facing).
-  9. DoD podepsaná QA + dev + PM.
+  9. DoD podepsaná QA + dev + PdM.
 
   **Bez 9/9 položek prototyp neopouští sandbox.**
 

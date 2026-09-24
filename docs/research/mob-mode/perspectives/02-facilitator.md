@@ -36,7 +36,7 @@
 4. **Decider explicitně chce „cítit" implementaci** (ne jen reviewovat
    3 prototypy). Mob dává Deciderovi reálný kontakt s effort × tradeoff.
    Tady ale platí pitfall #2 níže.
-5. **Tým < 5 lidí**. Pflanzer min je 4 (Charter + PM + Facilitátor +
+5. **Tým < 5 lidí**. Pflanzer min je 4 (Charter + PdM + Facilitátor +
    Decider). Při 4 lidech paralelní = 2 dvojice = 2 varianty, ROI
    marginální. Mob s 4 = ideální velikost (níže § Concrete protocol).
 
@@ -94,7 +94,7 @@ failure scenario na sticky note silent), ne pouze na začátku session
 jako v `04-session-1.md`.
 
 ### P5 — Cross-functional cognitive overload
-6 distinct lenses (PM/FE/BE/UX/QA/Decider) force-fed serially na 1
+6 distinct lenses (PdM/FE/BE/UX/QA/Decider) force-fed serially na 1
 obrazovku = každý observer parsuje kód přes **vlastní lens** + kontext
 švih každých 8 min při rotaci. Working memory limit (Cowan 4±1) je
 po 30 minutách prázdný. Fix: **lens assignment per varianta**, ne per
@@ -115,9 +115,9 @@ pro „svou" rotaci). Fix: viz § Integration s Pflanzer níže.
 | Čas | Blok | Aktivita | LS struktura | Driver / Nav / Obs |
 |-----|------|----------|--------------|--------------------|
 | 00:00–00:08 | Open | VoC ritual (3 citace, 1 audio) + Decider-mute kontrakt podpis | **Impromptu Networking** krátce | Facilitátor vede |
-| 00:08–00:18 | Frame | JTBD lock + 3 hypotézy (1 per varianta) na sticky | **1-2-4-All** (1 min sami → 2 dvojice → 4 → all) | Facilitátor + PM |
+| 00:08–00:18 | Frame | JTBD lock + 3 hypotézy (1 per varianta) na sticky | **1-2-4-All** (1 min sami → 2 dvojice → 4 → all) | Facilitátor + PdM |
 | 00:18–00:23 | Pre-mortem | „Za 6 měsíců 1. varianta selhala, proč?" silent na sticky | **TRIZ** | Facilitátor |
-| **00:23–00:48** | **Variant A — mob build (25 min)** | Hypotéza A, prompt napíše navigator, driver kóduje | **Mob timer 8 min**, 3 rotace | A1: D=FE, N=PM, Obs=UX/BE/QA<br>A2: D=PM, N=UX, Obs=...<br>A3: D=UX, N=BE, Obs=... |
+| **00:23–00:48** | **Variant A — mob build (25 min)** | Hypotéza A, prompt napíše navigator, driver kóduje | **Mob timer 8 min**, 3 rotace | A1: D=FE, N=PdM, Obs=UX/BE/QA<br>A2: D=PdM, N=UX, Obs=...<br>A3: D=UX, N=BE, Obs=... |
 | 00:48–00:53 | Reset + Pre-mortem B | Driver clears screen, **fresh git branch**, sticky pre-mortem variant B | **TRIZ** | Facilitátor |
 | **00:53–01:18** | **Variant B — mob build (25 min)** | Hypotéza B, **jiný framing**, NE pokračování A | **Mob timer 8 min**, 3 rotace | rotace pokračuje, nikdo z A nedělá driver v B první rotaci |
 | 01:18–01:23 | Break | Fyzický reset, telefon povolen, Decider mute pokračuje | — | — |

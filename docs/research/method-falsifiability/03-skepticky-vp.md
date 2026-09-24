@@ -177,11 +177,11 @@ rozebrat z perspektivy někoho, kdo viděl 6 takových rolí umřít.
 
 **Realistický fix:**
 - **Method Steward je dedikovaný 0.5–1.0 FTE role v Engineering Excellence
-  (nebo equivalent CoE) s explicit hiring profilem.** Senior PM nebo
+  (nebo equivalent CoE) s explicit hiring profilem.** Senior PdM nebo
   Principal Engineer s 5+ let v process improvement, ne EM se sidekick
   odpovědností.
 - **Charter musí mít „Method Steward funding section"** s konkrétními čísly:
-  *„Steward = 0.5 FTE Senior PM (band M3/M4), annual fully-loaded cost
+  *„Steward = 0.5 FTE Senior PdM (band M3/M4), annual fully-loaded cost
   €120k–€180k, funded from Engineering Excellence OPEX, line item
   'Process Portfolio Stewardship', sign-off VP Engineering Effectiveness."*
   Bez tohohle čísla v Charteru se diskuse nikdy nedostane do budget cycle.
@@ -383,7 +383,7 @@ review — keep / iterate / sunset, owner Method Decider."*
 **Proč selže:** *„Publikuje do Confluence"* je v bance ekvivalent *„hodí to
 do studny"*. Confluence read rates pro process documentation v EU bankách:
 **3–8 % targeted audience views per quarter**. T+6 report přečtou 3 lidé —
-Method Steward, autor (asi tentýž), a jeden ambitious junior PM, který
+Method Steward, autor (asi tentýž), a jeden ambitious junior PdM, který
 hledá topic na vnitřní prezentaci.
 
 Pull mechanism (kdo chce, najde) nestačí pro institucionální rozhodnutí.
@@ -512,7 +512,7 @@ sunset rozhodnutí** = **vyšší pravděpodobnost vůbec přežít review cycle
 protože default flip (active Keep, ne active Kill) eliminuje sunk-cost
 freeze.
 
-### Změna #2 — Method Steward je dedikovaný 0.7–1.0 FTE Senior PM s €150k–€200k annual budget, financován z Engineering Excellence CoE; quarterly readout do Process Portfolio Review
+### Změna #2 — Method Steward je dedikovaný 0.7–1.0 FTE Senior PdM s €150k–€200k annual budget, financován z Engineering Excellence CoE; quarterly readout do Process Portfolio Review
 
 **Současný Charter:** *„~10 % FTE, může být EM se zájmem o process
 improvement, žádná nová headcount."*

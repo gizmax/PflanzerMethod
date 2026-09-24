@@ -75,11 +75,11 @@ předávací krok ztrácí část informace. Pflanzer naopak alignment akumuluje
 
 ```
 PFLANZER — alignment compounds
-[Sponsor]──[PM]──[Sec]──[Legal]──[Dev]──[A11y]   100% → 100% (same room)
+[Sponsor]──[PdM]──[Sec]──[Legal]──[Dev]──[A11y]   100% → 100% (same room)
    └────────── 1 artifact, 6 heads ──────────┘   ✿ prod code
 
 SDD — alignment decays per handoff
-[Sponsor 100%] → [PM 87%] → [Spec 71%] → [Dev 54%] → [App ≠ Spec 38%] → ?
+[Sponsor 100%] → [PdM 87%] → [Spec 71%] → [Dev 54%] → [App ≠ Spec 38%] → ?
                   -13%        -16%        -17%        -16%
                   ↓
                   „We need to revise the spec."
@@ -621,12 +621,12 @@ USPs na 02, novou na 03, Field Notes na 04, CTA na 05. **Doporučení: 02b**
           <div class="col-name lang-cs">Specka. Dev. App, která se liší. Specka'.</div>
           <div class="col-name lang-en">Spec. Dev. An app that diverges. Spec'.</div>
           <div class="col-desc lang-cs">
-            Každý předací krok ztrácí kontext (PM → spec → dev → app, kde
+            Každý předací krok ztrácí kontext (PdM → spec → dev → app, kde
             spec ≠ app). Pinking začne v týdnu 3. Compliance audit do
             specky <em>nepronikne</em> — kontroluje papír, ne live URL.
           </div>
           <div class="col-desc lang-en">
-            Every handoff loses context (PM → spec → dev → an app that
+            Every handoff loses context (PdM → spec → dev → an app that
             differs from spec). Ping-pong kicks in by week 3. The
             compliance audit <em>never reaches</em> the spec — it inspects
             paper, not a live URL.

@@ -279,7 +279,7 @@ Default = MUST only; high-stakes / regulated = MUST + SHOULD; audit-grade
 
 3. **„Pflanzer řeší alignment, ne discovery. Pokud mu nepředřadím JTBD
    a success metric, vyrobí mi nejhladší feature factory v korporátu —
-   s AI uprostřed."** *(PM, perspektiva 2)* Kontext: metoda startuje
+   s AI uprostřed."** *(PdM, perspektiva 2)* Kontext: metoda startuje
    řešením; bez OST/JTBD je cross-functional shoda na špatném problému.
 
 4. **„AI je nejlepší co-pilot v místnosti — ale nikdo nepodepíše rozhodnutí,

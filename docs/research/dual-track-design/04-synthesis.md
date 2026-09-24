@@ -187,7 +187,7 @@ drift mitigation).
 7. T+30 embedded spec author shadowing
 
 **5-stage handoff ritual:**
-1. 90-min walkthrough (PM + dev lead + spec authors)
+1. 90-min walkthrough (PdM + dev lead + spec authors)
 2. 5-day Q&A window
 3. Amendment protocol (dev requests, sponsor approves)
 4. First milestone review (dev demos, spec authors verify)

@@ -301,7 +301,7 @@ Top 5 změn, které mění tool architekturu (ne jen config tweaks):
   Push notification 24h/48h/70h před deadline.
 - **Consequence**: Slice 6 (web hub) potřebuje diff view UI + structured
   comment form + notification scheduler. Methodology dokumentace `04-session-1.md`
-  § "Délka" update. Nový "Shadow PM" role v `pflanzer.md` KROK 2.
+  § "Délka" update. Nový "Shadow PdM" role v `pflanzer.md` KROK 2.
 
 ---
 
@@ -317,7 +317,7 @@ Ne v top 10, ale na backlogu:
   (~3-5 min runtime), implementovat ve Sprint 4+.
 - **Merge-vote (2nd Decider call)** — perspektiva 02 C3, MED-HIGH. Sociální
   ritual, hodnotný ale ne blocker. Přidat do Slice 5 backlog.
-- **Shadow PM role** — perspektiva 02 C7. Closely-related k mezi-session 48h
+- **Shadow PdM role** — perspektiva 02 C7. Closely-related k mezi-session 48h
   okno (ADR 5), ale samotná role-definition může počkat.
 - **Two-truth wrap-up question** — perspektiva 02 C10, MED. Nice ritual,
   nemění tooling.

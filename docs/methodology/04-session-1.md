@@ -25,7 +25,7 @@ tým v Slacku [perspektiva 03]. Proto:
 
 - **Délka 5–6 h**, ne 8 h. Konec v 16:00, tým musí mít rezervu.
 - **Break každých 90 min nediskutuju**, pulsní check-in (1–5 prst) každé 2 h.
-- **Mezi-session okno: 5–7 pracovních dní** (ne 14, ne 3).
+- **Mezi-session okno: 5–7 pracovních dní** (Full stupeň; Lean 3–5, Quick 3 — per ADR-0021).
 - AI nese execution-heavy zátěž (mockup generation, transcript summary,
   clustering) v okamžicích, kdy lidská energie klesá.
 
@@ -36,7 +36,7 @@ sessions = rozhodli o vibe, ne o realitě.
 
 Per Decision tree z `02-role-catalog.md` + tato pravidla:
 
-- **Core 4 (vždy)**: Zadavatel/Decider (1), PM (2), Facilitátor (3), AI co-pilot.
+- **Core 4 (vždy)**: Zadavatel/Decider (1), PdM (2), Facilitátor (3), AI co-pilot.
 - **Per project mix**: FE (4), BE (5), UX (6), Security (7), QA (8) povinně
   pokud release intent, EM (9) pokud > 2 sprinty, Legal (10) pokud osobní
   data nebo AI Act trigger, A11y (11) default-on pro customer-facing,
@@ -68,7 +68,7 @@ jinak odložit projekt). Facilitátor jako náhradní builder není varianta.
 | Čas | Blok | Aktivita | Vede |
 |-----|------|----------|------|
 | 09:00–09:30 | **Voice of Customer ritual** | 5 verbatim citací z ticketů, 1 audio recording, 1 anekdota „nejhorší týden support" | CS proxy |
-| 09:30–10:00 | **Charter alignment + JTBD warm-up** | Re-read Charteru 5 min; JTBD lock; OST review; success metric a XYZ hypotéza fixovány | PM + UX (shared) |
+| 09:30–10:00 | **Charter alignment + JTBD warm-up** | Re-read Charteru 5 min; JTBD lock; OST review; success metric a XYZ hypotéza fixovány | PdM + UX (shared) |
 | 10:00–10:15 | **Pre-mortem TRIZ** | *„Je 6 měsíců po launchi, fíčura selhala, proč?"* — kondenzát 15 min, generuje rizika dřív, než tým zamiluje variantu [perspektiva 02] | Facilitátor + AI |
 | 10:15–10:45 | **Crazy 8s / silent ideation** | 8 minut × 8 sketches per účastník, individuálně. Bez diskuse | Facilitátor |
 | 10:45–11:00 | **Break** | Fyzický reset, ne networking [perspektiva 03] | — |
@@ -97,7 +97,7 @@ Tříreřežimová matice ze syntézy [synthesis 02 + perspektiva 03]:
 | Discovery Debt Detector audit | **AI** | Tvrzení vs evidence |
 | Pre-mortem rizika (1. draft) | **AI**, člověk validuje | AI nemá context blindness |
 | Score agregace + rationale extrakce | **AI** | Dataset, ne názor |
-| **JTBD framing & persona lock** | **Člověk** (PM + UX) | AI nepozná persona drift |
+| **JTBD framing & persona lock** | **Člověk** (PdM + UX) | AI nepozná persona drift |
 | **Konflikt mezi rolemi** | **Člověk** (Facilitátor) | AI nemá political authority |
 | **Diff walkthrough** | **Člověk** (dev pár) | AI kód bez lidského výkladu = stakeholdeři hlasují o UI, ne o kódu |
 | **Dot voting interpretation** | **Člověk** | „8 hlasů pro A" může být HiPPO |
@@ -131,7 +131,7 @@ musí to udělat **veřejně s rationale do decision logu** [perspektiva 02].
 
 ### Scope creep („když už tu jsme, přidejme…")
 
-Facilitátor + PM mají právo říct **„parking lot"** a vrátit do JTBD.
+Facilitátor + PdM mají právo říct **„parking lot"** a vrátit do JTBD.
 Časový budget na varianty fixní. Parking lot review pouze v obědním slotu;
 items se v session nevrací. Nový item v parking lotu = kandidát pro
 **další charter**, ne pro tento.

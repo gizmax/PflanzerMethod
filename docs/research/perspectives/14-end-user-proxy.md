@@ -6,7 +6,7 @@
 
 ## Kde Pflanzerova metoda dělá radost
 
-PM staví stakeholdery do jedné místnosti, vyrábí tangible artefakt a má score
+PdM staví stakeholdery do jedné místnosti, vyrábí tangible artefakt a má score
 závaznosti — to je víc, než zvládne 90 % discovery workshopů, na kterých jsem
 seděl. Cross-functional alignment v jeden den řeší reálnou bolest („pinkací
 smyčky“). Mockup jako shared object of reference je výrazně lepší než MVP
@@ -15,7 +15,7 @@ Canvas, protože eliminuje *imaginární souhlas* — situaci, kdy všichni ří
 
 ## Kde Pflanzerova metoda v současné podobě selhává
 
-**1. Discovery debt jako default state.** PM v kroku „hlavní přípravy“ neřeší,
+**1. Discovery debt jako default state.** PdM v kroku „hlavní přípravy“ neřeší,
 jestli vůbec víme, *čí* problém řešíme. Riziko: zadavatel donese nápad, panel
 ho zoptimalizuje napříč rolemi, vznikne perfektně sladěný produkt, který nikdo
 nepotřebuje. *Cross-functional alignment na špatný problém je drahý fail.*
@@ -40,7 +40,7 @@ panel uvěří, že má pokrytou perspektivu uživatele.
 kotvil v problem-space.
 
 **5. Žádný link na Continuous Discovery (Torres) ani OST.** Baseline 03 to
-zmiňuje, ale role-catalog ani metoda samotná neabsorbovaly. PM je discrete
+zmiňuje, ale role-catalog ani metoda samotná neabsorbovaly. PdM je discrete
 event; discovery je rhythm. Jeden bez druhého = decision theatre.
 
 ## Návrhy vylepšení (priority order)
@@ -55,7 +55,7 @@ rozhovory týdně, OST update weekly).
 1. **Persona freshness ≤ 6 měsíců** — minimálně 5 nedávných rozhovorů
    s reprezentativními uživateli (interní nebo externí) za posledních 6 měsíců,
    transcripty existují, klíčové JTBD jsou pojmenované.
-2. **JTBD statement** pro core problém formulovaný a podepsaný PM.
+2. **JTBD statement** pro core problém formulovaný a podepsaný PdM.
 3. **Opportunity Solution Tree** v0 — desired outcome → 2–3 opportunities →
    uvažované solutions. Mockupy v session 1 musí mapovat na konkrétní
    opportunity v OST, ne se vznášet ve vzduchu.
@@ -77,7 +77,7 @@ Persona má **expiry date**. Defaulty:
 
 **Trigger pro re-validation:** ≥ 2 z následujícího — nový segment, změna
 v top-3 support tickets, NPS shift > 10 bodů, konkurenční disrupce, regulační
-změna dotýkající se UX. Pokud expired persona vstupuje do PM session bez
+změna dotýkající se UX. Pokud expired persona vstupuje do PdM session bez
 refreshe = **discovery debt flag**. Score závaznosti připomínek zaměřených na
 „user need“ se v session 2 váží sníženě, pokud persona není fresh — explicit
 distrust signal.
@@ -121,7 +121,7 @@ facilitátor (nebo AI co-pilot) musí položit otázku: *„Která opportunity t
 adresuje? Jak víme, že tato opportunity je real?“* Pokud tým neumí odpovědět
 za 60 sekund, mockup se odkládá do parking lotu.
 
-To brání nejčastějšímu PM failure módu: **vibekódíme cool feature, která
+To brání nejčastějšímu PdM failure módu: **vibekódíme cool feature, která
 neřeší žádnou validovanou opportunity.**
 
 ### E. Discovery Debt Detector jako AI co-pilot skill

@@ -20,7 +20,7 @@ co se nedostane do velocity.
 ## Co se mi na metodě LÍBÍ (z pohledu kapacity a delivery)
 
 1. **Dev je v místnosti od minuty 0.** Tohle řeší přesně tu situaci, kdy mi
-   PM přijde s "hotovým" prototypem z Figmy, dev říká "to nejde za 2 sprinty,
+   PdM přijde s "hotovým" prototypem z Figmy, dev říká "to nejde za 2 sprinty,
    to je 6", a já jdu eskalovat změnu commitmentu. Pokud dev signs-off na
    variantu během session 1, slipping estimate klesne řádově.
 2. **Score závaznosti per oddělení** je geniální. Konečně mám artefakt, který
@@ -145,7 +145,7 @@ a discovery v boji."
 
 **Před týmem:** "Místo 4 sprintů rework po nesprávně pochopeném zadání
 strávíte 2 dny v místnosti, kde **vy** ten zadání spoluformulujete —
-a security, PM i sales podepíší výstup ve stejnou hodinu. Žádný ping-pong
+a security, PdM i sales podepíší výstup ve stejnou hodinu. Žádný ping-pong
 mailů, žádné 'oni si představovali jiný'."
 
 Stejná věta, jiný úhel: **šetří čas zítra cenou času dnes.** Pokud to v obou

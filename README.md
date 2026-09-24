@@ -129,7 +129,7 @@ Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
 /pm roles <slug>      # Decision tree pro 18 rolí
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
 /pm build <slug>      # Session 1 orchestrator (délka podle stupně Quick/Lean/Full)
-# … mezi-session 5–7 dní (web hub) …
+# … mezi-session 3–7 prac. dní podle stupně (web hub, ADR-0021) …
 /pm decide <slug>     # Session 2 (decisional, 3 h)
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
 ```

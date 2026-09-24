@@ -1,6 +1,6 @@
-# Perspektiva 02 — Vibe-Product-Expert (ex-Bolt PM, ex-v0 power-user)
+# Perspektiva 02 — Vibe-Product-Expert (ex-Bolt PdM, ex-v0 power-user)
 
-> Autor: Senior PM, 8 let B2B SaaS, 3 roky daily user Bolt/v0/Lovable v product
+> Autor: Senior PdM, 8 let B2B SaaS, 3 roky daily user Bolt/v0/Lovable v product
 > discovery. Viděl 40+ týmů použít vibe-coding tool — z toho ~ 8 týmů shipnulo
 > do 2 týdnů, zbytek shnil. Tato perspektiva je o **product-flow defaults**
 > (wizard / agenda / artefakty), ne o technické architektuře.
@@ -211,10 +211,10 @@ PR = magnet pro review.
 Target: < 30 minut.
 **Síla**: **Medium-High**.
 
-### C7. Pojmenovat post-session vlastníka — "Shadow PM"
+### C7. Pojmenovat post-session vlastníka — "Shadow PdM"
 
 Po Session 1 jeden člověk (ne Decider, ne facilitátor) dostává roli
-**Shadow PM** = babysitter winneru přes 48-72h okno. Konkrétně:
+**Shadow PdM** = babysitter winneru přes 48-72h okno. Konkrétně:
 
 - Den 0 18:00: pošle SHIP.md draft všem v room.
 - Den 1: posbírá diff komentáře z web hubu, syntetizuje top 3 sporné body.
@@ -223,15 +223,15 @@ Po Session 1 jeden člověk (ne Decider, ne facilitátor) dostává roli
 
 V `pflanzer.md` KROK 2 přidat:
 ```
-AskUserQuestion: "Kdo bude Shadow PM (babysitter winneru přes 48-72h)?"
+AskUserQuestion: "Kdo bude Shadow PdM (babysitter winneru přes 48-72h)?"
 [default: druhý nejstarší v místnosti, ne Decider]
 ```
 
 Persistovat do `roles` jako pseudo-role `shadow_pm` (catalog_idx=99 nebo
 nový sloupec `projects.shadow_pm`).
 
-**Mechanism**: Bez konkrétního vlastníka mezi-session všechno padá. Shadow PM
-≠ PM = jiný člověk → distribuce zátěže + nové eyes.
+**Mechanism**: Bez konkrétního vlastníka mezi-session všechno padá. Shadow PdM
+≠ PdM = jiný člověk → distribuce zátěže + nové eyes.
 **Síla**: **High** (řeší root cause #3 v diagnose).
 
 ### C8. "No new files" guard pro evolve variants
@@ -274,7 +274,7 @@ AskUserQuestion: "1 věta — co bys jako první kritizoval(a) na winneru,
                   kdybys dostal(a) PR zítra ráno?"
 ```
 
-Toto se uloží do `decisions` jako `type='self_critique'` a Shadow PM dostane
+Toto se uloží do `decisions` jako `type='self_critique'` a Shadow PdM dostane
 to do briefu. Cíl: explicitně odhalit "tohle není ready" hlasy, které by
 jinak zmizely v euforii konce sessiony.
 
@@ -333,7 +333,7 @@ Generuje konkrétní fix-list pro 48h okno.
   nikoli preview iframe. Preview je secondary tab.
 - Reviewer flow: per soubor → keep / fix / kill + 1 věta. Bez toho nelze
   submit feedback. Limit 1 minuta per soubor (subjektivní progress bar).
-- Push notification 24h, 48h, 70h před Session 2 deadline (Shadow PM jako recipient).
+- Push notification 24h, 48h, 70h před Session 2 deadline (Shadow PdM jako recipient).
 
 ### Handoff (Slice 8)
 
@@ -360,7 +360,7 @@ Generuje konkrétní fix-list pro 48h okno.
 
 1. C1 (Component scout) + C2 (evolve variant) — bez tohoto greenfield bias zůstává.
 2. C3 (merge-vote) + C5 (Charter ship contract) — Decider committed na merge, ne na líbí.
-3. C4 (48h diff review) + C7 (Shadow PM) — mezi-session není sabotáž.
+3. C4 (48h diff review) + C7 (Shadow PdM) — mezi-session není sabotáž.
 4. C6 (handoff → PR za 30s) — closes loop k mergnutí.
 
 Zbylých C8/C9/C10 jsou amplifiery — implementace má hodnotu jen po C1-C7.

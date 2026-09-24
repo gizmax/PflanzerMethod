@@ -7,7 +7,7 @@ description: Stáhne mezi-session feedback z web hubu, agreguje per dept/severit
 Argumenty: `$ARGUMENTS` = projekt slug.
 
 Předpoklad: web hub byl spuštěn (`tool/web/`) a tým posbíral feedback přes
-ScoringForm (`/<slug>/feedback/<variant_id>`) v 5-7 dní mezi-session okně.
+ScoringForm (`/<slug>/feedback/<variant_id>`) v mezi-session okně (Quick 3 / Lean 3–5 / Full 5–7 pracovních dní, ADR-0021).
 
 ## Co tento command dělá
 

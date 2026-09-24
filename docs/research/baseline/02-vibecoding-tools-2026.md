@@ -56,7 +56,7 @@ nepokrývá nativně v plném rozsahu:
 
 **Bolt.new** — Nejširší stack support (Vue/Astro/Svelte), agentic V2 fixuje chyby sám, 1-click deploy URL. Token náklady při debug-loop nepředvídatelné, žádný feedback layer.
 
-**Lovable** — Workspace + Visual Edits = nejblíž "Figma-style" PM/dev/designer co-tvorbě. Public preview bez účtu, GitHub sync. Single-version flow, backend pro složitější systémy stále křehký, kreditní fluktuace.
+**Lovable** — Workspace + Visual Edits = nejblíž "Figma-style" PdM/dev/designer co-tvorbě. Public preview bez účtu, GitHub sync. Single-version flow, backend pro složitější systémy stále křehký, kreditní fluktuace.
 
 **Figma Make** — **Jediný tool s nativními inline comments + reactions** v Figmě (kritické pro Pflanzer). Variants koncept + Make Kits = side-by-side prototypy. Embed do Slides/FigJam. Backend prototypy slabší, restricted prototype links jen na paid tieru.
 

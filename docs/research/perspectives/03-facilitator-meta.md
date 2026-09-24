@@ -52,7 +52,7 @@ Z 12 perspektiv jsem vyextrahoval **6 opakujících se konfliktních os**:
 
 1. **Security veto vs. zadavatel push** (#7 × #1). Pre-charter triage zachytí 80 %. V místnosti: silent ranking blockerů → AI agreguje severity → Critical = **session pivotuje na alt. variantu**, nepokračuje v zablokované. Veto je veto, ne hlas mezi hlasy.
 2. **Eng kapacita vs. business timeline** (#9 × #1, #2). T-shirt sizing, **nikoli story pointy** (SP deformuje sociální tlak). T-shirt > L → 2-day capped spike mimo workshop. Přetrvávající konflikt = eskalace mimo místnost.
-3. **PM výstup vs. UX research** (#2 × #6). JTBD lock v prvních 30 min, persona owner = PM + UX společně (oba podepíší). Disagreement po 30 min → **Session 1 se odkládá**, předřazení Continuous Discovery.
+3. **PdM výstup vs. UX research** (#2 × #6). JTBD lock v prvních 30 min, persona owner = PdM + UX společně (oba podepíší). Disagreement po 30 min → **Session 1 se odkládá**, předřazení Continuous Discovery.
 4. **FE rychlost vs. BE contract** (#4 × #5). **Contract-first** — BE shadow agent generuje OpenAPI paralelně s UI generátorem, side-by-side. Konflikt se nestává, protože vznikají současně.
 5. **Hlasitý vs. tichý hlas** (cross-cutting). **Liberating Structures default** — 1-2-4-All před diskusí, dot voting silent před verbálním. Score se zveřejní **po hlasování**. Zadavatel hlasuje **poslední** (anti-HiPPO).
 6. **Prototyp do prod** (Sponzor × FE/BE/Security/DevOps). **Throw-away charter** — defaultně throw-away, "evolve" jen s FE+EM+Security podpisem po code review. Sandbox má noindex, watermark, 24h TTL. Technická pojistka, ne důvěra.

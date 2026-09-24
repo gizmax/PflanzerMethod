@@ -1,0 +1,12 @@
+{
+  "_comment": "Pflanzer Method | pflanzer.cz/method — volitelný ceník pro odhad AI nákladů v SHIP.md (audit N16). Zkopíruj do kořene PflanzerMethod repa jako pflanzer.prices.json, nebo nastav PFLANZER_AI_PRICES=<cesta>. Klíč = prefix model ID z Claude Code logu (nejdelší shodný prefix vyhrává). Hodnoty = USD za 1M tokenů podle AKTUÁLNÍHO ceníku poskytovatele / vaší smlouvy; null = model se nenacení. Viz tool/templates/README-ai-usage.md.",
+  "_fields": {
+    "input": "USD / 1M input tokenů (bez cache)",
+    "output": "USD / 1M output tokenů",
+    "cache_write": "USD / 1M tokenů zapsaných do prompt cache (cache_creation_input_tokens)",
+    "cache_read": "USD / 1M tokenů přečtených z prompt cache (cache_read_input_tokens)"
+  },
+  "claude-opus-": {"input": null, "output": null, "cache_write": null, "cache_read": null},
+  "claude-sonnet-": {"input": null, "output": null, "cache_write": null, "cache_read": null},
+  "claude-haiku-": {"input": null, "output": null, "cache_write": null, "cache_read": null}
+}

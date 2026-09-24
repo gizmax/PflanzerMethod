@@ -39,7 +39,7 @@ Identifikoval jsem **5 personas**, které mají rozumný důvod přijít na web.
 | Org context | E-commerce / SaaS / digital-native enterprise (e-shop, Rohlik, Productboard, Pipedrive scale). **200–3 000 FTE.** Non-regulated nebo light-regulated. AI maturity: vývojáři používají Cursor/Copilot indiviuálně, žádný cross-fn proces. |
 | Trigger event | Q2 2026: board měřil *„AI productivity uplift"* a engineering reportoval *„14 % feature velocity"*, který nikdo neumí ověřit. Nebo: CEO viděl konkurenční launch, co tým doručil za 3 týdny tam, kde jeho tým dělal 4 měsíce. Nebo: nový CPO chce *„kill the Figma → re-implementation cycle"*. |
 | Status quo | Engineering dělá 2-týdenní sprinty, produkt dělá quarterly OKRs, UX dělá Figma libraries. Mezi tím sériový handoff. Kupuje Linear, Vercel, Cursor pro tým. |
-| Top 3 worries | (1) Top 5 talents odejdou, pokud nedostanou *„serious AI workflow"* (LinkedIn pull už začal). (2) CEO čeká velocity story na Q4 board (90 dní). (3) Engineering org chart se nedaří škálovat — každý nový PM přidá 2 týdny handoff lag. |
+| Top 3 worries | (1) Top 5 talents odejdou, pokud nedostanou *„serious AI workflow"* (LinkedIn pull už začal). (2) CEO čeká velocity story na Q4 board (90 dní). (3) Engineering org chart se nedaří škálovat — každý nový PdM přidá 2 týdny handoff lag. |
 | Buying authority | **Rozhoduje sám do ~€50k.** Pro >€50k konzultuje CTO. Žádná procurement bariéra pro „methodology + facilitation" line item, pokud line item je <€100k. |
 
 ### Persona C — „CFO-watched Director of Engineering Effectiveness"
@@ -68,8 +68,8 @@ Identifikoval jsem **5 personas**, které mají rozumný důvod přijít na web.
 
 | Atribut | Hodnota |
 |---|---|
-| Role / job title | **Senior PM / Tech lead / Innovation manager / Staff Engineer** — někdo, kdo neumí sám rozhodnout o €50k, ale má 30 minut měsíčně se sponzorem |
-| Org context | Korporát, kde Champion sleduje LinkedIn, Substack, AI newsletters. Často staff-IC nebo PM s 5-8 let zkušenosti. |
+| Role / job title | **Senior PdM / Tech lead / Innovation manager / Staff Engineer** — někdo, kdo neumí sám rozhodnout o €50k, ale má 30 minut měsíčně se sponzorem |
+| Org context | Korporát, kde Champion sleduje LinkedIn, Substack, AI newsletters. Často staff-IC nebo PdM s 5-8 let zkušenosti. |
 | Trigger event | Sponzor řekl *„najdi nám něco, jak to dělat rychleji"* na 1:1. Nebo: Champion sleduje Tom Pflanzer LinkedIn / blog a chce přinést sponzorovi 1-pager. |
 | Status quo | Píše interní memo *„AI workflow opportunities"*. Vede SoP / internal newsletter. |
 | Top 3 worries | (1) Sponzor zkusí přitáhnout to k jakémukoli McKinsey-style projektu, který už běží = se ztratí. (2) Champion vypadá blbě, pokud doporučí method, která se v korporátu nezachytí. (3) Champion nemá rozpočet, jen vliv. |
@@ -100,7 +100,7 @@ Identifikoval jsem **5 personas**, které mají rozumný důvod přijít na web.
 | Stage | Co potřebuje | Současný web odpoví? | Co chybí |
 |---|---|---|---|
 | **Awareness** | Hledá *„AI engineering productivity"*, *„cross-functional AI workflow"*, *„kill the handoff"*. LinkedIn from Director of Eng peer / Substack / podcast guest spot. | ⚠️ Hero *„kde sériový handoff zabíjí měsíce, 6 lidí, 2 sezení, kód do produkce za 14 dní"* — **tohle je přesně Persona B language**. Hit. | OK, ale neexistuje *„For engineering leaders"* deep-dive landing — VP Eng chce vidět DORA-style metriky, ne botanickou metaforu. |
-| **Consideration** | Potřebuje (a) výsledky podobných firem (e-shop-grade), (b) team capacity worksheet (kolik PD), (c) jak to fit do existing sprint cadence, (d) co se stane, když se tým spálí. | ✅/⚠️ e-shop sekce 03 je správný směr, ale **schází numbers** (kolik % kódu šlo do prod, kolik dní). Manifesto říká *„~10× speedup"* — to je tagline, ne důkaz. | (1) e-shop čísla (production deploy %, lead-time delta). (2) Effort estimator: *„Pro váš tým ~10 PD; rozložení Sponsor / PM / Builder…"* (default profil už má v `00-lean-pflanzer.md`, jen není na webu). (3) Anti-pattern callout: *„Pflanzer NEpoužívejte pro PSD2 / SCA / payment flow"*. |
+| **Consideration** | Potřebuje (a) výsledky podobných firem (e-shop-grade), (b) team capacity worksheet (kolik PD), (c) jak to fit do existing sprint cadence, (d) co se stane, když se tým spálí. | ✅/⚠️ e-shop sekce 03 je správný směr, ale **schází numbers** (kolik % kódu šlo do prod, kolik dní). Manifesto říká *„~10× speedup"* — to je tagline, ne důkaz. | (1) e-shop čísla (production deploy %, lead-time delta). (2) Effort estimator: *„Pro váš tým ~10 PD; rozložení Sponsor / PdM / Builder…"* (default profil už má v `00-lean-pflanzer.md`, jen není na webu). (3) Anti-pattern callout: *„Pflanzer NEpoužívejte pro PSD2 / SCA / payment flow"*. |
 | **Decision** | Potřebuje (a) DIY playbook + 1 facilitátorský pilot za €15-30k, (b) referenci od peer VP Eng, (c) timeline kdy lze začít. | ⚠️ DIY playbook OK (Lean Pflanzer 1-pager). Facilitátor pricing **chybí úplně**. Reference call **chybí úplně**. | (1) Pricing/packaging sekce (tier ladder: DIY free / Facilitated pilot €X-Y / Audit-grade €X-Y). (2) *„Schedule 30-min architecture call"* CTA. (3) Sample Charter download. |
 | **Activation** | Buď self-serve clone (Persona B s vlastním facilitator skill), nebo *„first pilot for €Y"* poptávka. | ⚠️ CTA *„Tool na GitHubu"* funguje pro self-serve, ale GitHub link vede na `https://github.com/` (placeholder!), ne real repo. | (1) Fix GitHub URL. (2) Add *„Book pilot intro call"* CTA + Calendly. |
 

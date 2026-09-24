@@ -25,6 +25,10 @@ Audit N5 + N11 additions:
   PR labels `ai-generated` + `pflanzer:<slug>`, PR body "AI provenance"
   section, and a read-only trailer/author check of `base..pflanzer/<slug>-<W>`
   (history is never rewritten; the commit author is always the human).
+
+Audit N16: "AI náklady (viditelnost)" section — Claude Code token usage per
+variant from the session transcripts on this machine (`ai_usage.py`), with a
+fallback to the last `ai_usage` DB snapshot. Visibility only, never a gate.
 """
 from __future__ import annotations
 
@@ -42,6 +46,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli import ai_usage  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import WORKTREE_METHODS, base_gates_adapter, find_worktree  # noqa: E402
 from tool.cli.quality_gates import GATE_TYPES, _display_path, aggregate_score  # noqa: E402
@@ -360,6 +365,29 @@ def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
     return top, section
 
 
+def render_ai_usage_section(slug: str) -> str:
+    """N16 cost visibility: live measurement, fallback to the last DB snapshot.
+
+    Never raises — a missing/corrupt transcript dir or DB must not break SHIP.md.
+    """
+    usage: dict[str, Any] = {}
+    origin = "live"
+    try:
+        usage = ai_usage.usage_for_project(slug)
+    except Exception:  # noqa: BLE001 — visibility only, never fail the render
+        usage = {}
+    if not usage:
+        try:
+            usage = ai_usage.load_snapshot(slug)
+            origin = "snapshot"
+        except Exception:  # noqa: BLE001
+            usage = {}
+    try:
+        return ai_usage.render_markdown(usage, origin=origin)
+    except Exception:  # noqa: BLE001
+        return ai_usage.render_markdown({})
+
+
 def _render_gate_badges(gates: list) -> str:
     icons = {"pass": "✅", "warn": "⚠️", "fail": "❌",
              "skipped": "⏭️", "unsupported": "—"}
@@ -573,10 +601,11 @@ PRBODY
 |------|--------|
 | **Decider** | {decider} |
 | **Branch owner / merger** | {branch_owner} |
-| **Shadow PM** (mezi-session babysitter) | {shadow_pm} |
+| **Shadow PdM** (mezi-session babysitter) | {shadow_pm} |
 
 {winner_info}
 
+{render_ai_usage_section(slug)}
 ## Risk profile
 
 - **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profile**: `{throwaway}` · **Risk profil**: `{triage['risk_profile']}`

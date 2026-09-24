@@ -20,7 +20,7 @@ své rozhodnutí později popřít. Bez explicitního Decideru končí Pflanzer 
    čl. 22 a AI Act čl. 14 (lidský dohled), žádná korporátní accountability.
 3. **Single accountable Decider á la GV Sprint** (Knapp). Jeden člověk
    s mandátem, panel je advisory.
-4. **Dual decider** (PM + zadavatel společně). Riziko: deadlock.
+4. **Dual decider** (PdM + zadavatel společně). Riziko: deadlock.
 
 ## Rozhodnutí
 

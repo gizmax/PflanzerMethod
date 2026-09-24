@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-05
-**Context source:** perspektivy 01 (Zadavatel), 02 (PM), synthesis 02 (key themes)
+**Context source:** perspektivy 01 (Zadavatel), 02 (PdM), synthesis 02 (key themes)
 
 ## Kontext
 
@@ -10,7 +10,7 @@ Pflanzerova metoda v0 popisuje „hlavní přípravy" před Session 1, ale
 **nedefinuje, co konkrétně musí Zadavatel doručit**. Důsledek z perspektivy
 01 (Zadavatel): bez Charteru je metoda „hezký den" — chybí ROI argument do
 exec committee, success threshold pro Go/Kill, kill-switch protokol,
-reinforcement track. Z perspektivy 02 (PM): bez explicitního success metric
+reinforcement track. Z perspektivy 02 (PdM): bez explicitního success metric
 se Pflanzer stává feature factory s drahým prototypem.
 
 ## Rozhodnutí
@@ -61,9 +61,9 @@ readoutu. Bez tohoto commitu Session 1 neodstartuje. Detail viz
 | Readout | Vlastník | Min. PD | Akceptační kritérium | Sankce za vynechání |
 |---------|----------|---------|---------------------|---------------------|
 | T+7 | Champion (#17) | 0.5 PD | Handoff přijatý dev týmem, SHIP.md status řádek aktualizovaný | Flag do T+30 retro, Method Steward data feed |
-| T+30 | PM + EM + Champion | 2.0 PD | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Method Steward warning, audit-grade pilot disqualified |
-| T+60 | PM + Champion | 1.0 PD | Scope creep audit, Method Steward 1-page update | Method-level T+6 report flaguje pilot „incomplete reinforcement" |
-| T+90 | Decider + PM + EM + Champion | 2.5 PD | Guardrail metric (re-work %) vyhodnocen, **Go / Iterate / Kill rozhodnutí formálně v ADR** per ADR-0001 protokolu | Silence = Kill (ADR-0001 Scenario B) |
+| T+30 | PdM + EM + Champion | 2.0 PD | Leading metric check (handoff acceptance ≥ 80 %), retro 60 min | Method Steward warning, audit-grade pilot disqualified |
+| T+60 | PdM + Champion | 1.0 PD | Scope creep audit, Method Steward 1-page update | Method-level T+6 report flaguje pilot „incomplete reinforcement" |
+| T+90 | Decider + PdM + EM + Champion | 2.5 PD | Guardrail metric (re-work %) vyhodnocen, **Go / Iterate / Kill rozhodnutí formálně v ADR** per ADR-0001 protokolu | Silence = Kill (ADR-0001 Scenario B) |
 
 **Σ Reinforcement commit (default profil): min 6 PD souhrnně.**
 Zdroj rozpočtu (cost center / BU budget line) musí být uveden v sign-off
@@ -78,7 +78,7 @@ sekci Charteru, ne jen „dohodneme se".
 
 ### Vlastnictví a podpisy
 
-- **Píše:** Zadavatel (#1) + PM (#2).
+- **Píše:** Zadavatel (#1) + PdM (#2).
 - **Podpisuje:** Decider (jmenovitě) + Sponsor (CPO nebo CTO-side).
 - **Reviewuje (pre-read 48 h):** Security (#7), Legal (#10), EM (#9).
 - **Ukládá se:** v `decisions/charters/<project-slug>.md` v projektovém repu.

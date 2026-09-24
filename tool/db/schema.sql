@@ -286,3 +286,30 @@ CREATE TABLE IF NOT EXISTS outcomes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outcomes_project ON outcomes(project_id, milestone);
+
+-- ==========================================================================
+-- ai_usage (audit N16 — cost visibility, no hard limit)
+-- Snapshot of Claude Code token usage per variant x model, read from the
+-- session transcripts (~/.claude/projects/<escaped-worktree>/*.jsonl) on the
+-- machine that ran `tool/cli/ai_usage.py --record`. One row per
+-- (project, variant, model); a newer snapshot replaces the older one.
+-- est_usd is NULL unless a local price list is configured
+-- (tool/templates/README-ai-usage.md).
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  variant TEXT NOT NULL,
+  model TEXT NOT NULL,
+  sessions INTEGER NOT NULL DEFAULT 0,
+  messages INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+  est_usd REAL,
+  measured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  source TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_snapshot ON ai_usage(project_id, variant, model);

@@ -26,7 +26,7 @@ projekt je, a nabídne další krok.
 | Sloveso | Deleguje na | Kdy |
 |---------|-------------|-----|
 | `start` | `/pflanzer-charter` | Nový projekt — Charter wizard (Den 0) |
-| `roles` | `/pflanzer-roles` | Výběr rolí po Charteru |
+| `roles` | `/pflanzer-roles` | Výběr rolí po Charteru + role cards (1 strana per člověk) k rozeslání |
 | `triage` | `/pflanzer-triage` | Pre-flight gate před Session 1 |
 | `build` | `/pflanzer-session-1` | Session 1 (Lean/Full stupeň) |
 | `feedback` | `/pflanzer-feedback-pull` | Stažení mezi-session feedbacku z hubu |

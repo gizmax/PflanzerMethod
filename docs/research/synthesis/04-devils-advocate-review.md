@@ -36,7 +36,7 @@ požaduji 5 oprav (sekce na konci).
 V `00-tldr.md` a `01-filozofie-a-kdy-pouzit.md` se opakuje budget
 „8–10 person-days/cyklus", v ADR-0002 a `03-pre-session-priprava.md`
 se počítá s 48–72 h pre-read pro tři triage tracks a Discovery
-Readiness Gate. Pojďme spočítat. Pre-flight: PM 4 h Charter,
+Readiness Gate. Pojďme spočítat. Pre-flight: PdM 4 h Charter,
 Security 4–6 h triage, Legal/DPO 4–8 h (DPIA lite není 30-min
 cvičení), Platform 4 h sandbox, EM 2 h capacity sign-off, UX 4–6 h
 Discovery, Champion 2 h. Session 1: 5–6 h × 7 lidí = **4.5–5.5
@@ -161,7 +161,7 @@ nemá — což je horší než žádné číslo.
 ## Útok 7 — „> 10 lidí v místnosti = něco špatně" je sanity check, který v korpu vždy selže
 
 `02-role-catalog.md` decision tree s 15 kroky **běžně produkuje
-10–14 rolí** pro audit-grade projekt: Zadavatel, PM, Facilitátor,
+10–14 rolí** pro audit-grade projekt: Zadavatel, PdM, Facilitátor,
 FE, BE, UX, Security, QA, EM, Legal, A11y, Data, CS, End-user,
 DevOps, UX writer, Champion, Solution architect. To je 18 rolí,
 z nichž **pro regulovaný customer-facing projekt s integracemi

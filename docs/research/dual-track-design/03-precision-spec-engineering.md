@@ -32,7 +32,7 @@
    Spec ≠ source of truth alone. **Spec + Reference Prototype + Decision Log +
    Executable Acceptance Tests = SoT.** Re-implementation gap (Yan et al. 2025
    9.8-42.1 %) klesne, protože dev tým má 4 nezávislé anchory.
-3. **Sign-off je cross-fn paralelní** (PM, FE, BE, Security, Legal, DPO,
+3. **Sign-off je cross-fn paralelní** (PdM, FE, BE, Security, Legal, DPO,
    A11y, QA, EM) s explicitními veto rights per role + quality gate score
    ≥ 80/100 pro spec samotnou (ne až pro impl).
 4. **Hand-off ritual má 5 stages:** Spec Walkthrough (90 min) → Q&A window
@@ -643,7 +643,7 @@ Per `07-handoff-do-vyvoje.md` § 8 + per AI Act čl. 14 attribution:
 | Role | Section approval | Veto right |
 |---|---|---|
 | **Decider** (sponsor / VP) | Overall scope + commercial | YES — final |
-| **PM** | A. Functional spec | YES if user story not valuable |
+| **PdM** | A. Functional spec | YES if user story not valuable |
 | **EM** (engineering manager) | B. Technical spec + D. Implementation | YES if not implementable in committed capacity |
 | **FE lead** | B.3, B.4, D.1-D.5 (FE parts) | YES if FE infeasible |
 | **BE lead** | B.1, B.2, B.5, B.6 | YES if BE infeasible |
@@ -657,7 +657,7 @@ Per `07-handoff-do-vyvoje.md` § 8 + per AI Act čl. 14 attribution:
 
 **Decider mandate per ADR-0001:** Decider votes **last** (anti-HiPPO).
 Veto rights are **scope-locked** per role — security cannot veto pricing
-copy, PM cannot veto STRIDE mitigation.
+copy, PdM cannot veto STRIDE mitigation.
 
 #### E.2 Approval order — parallel with veto callout
 
@@ -900,18 +900,18 @@ je ritual aby spec neztroskotala v rumu emailů?"*
 
 ### 5.1 Stage 1 — Spec walkthrough meeting (90 min, sync)
 
-**Kdo:** PM + Decider + Spec authors (Session 1+2 team representatives:
-1 BE, 1 FE, 1 PM, Security/DPO if compliance-heavy) + Dev team lead +
+**Kdo:** PdM + Decider + Spec authors (Session 1+2 team representatives:
+1 BE, 1 FE, 1 PdM, Security/DPO if compliance-heavy) + Dev team lead +
 Dev team 2-3 senior engineers + EM of dev team.
 
 **Agenda (90 min):**
 
 ```
-00:00-00:10  Welcome + context (PM)
+00:00-00:10  Welcome + context (PdM)
               - Why Pflanzer was used
               - Why Track S (dev tým wasn't in room — explicit reason)
               - Charter version + sign-off package overview
-00:10-00:30  Walkthrough sekce A (Functional spec) — PM leads
+00:10-00:30  Walkthrough sekce A (Functional spec) — PdM leads
               - 3-5 key user stories, including the negative scenarios
               - Reference prototype demo on sandbox URL (live click-through)
 00:30-00:50  Walkthrough sekce B (Technical) — BE+FE leads

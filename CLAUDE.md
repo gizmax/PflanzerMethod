@@ -56,8 +56,9 @@ v `docs/decisions/NNNN-<slug>.md` (kontext / varianty / rozhodnutí / důsledky)
 
 ### Tool stack (fáze 2, předběžně)
 Per globální CLAUDE.md: Python + FastAPI + SQLite (BE), React + Tailwind (FE),
-anthropic SDK, model `claude-sonnet-4-20250514`. Form-factor (CC plugin / web /
-hybrid) se rozhodne ADR `0001-tool-form-factor.md` na začátku fáze 2.
+anthropic SDK, výchozí model `claude-opus-5` (ID bez datové přípony; aktuální
+seznam modelů a ID ověř přes skill `claude-api`, ne z paměti). Form-factor
+(hybrid: CC plugin + web hub) rozhodlo ADR `0008-tool-form-factor.md`.
 
 ## Co tady NEPATŘÍ
 
