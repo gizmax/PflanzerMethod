@@ -42,6 +42,7 @@ from tool.cli.charter import (  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
+from tool.cli.tier import default_tier  # noqa: E402
 from tool.cli.worktree import (  # noqa: E402
     TargetRepo,
     load_target_repos,
@@ -162,6 +163,7 @@ def bootstrap(
     target_repos: list[dict[str, Any]] | str | None = None,
     target_branch: str | None = None,
     throwaway_rationale: str | None = None,
+    tier: str | None = None,
 ) -> dict[str, Any]:
     """Create project + Charter + roles + deferred triage in one step.
 
@@ -179,6 +181,8 @@ def bootstrap(
         target_branch: base branch pro jednorepo případ (default 'main').
         throwaway_rationale: jen pro risk_profile='throwaway' (ADR-0005 v0.4);
             default = use case „discovery-only pilot“ (interní demo).
+        tier: 'quick' | 'lean' | 'full' (ADR-0021). Default: Quick, jen
+            risk_profile='production' dostane Lean (tabulka stupňů).
 
     Returns dict s project_id, slug, roles_count, defer_note.
     """
@@ -235,6 +239,8 @@ def bootstrap(
         reinforcement_t60="—",
         reinforcement_t90="—",
         reinforcement_budget_pd=2.0,
+        tier=tier or default_tier(profile["capacity_profile"], quick_bootstrap=True,
+                                  risk_profile=risk_profile),
     )
     charter_md = render_charter_md(charter)
     project_id = persist_charter(charter, charter_md)

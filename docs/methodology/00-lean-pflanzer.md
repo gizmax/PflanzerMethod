@@ -33,7 +33,8 @@ stupních rozhodovací a trvá 3 h** (`/pm decide`). **Po Session 2 následuje
 Ship gate, ne třetí setkání:** pipeline (quality gates + `SHIP.md`), kterou po
 Go rozhodnutí pouští dev pár (`/pm ship` + `/pm handoff`); není to meeting.
 Délku mezi-session okna per stupeň a pravidla pro mlčení po deadline určuje
-**ADR-0021** (`docs/decisions/0021-mezi-session-okno-per-stupen.md`).
+**ADR-0021** (`docs/decisions/0021-mezi-session-okno-per-stupen.md`). Tool
+ukládá stupeň projektu do `projects.tier` (Charter wizard / `/pm live`).
 
 ## Co Pflanzer skutečně je
 
