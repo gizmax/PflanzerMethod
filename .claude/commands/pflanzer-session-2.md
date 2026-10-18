@@ -1,26 +1,31 @@
 ---
-description: Session 2 (decisional, ~3 h) — agreguje feedback by dept, navrhne resolution top 3 sporů, Decider's Go/Iterate/Kill call. Slice 7.
+description: Rozhodnutí (/pm decide, 60–90 min, Decider + jádro) — agreguje feedback by dept, navrhne resolution top 3 sporů, Decider's Go/Iterate/Kill call. Slice 7.
 ---
 
-# /pflanzer-session-2 — Decisional session
+# /pflanzer-session-2 — Rozhodnutí (decisional session)
+
+> Uživatelsky: `/pm decide <slug>`. **Kdo (ADR-0021):** Decider + jádro
+> (PM, vývojář, designér); zástupci bezpečnosti/provozu jen pokud je
+> otevřený Critical flag v jejich kroku. Max 5 lidí. Začni 10min demem
+> běžících variant — Decider u Buildu nebyl.
 
 Argumenty: `$ARGUMENTS` = projekt slug.
 
 Předpoklady:
 - `projects.status` IN ('session_1', 'session_2')
-- `/pflanzer-feedback-pull <slug>` byl spuštěn (= summary + debt audit existují)
+- `/pm feedback <slug>` byl spuštěn (= summary + debt audit existují)
 
 ## Co tento command dělá
 
 Aplikuje **canonical agendu Session 2** z `docs/methodology/06-session-2.md`
-(3 h decisional, end 12:00, ne víc — energy curve):
+(default 60–90 min; rozšířená varianta 3 h pro větší / regulované projekty):
 
 1. **Pre-flow check** — feedback summary, debt audit, conflict matrix loaded.
 2. **Aggregate by department** (mirror role label) — visualizace divergence.
 3. **Top 3 conflicts** + suggested resolutions z `synthesis/01-conflict-matrix.md`.
 4. **Commitment index** vs threshold z Charteru (default 0.6).
 5. **Decider's call** přes `AskUserQuestion` → Go / Iterate / Kill.
-6. **Iterate guard** — max 1× další session 1 (žádný infinite loop).
+6. **Iterate guard** — max 1× další Build kolo (žádný infinite loop).
 7. **Status update** → 'handoff' / 'session_2' / 'killed'.
 8. **Eskalační protokol** per ADR-0001 pokud Decider neumí rozhodnout.
 

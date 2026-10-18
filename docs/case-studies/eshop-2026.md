@@ -1,7 +1,7 @@
 # e-shop — Pflanzer pilot 2026
 
 > **Status:** Live case study (rolling update). Reálný průběh Pflanzer pilotu
-> v e-shop, default profil. Slouží jako *„jak to skutečně vypadá"* reference,
+> v e-shopové organizaci, default profil. Slouží jako *„jak to skutečně vypadá"* reference,
 > ne audit artefakt.
 >
 > **Zdroj:** session notes + retrospektiva facilitátora.
@@ -147,7 +147,7 @@ _>_
 ## Vztah k method-level metrikám
 
 e-shop pilot **NENÍ pre-registered** dle ADR-0013 protokolu — tj. NEZAPOČÍTÁVÁ
-se do method-level XYZ hypothesis validation (`method-charter.md` § Success
+se do method-level XYZ hypothesis validation (`docs/governance/method-charter.md` § Success
 threshold). To je consistent s default profilem: organizace, která nedělá
 multi-pilot rollout, nepotřebuje akademickou disciplínu.
 
@@ -159,11 +159,18 @@ Pokud e-shop spustí **druhý a třetí pilot** stejné metody, doporučujeme:
 
 Pod 3 piloty: zůstává jako **case study v `docs/case-studies/`**, ne method-level data.
 
+## Learnings — vztah k v0.5
+
+Pilot měl **6 lidí**. Od v0.5 (ADR-0021) metoda doporučuje **jádro 3–4 lidi
++ krátká okna** pro zástupce dalších kroků cesty (max 5 naráz). Zda by menší
+sestava na tomto pilotu dopadla jinak, tento case study neověřuje — je to
+věc k měření na dalších pilotech.
+
 ## Open items (post-T+30 / T+90)
 
 - [ ] Doplnit production deploy outcome (% kódu, dny do prodů, bugy T+7).
 - [ ] Stakeholder retrospective notes — co by sponzor / PM / vývojáři dělali jinak.
-- [ ] Lagging metric vs baseline — historicky podobný projekt v e-shop trval kolik dní?
+- [ ] Lagging metric vs baseline — historicky podobný projekt v organizaci trval kolik dní?
 - [ ] Pokud druhý e-shop pilot startuje, link sem.
 
 ## Reference

@@ -1,5 +1,7 @@
 # Role catalog — knihovna perspektiv pro Pflanzerovu metodu
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Role catalog je **knihovna zástupců kroků cesty, ne seznam pozvánek** — říká, kdo může který krok zastoupit. Plná sestava níže je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+
 > **Status:** v0.2 (po expertním panelu, syntéze a applikaci diff `synthesis/03-role-catalog-updates.md`).
 > Změny vůči v0.1 jsou v ADR `decisions/0003-role-catalog-promotions.md`.
 
@@ -13,6 +15,28 @@ rolí**. Role catalog řeší dvě věci:
    a koho ne. Nezvu zbytečně, ani nezapomínám.
 2. **AI panel mapping** — pro každou vybranou roli umí tool spustit
    odpovídajícího sub-agenta, který se k materiálům vyjadřuje *z té perspektivy*.
+
+## Kroky cesty → kdo je může zastoupit
+
+V0.5 (ADR-0021) se nezvou „role“, ale **zástupci 6 kroků cesty**. Role
+catalog níže je seznam, kdo může krok zastoupit.
+
+| # | Krok cesty | Kdo typicky zastupuje (catalog) | Účast |
+|---|------------|----------------------------------|-------|
+| 1 | Byznys | Zadavatel / sponzor = Decider (#1) | okna: Kickoff 15 min + Rozhodnutí 60–90 min |
+| 2 | Produkt | PM (#2) | jádro |
+| 3 | Design | UX / Designer (#6) | jádro |
+| 4 | Vývoj | FE / Vibe-coding lead (#4), BE / API lead (#5) | jádro (1–2 buildeři) |
+| 5 | Bezpečnost & právo | Security (#7), Legal / DPO (#10) — jeden stačí | okno: checkpoint 20 min |
+| 6 | Provoz | DevOps / Platform (#15), případně EM (#9) | okno: checkpoint 20 min u Ship |
+
+Pravidla:
+
+- **Jeden člověk smí krýt víc kroků** (vývojář = vývoj + provoz, PM = produkt + design u interního toolu).
+- **Žádný krok bez jména.** Krok bez zástupce = session se nesvolává.
+- **Jádro (3–4 lidé, celou dobu)** vs **okno (konkrétní čas nad konkrétním artefaktem)**. Nikdy víc než 5 lidí naráz.
+- Zástupce musí mít mandát; kdo nemůže v okně rozhodnout, není zástupce.
+- Ostatní role (QA, A11y, Data, CS proxy, End-user, …) jsou v default profilu **AI expert sub-agenti** (perspektiva jako vstup, ne hlas), lidské zástupce přidávej jen v rozšířené sestavě.
 
 ## Jak číst tabulku
 
@@ -275,8 +299,9 @@ rolí**. Role catalog řeší dvě věci:
 14. **Druhý+ pilot v BU, scaling?** → +Champion (17).
 15. **Multi-team scope (≥ 3 týmy) nebo komplexní doména?** → +Solution architect (18).
 
-**Sanity check:** Pokud je v místnosti **> 10 lidí**, je něco špatně —
-buď zúžit scope, nebo udělat dvě paralelní sessions po menších buňkách.
+**Sanity check (v0.5):** Naráz **max 5 lidí** — víc = scope je příliš
+široký, rozděl ho. (Dřívější limit „> 10 lidí“ platí jen pro rozšířenou /
+audit-grade sestavu.) Buď zúžit scope, nebo udělat dvě paralelní sessions po menších buňkách.
 Pokud > 3 týmy v scope → federovaný model nebo +Solution architect (18).
 
 ### MoSCoW gradace vstupů

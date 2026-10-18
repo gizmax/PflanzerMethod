@@ -1,5 +1,5 @@
 ---
-description: Live in-room session pro tým — společný vibe-coding od problému k handoff za 60-90 min, bez koleček iterací mezi sessions.
+description: Kickoff + Build v jednom (/pm live) — malé jádro se zástupci všech kroků cesty postaví 3 varianty a odejde se shortlistem a jmény pro okna.
 ---
 
 # /pflanzer — In-room session (single entry point)
@@ -9,9 +9,12 @@ Pokud chybí, zeptáš se v kroku 1.
 
 ## Pro koho
 
-Tým 4-6 lidí v zasedačce, jeden notebook připojený k velkému TV.
-Cíl: do 60-90 min mít **shortlist + akční handoff** (kdo / co / do kdy),
-bez čekání na pre-sessions a 4 separátních wizardů.
+**Malá skupina (ADR-0021):** jádro 3–4 lidí (PM, 1–2 vývojáři, designér)
+u jedné obrazovky připojené k TV; Decider přijde na Kickoff (prvních
+15 min) a na závěrečný shortlist; bezpečnost & právo na 20min checkpoint.
+**Nikdy víc než 5 lidí naráz.**
+Cíl: za ~3 h mít **3 běžící varianty, shortlist a jména zástupců všech
+6 kroků cesty se zabookovanými okny**, bez 4 separátních wizardů.
 
 Pod kapotou tento command volá Charter + Roles + Triage (deferred) +
 Builder Decision + Session 1 persistenci. Sofistikovanost zachována,
@@ -34,26 +37,29 @@ Zeptej se 2 otázkami v jedné AskUserQuestion zprávě (paralelně):
 **A) Kdo má dnes finální slovo (Decider)?** [text input]
 - Default: nejstarší v místnosti / line manager / sponsor.
 
-**B) Kdo z těchto rolí je v místnosti?** [multiSelect, default: PM, FE, UX]
-- Zadavatel / Business owner (#1) — vždy zahrnuto
-- PM (#2) — vždy zahrnuto
-- Facilitátor (#3) — vždy zahrnuto (může to být ty / Claude)
-- Frontend (#4) ✅ default
-- Backend (#5)
-- UX / Designer (#6) ✅ default
-- Security (#7) — pokud osobní data / auth
-- QA (#8) — pokud "produkce / pilot"
-- Engineering manager (#9)
-- Legal / GDPR (#10)
-- Accessibility (#11)
-- Data / Analytics (#12)
-- Customer support (#13)
-- User research (#14)
-- DevOps (#15)
-- UX writer (#16)
+**B) Zástupci 6 kroků cesty** [text per krok: jméno + role z catalogu + `jádro` / `okno`]
 
-Volitelně (jen pokud je tým > 6 lidí, jinak skipni): **Kdo zastává jakou roli?**
-(text per role, jméno).
+| Krok cesty | Default role (catalog #) | Default účast |
+|------------|--------------------------|---------------|
+| Byznys | Zadavatel / Decider (#1) | okno (Kickoff + Rozhodnutí) |
+| Produkt | PM (#2), často i facilitátor (#3) | jádro |
+| Design | UX / Designer (#6) | jádro |
+| Vývoj | FE (#4) a/nebo BE (#5) | jádro |
+| Bezpečnost & právo | Security (#7) nebo Legal / DPO (#10) | okno (checkpoint 20 min) |
+| Provoz | DevOps (#15) nebo EM (#9) | okno (checkpoint u Ship) |
+
+Pravidla (vynucuj):
+- **Krok bez jména → STOP.** Zeptej se, kdo ho zastoupí; jeden člověk
+  smí krýt víc kroků (např. vývojář = vývoj + provoz).
+- **Jádro > 4 nebo kdokoli naráz > 5** → navrhni přesunout někoho na okno
+  nebo zúžit scope.
+- Další role z catalogu (QA #8, A11y #11, Data #12, CS #13, User research
+  #14, UX writer #16, …) přidej jen jako zástupce existujícího kroku nebo
+  jako AI expert perspektivu — ne jako další osobu u stolu.
+
+`room_role_idx` = role catalog čísla všech zástupců (jádro i okna);
+`role_owners` = jména. Do handoff MD zapiš ke každému `jádro` / `okno`
++ datum/čas okna.
 
 ### KROK 2.5 — MODE SELECT (paralelní vs mob, per ADR-0011)
 
@@ -65,8 +71,10 @@ KROK 2 kdy už víme room_size).
 AskUserQuestion: "Jak budete dnes pracovat?"
 description: "Auto-recommend: <{recommended_mode}>. Důvod: {rationale}"
 options:
-  - "Paralelně (3 dvojice, 3 worktrees, A/B/C angles)" — default majority cases
-  - "Mob (1 obrazovka, sequential iterations, ≤ 5 lidí)" — opt-in pro
+  - "Jedna obrazovka, AI staví A/B/C paralelně (3 worktrees)" — default
+    pro jádro 3–4 (session_mode = 'parallel'); vývojář řídí 3 CC sessions,
+    ostatní navigují
+  - "Mob (1 obrazovka, 1 varianta, sequential iterations)" — opt-in pro
     nový tým / onboarding / single high-stakes decision
   - "Hybrid (mob → split → review)" — disabled, v3 coming
 ```
@@ -166,7 +174,7 @@ python tool/cli/worktree.py setup --slug <your-slug>
 >
 > Vyžaduje `projects.target_repo_url` (settnut v Charteru pro pilot/production).
 
-**Tým rozdělí po dvojicích, každá:**
+**Vývojář(i) v jádru řídí worktrees (1 vývojář = všechny 3, 2 vývojáři = 2+1); ostatní v jádru navigují u TV. Per worktree:**
 ```bash
 cd ~/.pflanzer/targets/<your-slug>-X     # X = A / B / C
 claude                                    # otevře CC session v target worktree
@@ -193,7 +201,7 @@ Facilitátor (ty) hlídá čas — **30 min cap**, pak voting bez ohledu na hoto
 
 ### KROK 5 — VOTING (silent dot voting)
 
-Pro každého člena u stolu (jméno z kroku 2B/owners) projdi tento mini-loop:
+Pro každého **přítomného** zástupce (jádro + Decider, pokud je v okně) projdi tento mini-loop. Zástupce v oknech, kteří nejsou přítomni, hlasují async přes web hub (`/pm feedback`):
 
 ```
 For role v selected_roles:
@@ -208,7 +216,7 @@ For role v selected_roles:
     + zeptej se 1× na commitment level 0-3 PER PERSONA (ne per varianta).
 ```
 
-> ⚠ **Speed mode**: pokud je týmu > 4, použij Liberating Structures **1-2-4-All**:
+> ⚠ **Speed mode**: pokud je přítomno > 4, použij Liberating Structures **1-2-4-All**:
 > 1 min sami, 2 min ve dvojici, 4 min v čtveřici, pak All. Hlasy SILENT,
 > Decider hlasuje **poslední** (per `04-session-1.md` § HiPPO push).
 
@@ -229,6 +237,10 @@ Sestav `votes` array per variant:
 ```
 
 ### KROK 6 — DECIDER'S CALL (sociální akt)
+
+Decider přichází na **okno posledních ~15 min** (nebyl u stavby — anti-HiPPO).
+Pokud nemůže, jádro připraví shortlist návrh a Decider ho potvrdí async
+do 24 h; do decision logu zapiš, že call byl async.
 
 ```
 AskUserQuestion: "{Decider} — která varianta jde do mezi-session prototype hubu?"
@@ -276,6 +288,7 @@ Klíčové sekce:
 - Co děláme (XYZ)
 - Decider + decision rationale
 - Varianty + scores
+- **Zástupci 6 kroků cesty**: jméno / role / jádro vs okno / datum okna
 - **Kdo / Owner / Commitment 0-3 / Rationale** (table)
 - Kill criteria
 - ⚠ Pre-production TODO (triage deferred — re-run před pilotem)
@@ -287,13 +300,14 @@ Pokud tým chce **kód reálně použít**:
 
 ```
 > 🚀 Production path:
-> 1. Sběr feedbacku (5-7 dní) přes web hub: /pflanzer-feedback-pull <slug>
-> 2. Decisional session: /pflanzer-session-2 <slug>  (Decider Go/Iterate/Kill)
-> 3. Production hardening: /pflanzer-session-3 <slug>
->    → extract code z buildru → 7 quality gates → score 0-100
->    → pokud >= 80, většina kódu je ready k mergi
-> 4. Handoff: /pflanzer-handoff <slug>
->    → per-role package s odkazy na soubory + open-PR commands
+> 0. Checkpoint bezpečnost & právo (20 min, do 48 h) — zástupce z kroku 2B
+>    projde datový tok + data classification nad winner kandidátem
+> 1. Async feedback (3–5 dní) přes web hub: /pm feedback <slug>
+> 2. Rozhodnutí (60–90 min, Decider + jádro): /pm decide <slug>
+> 3. Ship: /pm ship <slug>  + checkpoint provozu (20 min)
+>    → 7 quality gates → score 0-100; pokud >= 80, kód je ready k mergi
+> 4. Handoff: /pm handoff <slug>
+>    → package s odkazy na soubory + open-PR commands
 ```
 
 Tento blok **vyhoď do handoff MD** — tým má roadmap k production.
@@ -323,8 +337,9 @@ Tento blok **vyhoď do handoff MD** — tým má roadmap k production.
 ## Reference
 
 - `tool/cli/quick_session.py` (single-entry orchestrator)
-- `docs/methodology/04-session-1.md` (canonical Session 1 — co tento command zkracuje)
+- `docs/decisions/0021-mala-skupina-cela-cesta.md` (model účasti: jádro + okna)
+- `docs/methodology/00-lean-pflanzer.md` (kanonický průběh)
+- `docs/methodology/04-session-1.md` (rozšířená reference Buildu)
 - `docs/decisions/0008-tool-form-factor.md` § Hybrid (CC + web hub)
-- Plný flow (4 sessions): `/pflanzer-charter` → `/pflanzer-roles` →
-  `/pflanzer-triage` → `/pflanzer-session-1` → mezi-session → `/pflanzer-session-2`
-- Quick flow (1 session): `/pflanzer` → handoff → (optional) plný flow později.
+- Plný flow: `/pm start` → `/pm roles` → `/pm triage` → `/pm build` → async → `/pm decide` → `/pm ship`
+- Quick flow: `/pm live` → async → `/pm decide` → `/pm ship`.

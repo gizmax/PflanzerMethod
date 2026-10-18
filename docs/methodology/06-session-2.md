@@ -1,5 +1,7 @@
 # 06 — Session 2
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Session 2 = **Rozhodnutí** (60–90 min, Decider + jádro). Agenda 3 h níže je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+
 > Status: v1.0. **Rozhodovací session, ne generativní** [perspektiva 03].
 > 3 hodiny. Cíl: go / iterate / kill rozhodnutí s explicitním kritériem,
 > handoff package do vývoje, nebo re-charter / kill log.
@@ -22,6 +24,12 @@ trvá 6 h, tým nerozhodl, jen unavil. Doporučený slot: **9:00–12:00**
 do 48 h.
 
 ## Účastníci
+
+**v0.5 default (ADR-0021):** **jádro + Decider** (Decider hlasuje poslední,
+ADR-0001). Zástupci bezpečnosti & práva a provozu přes krátká okna
+(checkpoint 20 min), ne celých 60–90 min. Max 5 lidí naráz.
+
+**Rozšířená sestava** (větší / regulované projekty):
 
 - **Stejní jako Session 1** (kontinuita interpretace; bez toho AI syntéza
   ztrácí kontext).
@@ -84,8 +92,8 @@ silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
 
 [synthesis 01]:
 
-- **Prototyp do prod**: throw-away je default v Charteru. „Evolve" jen po
-  kompletním sign-off paketu (FE + EM + Security + Legal + Platform + QA
+- **Prototyp do prod**: **evolve je default** (ADR-0005); throw-away jen
+  jako explicitní opt-in v Charteru. Evolve do produkce po kompletním sign-off paketu (FE + EM + Security + Legal + Platform + QA
   P2P checklist).
 - **Security veto + zadavatel push**: Pre-charter triage zachytí 80 %.
   Critical = pivot. L4 data v promptu = okamžitý stop.
@@ -108,7 +116,7 @@ silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
 - **WCAG Critical/Serious mitigated** pro public-facing + B2B nad
   250 zaměstnanců.
 - **Capacity sign-off od EM** finalizovaný (žádné „posune se to").
-- **P2P gate checklist** kompletní pro evolve, nebo throw-away flag.
+- **P2P gate checklist** kompletní pro evolve (default), nebo explicitní throw-away flag.
 - **Decider podepisuje** explicit go.
 
 ### Iterate criteria

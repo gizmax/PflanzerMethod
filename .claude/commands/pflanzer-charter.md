@@ -104,7 +104,7 @@ Output bude JSON s `{ project_id, charter_path, slug }`.
 7. **Souhrn pro uživatele**:
    - Slug + project_id
    - Path k Charter souboru
-   - Status: `charter` (next krok = `/pflanzer-roles <slug>`).
+   - Status: `charter` (next krok = `/pm roles <slug>`).
    - Připomeň pre-flight checklist z `docs/methodology/03-pre-session-priprava.md`
      — Charter je krok 1; než se spouští Session 1, musí být hotové
      `/pflanzer-roles` + `/pflanzer-triage`.

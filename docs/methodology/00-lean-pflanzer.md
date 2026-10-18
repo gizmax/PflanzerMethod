@@ -1,164 +1,127 @@
-# Lean Pflanzer — Track P default profil (1-pager)
+# Lean Pflanzer — default profil (1-pager, v0.5)
+
+**Pflanzer Method | pflanzer.cz/method**
 
 > **Tohle čti první**, pokud chceš metodu **použít**, ne studovat.
-> Pro audit-grade variantu (banky, DORA, AI Act High-risk) viz
-> `method-charter.md` + ADR-0011/0012/0013/0014.
->
-> **Track P default profil = ~80 % use casů** (per ADR-0020 dual-track model):
-> B2B / B2C eshop / SaaS / interní tool, non-mission-critical, žádný
-> regulatorní gate, dev tým dostupný v room. e-shop, marketing site, app
-> feature, internal dashboard, CRM rework.
->
-> **Track S fallback (~20 %)** pro 4 hard triggers (distributed dev ≥ 3 TZ /
-> AI Act High-risk / FDA-IEC-DO178C-PSD2 / sponsor mandate spec-as-deliverable) —
-> NENÍ preferovaná cesta. Tento dokument je pro Track P. Track S detail
-> v `07-handoff-do-vyvoje.md` + `tool/templates/precision-spec-track-s.md.template`.
+> Kanonický zdroj průběhu a terminologie: ADR-0021. Pro regulované
+> prostředí (banky, DORA, AI Act High-risk) viz `docs/governance/`.
 
-## Co Pflanzer skutečně je
+## Co Pflanzer Method je
 
-Sedm lidí (sponzor + 5 z workflow **včetně programátora od minuty 0** +
-facilitátor), 2 setkání, 1 týden mezi nimi, **winner varianta jde rovnou
-do produkce** — žádná re-implementace dev týmem (dev byl v room).
-Pomáhá korporátu nasadit AI na zrychlení rigidních procesů (sériový handoff
-zadavatel → produkt → vývoj → security → deploy).
+**Malá skupina, ve které je zastoupena celá cesta** od nápadu do produkce,
+postaví s AI co-pilotem 3 funkční varianty, rozhodne nad běžícím kódem
+a vítěz jde rovnou do produkce. Žádné sériové předávání zadavatel →
+produkt → vývoj → security → provoz; každý krok cesty je u toho, ale jen
+tak dlouho, jak je potřeba.
 
-**To je vše.** Vše ostatní v `docs/methodology/` (Method Steward, pre-registration,
-compliance score, leading indicators, DORA prompt audit pipeline, AI Act Fáze A/B/C)
-je **audit-grade overhead** — relevantní pouze pro regulated industries, kde
-audit committee tě po roce zeptá *„jak víte, že to funguje?"*.
+Tři pravidla:
 
-## Real-world recept (~14 dní calendar, ~10 PD effort)
+1. **Celá cesta je zastoupena.** Každý ze 6 kroků cesty má jednoho
+   pojmenovaného zástupce s mandátem. Krok bez jména = nesvolávat.
+2. **Malé jádro, ostatní na okna.** 3–4 lidé jsou u toho celou dobu,
+   ostatní přijdou na krátké okno nad konkrétním artefaktem.
+   Nikdy víc než 5 lidí naráz.
+3. **Automat místo lidí v místnosti.** Sandbox a quality gates pokryjí,
+   co jde zkontrolovat strojem; lidé řeší zbytek.
+
+## Kdo — 6 kroků cesty
+
+| Krok cesty | Zástupce (typicky) | Účast |
+|------------|--------------------|-------|
+| Byznys | Zadavatel / sponzor = **Decider** | okna: Kickoff 15 min + Rozhodnutí |
+| Produkt | PM (často i facilitátor) | **jádro** |
+| Design | UX / Designer | **jádro** (u interního toolu může krýt PM) |
+| Vývoj | 1–2 vývojáři (FE / BE) = buildeři | **jádro** |
+| Bezpečnost & právo | Security nebo Legal / DPO (jeden stačí) | okno: checkpoint 20 min |
+| Provoz | DevOps / Platform nebo EM | okno: checkpoint 20 min u Ship |
+
+Jeden člověk smí krýt víc kroků (vývojář = vývoj + provoz je běžné).
+Kdo přesně může krok zastoupit, říká `02-role-catalog.md` — catalog
+je **knihovna zástupců**, ne seznam pozvánek.
+
+## Průběh (~8 dní, ~6–8 PD)
 
 ```
-Den 0: 1× kávový meeting (60 min)
-  Sponzor + 5 lidi z workflow napříč rolemi (zadavatel → vývojář)
-  → kdo, kdy, co bude na stole, jaký je success threshold (1 věta)
+Den 0    KICKOFF        15 min     Decider + jádro
+         → zadání na 1 stránku: problém (1 věta), metrika úspěchu,
+           kill kritérium, jména zástupců všech 6 kroků, zabookovaná okna
+         /pm start   (nebo rovnou /pm live)
 
-Den 5: Session 1 — vibe (3 h, in-room)
-  /pflanzer "<problém v 1 větě>"
-  → 2-3 paralelně postavené weby v Bolt / v0 / Lovable / Claude Code
-  → silent voting + Decider's shortlist
-  → 1-page MD shrnutí, kdo co reviewuje
+Den 1–5  BUILD          3 h        jádro
+         → AI staví 3 varianty paralelně (Claude Code ve 3 worktrees
+           target repa); jádro sedí u jedné obrazovky a směruje
+         → v posledních 30 min: CHECKPOINT bezpečnost & právo (20 min)
+           nad datovým tokem a data classification
+         /pm live  nebo  /pm build
 
-Den 6-9: async iterace (4 dni)
-  Stakeholdeři klikají, komentují v shared docu nebo PR komentech
-  Builder lead doplňuje variantu podle feedbacku
-  /pflanzer-feedback-pull <slug>  (volitelné, agreguje per role)
+         ASYNC          3–5 dní    všichni zástupci
+         → klikají na sandbox URL, komentují; builder zapracovává
+         /pm feedback
 
-Den 10: Session 2 — doladění + rozhodnutí (3 h)
-  /pflanzer-session-2 <slug>
-  → Decider's Go / Iterate / Kill, anti-HiPPO (hlasuje poslední)
-  → Winner finalized, scope locked
+Den ~7   ROZHODNUTÍ     60–90 min  Decider + jádro
+         → 10 min demo, agregovaný feedback, top 3 spory,
+           silent voting, Decider hlasuje POSLEDNÍ → Go / Iterate / Kill
+         /pm decide
 
-Den 11-14: Ship to prod (1-2 dny vývojářů)
-  /pflanzer-session-3 <slug>   # extract → quality gates score 0-100
-  /pflanzer-handoff <slug>     # PR-ready package
-  Vývojáři doladí edge-case bugy, deploy, monitorování.
+Den ~8   SHIP           1–2 dny    vývojáři + provoz
+         → quality gates ≥ 80/100, CHECKPOINT provozu (20 min), PR do
+           target repa, deploy, monitoring
+         /pm ship  →  /pm handoff
 ```
+
+- **Iterate** = jedno další Build kolo (max 1×), pak Go nebo Kill.
+  Třetí kolo = problém je špatně zadaný, vrať se ke Kickoffu.
+- „Session 1 / Session 2" ve starších dokumentech = Build / Rozhodnutí.
+  „Session 3" se nepoužívá.
 
 ## Co tým dostane
 
-- **3 funkční weby** (ne mockupy v Figmě) — clickable, deployed v sandbox URL,
-  stakeholdeři je vidí ve svém prohlížeči.
-- **Winner kód** (≥80/100 gate score) — Vite + React + TS + ESLint + Vitest,
-  exportovatelný do target repu.
-- **Per-role handoff** s odkazy na konkrétní soubory (ne TBD placeholders).
-- **Decision log** kdo co rozhodl proč (DORA-friendly bez DORA-grade overhead).
+- **3 funkční varianty** (ne mockupy) na sandbox URL, každý zástupce
+  je vidí ve svém prohlížeči.
+- **Winner kód** s gate score ≥ 80/100 jako PR do target repa.
+- **Decision log** — kdo co rozhodl a proč, včetně checkpointů.
 
-## Co tým NEpotřebuje (vs audit-grade)
+## Proč malá skupina
 
-Default profil **vědomě vynechává**:
+- Nad ~4 lidi u jedné obrazovky klesá zapojení; zbytek se stává diváky.
+- AI přesunula úzké hrdlo z psaní kódu na rozhodování — to potřebuje
+  mandát, ne počet lidí.
+- Zástupce kroku v 20min okně nad konkrétním artefaktem přinese víc než
+  stejný člověk 3 hodiny v místnosti, kde se ho nic netýká.
 
-| Audit-grade vyžaduje | Default vynechává | Proč |
-|----------------------|--------------------|------|
-| Method Steward 0.5 FTE €100-150k/rok | – | Method-level kalkulace má smysl až po 3+ pilotech v org |
-| Pre-registration document signed pre-S1 | – | Stačí jednověté success threshold v meeting notes |
-| Pflanzer Compliance Score 12 elementů ex-post | – | Steward neexistuje; PM si po pilotu napíše 1 řádek learning |
-| AI Act Fáze A/B/C dvoufázový protokol | – | Pokud projekt není High-risk per AI Act, žádné fáze. Limited tier = checkbox. |
-| DORA prompt audit pipeline (SIEM ingest, 7y retention) | – | Pokud nejsi banka / pojišťovna, DORA tě nezajímá. |
-| True Cost Worksheet per-role × per-phase | Stačí orientační ~10 PD odhad | Detailní worksheet má smysl tam, kde sponzor hlídá KAŽDÝ PD |
-| Blind external EM panel z jiných BU | – | Operational EM acceptance + 1× retro stačí pro non-regulated |
-| ADR-0001 Decider eskalační protokol (Scenario A/B/C) | Decider má tie-breaker, sponzor je informován | Lightweight eskalace stačí |
-| Leading indicators dashboard (LI-1 až LI-5) | – | Method-level dashboard má smysl po 3+ pilotech |
+Evidence a její limity: ADR-0021 § Evidence.
 
-**Realistický effort pro default profil:** ~10 PD (per `03-pre-session-priprava.md`
-True Cost Worksheet § Default profil). Z toho:
-- Pre-flight + Charter: 1.5 PD (sponzor + PM)
-- Session 1 + builder prep: 2 PD (facilitator + builder lead)
-- Mezi-session iterace: 2.5 PD (builder + stakeholder review)
-- Session 2 + Decider's call: 1.5 PD
-- Handoff + extract + quality gates: 1.5 PD
-- T+7 a T+30 reinforcement (light): 1 PD
+## Kdy default NEstačí
 
-## Kdy default NEsTAČÍ — upgrade na audit-grade
+Přidej vrstvu z `docs/governance/`, pokud platí **kterékoli**:
 
-Přidej kompletní overhead z `method-charter.md` v0.3, pokud platí **kterékoli**:
+1. **AI Act High-risk** (čl. 6 + Annex III).
+2. **DORA scope** (banky, pojišťovny EU).
+3. **Public sector / zvláštní kategorie osobních dat** (DPIA).
+4. **Rollout metody napříč organizací** (3+ pilotů).
 
-1. **AI Act High-risk** (čl. 6 + Annex III: HR, education, critical infra,
-   biometrics, law enforcement, …) → Fáze A/B/C protokol povinný.
-2. **DORA scope** (banking, pojišťovny EU) → prompt audit pipeline + 7-letá retence.
-3. **PSD2 SCA / payment flow** → standardní SDLC, **Pflanzer se nehraje**
-   (per `01-filozofie-a-kdy-pouzit.md` antipattern).
-4. **Public sector / GDPR special category data** → DPIA full + RoPA + Privacy Notice.
-5. **Method-level rollout** — chceš metodu zavést jako proces napříč
-   organizací → Method Steward, compliance score, T+18 sunset checkpoint, et al.
-   (Pflanzer méně než pilot = nepotřebuješ ADR-0011/12/13/14.)
+**PSD2 SCA / platební flow** → standardní SDLC, Pflanzer se nehraje.
 
-Pokud projekt **nesplňuje ANI JEDEN bod výše**, jdeš s default profilem.
-Pro běžný e-shop → default. Tečka.
+Vývojáři nejsou k dispozici → nejdřív je získej. Track S (spec místo
+produktu) je nouzová cesta, viz `docs/governance/`.
 
-## Role catalog v default profilu
+## Anti-patterny
 
-Z 18-position catalogu (`02-role-catalog.md`) v default profilu **stačí
-6-7 lidí v místnosti**:
-
-| Role | Z catalogu | Default profil |
-|------|------------|----------------|
-| Zadavatel / Sponzor | #1 | Povinný |
-| PM | #2 | Povinný |
-| Facilitátor | #3 | Povinný (často PM nebo dedikovaný) |
-| FE / Vibe-coding lead | #4 | Povinný |
-| BE / API lead | #5 | Povinný (pokud projekt má backend) |
-| UX / Designer | #6 | Doporučený |
-| EM | #9 | Doporučený (signs off capacity) |
-
-**Vynecháno proti audit-grade:** Security (#7), Legal/DPO (#10), A11y (#11),
-UX writer (#12), Data analyst (#13), Solution architect (#14), DevOps (#15),
-CS proxy (#16), Champion (#17), Compliance auditor.
-
-Security a Legal v default profilu **NEjsou v místnosti** — checklist
-1-pager je dostatečný (data classification L1/L2, žádný external pen test
-vyžadovaný, žádná special category data).
-
-## Anti-patterny default profilu
-
-Default profil **selhává**, pokud:
-
-- **Sponzor není v 1. setkání.** Pflanzer cyklus má 2 sessions; bez sponzor
-  buy-in v meeting #1 metoda generuje krásné mockupy, které nikdo nepřevezme.
-- **Vývojářský tým nevidí Session 1 prototyp.** Pokud builder lead je sólo
-  AI vyvojář a dev tým dostává jen handoff, kvalita předání klesá.
-- **3+ stakeholdery se nehlásí mezi-session.** Async feedback nemůže být
-  >20% absentee rate, jinak Session 2 dělá rozhodnutí s neúplnými daty.
-- **Decider hlasuje první.** Anti-HiPPO je core differentiator Pflanzeru
-  i v default profilu. Pokud sponzor řekne *„já chci variantu B"* před silent
-  voting, ostatní role rubber-stampují a metoda neabsorbuje cross-fn alignment.
+- **Krok cesty bez jména.** Typicky bezpečnost nebo provoz — pak se
+  „rychlý" kód zasekne před produkcí. Nesvolávat.
+- **Víc než 5 lidí naráz.** Zúžit scope nebo rozdělit.
+- **Zástupce bez mandátu.** Kdo nemůže v okně rozhodnout, není zástupce.
+- **Decider hlasuje první** nebo přijde „jen se podívat" do Buildu.
+- **Okna se domlouvají ad hoc.** Bookují se na Kickoffu.
+- **Vývojář není v jádru.** Pak to není Pflanzer, ale workshop s mockupy.
 
 ## Vztah k ostatním dokumentům
 
-- **Tohle (00-lean-pflanzer.md)** = default profil quick-start.
-- **`00-tldr.md`** = management 1-pager (proč to dělat, ROI argument).
-- **`01-filozofie-a-kdy-pouzit.md`** = kdy ano / kdy ne (fit criteria + anti-patterns).
-- **`02-role-catalog.md` až `09-srovnani-existujici-metody.md`** = detail pro audit-grade.
-- **`method-charter.md` + ADR-0011/12/13/14** = method-level governance
-  (jen pokud děláš method-level rollout, ne single pilot).
-
-**Single-pilot e-shop-shape projekt = potřebuješ jen tento dokument
-+ `01-filozofie-a-kdy-pouzit.md` + `04-session-1.md` (jako reference pro průběh).**
-
-## Reference
-
-- Case study: `docs/case-studies/eshop-2026.md` — reálný průběh.
-- Tool quick-start: `README.md` § Quick start.
-- Detail per fáze: `03-pre-session-priprava.md`, `04-session-1.md`,
-  `05-mezi-sessions.md`, `06-session-2.md`, `07-handoff-do-vyvoje.md`.
+- `01-filozofie-a-kdy-pouzit.md` — fit / no-fit.
+- `02-role-catalog.md` — kdo může zastoupit který krok.
+- `04-session-1.md`, `05-mezi-sessions.md`, `06-session-2.md`,
+  `07-handoff-do-vyvoje.md` — rozšířené referenční detaily (playbooky
+  konfliktů, agendy pro větší/regulované projekty). Kde se liší od
+  tohoto 1-pageru, platí tento 1-pager a ADR-0021.
+- `docs/governance/` — audit-grade vrstva.
+- `docs/case-studies/eshop-2026.md` — reálný průběh pilotu.

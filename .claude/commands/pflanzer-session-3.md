@@ -1,8 +1,11 @@
 ---
-description: Session 3 — Production hardening. Extract code z buildru, projet 7 quality gates, vrátit production-ready verdikt + winner. Gate score >= target = většina kódu použitelná.
+description: Ship (/pm ship) — Production hardening. Extract code z buildru, projet 7 quality gates, vrátit production-ready verdikt + winner. Gate score >= target = většina kódu použitelná.
 ---
 
-# /pflanzer-session-3 — Production hardening
+# /pflanzer-session-3 — Ship (production hardening)
+
+> Uživatelsky: `/pm ship <slug>`. Ship **není session** (ADR-0021) — je to
+> práce vývojářů s automatickými branami + 20min checkpoint provozu.
 
 Argumenty: `$ARGUMENTS` = projekt slug.
 
@@ -10,10 +13,13 @@ Předpoklad: `projects.status = 'handoff'` (= Decider's Go ze Session 2).
 
 ## Co tento command dělá
 
-Nový **3-session production path** (vs. původní 2-session exploration):
-- Session 1 (in-room) = explore — generujeme 2-3 funkční varianty.
-- Session 2 (decisional) = decide — Decider Go/Iterate/Kill.
-- **Session 3 (hardening) = ship** — extract → gate → produktion-ready verdict.
+Průběh v0.5 (ADR-0021): Kickoff → Build → Async → Rozhodnutí → **Ship**.
+- Build = 3 varianty; Rozhodnutí = Decider Go/Iterate/Kill.
+- **Ship** = extract → gate → production-ready verdict → checkpoint provozu.
+
+Kdo: vývojáři z jádra + **zástupce kroku Provoz** (okno 20 min nad
+výsledkem gates, deploy plánem a monitoringem). Bez jména pro krok Provoz
+→ upozorni a zeptej se, kdo deploy převezme, než pokračuješ.
 
 Pod kapotou:
 1. Pro každou shortlist variantu: **extract** code z Bolt/v0/Lovable
@@ -82,7 +88,7 @@ Variant C (lovable) → gate score 72/100  ⚠ pilot-only
 Pokud `production_ready=true`:
 ```
 ✅ Winner: Variant A. Většina kódu v extracted/{slug}/A/ je použitelná.
-   Next: /pflanzer-handoff $ARGUMENTS → per-role package s odkazy na soubory.
+   Next: checkpoint provozu → /pm handoff $ARGUMENTS → package s odkazy na soubory.
 ```
 
 Pokud `production_ready=false`:
@@ -93,15 +99,17 @@ Pokud `production_ready=false`:
 AskUserQuestion: "Score {N}/{target} pod targetem. Co teď?"
 options:
   - "Pilot s 5 uživateli, paralelně fix gates" (žádný production launch)
-  - "Pause — tým 1-2 sprinty harduje, pak re-run /pflanzer-session-3"
+  - "Pause — tým 1-2 sprinty harduje, pak re-run /pm ship"
   - "Ship anyway (Decider override + rationale do decision logu)"
 ```
 
 ### Krok 4 — Handoff + deploy
 
-Po session 3 (a Decider OK):
+Po Ship (a Decider OK) — **checkpoint provozu (20 min)**: zástupce kroku
+Provoz potvrdí deploy plán, monitoring a kdo drží on-call. Zapiš do
+decision logu. Pak:
 ```bash
-/pflanzer-handoff $ARGUMENTS
+/pm handoff $ARGUMENTS
 ```
 
 Handoff package teď bude obsahovat:
@@ -118,7 +126,7 @@ Handoff package teď bude obsahovat:
   v Session 1, ne tady.
 - **Nezapomeň na node_modules** — gates `skipped` pokud `npm install`
   v extracted dir nikdy neběžel. Tým musí ručně pustit `cd extracted/X &&
-  npm install` před session 3, nebo se gates skipnou (= score klesne).
+  npm install` před Ship, nebo se gates skipnou (= score klesne).
 
 ## Reference
 

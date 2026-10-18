@@ -1,5 +1,7 @@
 # 05 — Mezi sessions
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default Async trvá 3–5 dní; okno 5–7 dní níže je rozšířená reference; kde se liší, platí 1-pager.
+
 > Status: v1.0. Scoring window mezi Session 1 a Session 2: prototype hub
 > s 1–3 variantami, strukturovaný feedback per oddělení, async triage update,
 > Discovery Debt Detector audit. Délka **5–7 pracovních dní** [perspektiva 03].
@@ -12,6 +14,8 @@ varianta**, aktualizovat triage stanoviska a doručit Session 2 rozhodovací
 materiál — ne pokračovat v generaci.
 
 ## Délka okna
+
+**v0.5 default: 3–5 dní** (Async). Rozšířená varianta:
 
 **5–7 pracovních dní** [perspektiva 03]:
 

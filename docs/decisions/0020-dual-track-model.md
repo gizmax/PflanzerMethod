@@ -1,6 +1,7 @@
 # ADR-0020 — Dual-track model (Track P preferred, Track S fallback)
 
 **Status:** Accepted (v0.4)
+**Poznámka (v0.5):** Track S je nově součástí `docs/governance/` (ADR-0021); rozhodnutí tohoto ADR se nemění.
 **Date:** 2026-05-28
 **Context source:** User clarification 2026-05-28 + autoresearch `docs/research/dual-track-design/`
 
