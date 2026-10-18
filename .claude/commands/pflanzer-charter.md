@@ -4,13 +4,17 @@ description: Vede tým interaktivním wizardem, vyplní Pflanzer Business Charte
 
 # /pflanzer-charter — Charter wizard (Slice 1)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug (kebab-case, např. `demo-widget`).
 Pokud nezadáno, ptej se uživatele přes AskUserQuestion.
 
 ## Co tento command dělá
 
 Vyplníš s uživatelem **Pflanzer Business Charter** podle ADR-0004 a persistneš
-projektový záznam do `data/pflanzer.db` + Charter markdown do
+projektový záznam do Pflanzer DB (`pflanzer db`) + Charter markdown do
 `data/charters/<slug>.md`.
 
 ## Jak postupuj
@@ -91,7 +95,7 @@ projektový záznam do `data/pflanzer.db` + Charter markdown do
 5. **Sestav JSON spec** z odpovědí a předej do `tool/cli/charter.py`:
 
 ```bash
-python3 tool/cli/charter.py --spec /tmp/<slug>-spec.json
+pflanzer charter --spec /tmp/<slug>-spec.json
 ```
 
 Output bude JSON s `{ project_id, charter_path, slug }`.

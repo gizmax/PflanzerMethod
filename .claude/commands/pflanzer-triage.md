@@ -4,6 +4,10 @@ description: Spustí 4 paralelní pre-flight triage sub-agents (Discovery + Secu
 
 # /pflanzer-triage — Pre-flight Triage (Slice 3)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá `projects.status='charter'`
 (= proběhl `/pflanzer-charter`) a alespoň 1 row v `roles` (= proběhl
 `/pflanzer-roles`).
@@ -37,7 +41,7 @@ Agent(subagent_type="platform-triage", prompt="Run Platform Triage for slug=$ARG
 3. **Sestav JSON spec** s 4 výsledky a předej do `tool/cli/triage.py`:
 
 ```bash
-python3 tool/cli/triage.py --spec /tmp/<slug>-triage-spec.json
+pflanzer triage --spec /tmp/<slug>-triage-spec.json
 ```
 
 JSON spec format:

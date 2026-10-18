@@ -101,23 +101,9 @@ step "Setup PATH wrapper"
 
 WRAPPER="${HOME}/.local/bin/pflanzer"
 mkdir -p "$(dirname "$WRAPPER")"
-cat > "$WRAPPER" <<'EOF'
-#!/usr/bin/env bash
-# Pflanzer CLI wrapper — proxies subcommands na tool/cli/<name>.py
-PLUGIN_DIR="${PFLANZER_PLUGIN_DIR:-$HOME/.claude/plugins/pflanzer}"
-SUB="${1:-help}"
-shift || true
-SCRIPT="${PLUGIN_DIR}/tool/cli/${SUB}.py"
-if [ ! -f "$SCRIPT" ]; then
-  echo "Unknown subcommand: $SUB"
-  echo "Available:"
-  ls "${PLUGIN_DIR}/tool/cli/"*.py | xargs -n1 basename | sed 's/.py$//' | grep -v '^__' | sed 's/^/  pflanzer /'
-  exit 1
-fi
-PYTHONPATH="$PLUGIN_DIR" exec python3 "$SCRIPT" "$@"
-EOF
-chmod +x "$WRAPPER"
-ok "Wrapper script: ${WRAPPER}"
+chmod +x "$PLUGIN_DIR/tool/bin/pflanzer"
+ln -sf "$PLUGIN_DIR/tool/bin/pflanzer" "$WRAPPER"
+ok "Wrapper: ${WRAPPER} -> ${PLUGIN_DIR}/tool/bin/pflanzer"
 
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
@@ -127,27 +113,47 @@ case ":$PATH:" in
 esac
 
 # ---------------------------------------------------------------------------
-# 5. Done — next steps
+# 5. Registrace pluginu v Claude Code (slash commandy /pm + role agenti)
+# ---------------------------------------------------------------------------
+step "Registruji plugin v Claude Code"
+
+if command -v claude >/dev/null; then
+  if ! claude plugin marketplace list 2>/dev/null | grep -q "pflanzer-method"; then
+    claude plugin marketplace add "$PLUGIN_DIR" >/dev/null 2>&1 \
+      || warn "marketplace add selhal — zkus ručně: claude plugin marketplace add ${PLUGIN_DIR}"
+  else
+    claude plugin marketplace update pflanzer-method >/dev/null 2>&1 || true
+  fi
+  if claude plugin install pflanzer@pflanzer-method >/dev/null 2>&1 \
+     || claude plugin update pflanzer@pflanzer-method >/dev/null 2>&1; then
+    ok "Plugin pflanzer@pflanzer-method nainstalován (/pm dostupné po restartu Claude Code)"
+  else
+    warn "plugin install selhal — zkus ručně: claude plugin install pflanzer@pflanzer-method"
+  fi
+else
+  warn "claude není v PATH — po instalaci Claude Code spusť:"
+  echo "    claude plugin marketplace add ${PLUGIN_DIR}"
+  echo "    claude plugin install pflanzer@pflanzer-method"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Done — next steps
 # ---------------------------------------------------------------------------
 echo ""
 echo "${C_OK}${C_BOLD}✅ Pflanzer Method nainstalována.${C_RST}"
 echo ""
 echo "Co dál:"
 echo ""
-echo "  ${C_BOLD}1.${C_RST} V Claude Code v jakémkoliv repu spusť slash command:"
-echo "       /pflanzer \"co dnes řešíme\""
+echo "  ${C_BOLD}1.${C_RST} V target repu (repo produktu, kam má kód jít):"
+echo "       cd /path/to/your/repo && pflanzer init"
+echo "       git add docs/INTEGRATION_GUIDE.md .pflanzer/project.toml && git commit -m 'chore: pflanzer init'"
 echo ""
-echo "  ${C_BOLD}2.${C_RST} Před první session na produkčním repu vyrob INTEGRATION_GUIDE.md:"
-echo "       cd /path/to/your/repo"
-echo "       pflanzer init   # zkopíruje template + ověří env"
+echo "  ${C_BOLD}2.${C_RST} Restartuj Claude Code v tom repu a spusť:"
+echo "       /pm start"
 echo ""
-echo "  ${C_BOLD}3.${C_RST} Dokumentace metody:"
-echo "       ${PLUGIN_DIR}/README.md"
-echo "       ${PLUGIN_DIR}/docs/methodology/00-tldr.md"
+echo "  ${C_BOLD}3.${C_RST} Průvodce prvním pilotem:"
+echo "       ${PLUGIN_DIR}/docs/zacni.md"
 echo ""
-echo "  ${C_BOLD}4.${C_RST} Update na novou verzi:"
-echo "       pflanzer update      # = git pull v ${PLUGIN_DIR}"
-echo ""
-echo "  ${C_BOLD}5.${C_RST} Uninstall:"
-echo "       rm -rf ${PLUGIN_DIR} ${RUNTIME_DIR} ${WRAPPER}"
+echo "  ${C_BOLD}4.${C_RST} Update:      pflanzer update"
+echo "  ${C_BOLD}5.${C_RST} Uninstall:   claude plugin uninstall pflanzer@pflanzer-method; rm -rf ${PLUGIN_DIR} ${RUNTIME_DIR} ${WRAPPER}"
 echo ""

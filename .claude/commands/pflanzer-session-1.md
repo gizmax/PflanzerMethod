@@ -4,6 +4,10 @@ description: Spustí Session 1 orchestrator — facilitátor + role expert sub-a
 
 # /pflanzer-session-1 — Session 1 (generativní)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug.
 
 Předpoklady (povinné):
@@ -34,9 +38,8 @@ Aplikuje **canonical agendu Session 1** z `docs/methodology/04-session-1.md`:
 ### Krok 1 — Validace
 
 ```python
-import sqlite3
-from pathlib import Path
-db = sqlite3.connect("data/pflanzer.db")
+import sqlite3, subprocess
+db = sqlite3.connect(subprocess.check_output(["pflanzer", "db"], text=True).strip())
 db.row_factory = sqlite3.Row
 proj = db.execute("SELECT id, status, name, throwaway_or_evolve FROM projects WHERE slug = ?", ("$ARGUMENTS",)).fetchone()
 roles = db.execute("SELECT catalog_idx, catalog_label, status, ai_proxy_mode, human_owner FROM roles WHERE project_id = ?", (proj["id"],)).fetchall()
@@ -51,7 +54,7 @@ Pokud cokoli chybí → instruuj uživatele co spustit:
 ### Krok 2 — Builder shortlist
 
 ```bash
-python3 tool/cli/builder_decision.py --slug $ARGUMENTS
+pflanzer builder_decision --slug $ARGUMENTS
 ```
 
 Zobraz uživateli ranked shortlist + diversity hint. **Volitelně** se zeptej
@@ -108,7 +111,7 @@ do spec JSON.
 Zapiš JSON do `/tmp/<slug>-session-1-spec.json` a spusť:
 
 ```bash
-python3 tool/cli/session.py --spec /tmp/$ARGUMENTS-session-1-spec.json
+pflanzer session --spec /tmp/$ARGUMENTS-session-1-spec.json
 ```
 
 Ověř, že stdout obsahuje `summary_path` a žádný error.

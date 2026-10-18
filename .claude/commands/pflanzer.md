@@ -4,6 +4,10 @@ description: Kickoff + Build v jednom (/pm live) — malé jádro se zástupci v
 
 # /pflanzer — In-room session (single entry point)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 **Argumenty (volitelné)**: `$ARGUMENTS` = problem statement (1 věta).
 Pokud chybí, zeptáš se v kroku 1.
 
@@ -141,7 +145,7 @@ Vyrob JSON spec do `/tmp/quick-bootstrap-<slug>.json`:
 Spusť:
 
 ```bash
-python3 tool/cli/quick_session.py bootstrap --spec /tmp/quick-bootstrap-<slug>.json
+pflanzer quick_session bootstrap --spec /tmp/quick-bootstrap-<slug>.json
 ```
 
 → vrátí `slug`, `project_id`, `defer_note`. Slug ukaž týmu (link
@@ -152,7 +156,7 @@ do web hubu: `http://localhost:8000/<slug>`).
 **Default = 3× Claude Code v 3 git worktrees** (žádný browser tab, žádný extract).
 
 ```bash
-python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
+pflanzer quick_session prompts --slug <slug> --hook "<hook>" --n 3
 ```
 
 → JSON s 3 prompts, všechny pro `claude-code`, **každý s jiným angle**:
@@ -165,7 +169,7 @@ python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3
 ```bash
 # 1. Pflanzer naclonuje target repo do ~/.pflanzer/targets/<repo-slug>/
 #    a vyrobí 3 worktree A/B/C jako siblings + spustí pnpm/yarn/npm install
-python tool/cli/worktree.py setup --slug <your-slug>
+pflanzer worktree setup --slug <your-slug>
 ```
 
 > ⚠ **KRITICKÉ (ADR-0009 P0 fix)**: Tento command spawne worktree v
@@ -189,7 +193,7 @@ claude                                    # otevře CC session v target worktree
 > pro non-tech sponsora / greenfield bez repa):
 >
 > ```bash
-> python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --n 3 --prefer-hosted
+> pflanzer quick_session prompts --slug <slug> --hook "<hook>" --n 3 --prefer-hosted
 > ```
 >
 > → mix `claude-code + codex-cli + v0` s instrukcemi pro Push to GitHub.
@@ -272,13 +276,13 @@ Vyrob spec a persistuj:
 ```
 
 ```bash
-python3 tool/cli/quick_session.py vote --spec /tmp/quick-vote-<slug>.json
+pflanzer quick_session vote --spec /tmp/quick-vote-<slug>.json
 ```
 
 ### KROK 7 — HANDOFF (1-page MD)
 
 ```bash
-python3 tool/cli/quick_session.py handoff --slug <slug>
+pflanzer quick_session handoff --slug <slug>
 ```
 
 → zapíše `data/quick/<slug>-handoff.md`. **Vyhoď týmu na TV** v plném textu

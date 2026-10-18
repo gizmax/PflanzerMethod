@@ -4,6 +4,10 @@ description: Generate per-role handoff package (8 souborů) + method-metrics agg
 
 # /pflanzer-handoff — Handoff package generator
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug.
 
 Předpoklad: `projects.status = 'handoff'` (= Session 2 Decider's Go).
@@ -35,7 +39,7 @@ Read project status z DB. Pokud ≠ 'handoff', instruuj uživatele spustit
 ### Krok 2 — Generate
 
 ```bash
-python3 tool/cli/handoff.py --slug $ARGUMENTS
+pflanzer handoff --slug $ARGUMENTS
 ```
 
 Stdout vrátí JSON s `out_dir`, `files[]`, `metrics`, `p2p_gate_checklist`.

@@ -4,6 +4,10 @@ description: Stáhne mezi-session feedback z web hubu, agreguje per dept/severit
 
 # /pflanzer-feedback-pull — Mezi-session feedback intake
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug.
 
 Předpoklad: web hub byl spuštěn (`tool/web/`) a tým posbíral feedback přes
@@ -11,7 +15,7 @@ ScoringForm (`/<slug>/feedback/<variant_id>`) v 5-7 dní mezi-session okně.
 
 ## Co tento command dělá
 
-1. Spustí `tool/cli/feedback_pull.py --slug $ARGUMENTS` → aggregate + summary MD.
+1. Spustí `pflanzer feedback_pull --slug $ARGUMENTS` → aggregate + summary MD.
 2. Pokud feedback_count > 0, spustí `discovery-debt-detector` agent na summary.
 3. Pokud Critical flags > 0 nebo debt verdict in (critical|high), notifikuje
    Decider přes `AskUserQuestion` (eskalační protokol per ADR-0001).
@@ -22,7 +26,7 @@ ScoringForm (`/<slug>/feedback/<variant_id>`) v 5-7 dní mezi-session okně.
 ### Krok 1 — Pull + aggregate
 
 ```bash
-python3 tool/cli/feedback_pull.py --slug $ARGUMENTS
+pflanzer feedback_pull --slug $ARGUMENTS
 ```
 
 Stdout vrátí JSON s `summary_path`, `feedback_count`, `critical_flags`,
