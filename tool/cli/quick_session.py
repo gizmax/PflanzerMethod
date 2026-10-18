@@ -138,6 +138,28 @@ def _set_triage_deferred(project_id: int, profile: dict[str, Any]) -> None:
         )
 
 
+def load_project_toml(start: Path | None = None) -> dict[str, str]:
+    """Read `[project]` defaults from `.pflanzer/project.toml` (written by `pflanzer init`).
+
+    Looks in cwd (the target repo). Placeholder values like `<@github-handle>` are skipped.
+    """
+    path = (start or Path.cwd()) / ".pflanzer" / "project.toml"
+    if not path.is_file():
+        return {}
+    out: dict[str, str] = {}
+    in_project = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line.startswith("["):
+            in_project = line == "[project]"
+        elif in_project and "=" in line:
+            key, val = (x.strip() for x in line.split("=", 1))
+            val = val.strip('"')
+            if val and not val.startswith("<"):
+                out[key] = val
+    return out
+
+
 def bootstrap(
     *, hook: str, decider_name: str, room_role_idx: list[int],
     risk_profile: str, slug: str | None = None,
@@ -161,6 +183,11 @@ def bootstrap(
     """
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
+
+    defaults = load_project_toml()
+    target_repo_url = target_repo_url or defaults.get("target_repo_url")
+    target_branch_owner = target_branch_owner or defaults.get("target_branch_owner")
+    shadow_pm = shadow_pm or defaults.get("shadow_pm")
 
     # Sprint 1 — Mandatory target_repo_url pro pilot/production
     # (per autoresearch synthesis ADR candidate 1, P0 fix).
