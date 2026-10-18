@@ -20,7 +20,7 @@ Akademik) identifikoval **3 fatální problémy** s původní ADR-0007 formulac�
    test nepre-registered, drift / fork nedetekovatelný. → **Addendum**
    ADR-0013 (Pre-registration discipline + Pflanzer Compliance Score).
 
-Method Charter (`docs/methodology/method-charter.md`) v0.3 reflektuje výše uvedené.
+Method Charter (`docs/governance/method-charter.md`) v0.3 reflektuje výše uvedené.
 Structure of this ADR (Kontext, Rozhodnutí, Důsledky níže) zůstává jako historický
 záznam original v0.2.1 myšlenky; superseded částí jsou označené v textu.
 
@@ -53,7 +53,7 @@ jak ho měříte?"* — žádná odpověď.
 ## Rozhodnutí
 
 Vznik **Pflanzer Method-Level Charteru** jako trvalý dokument
-v `docs/methodology/method-charter.md`. Podléhá stejné disciplíně jako Charter
+v `docs/governance/method-charter.md`. Podléhá stejné disciplíně jako Charter
 projektový (ADR-0004) — má XYZ, threshold, kill criteria, reinforcement track.
 
 ### Struktura Method-Level Charteru
@@ -140,7 +140,7 @@ v dané organizaci. Baseline metric collection 3 měsíce před prvním pilotem.
   method-level Charter.
 - `09-srovnani-existujici-metody.md` — přidat sloupec „self-validating"
   do srovnávací tabulky (Pflanzer = ano, většina ostatních = ne).
-- README — odkaz na `docs/methodology/method-charter.md`.
+- README — odkaz na `docs/governance/method-charter.md`.
 
 ## Reference
 

@@ -131,7 +131,7 @@ Pokud web hub neběží — neselhej, jen logni warning a doporuč
 - Tabulka variant × score × shortlist flag.
 - Veto registr (pokud nějaký).
 - Path k `data/sessions/<slug>/_summary.md`.
-- Next: `/pflanzer-feedback-pull <slug>` (Slice 6) za 5-7 pracovních dní.
+- Next: `/pm feedback <slug>` za 3–5 pracovních dní (Async; zástupci v oknech klikají na sandbox URL).
 
 ## Co NEDĚLAT
 

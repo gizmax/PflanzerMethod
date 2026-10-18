@@ -7,6 +7,12 @@ description: Vede tým decision tree pro výběr rolí z 18-position role catalo
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá, že už proběhl
 `/pflanzer-charter <slug>` (status musí být `charter`).
 
+> **v0.5 (ADR-0021):** cílem není seznam pozvánek, ale **jméno pro každý
+> ze 6 kroků cesty** (byznys, produkt, design, vývoj, bezpečnost & právo,
+> provoz) + označení `jádro` / `okno`. Vybrané role z decision tree mapuj na
+> kroky; role navíc = AI expert perspektiva, ne další osoba. Jádro max 4,
+> naráz max 5. Krok bez jména na konci wizardu → nepustit dál.
+
 ## Co tento command dělá
 
 Aplikuje decision tree z `docs/methodology/02-role-catalog.md` § Decision tree
@@ -122,7 +128,7 @@ JSON spec format:
    - Počet vybraných rolí + jejich seznam s AI proxy režimem.
    - Path k summary.
    - Status: `charter` (zůstává — status='triage' nastaví slice 3).
-   - Next krok: `/pflanzer-triage <slug>`.
+   - Next krok: `/pm triage <slug>` (regulované) nebo rovnou `/pm build <slug>`.
 
 ## Co NEDĚLAT
 

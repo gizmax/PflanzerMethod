@@ -1,5 +1,7 @@
 # Pflanzerova metoda — TL;DR pro management
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Tento TL;DR popisuje metodu v rozšířené podobě (větší / regulované projekty); kde se liší, platí 1-pager.
+
 > 1-pager pro VP+. Kdo nemá 3 minuty, nepotřebuje rozhodovat.
 >
 > **Hledáš jak metodu používat, ne prodávat?** → `00-lean-pflanzer.md`
@@ -30,7 +32,7 @@ aby kód šel rovnou do prod
    agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
    ticket prediction. Výstup = anotované varianty + risk register + score
    závaznosti per role [synthesis 02 — sekce 3].
-3. **Mezi-session** (5–7 dní): běžící produkt na sandbox URL (24 h TTL,
+3. **Mezi-session** (v0.5 default: 3–5 dní; rozšířeně 5–7 dní): běžící produkt na sandbox URL (24 h TTL,
    watermark). Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
    rationale; AI-only feedback deflated max 0.5).
 4. **Session 2** (3 h, rozhodovací): AI moderuje výklad připomínek per role,

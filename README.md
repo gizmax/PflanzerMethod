@@ -2,63 +2,61 @@
 
 **Pflanzer Method | [pflanzer.cz/method](https://pflanzer.cz/method)**
 
-> Univerzální corporate framework pro zrychlení agentního vývoje od nápadu po
-> produkční deploy — všechny zainteresované role (**včetně programátora od minuty 0**)
-> se sejdou v jedné místnosti s AI co-pilotem a společně provibe-kódují 1–3 funkční
-> produkční-ready varianty. Default Track P (~80 % case-ů) → produkt rovnou do prod.
-> Fallback Track S (~20 % s 4 hard triggers, ne preferovaný) → precision spec
-> ≥ 80/100 + 5-stage handoff ritual. Viz ADR-0020.
+> **Malá skupina, ve které je zastoupena celá cesta** od nápadu do produkce
+> (byznys → produkt → design → vývoj → bezpečnost & právo → provoz),
+> postaví s AI co-pilotem 3 funkční varianty, rozhodne nad běžícím kódem
+> a vítěz jde rovnou do produkce. Jádro 3–4 lidí je u toho celou dobu,
+> ostatní zástupci přijdou na krátké okno. Nikdy víc než 5 lidí naráz.
+> Viz ADR-0021.
 
-## Začni tady (default profil — ~80 % use casů)
+## Začni tady
 
-- **`docs/methodology/00-lean-pflanzer.md`** — 1-pager pro default profil (~6 lidí, 2 sezení, ~14 dní, ~10 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
-- **`docs/case-studies/eshop-2026.md`** — reálný průběh e-shop pilotu (3h vibe, 3 weby, ship to prod).
-- Quick start níže (`/pflanzer ...` commands).
+- **`docs/methodology/00-lean-pflanzer.md`** — 1-pager: kdo, kdy, co (~8 dní, ~6–8 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
+- **`docs/decisions/0021-mala-skupina-cela-cesta.md`** — proč malá skupina + evidence.
+- **`docs/case-studies/eshop-2026.md`** — reálný průběh pilotu.
 
-**Audit-grade overhead** (Method Steward, pre-registration, compliance score, AI Act Fáze A/B/C, DORA prompt audit pipeline) → relevantní jen pro regulated industries (banky, pojišťovny EU, AI Act High-risk). Viz `method-charter.md` + ADR-0011/0012/0013/0014. Běžný e-shop projekt tohle **nepotřebuje**.
+**Regulované prostředí** (banky, pojišťovny EU, AI Act High-risk, rollout metody napříč organizací) → `docs/governance/`. Běžný projekt to **nepotřebuje**.
 
 ## Co řeší
 
-V korporátu typicky cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
-s produktem, produkt s vývojem, schvalovací kola, security audit, atd. Metoda to
-zkracuje na **2–3 sezení** — tým se sejde, společně provibe-koduje 2–3 varianty,
-rozhodne, kód projde production gates, ven jde **PR připravený k mergi**.
+V korporátu cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
+s produktem, produkt s vývojem, schvalovací kola, security audit… Každé
+předání ztrácí kontext. Metoda dá zástupce každého kroku cesty k jednomu
+artefaktu — běžícímu kódu — a rozhodne za ~týden. Ven jde **PR připravený
+k mergi**, ne specifikace k re-implementaci.
 
-**Většina kódu z vibe-coding session je použitelná**, ne jen reference pro re-implementaci.
-
-## Quick start (3 sezení = ship to production)
+## Quick start
 
 **Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu pozná,
-kde v cyklu projekt je, a nabídne další krok. (Dlouhé `/pflanzer-*` commandy
-žijí dál jako implementace pod kapotou.)
+kde v cyklu projekt je, a nabídne další krok.
 
 ```
-Session 1: Explore (in-room, 60-90 min)
+Kickoff      (15 min, Decider + jádro)
+  /pm start            # zadání na 1 stránku + jména zástupců 6 kroků cesty
+                       # (nebo rovnou /pm live = kickoff + build v jednom)
+
+Build        (3 h, jádro; checkpoint bezpečnost & právo 20 min)
   /pm live "chceme zlepšit onboarding"
-  → 2-3 paralelně postavené varianty v Bolt/v0/Lovable
-  → silent voting + Decider's shortlist
-  → 1-page handoff MD
+  → 3 varianty paralelně (Claude Code ve 3 worktrees target repa)
 
-Session 2: Decide (3 h)
-  /pm feedback <slug>     # async feedback od stakeholderů
-  /pm decide <slug>       # Decider's Go/Iterate/Kill
+Async        (3–5 dní, všichni zástupci)
+  /pm feedback <slug>  # agregace komentářů ze sandbox URL
 
-Session 3: Ship (1-2 h)
-  /pm ship <slug>         # extract → 7 quality gates → score 0-100
-  /pm handoff <slug>      # PR-ready package s odkazy na soubory
+Rozhodnutí   (60–90 min, Decider + jádro)
+  /pm decide <slug>    # Go / Iterate / Kill, Decider hlasuje poslední
+
+Ship         (1–2 dny, vývojáři + checkpoint provozu 20 min)
+  /pm ship <slug>      # 7 quality gates → score 0–100
+  /pm handoff <slug>   # PR-ready package s odkazy na soubory
 ```
 
-**Po session 3 dostane tým**:
-- Funkční kód v `extracted/<slug>/<winner>/` (Vite + React + TS, ESLint, Vitest)
+**Po Ship tým má**:
+- Funkční kód jako feature branch v target repu (ESLint, typy, testy)
 - Quality gate score (lint + types + tests + security + a11y + build + observability)
-- Per-role handoff balíčky s **odkazy na skutečné soubory** (ne TBD placeholders)
-- Open-PR-ready commit message do `target_repo_url` z Charteru
+- Decision log včetně checkpointů bezpečnosti a provozu
+- Open-PR-ready commit do `target_repo_url`
 
 Cílem je `gate_score >= 80/100` = většina kódu se dá použít v produkci.
-
-Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision
-optimalizovaná na exportable code + preference matrix s AI-only deflation +
-audit log s DORA 7-letou retencí. **Sofistikovanost zachovaná, UX zjednodušeno.**
 
 ## Volba builderu — Claude Code default, hosted SaaS opt-in
 
@@ -80,7 +78,7 @@ cd ../proto-${SLUG}-X && claude
 # Vloží prompt (z `quick_session.py prompts` output) → 30 min koduje
 # → npm test && npm run lint && npm run build → commit
 
-# 3. Po skončení: 3 feature branche v repu, gate-scored přes session 3
+# 3. Po skončení: 3 feature branche v repu, gate-scored přes /pm ship
 ```
 
 Diversity skrz **3 různé prompty** (happy-path / multi-step / smart defaults),
@@ -115,25 +113,29 @@ V opt-in módu dostane shortlist mix: `claude-code + codex-cli + v0`
 | Non-tech stakeholder UX showcase | ❌ vyžaduje terminál | ✅ klikni-vidíš |
 | Production code defaults | ✅ testy, strict types, lint | ⚠ často chybí |
 
-## Plný flow (pokud potřebuješ celé)
+## Plný flow (regulované / větší projekty)
 
-Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
+Pro audit-grade projekty (regulated SDLC, AI Act high-risk) — stejný model
+malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
 
 ```
 /pm start <slug>      # Plný Charter wizard (XYZ, kapacita, Decider mandate, …)
-/pm roles <slug>      # Decision tree pro 18 rolí
+/pm roles <slug>      # Kdo zastupuje který krok cesty (z 18 rolí catalogu)
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
-/pm build <slug>      # Session 1 orchestrator (5–6 h)
-# … mezi-session 5–7 dní (web hub) …
-/pm decide <slug>     # Session 2 (decisional, 3 h)
+/pm build <slug>      # Build (orchestrator s AI expert sub-agenty)
+# … async 3–5 dní (web hub) …
+/pm decide <slug>     # Rozhodnutí (Go / Iterate / Kill)
+/pm ship <slug>       # Quality gates
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
 ```
 
-## Klíčový pilíř — role catalog
+## Klíčový pilíř — 6 kroků cesty, každý se jménem
 
-Místo fixní sady stakeholderů má metoda **knihovnu 18 rolí**. Před každým
-projektem si tým vybere relevantní podmnožinu (decision tree). AI panel pak
-v session zapojí právě tyhle role — žádný overhead, žádné chybějící vstupy.
+Každý projekt má zástupce pro **byznys, produkt, design, vývoj, bezpečnost
+& právo a provoz**. Jeden člověk může krýt víc kroků; žádný krok nesmí
+zůstat bez jména. Kdo může který krok zastoupit, říká **role catalog
+(18 rolí)** — knihovna zástupců, ne seznam pozvánek. Perspektivy rolí,
+které nejsou u stavby, může dodat AI expert sub-agent (jako vstup, ne hlas).
 
 Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog.md).
 
@@ -151,13 +153,15 @@ Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog
 - Slice 8 ✅ Handoff package generator (8 per-role artefakty)
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
 - **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
-  → kód po 3 sezeních ready k mergi (gate_score 0-100)
+  → kód po Ship ready k mergi (gate_score 0-100)
 
 ## Struktura repa
 
 ```
 docs/
-├── methodology/         # finální metoda v češtině (9 dokumentů)
+├── methodology/         # metoda v češtině (start: 00-lean-pflanzer.md)
+├── governance/          # audit-grade vrstva (jen regulované / multi-pilot)
+├── case-studies/        # reálné piloty
 ├── research/
 │   ├── baseline/        # adjacent metody, vibe-coding tools, change-mgmt
 │   ├── perspectives/    # raw výstupy expertního panelu (1 .md / role)
@@ -172,7 +176,7 @@ tool/
 
 .claude/
 ├── commands/            # slash commands (/pm router + /pflanzer-* implementace)
-└── agents/              # 23 sub-agentů (1 facilitator + 17 role experts + 5 triage)
+└── agents/              # 24 sub-agentů (facilitator, role experts, triage, helpers)
 ```
 
 ## Install — co si tým musí stáhnout

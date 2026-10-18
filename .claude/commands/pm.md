@@ -25,20 +25,32 @@ projekt je, a nabídne další krok.
 
 | Sloveso | Deleguje na | Kdy |
 |---------|-------------|-----|
-| `start` | `/pflanzer-charter` | Nový projekt — Charter wizard (Den 0) |
-| `roles` | `/pflanzer-roles` | Výběr rolí po Charteru |
-| `triage` | `/pflanzer-triage` | Pre-flight gate před Session 1 |
-| `build` | `/pflanzer-session-1` | Generování variant (Session 1) |
-| `feedback` | `/pflanzer-feedback-pull` | Stažení mezi-session feedbacku z hubu |
-| `decide` | `/pflanzer-session-2` | Rozhodovací session — Go/Iterate/Kill |
-| `ship` | `/pflanzer-session-3` | Production hardening + quality gates |
+| `start` | `/pflanzer-charter` | **Kickoff** — zadání + zástupci 6 kroků cesty (Den 0) |
+| `roles` | `/pflanzer-roles` | Kdo zastupuje který krok cesty (jádro vs okno) |
+| `triage` | `/pflanzer-triage` | Pre-flight gate před Buildem (regulované projekty) |
+| `build` | `/pflanzer-session-1` | **Build** — 3 varianty paralelně (3 h, jádro) |
+| `feedback` | `/pflanzer-feedback-pull` | **Async** — feedback zástupců z hubu (3–5 dní) |
+| `decide` | `/pflanzer-session-2` | **Rozhodnutí** — Go/Iterate/Kill (60–90 min, Decider + jádro) |
+| `ship` | `/pflanzer-session-3` | **Ship** — quality gates + checkpoint provozu |
 | `handoff` | `/pflanzer-handoff` | Per-role handoff package |
-| `live` | `/pflanzer` | In-room session 60–90 min (vše v jednom) |
+| `live` | `/pflanzer` | Kickoff + Build v jednom (in-room, jádro) |
 | `status` | — (řeší router sám) | Přehled stavu projektu/ů |
 
 **Delegace = přečti `.claude/commands/pflanzer-<cíl>.md` přes Read a postupuj
 přesně podle něj** (s `$ARGUMENTS` = slug). Nikdy nereimplementuj logiku
 cílového commandu po svém.
+
+## Model účasti (ADR-0021) — připomínej ho v každém kroku
+
+- **6 kroků cesty**, každý s pojmenovaným zástupcem: byznys (Decider),
+  produkt, design, vývoj, bezpečnost & právo, provoz. Krok bez jména →
+  upozorni a nabídni doplnění, než pustíš `build`.
+- **Jádro 3–4 lidé** (PM, 1–2 vývojáři, designér) celou dobu; ostatní
+  na **okna**: Decider na Kickoff (15 min) + Rozhodnutí; bezpečnost & právo
+  checkpoint 20 min během/po Buildu; provoz checkpoint 20 min u Ship.
+- **Max 5 lidí naráz.** Víc → navrhni zúžit scope nebo rozdělit.
+- V hlášení dalšího kroku uváděj, **kdo má přijít** (např. „Další krok:
+  `/pm decide demo-widget` — přizvi Decidera, 60–90 min").
 
 ## Jak postupuj
 
@@ -91,4 +103,5 @@ další krok v cyklu **vždy ve tvaru `/pm <sloveso> <slug>`** (ne dlouhým
 
 - `.claude/commands/pflanzer*.md` — implementace kroků
 - `docs/methodology/00-lean-pflanzer.md` — default profil průběhu
+- `docs/decisions/0021-mala-skupina-cela-cesta.md` — model účasti
 - `README.md` § Quick start

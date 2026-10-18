@@ -68,7 +68,7 @@ JSON spec format:
 6. **Souhrn pro uživatele**:
    - Tabulka 4 tracks × status.
    - Blockers + warnings.
-   - Next krok: `/pflanzer-session-1 <slug>` (jen pokud ok).
+   - Next krok: `/pm build <slug>` (jen pokud ok).
 
 ## Co NEDĚLAT
 

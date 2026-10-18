@@ -1,5 +1,7 @@
 # Pflanzer vs adjacent metody — srovnání
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Srovnání níže je psané pro rozšířenou podobu (délky, PD); default v0.5 je ~8 dní a ~6–8 PD; kde se liší, platí 1-pager.
+
 > Cílový čtenář: analytik / metodolog, který potřebuje obhájit volbu metody
 > proti alternativě. Každý argument je v tabulce, rozhodovacím stromu a
 > seznamu diferenciátorů.

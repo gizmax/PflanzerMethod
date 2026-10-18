@@ -1,5 +1,7 @@
 # 08 — Edge cases a rizika
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Edge cases níže jsou rozšířená reference; čísla sestavy (např. „>10 lidí“) jsou audit-grade — default je max 5 naráz; kde se liší, platí 1-pager.
+
 > Co dělat, když metoda narazí na realitu. Každý edge case má strukturu
 > **Situace → Co dělat → Kdo rozhoduje → Mitigace**. Cílem není vyřešit
 > všechny patologie, ale dát facilitátorovi konkrétní protokol pro 13
@@ -173,7 +175,7 @@ recording, 1 anekdota *„nejhorší týden support"*) [perspektiva 13].
 
 ## 7. Multi-team scope nezvládnutý
 
-**Situace.** V místnosti je >10 lidí ze 3+ týmů; sanity check v
+**Situace.** V místnosti je >5 lidí (v0.5; rozšířeně >10) ze 3+ týmů; sanity check v
 [02-role-catalog] selhal; každý tým má vlastní backend, vlastní design
 system, vlastní release cadence.
 
@@ -314,7 +316,7 @@ po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
 - **Decider říká „potřebuju víc času"** (Scenario B): T+48 h písemné
   rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
   (chrání před tichým úmrtím).
-- **Iterate exhausted** (Scenario C): Session 3 hard cap, pak automatický Kill.
+- **Iterate exhausted** (Scenario C): Iterate = max 1 další Build kolo (Session 3 se nepoužívá), pak automatický Kill.
 
 **Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
 ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,

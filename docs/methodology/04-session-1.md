@@ -1,5 +1,7 @@
 # 04 — Session 1
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default Build trvá 3 h; agenda 5–6 h níže je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+
 > Status: v1.0. Generativní session: cross-functional alignment, 1–3 funkční
 > mockupy, preference matrix, score závaznosti per role, Decider's go/no-go
 > shortlist. Délka 5–6 h, konec **16:00** (ne 17:30) [perspektiva 03].
@@ -19,9 +21,9 @@ mezi-session scoring window.
 Kreativní špička je 45–90 minut, druhá vlna po obědě max 60 minut, pak je
 tým v Slacku [perspektiva 03]. Proto:
 
-- **Délka 5–6 h**, ne 8 h. Konec v 16:00, tým musí mít rezervu.
+- **Délka:** v0.5 default Build = **3 h**; 5–6 h jen v rozšířené sestavě, ne 8 h. Konec v 16:00, tým musí mít rezervu.
 - **Break každých 90 min nediskutuju**, pulsní check-in (1–5 prst) každé 2 h.
-- **Mezi-session okno: 5–7 pracovních dní** (ne 14, ne 3).
+- **Mezi-session okno:** v0.5 default **3–5 dní**; rozšířeně 5–7 pracovních dní (ne 14).
 - AI nese execution-heavy zátěž (mockup generation, transcript summary,
   clustering) v okamžicích, kdy lidská energie klesá.
 
@@ -30,7 +32,14 @@ sessions = rozhodli o vibe, ne o realitě.
 
 ## Účastníci
 
-Per Decision tree z `02-role-catalog.md` + tato pravidla:
+**v0.5 default (ADR-0021):** jádro 3–4 lidé celou dobu (PM/facilitátor,
+1–2 vývojáři jako buildeři, designér). **Decider jen na Kickoff (15 min)** a
+Rozhodnutí — u Buildu není. Zástupce bezpečnosti & práva přichází na
+checkpoint 20 min (v posledních 30 min Buildu nebo do 48 h). Nikdy víc než
+5 lidí naráz.
+
+**Rozšířená sestava** (větší / regulované projekty) — per Decision tree
+z `02-role-catalog.md` + tato pravidla:
 
 - **Core 4 (vždy)**: Zadavatel/Decider (1), PM (2), Facilitátor (3), AI co-pilot.
 - **Per project mix**: FE (4), BE (5), UX (6), Security (7), QA (8) povinně
@@ -41,7 +50,7 @@ Per Decision tree z `02-role-catalog.md` + tato pravidla:
 - **Champion** (#17 z synthesis 03) — pokud zavádíme metodu v nové BU
   nebo druhý+ pilot. Owner Coaching Kata loop.
 - **UX writer** (#16) — pokud user-facing copy / error states.
-- **Sanity check**: > 10 lidí v místnosti = scope příliš široký, zúžit
+- **Sanity check**: v0.5 > 5 lidí naráz (rozšířeně > 10) = scope příliš široký, zúžit
   nebo paralelní sessions [synthesis 02].
 - **Senior delegate** povinně pro vetovací role (Security, Legal, EM); junior
   bez mandátu = session se odkládá [perspektiva 01].

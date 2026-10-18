@@ -76,7 +76,7 @@ Print týmu:
 - Tabulka debt scores (5 dimenzí + total).
 - Critical flags (pokud nějaké) s kdo to flagnul + rationale.
 - Path k summary + debt.json.
-- Next: `/pflanzer-session-2 $ARGUMENTS` (pokud verdict ≥ manageable + 0 unresolved
+- Next: `/pm decide $ARGUMENTS` — přizvi Decidera, 60–90 min (pokud verdict ≥ manageable + 0 unresolved
   criticals).
 
 ## Co NEDĚLAT

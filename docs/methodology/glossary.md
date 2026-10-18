@@ -1,5 +1,7 @@
 # Glossary — Pflanzer terminologie
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Terminologie v0.5: Kickoff → Build → Async → Rozhodnutí → Ship; „Session 1/2“ = synonyma Build/Rozhodnutí. Glossary je rozšířená reference; kde se liší, platí 1-pager.
+
 > Definice termínů, kde panovala nejednoznačnost. **v0.4, 2026-05-28.**
 > Updated po dual-track design (`docs/research/dual-track-design/`)
 > a output consistency audit (`docs/research/output-consistency/`).
@@ -130,7 +132,7 @@ Flag v Charteru pro **3 výjimky**:
    DO-178C, některé AI Act High-risk uses), kde MUST existovat separate
    implementation track.
 
-**Throw-away NENÍ default** (v0.3.1 change). Sponzor musí podepsat v Charteru
+**Throw-away NENÍ default** (vyřešeno od v0.3.1; potvrzeno ADR-0005 a ADR-0021). Sponzor musí podepsat v Charteru
 *„throw-away"* explicit a uvést který z 3 use casů aplikuje.
 
 ## Session terms
@@ -147,10 +149,11 @@ ne *„prototype playground"*.
 
 **Winner varianta selected for prod** + sign-off package.
 
-### Session 3 (optional)
+### Session 3 (nepoužívá se)
 
-Nice-to-have polish + observability + monitoring setup. **Není mandatory
-production prerequisite** — quality gates již proběhly v Session 2.
+**Session 3 se nepoužívá** (ADR-0021) — produkční hardening = **Ship**
+(`/pm ship`, quality gates ≥ 80/100 + checkpoint provozu); **Iterate** =
+další Build kolo (max 1×), ne třetí session.
 
 ## Anti-patterns (deprecated language)
 
@@ -162,11 +165,11 @@ production prerequisite** — quality gates již proběhly v Session 2.
 | „handoff package" | „sign-off package" | „Handoff" implies dev re-implementation; Pflanzer dev was in room |
 | „dev team picks up the prototype" | „dev team byl v room, kód jde do prod" | Contradicts core claim |
 | „Prototype-to-Prod (P2P) checklist" | „Production readiness checklist" | Naming |
-| „extract code" (Session 3) | „polish + observability" | „Extract" implies code wasn't prod-ready |
+| „extract code" (Ship) | „polish + observability" | „Extract" implies code wasn't prod-ready |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
 
 ## Reference
 
-- ADR-0005 throw-away vs evolve prototype (note: pending v0.3.1 invert per audit)
+- ADR-0005 throw-away vs evolve prototype (resolved: evolve je default, throw-away explicitní opt-in)
 - `docs/research/output-consistency/03-synthesis.md` — audit findings + recommendations
 - User clarification 2026-05-28: *„Výstup z Pflanzer metody je hotový produkt."*
