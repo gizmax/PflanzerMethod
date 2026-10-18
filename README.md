@@ -11,6 +11,7 @@
 
 ## Začni tady
 
+- **`docs/zacni.md`** — **chceš to vyzkoušet?** Co zařídit s lidmi, co nainstalovat, checklist ke Kickoffu.
 - **`docs/postup.md`** — postup v 5 krocích + diagram průběhu (1 obrazovka).
 - **`docs/methodology/00-lean-pflanzer.md`** — 1-pager: kdo, kdy, co (~8 dní, ~6–8 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
 - **`docs/decisions/0021-mala-skupina-cela-cesta.md`** — proč malá skupina + evidence.
@@ -189,10 +190,14 @@ curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.
 ```
 
 Co se stane:
-1. Naclonuje plugin do `~/.claude/plugins/pflanzer/` (slash commands + agents + tool/cli)
+1. Naclonuje metodu do `~/.claude/plugins/pflanzer/` (slash commands + agents + tool/cli)
 2. Vytvoří `~/.pflanzer/` runtime dir + sdílenou SQLite DB (audit log per všechny tvoje projekty)
-3. Symlink `pflanzer` do `~/.local/bin/` (CLI wrapper pro `pflanzer init`, `pflanzer extract`, …)
-4. Ověří: `git`, `python3.10+`, `node 20+`, `claude` v PATH
+3. Symlink `pflanzer` do `~/.local/bin/` (CLI wrapper: `pflanzer init`, `pflanzer root`, `pflanzer db`, …)
+4. Zaregistruje plugin v Claude Code (`claude plugin marketplace add` + `claude plugin install pflanzer@pflanzer-method`) → `/pm` je dostupné z **libovolného** repa
+5. Ověří: `git`, `python3.10+`, `node 20+`, `claude` v PATH
+
+> Jen `/plugin install` v Claude Code nestačí — slash commandy volají CLI
+> `pflanzer`, které instaluje skript.
 
 ### Pro každý cílový repo (one-time, ~1 minuta)
 
@@ -207,11 +212,13 @@ Co se stane:
 3. Vytvoří `tests/acceptance/` složku (Charter wizard tam píše `.feature` soubory per session).
 4. Update `.gitignore` (`extracted/`, `.pflanzer/local/`).
 
-**Pak commit oba soubory** a tým je ready. V Claude Code:
+**Pak commit oba soubory**, restartuj Claude Code v tom repu a spusť:
 
 ```
-/pm live "co dnes řešíme"
+/pm start            # Kickoff (nebo /pm live "co dnes řešíme" = Kickoff + Build v jednom)
 ```
+
+Průvodce prvním pilotem (lidi, okna, preview, checklist): `docs/zacni.md`.
 
 ### Co vlastně tým stahuje?
 
@@ -232,7 +239,8 @@ Co se stane:
 ### Update / Uninstall
 
 ```bash
-pflanzer update    # = git pull v ~/.claude/plugins/pflanzer/
+pflanzer update    # git pull + DB migrace + claude plugin update
+claude plugin uninstall pflanzer@pflanzer-method
 rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
 ```
 
