@@ -59,6 +59,50 @@ gantt
 5. **Ship (1–2 dny)** — vývojáři + provoz. Quality gates ≥ 80/100,
    20 min checkpoint provozu, PR do target repa, deploy.
 
+## Kde varianty fyzicky jsou
+
+```mermaid
+flowchart LR
+    T["Target repo<br/>(GitHub / GitLab firmy)"]
+    C["Cache clone u buildera<br/>~/.pflanzer/targets/&lt;repo&gt;/"]
+    WA["worktree A<br/>branch pflanzer/&lt;slug&gt;-A"]
+    WB["worktree B<br/>branch pflanzer/&lt;slug&gt;-B"]
+    WC["worktree C<br/>branch pflanzer/&lt;slug&gt;-C"]
+    PA["preview A<br/>sandbox URL"]
+    PB["preview B<br/>sandbox URL"]
+    PC["preview C<br/>sandbox URL"]
+    H["Web hub<br/>odkazy + feedback"]
+
+    T -- clone --> C
+    C --> WA & WB & WC
+    WA -- push --> PA
+    WB -- push --> PB
+    WC -- push --> PC
+    PA & PB & PC --> H
+```
+
+| Kdy | Kód | Běžící varianta | Kdo ji vidí |
+|-----|-----|-----------------|-------------|
+| **Build** | 3 worktrees na notebooku buildera, každý ve vlastní branchi `pflanzer/<slug>-A/B/C` target repa | lokálně, 3 dev servery na 3 portech (např. `:3001`, `:3002`, `:3003`) | jádro u jedné obrazovky |
+| **Async + Rozhodnutí** | branche pushnuté do target repa | **preview deploy každé branche do sandboxu** (izolovaná síť, syntetická data, noindex, TTL) — 3 URL | všichni zástupci ve svém prohlížeči, bez účtu na prod |
+| **Ship** | vítězná branche → PR do `main` target repa; poražené branche se smažou | produkční deploy přes běžnou pipeline | uživatelé |
+
+Prakticky:
+
+- Kód **nikdy nežije mimo target repo** (ADR-0009) — proto vítěz jde
+  rovnou do PR, nic se nepřepisuje.
+- Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,
+  preview namespace v Kubernetes, review apps v GitLabu). Dohodne se na
+  Kickoffu se zástupcem provozu; nic nového se nestaví.
+- Odkazy na 3 URL + feedback sbírá web hub (`http://localhost:8000/<slug>`
+  nebo sdílená instance). Lidé klikají na URL, ne na notebook buildera.
+- Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
+  bezpečnosti & práva.
+
+> Pozn.: push branchí a preview deploy dnes dělá builder ručně / CI target
+> repa; tool (`worktree.py`) zakládá jen worktrees. Automatizace = budoucí
+> krok.
+
 ## Tři pravidla
 
 - Každý krok cesty má **jméno**.
