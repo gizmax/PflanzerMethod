@@ -11,6 +11,7 @@
 
 ## Začni tady
 
+- **`docs/postup.md`** — postup v 5 krocích + diagram průběhu (1 obrazovka).
 - **`docs/methodology/00-lean-pflanzer.md`** — 1-pager: kdo, kdy, co (~8 dní, ~6–8 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
 - **`docs/decisions/0021-mala-skupina-cela-cesta.md`** — proč malá skupina + evidence.
 - **`docs/case-studies/eshop-2026.md`** — reálný průběh pilotu.
