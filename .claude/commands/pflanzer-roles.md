@@ -4,6 +4,10 @@ description: Vede tým decision tree pro výběr rolí z 18-position role catalo
 
 # /pflanzer-roles — Role selection wizard (Slice 2)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá, že už proběhl
 `/pflanzer-charter <slug>` (status musí být `charter`).
 
@@ -88,7 +92,7 @@ v DB a generuje `data/charters/<slug>-roles.md` summary.
 6. **Sestav JSON spec** a předej do `tool/cli/roles.py`:
 
 ```bash
-python3 tool/cli/roles.py --spec /tmp/<slug>-roles-spec.json
+pflanzer roles --spec /tmp/<slug>-roles-spec.json
 ```
 
 JSON spec format:

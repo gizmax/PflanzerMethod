@@ -4,6 +4,10 @@ description: Rozhodnutí (/pm decide, 60–90 min, Decider + jádro) — agreguj
 
 # /pflanzer-session-2 — Rozhodnutí (decisional session)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 > Uživatelsky: `/pm decide <slug>`. **Kdo (ADR-0021):** Decider + jádro
 > (PM, vývojář, designér); zástupci bezpečnosti/provozu jen pokud je
 > otevřený Critical flag v jejich kroku. Max 5 lidí. Začni 10min demem
@@ -34,7 +38,7 @@ Aplikuje **canonical agendu Session 2** z `docs/methodology/06-session-2.md`
 ### Krok 1 — Pre-Session 2 prep
 
 ```bash
-python3 tool/cli/session_2.py prep --slug $ARGUMENTS
+pflanzer session_2 prep --slug $ARGUMENTS
 ```
 
 Výstup obsahuje: commitment_index, ready_for_decision flag, top 3 conflicts
@@ -96,7 +100,7 @@ Notify uživatele a zapiš `decision` row type='escalation' s rationale.
 ### Krok 6 — Persist
 
 ```bash
-python3 tool/cli/session_2.py decide \
+pflanzer session_2 decide \
   --slug $ARGUMENTS \
   --decision <go|iterate|kill> \
   --rationale "<text z kroku 4>" \

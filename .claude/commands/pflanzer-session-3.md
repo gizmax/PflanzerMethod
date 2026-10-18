@@ -4,6 +4,10 @@ description: Ship (/pm ship) — Production hardening. Extract code z buildru, p
 
 # /pflanzer-session-3 — Ship (production hardening)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 > Uživatelsky: `/pm ship <slug>`. Ship **není session** (ADR-0021) — je to
 > práce vývojářů s automatickými branami + 20min checkpoint provozu.
 
@@ -67,7 +71,7 @@ Sestav JSON spec:
 Spusť:
 
 ```bash
-python3 tool/cli/session_3.py --slug $ARGUMENTS \
+pflanzer session_3 --slug $ARGUMENTS \
   --repo-urls "$(cat /tmp/<slug>-repos.json | jq -c .repo_urls)" \
   --method-overrides "$(cat /tmp/<slug>-repos.json | jq -c .method_overrides)"
 ```

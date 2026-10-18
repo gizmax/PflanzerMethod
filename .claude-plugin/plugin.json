@@ -1,0 +1,38 @@
+{
+  "name": "pflanzer",
+  "description": "Pflanzer Method — malá skupina, celá cesta: 3 funkční varianty s AI, rozhodnutí nad běžícím kódem, vítěz do produkce. Vstup: /pm.",
+  "version": "0.5.0",
+  "author": {
+    "name": "Tomáš Pflanzer"
+  },
+  "homepage": "https://pflanzer.cz/method",
+  "repository": "https://github.com/gizmax/PflanzerMethod",
+  "license": "MIT",
+  "commands": "./.claude/commands/",
+  "agents": [
+    "./.claude/agents/a11y-expert.md",
+    "./.claude/agents/be-api-expert.md",
+    "./.claude/agents/champion-expert.md",
+    "./.claude/agents/cs-proxy-expert.md",
+    "./.claude/agents/data-analytics-expert.md",
+    "./.claude/agents/devops-platform-expert.md",
+    "./.claude/agents/discovery-debt-detector.md",
+    "./.claude/agents/discovery-readiness.md",
+    "./.claude/agents/em-expert.md",
+    "./.claude/agents/facilitator.md",
+    "./.claude/agents/fe-vibe-coding-expert.md",
+    "./.claude/agents/legal-gdpr-expert.md",
+    "./.claude/agents/legal-triage.md",
+    "./.claude/agents/platform-triage.md",
+    "./.claude/agents/pm-expert.md",
+    "./.claude/agents/qa-expert.md",
+    "./.claude/agents/security-expert.md",
+    "./.claude/agents/security-triage.md",
+    "./.claude/agents/solution-architect-expert.md",
+    "./.claude/agents/user-research-expert.md",
+    "./.claude/agents/ux-expert.md",
+    "./.claude/agents/ux-writer-expert.md",
+    "./.claude/agents/zadavatel-expert.md",
+    "./.claude/agents/zadavatel-helper.md"
+  ]
+}

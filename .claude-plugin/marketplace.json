@@ -1,0 +1,14 @@
+{
+  "name": "pflanzer-method",
+  "owner": {
+    "name": "Tomáš Pflanzer"
+  },
+  "plugins": [
+    {
+      "name": "pflanzer",
+      "source": "./",
+      "description": "Pflanzer Method — slash commandy (/pm) a role agenti."
+    }
+  ],
+  "description": "Pflanzer Method — metoda pro rychlý vývoj s AI v malé skupině."
+}

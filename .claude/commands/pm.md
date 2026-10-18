@@ -4,6 +4,10 @@ description: Pflanzer Method — jediný vstupní bod. Bez argumentu detekuje st
 
 # /pm — Pflanzer Method router (single entry point)
 
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+
 > **Branding:** Každý user-facing výstup tohoto commandu (úvodní hláška,
 > souhrny, status report) začíná brand line:
 >
@@ -65,7 +69,7 @@ cílového commandu po svém.
 Načti projekty:
 
 ```bash
-sqlite3 data/pflanzer.db "SELECT slug, name, status FROM projects ORDER BY updated_at DESC"
+sqlite3 "$(pflanzer db)" "SELECT slug, name, status FROM projects ORDER BY updated_at DESC"
 ```
 
 - **Žádný projekt** → nabídni `start` (nový projekt) nebo `live`
