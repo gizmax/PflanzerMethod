@@ -129,7 +129,7 @@ shadow_pm = "<jméno PM>"
             "target_branch_owner GitHub handle.",
             "3. Commit oba soubory: `git add docs/INTEGRATION_GUIDE.md .pflanzer/ "
             "&& git commit -m 'chore(pflanzer): init project'`",
-            "4. V Claude Code spusť: `/pflanzer \"co dnes řešíme\"`",
+            "4. Restartuj Claude Code v tomto repu a spusť: `/pm start`",
         ],
     }
 
