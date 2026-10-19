@@ -34,7 +34,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 
 GATES_DIR = REPO_ROOT / "data" / "handoffs"
 # Sprint 2 (per autoresearch ADR-0012):
@@ -551,12 +551,12 @@ def run_all(extracted_id: int) -> dict[str, Any]:
         "extracted_id": extracted_id,
         "slug": slug,
         "variant": variant_name,
-        "local_path": str(local_path.relative_to(REPO_ROOT)),
+        "local_path": display_path(local_path),
         "gate_score": score,
         "target": target,
         "production_ready": score >= target,
         "counts": score_info["counts"],
-        "summary_path": str(md_path.relative_to(REPO_ROOT)),
+        "summary_path": display_path(md_path),
         "results": [
             {"gate": r.gate_type, "status": r.status,
              "metric": r.metric, "details": r.details[:200]}

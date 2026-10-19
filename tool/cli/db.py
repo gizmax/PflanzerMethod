@@ -38,6 +38,12 @@ def _resolve_db_path() -> Path:
 DB_PATH = _resolve_db_path()
 
 
+def display_path(path: Path) -> str:
+    """Repo-relative path when inside the method repo, else absolute (e.g. ~/.pflanzer/targets/)."""
+    path = Path(path).resolve()
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
+
+
 def get_connection() -> sqlite3.Connection:
     """Return a SQLite connection with row_factory and FK enforcement."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -182,10 +182,11 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         if not proj:
             raise ValueError(f"Project '{slug}' not found.")
         project_id, status = int(proj[0]), proj[1]
-        if status not in ("triage", "session_1"):
+        # session_2 = Iterate → další Build kolo (ADR-0021)
+        if status not in ("triage", "session_1", "session_2"):
             raise ValueError(
-                f"Project status='{status}'. Session 1 vyžaduje 'triage' "
-                "(spusť `/pflanzer-triage {slug}` nejdřív)."
+                f"Project status='{status}'. Build vyžaduje 'triage' "
+                f"(spusť `/pm triage {slug}` nejdřív) nebo Iterate po Rozhodnutí."
             )
 
         # Role lookup: catalog_idx → role row metadata

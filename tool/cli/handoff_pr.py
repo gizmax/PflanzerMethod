@@ -28,7 +28,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 
 SHIP_DIR = REPO_ROOT / "data" / "handoffs"
 
@@ -291,7 +291,7 @@ def write_ship(slug: str) -> Path:
             audit(
                 conn, action="ship.render",
                 target_type="project", target_id=int(proj[0]),
-                payload={"slug": slug, "path": str(out.relative_to(REPO_ROOT))},
+                payload={"slug": slug, "path": display_path(out)},
             )
     return out
 
@@ -309,7 +309,7 @@ def main() -> None:
         path = write_ship(args.slug)
         print(json.dumps({
             "slug": args.slug,
-            "ship_path": str(path.relative_to(REPO_ROOT)),
+            "ship_path": display_path(path),
             "next_step": (
                 f"Vyhoď {path} týmu na velký TV. Decider nebo branch_owner "
                 f"copy-paste `gh pr create` command z konce SHIP.md."

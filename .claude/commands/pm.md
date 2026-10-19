@@ -85,7 +85,7 @@ sqlite3 "$(pflanzer db)" "SELECT slug, name, status FROM projects ORDER BY updat
 | `charter` | `roles` (pokud `SELECT COUNT(*) FROM roles WHERE project_id=…` = 0), jinak `triage` | |
 | `triage` | `build` | Pre-flight prošel |
 | `session_1` | `feedback` (pokud `data/feedback/<slug>-summary.md` neexistuje), jinak `decide` | |
-| `session_2` | `decide` | Iterate kolo |
+| `session_2` | `build` | Iterate → další Build kolo (max 1×), pak znovu `decide` |
 | `handoff` | `ship` (pokud `data/production_reports/<slug>-readiness.md` neexistuje), jinak `handoff` | |
 | `killed` | — | Jen oznám; nový projekt = `start` |
 

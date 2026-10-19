@@ -34,7 +34,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 
 EXTRACTED_DIR = REPO_ROOT / "extracted"
 SUPPORTED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
@@ -653,7 +653,7 @@ def extract(
                 extraction_method, files_count, total_loc, extracted_by, notes_md
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (variant_id, source_url, repo_url, str(dest.relative_to(REPO_ROOT)),
+            (variant_id, source_url, repo_url, display_path(dest),
              method, files, loc, current_actor(), "\n".join(notes)),
         )
         extracted_id = cur.lastrowid
@@ -675,7 +675,7 @@ def extract(
         "variant": variant_name,
         "builder": builder,
         "method": method,
-        "local_path": str(dest.relative_to(REPO_ROOT)),
+        "local_path": display_path(dest),
         "absolute_path": str(dest),
         "files_count": files,
         "total_loc": loc,
