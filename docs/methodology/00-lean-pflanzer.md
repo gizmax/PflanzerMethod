@@ -130,4 +130,3 @@ produktu) je nouzová cesta, viz `docs/governance/`.
   konfliktů, agendy pro větší/regulované projekty). Kde se liší od
   tohoto 1-pageru, platí tento 1-pager a ADR-0021.
 - `docs/governance/` — audit-grade vrstva.
-- `docs/case-studies/eshop-2026.md` — reálný průběh pilotu.
