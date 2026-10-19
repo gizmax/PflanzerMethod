@@ -30,7 +30,6 @@ Rozhraní:
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import shutil
@@ -42,7 +41,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import count, tips  # noqa: E402
+from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, display_path, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     BRAND,
@@ -58,11 +57,14 @@ from tool.cli.extract import (  # noqa: E402
 from tool.cli.quality_gates import (  # noqa: E402
     GATE_TYPES,
     MIN_GATES_RUN,
+    PRODUCTION_TARGET,
     RAN_STATUSES,
     REQUIRED_GATES,
+    acceptance_unverified,
     gates_summary_line,
     parse_test_failures,
     skip_reason,
+    unverified_gates,
     verdict_label,
 )
 from tool.cli.quality_gates import gates_sufficiency as _gates_sufficiency  # noqa: E402
@@ -76,7 +78,7 @@ from tool.cli.triage import (  # noqa: E402
     record_triage_override,
     ship_triage_gate,
 )
-from tool.cli.ux import die, emit  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit  # noqa: E402
 
 REPORTS_DIR = DATA_ROOT / "production_reports"
 BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
@@ -206,7 +208,7 @@ def hardening_run(
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id, status, name = int(proj[0]), proj[1], proj[3]
         target = int(proj[2]) if proj[2] is not None else 80
         target_branch = proj[4] or "main"
@@ -298,6 +300,10 @@ def hardening_run(
     blocked_by = list(triage_gate["blocked_by"])
     if target > 0 and low_conf:
         blocked_by.append(suff["blocker"])
+    unverified = unverified_gates(winner["gates"]["results"])
+    unverified_blocks = bool(target >= PRODUCTION_TARGET and acceptance_unverified(unverified))
+    if unverified_blocks:
+        blocked_by.append("gates:acceptance-neověřeno")
     design_msg = ""
     try:
         from tool.cli.checkpoint import design_gate
@@ -315,6 +321,12 @@ def hardening_run(
         blocked_by.append(f"ship:neni-vitez (Rozhodnutí = {decided})")
     summary_line = gates_summary_line(w_score, winner["gates"]["results"])
     warnings: list[str] = list(warnings_pre)
+    if unverified and target > 0:
+        what = ", ".join(f"{u['gate']} ({u['reason']})" for u in unverified)
+        warnings.append(
+            f"Neověřeno: {what} — skóre o tom nic neříká."
+            + (" U production to Ship blokuje: doplň nástroj a spusť znovu."
+               if unverified_blocks else " U pilotu je to varování."))
     ncheck = winner.get("new_code_check")
     if ncheck and ncheck["missing_tests"]:
         warnings.append(
@@ -349,7 +361,7 @@ def hardening_run(
                 "rationale": (override_rationale or "").strip(),
             }
     production_ready = (meets or threshold_override is not None) and target > 0
-    verdict = verdict_label(w_score, target, low_conf)
+    verdict = verdict_label(w_score, target, low_conf, unverified)
     if triage_gate["blocked_by"]:
         verdict = f"blokováno triage - {verdict}"
     if threshold_override:
@@ -378,6 +390,7 @@ def hardening_run(
                 "variants_rationale": (override_rationale or None) if variants else None,
                 "summary_line": summary_line, "warnings": warnings,
                 "gate_ready": gate_ready, "production_ready": production_ready,
+                "unverified": unverified,
                 "threshold_override": threshold_override,
                 "risk_profile": risk_profile, "blocked_by": blocked_by,
                 "triage_override_decision_id": (
@@ -432,6 +445,7 @@ def hardening_run(
             "gate_score": w_score,
             "score_display": f"{w_score}/100 (práh {target})",
             "summary_line": summary_line,
+            "unverified": unverified,
             "verdict": verdict,
             "meets_threshold": meets,
             "gate_ready": gate_ready,
@@ -539,7 +553,8 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
     if blocked_by and target > 0:
         parts: list[str] = []
         triage_b = [b for b in blocked_by if b.startswith("triage:")]
-        gates_b = [b for b in blocked_by if b.startswith("gates:")]
+        gates_b = [b for b in blocked_by if b.startswith("gates:") and "neověřeno" not in b]
+        unv_b = [b for b in blocked_by if "neověřeno" in b]
         if triage_b:
             parts.append(
                 "Blokováno podpisy oken: " + " ".join(human or triage_b) + " Decider může přebít "
@@ -552,6 +567,9 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
                 "(nebo .yml) v base branchi target repa (viz tool/templates/README-gates.md) "
                 "a spusť Ship znovu."
             )
+        if unv_b:
+            parts.append("Acceptance scénáře se nespustily (chybí nástroj, např. @playwright/test) — "
+                         "u production je to blokace. Doplň nástroj a spusť Ship znovu.")
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
     if meets:
@@ -621,14 +639,16 @@ def _render_report(
     w_score = w["gates"]["gate_score"]
     ext = w["extraction"]
 
-    def status_label(score: int) -> str:
+    def status_label(score: int, unv: list[dict[str, str]] | None = None) -> str:
         if target <= 0:
             return "informativně"
-        return "splňuje práh" if score >= target else "pod prahem"
+        if score < target:
+            return "pod prahem"
+        return "splňuje práh ⚠" if unv else "splňuje práh"
 
     var_table = "\n".join(
         f"| {r['variant']} | `{r['builder']}` | {r['preference_score']:.2f} | "
-        f"**{r['gates']['gate_score']}/100** | {status_label(r['gates']['gate_score'])} | "
+        f"**{r['gates']['gate_score']}/100** | {status_label(r['gates']['gate_score'], unverified_gates(r['gates']['results']))} | "
         f"{r['sufficiency']['gates_run']}/{len(GATE_TYPES)}"
         f"{'' if r['sufficiency']['sufficient'] else ' (málo)'} | "
         f"`{r['extraction']['method']}` | {r['extraction'].get('branch') or '—'} | "
@@ -640,9 +660,16 @@ def _render_report(
             return skip_reason(g) or "neběžela"
         return _clip_words(" ".join(g["details"].split()), 200)
 
+    unv_w = unverified_gates(w["gates"]["results"])
+    unv_gates = {u["gate"] for u in unv_w}
+
+    def _badge(g: dict[str, Any]) -> str:
+        if g["gate"] in unv_gates:
+            return "NEOVĚŘENO"
+        return {"skipped": "SKIP", "unsupported": "SKIP"}.get(g["status"], g["status"].upper())
+
     gate_lines = "\n".join(
-        f"- `{ {'skipped': 'SKIP', 'unsupported': 'SKIP'}.get(g['status'], g['status'].upper()) }` "
-        f"**{g['gate']}**: {_gate_detail(g)}"
+        f"- `{_badge(g)}` **{g['gate']}**: {_gate_detail(g)}"
         for g in w["gates"]["results"]
     )
     fails, warns = _failing(w)
@@ -660,8 +687,11 @@ def _render_report(
         )
     elif meets and target > 0:
         verdict_block = (
-            f"## Verdikt: splňuje práh\n\n"
-            f"Vítěz **{w['variant']}** má {w_score}/100 (práh {target}). Kód je ve větvi "
+            f"## Verdikt: splňuje práh{' ⚠' if unv_w else ''}\n\n"
+            f"Vítěz **{w['variant']}** má {w_score}/100 (práh {target})"
+            + (f", ale neověřeno: {', '.join(u['gate'] + ' (' + u['reason'] + ')' for u in unv_w)}"
+               if unv_w else "")
+            + f". Kód je ve větvi "
             f"`{ext.get('branch') or '—'}` @ `{(ext.get('head_sha') or '—')[:10]}`.\n\n"
             f"### Další krok\n"
             f"{_steps_md(slug, provoz_done, draft=False)}"
@@ -753,7 +783,9 @@ def _render_report(
 ## Metodika
 
 Skóre = body z aplikovatelných bran / max aplikovatelných × 100. Brána, která pro stack
-nedává smysl (např. typy bez tsconfig.json), je SKIP a nepočítá se. Žádné testy = FAIL.
+nedává smysl (např. typy bez tsconfig.json), je SKIP a nepočítá se. Brána, která by dávala
+smysl, ale chybí nástroj (např. acceptance bez @playwright/test), je NEOVĚŘENO: nepočítá se,
+u production blokuje (acceptance), u pilotu je to varování. Žádné testy = FAIL.
 Verdikt "splňuje práh" vyžaduje aspoň 4 reálně spuštěné brány včetně build a tests.
 Váhy: acceptance 2,5 · testy 2,0 · security 2,0 · build 1,5 · typy 1,5 · ostatní 0,5–1,0.
 Detail per brána: `quality-{w['variant']}.md` ve výstupní složce (`pflanzer data`).
@@ -840,7 +872,7 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer session_3", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--variants", default=None,
                    help="jiné varianty než vítěz z Rozhodnutí (vyžaduje --rationale; jen porovnání)")
@@ -882,6 +914,7 @@ def main() -> None:
         die("--repo-urls a --method-overrides čekají JSON objekt.",
             '--repo-urls \'{"A": "https://github.com/firma/repo"}\'')
     except (ExtractionError, ValueError) as e:
+        exit_if_project_missing(e)
         die(str(e))
     title, lines, warns, nxt, ctx = _human_ship(out, args.slug)
     ctx["open_critical"] = False

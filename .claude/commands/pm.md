@@ -45,7 +45,12 @@ Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
   provozu z projektu) a termín, ne „domluvte s provozem“.
 - Používej **skutečná jména z projektu** (`pflanzer status`), ne generické
   „PdM, vývojář, designér“.
-- Nenajde-li uživatel `/pm`, zkus `/pflanzer:pm`.
+- Nenajde-li uživatel `/pm`, zkus `/pflanzer:pm`. **„Restartuj Claude Code“
+  říkej jen hned po instalaci / `init`** (dřív `/pm` neexistuje); jinak ne.
+- **Každá odpověď končí jednou otázkou nebo jednou výzvou** — ne dvěma,
+  ne žádnou.
+- Na **volnou otázku** vždy nejdřív `pflanzer status` (pro aktivní projekt
+  `--slug S`) a odpověz se **jmény z projektu**, ne obecně.
 
 ## Proč tento command existuje
 
@@ -169,6 +174,15 @@ tím pokryté není.
 táhne hlasování k jeho názoru). Nabídni místo toho: **10min screencast**
 z Buildu (nahraje <jméno PdM>) a pozvánku na **Rozhodnutí s živým demem**
 (<jméno Decidera>, 60–90 min). Jména vezmi z `pflanzer status`.
+
+**„Můžeme Build dělat online?“** — Ano: vývojář sdílí **jednu obrazovku** (jeho Claude Code + běžící varianty), jádro naviguje hlasem; max 5 lidí; checkpoint bezpečnosti online 20 min. **Ne** 3 paralelní breakout místnosti — rozhoduje se nad stejnou obrazovkou. Hlasování tiše najednou přes chat nebo formulář. Jména (kdo sdílí, kdo
+naviguje, kdo podepisuje bezpečnost) vezmi z `pflanzer status`. Detail:
+`docs/methodology/04-session-1.md` § Build online.
+
+**Po Kill** — poděkuj týmu nahlas (zastavit včas je výsledek metody, ne
+selhání) a veď k 1–3 poučením:
+`pflanzer retro lesson --slug S --text "<co jsme se naučili>"`. Poučení
+napiš s týmem jednou větou každé; další krok je právě tento příkaz.
 
 ### 2b. `doctor`
 

@@ -13,7 +13,6 @@ katalogu: `roles.py cards --all` (statická sada v docs) nebo
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
@@ -28,7 +27,14 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli.charter import is_ai_owner, people_check  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, transaction  # noqa: E402
 from tool.cli.tier import infer_tier  # noqa: E402
-from tool.cli.ux import die, emit, read_spec, tips_for_project  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    CzechArgumentParser,
+    die,
+    emit,
+    project_not_found_message,
+    read_spec,
+    tips_for_project,
+)
 
 CATALOG_PATH = REPO_ROOT / "tool" / "data" / "role_catalog.json"
 SUMMARY_DIR = DATA_ROOT / "charters"
@@ -250,7 +256,7 @@ def persist_roles(slug: str, profile: str, selected: list[dict[str, Any]]) -> di
     with transaction() as conn:
         row = conn.execute("SELECT id, status FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not row:
-            raise ValueError(f"Project '{slug}' not found. Založ ho přes /pm start (Kickoff).")
+            raise ValueError(project_not_found_message(slug))
         project_id = int(row[0])
 
         conn.execute("DELETE FROM roles WHERE project_id = ?", (project_id,))
@@ -386,7 +392,7 @@ def load_card_project(slug: str, tier: str | None = None) -> CardProject:
             (slug,),
         ).fetchone()
         if not row:
-            raise ValueError(f"Project '{slug}' not found. Run `/pm start` first.")
+            raise ValueError(project_not_found_message(slug))
         project_id = int(row["id"])
         roles = conn.execute(
             "SELECT catalog_idx, status, human_owner FROM roles "
@@ -402,7 +408,7 @@ def load_card_project(slug: str, tier: str | None = None) -> CardProject:
         }
         db_tier, db_source = _project_tier(conn, project_id, row["capacity_profile"])
     if not roles:
-        raise ValueError(f"Project '{slug}' has no selected roles. Run `/pm roles` first.")
+        raise ValueError(f"Projekt „{slug}“ nemá vybrané role. Vyber je přes `/pm roles`.")
     tier_source = "arg" if tier else db_source
     return CardProject(
         slug=slug,
@@ -597,7 +603,7 @@ def generate_cards(
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="pflanzer roles", description=__doc__.split("\n")[0])
+    parser = CzechArgumentParser(prog="pflanzer roles", description=__doc__.split("\n")[0])
     parser.add_argument("--spec", help="JSON s odpověďmi průvodce rolemi, nebo `-` pro stdin")
     parser.add_argument("--json", action="store_true", help="Strojový výstup")
     sub = parser.add_subparsers(dest="command")

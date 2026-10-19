@@ -28,6 +28,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli import worktree as _worktree_mod  # noqa: E402
 from tool.cli.builder_decision import recommend_for_slug  # noqa: E402
 from tool.cli.charter import (  # noqa: E402
     BRAND_LINE,
@@ -53,8 +54,11 @@ from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
 from tool.cli.tier import TIER_LABELS, validate_tier  # noqa: E402
 from tool.cli.ux import (  # noqa: E402
+    CzechArgumentParser,
+    did_you_mean,
     die,
     emit,
+    project_not_found_message,
     read_spec,
     tips_for_project,
 )
@@ -352,7 +356,9 @@ def bootstrap(
     Returns dict: project_id, slug, roles_count, warnings, ...
     """
     if risk_profile not in RISK_PROFILES:
-        raise ValueError(f"Neznámý risk_profile „{risk_profile}“. Použij: "
+        near = did_you_mean(str(risk_profile), RISK_PROFILES)
+        raise ValueError(f"Neznámý risk_profile „{risk_profile}“."
+                         + (f" Myslel jste „{near}“?" if near else "") + " Použij: "
                          f"{', '.join(RISK_PROFILES)} (throwaway = demo, pilot = 5–20 uživatelů, "
                          "production = ostrý provoz).")
     profile = RISK_PROFILES[risk_profile]
@@ -746,7 +752,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     # Load Charter context for richer prompts
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT data_class, ai_act_tier, throwaway_or_evolve, name "
+            "SELECT data_class, ai_act_tier, throwaway_or_evolve, name, target_branch "
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
 
@@ -780,6 +786,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
 
     prompts: list[VariantPrompt] = []
+    heads: dict[str, str] = {}
+    common_text = ""
     for i, (item, (name, angle, brief)) in enumerate(zip(shortlist, angles[:n_variants])):
         builder = item["builder"]
         run_hint = f" ({stack.run_cmd})" if stack.run_cmd else ""
@@ -791,9 +799,16 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             )
             placeholder_url = f"local://pflanzer/{slug}-mob{run_hint}"
         else:
-            facilitator, ai_text = _render_builder_prompt(
+            facilitator, head, tail = _render_builder_prompt_parts(
                 hook, brief, constraints, builder, slug=slug, variant=name, repos=repos,
                 has_feature=has_feature, stack=stack)
+            ai_text = f"{head}\n{tail}" if tail else head
+            if tail and mode == "parallel":
+                heads[name] = head
+                if not common_text:       # pravidla se liší jen písmenem varianty -> X
+                    common_text = (_render_builder_prompt_parts(
+                        hook, brief, constraints, builder, slug=slug, variant="X",
+                        repos=repos, has_feature=has_feature, stack=stack)[2])
             if builder in ("claude-code", "codex-cli"):
                 placeholder_url = f"local://pflanzer/{slug}-{name}{run_hint}"
             else:
@@ -817,7 +832,12 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "push_hint": (
             f"Commitni a pushni tests/acceptance/{slug}.feature — worktrees se klonují z originu "
             "a jinak ho neuvidí."
-        ) if has_feature else None,
+        ) if has_feature and not _feature_in_origin(
+            slug, (repos[0].branch if repos else None) or (proj[4] if proj and len(proj) > 4 else None)
+            or "main") else None,
+        "setup_text": _setup_block(slug) if heads else "",
+        "common_text": common_text,
+        "variant_heads": heads,
         "target_repos": [r.to_dict() for r in repos],
         "prompts": [
             {
@@ -825,6 +845,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
                 "angle": p.angle, "prompt_text": p.prompt_text,
                 "facilitator_text": p.facilitator_text, "ai_prompt": p.ai_prompt,
                 "placeholder_url": p.placeholder_url,
+                "variant_head": heads.get(p.name),
             }
             for p in prompts
         ],
@@ -841,6 +862,18 @@ def keyboard_owner(slug: str) -> str | None:
     except Exception:  # noqa: BLE001 — jen informace pro lidi
         return None
     return owner if owner and not is_ai_owner(owner) else None
+
+
+def _feature_in_origin(slug: str, branch: str) -> bool:
+    """Je acceptance .feature už na `origin/<branch>`? (nelze zjistit -> False = hint se ukáže)."""
+    import subprocess
+    rel = f"tests/acceptance/{slug}.feature"
+    try:
+        res = subprocess.run(["git", "ls-tree", "-r", "--name-only", f"origin/{branch}"],
+                             cwd=Path.cwd(), capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0 and rel in res.stdout.splitlines()
 
 
 def _feature_exists(slug: str) -> bool:
@@ -987,7 +1020,7 @@ def _repo_lines(slug: str, variant: str, repos: list[TargetRepo]) -> list[str]:
 def _primary_path(slug: str, variant: str, repos: list[TargetRepo]) -> str:
     if repos:
         return _tilde(variant_worktrees(slug, repos, variant)[0][1])
-    return f"~/.pflanzer/targets/{slug}-{variant}"
+    return _tilde(_worktree_mod.TARGETS_CACHE / f"{slug}-{variant}")
 
 
 def _output_block(slug: str, branch: str, stack: StackProfile, has_feature: bool,
@@ -1093,6 +1126,13 @@ Output:
     return facilitator, ai
 
 
+def _setup_block(slug: str) -> str:
+    """Sdílený setup worktrees (jednou per Build) — společný všem variantám."""
+    return f"""**Setup worktree (1× per Build, dělá facilitátor):**
+`pflanzer worktree setup --slug {slug}` — naklonuje target repo(s) do `<data>/targets/`
+(`PFLANZER_TARGETS_DIR` přepíše), vyrobí worktrees A/B/C + hook s trailery + guard + install."""
+
+
 def _render_builder_prompt(
     hook: str, brief: str, constraints: list[str], builder: str,
     slug: str | None = None, variant: str | None = None,
@@ -1100,6 +1140,18 @@ def _render_builder_prompt(
     has_feature: bool = False, stack: StackProfile | None = None,
 ) -> tuple[str, str]:
     """Prompt per builder: (text pro facilitátora, text k vložení do AI)."""
+    facilitator, head, tail = _render_builder_prompt_parts(
+        hook, brief, constraints, builder, slug, variant, repos, has_feature, stack)
+    return facilitator, (f"{head}\n{tail}" if tail else head)
+
+
+def _render_builder_prompt_parts(
+    hook: str, brief: str, constraints: list[str], builder: str,
+    slug: str | None = None, variant: str | None = None,
+    repos: list[TargetRepo] | None = None,
+    has_feature: bool = False, stack: StackProfile | None = None,
+) -> tuple[str, str, str]:
+    """(facilitátor, hlavička varianty, společná pravidla). Pro hosted buildery je tail prázdný."""
     stack = stack or StackProfile()
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
     slug = slug or "<slug>"
@@ -1122,13 +1174,7 @@ def _render_builder_prompt(
             cd_block += "   # --add-dir = BE / další repa varianty ve stejné CC session"
         elif builder == "codex-cli":
             cd_block += "      # OpenAI Codex CLI"
-        facilitator = f"""**Setup worktree (1× per Build, dělá facilitátor):**
-
-```bash
-pflanzer worktree setup --slug {slug}
-# → Naclonuje target repo(s) do ~/.pflanzer/targets/<repo-slug>/
-# → Vyrobí worktrees A/B/C per repo + hook s trailery + guard + install
-```
+        facilitator = f"""{_setup_block(slug)}
 
 **Tvoje dvojice (varianta {variant}):**
 
@@ -1137,18 +1183,18 @@ pflanzer worktree setup --slug {slug}
 ```
 
 Do AI vlož text z bloku „Vlož do AI“ níže."""
-        ai = f"""Cíl týmu: {hook}
+        head = f"""Cíl týmu: {hook}
 
 Postav variantu {variant} v tomto repu: {brief}.
-{repo_block}
-{rules}
+{repo_block}"""
+        tail = f"""{rules}
 
 Constraints:
 {constraint_lines}
 
 Output:
 {_output_block(slug, f'pflanzer/{slug}-{variant}', stack, has_feature)}"""
-        return facilitator, ai
+        return facilitator, head, tail
 
     # Hosted SaaS builders (Bolt/v0/Lovable) — original flow
     label = f"Varianta {variant} k rozhodnutí — není to hotový produkt"
@@ -1175,7 +1221,7 @@ Output:
 - 1 obrazovka stačí
 - České texty v UI, EN identifikátory v kódu
 - Po dokončení: **Push to GitHub** → vlož repo URL do Ship (production hardening)"""
-    return facilitator, ai
+    return facilitator, ai, ""
 
 
 # --------------------------------------------------------------------------
@@ -1341,7 +1387,7 @@ def render_handoff(slug: str) -> str:
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ValueError(project_not_found_message(slug))
         pid = proj[0]
 
         sess = conn.execute(
@@ -1503,6 +1549,26 @@ BOOTSTRAP_EXAMPLE = """pflanzer quick_session bootstrap --spec - <<'EOF'
 EOF"""
 
 
+BOOTSTRAP_EPILOG = """Pole specu (JSON):
+  povinné:   hook, decider_name, risk_profile (throwaway | pilot | production)
+  nepovinné: slug, metric, kill_criteria, tier (quick | lean | full), core [jména],
+             path_owners {byznys, produkt, design, vyvoj, bezpecnost, provoz}
+             (hodnota = jméno, nebo AI / AI:agent; ne u byznys a vývoj),
+             target_repo_url, target_repos, target_branch
+
+Příklad:
+""" + BOOTSTRAP_EXAMPLE
+
+VOTE_EPILOG = """Pole specu (JSON):
+  slug, facilitator, votes [{name, builder, description, prototype_url?,
+  role_preferences [{role_idx, user_value, effort, risk, strategic_fit,
+  commitment_level, rationale}]}], decider_call {shortlist, rationale,
+  veto_register, parking_lot}, real_urls? {varianta: url}
+
+Příklad:
+""" + VOTE_EXAMPLE
+
+
 def _bootstrap_from_spec(spec: dict[str, Any]) -> dict[str, Any]:
     required = {"hook": "jednovětý popis problému",
                 "decider_name": "jméno Decidera",
@@ -1534,7 +1600,9 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
         lines.append("Jádro: " + ", ".join(out["core"]))
     if out.get("ai_stand_ins"):
         lines.append("AI náhrada: " + ", ".join(
-            f"{a['label']} (AI {a['agent']}, podepisuje {a['signer']})" for a in out["ai_stand_ins"]))
+            f"{a['label']} (AI {a['agent']}, {a['signer']})" if a["signer"].startswith("AI pre-check")
+            else f"{a['label']} (AI {a['agent']}, podepisuje {a['signer']})"
+            for a in out["ai_stand_ins"]))
     if out.get("acceptance_feature_path"):
         lines.append(f"Akceptační scénáře: `{out['acceptance_feature_path']}`")
     if out.get("acceptance_commit_hint"):
@@ -1558,15 +1626,38 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
     if as_json:
         emit(out, title="", as_json=True)
         return
-    lines = [f"Varianta {p['name']} — {p['angle']} ({p['builder']})" for p in out["prompts"]]
+    compact = bool(out.get("variant_heads")) and bool(out.get("common_text"))
+    lines = ([] if compact else
+             [f"Varianta {p['name']} — {p['angle']} ({p['builder']})" for p in out["prompts"]])
     if out.get("keyboard"):
         lines.append(f"U klávesnice: {out['keyboard']} (zástupce kroku Vývoj)")
     if out.get("stack"):
         lines.append(f"Stack target repa: {out['stack']}; kontroly po každém kroku: "
                      f"{', '.join(out['check_commands']) or 'viz README'}")
     emit(out, title="Prompty pro buildery", lines=lines,
-         next_step="vlož každému dvojici jen blok „Vlož do AI“ (tisk níže), zbytek je pro facilitátora",
+         next_step=("setup worktrees (jednou), pak dvojice: `cd` do své varianty a do AI "
+                    "společná pravidla + blok varianty" if compact else
+                    "vlož každému dvojici jen blok „Vlož do AI“ (tisk níže), zbytek je pro facilitátora"),
          tips=tips_for_project(out["slug"], "build"), as_json=False)
+    if compact:
+        heads = [[ln for ln in pr["variant_head"].splitlines() if ln.strip()]
+                 for pr in out["prompts"]]
+        goal = heads[0][0] if heads and heads[0] else ""        # „Cíl týmu: …“ je pro všechny stejný
+        rules = "\n".join(ln for ln in out["common_text"].splitlines() if ln.strip())
+        print(f"\n{out['setup_text']}\n\n"
+              "**Společná pravidla (do AI jako úvod; X = písmeno tvé varianty):**\n"
+              f"```\n{goal}\n{rules}\n```")
+        for pr, head in zip(out["prompts"], heads):
+            cd = re.search(r"```bash\n(.*?)\n```", pr["facilitator_text"].split(
+                "**Tvoje dvojice", 1)[-1], re.S)
+            cmd = " && ".join(ln.split("#", 1)[0].strip() for ln in cd.group(1).splitlines()
+                              if ln.split("#", 1)[0].strip()) if cd else ""
+            own = head[1:] if head and head[0].startswith("Cíl týmu") else head
+            print(f"\n**Varianta {pr['name']} — {pr['angle']}**: `{cmd}`\n"
+                  "Do AI po pravidlech: " + "\n> ".join(own))
+        if out.get("push_hint"):
+            print(f"\n{out['push_hint']}")
+        return
     for pr in out["prompts"]:
         print(f"\n---\n### Varianta {pr['name']} — {pr['angle']}\n\n"
               f"**Pro facilitátora:**\n\n{pr['facilitator_text']}\n\n"
@@ -1586,11 +1677,14 @@ def _render_vote(out: dict[str, Any], as_json: bool, slug: str) -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="pflanzer quick_session", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer quick_session", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
     spec_help = "JSON soubor, nebo `-` pro stdin (`--spec - <<'EOF' … EOF`)"
-    p_boot = sub.add_parser("bootstrap", help="Kickoff: Charter + role + jména kroků cesty + odložený triage")
+    raw = argparse.RawDescriptionHelpFormatter
+    p_boot = sub.add_parser(
+        "bootstrap", help="Kickoff: Charter + role + jména kroků cesty + odložený triage",
+        formatter_class=raw, epilog=BOOTSTRAP_EPILOG)
     p_boot.add_argument("--spec", required=True,
                         help=spec_help + ". Pole: {hook, decider_name, risk_profile, slug?, role_owners?, "
                              "metric?, kill_criteria?, path_owners?{byznys,produkt,design,vyvoj,bezpecnost,provoz; "
@@ -1608,7 +1702,8 @@ def main() -> None:
                            help="Opt-in pro Bolt/v0/Lovable (parallel only). Default = claude-code 3×.")
     p_prompts.add_argument("--json", action="store_true", help="Strojový výstup")
 
-    p_vote = sub.add_parser("vote", help="Record voting + Decider's call")
+    p_vote = sub.add_parser("vote", help="Hlasování po Buildu + volba Decidera",
+                            formatter_class=raw, epilog=VOTE_EPILOG)
     p_vote.add_argument("--spec", required=True, help=spec_help)
     p_vote.add_argument("--json", action="store_true", help="Strojový výstup")
 

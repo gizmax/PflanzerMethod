@@ -6,7 +6,7 @@ export function IdentityPicker(props: {
   owners: Record<string, string | null>;
   onPick: (id: Identity) => void;
 }) {
-  const entries = PATH_STEPS.filter(([k]) => props.owners[k]).map(
+  const entries = PATH_STEPS.filter(([k]) => props.owners[k] && !/^AI(:|$)/i.test(props.owners[k] as string)).map(
     ([k, label]) => ({ key: k, label, name: props.owners[k] as string })
   );
   const [manual, setManual] = useState(entries.length === 0);

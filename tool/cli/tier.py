@@ -7,6 +7,7 @@ ADR-0017).
 """
 from __future__ import annotations
 
+import difflib
 from typing import Any
 
 TIERS: tuple[str, ...] = ("quick", "lean", "full")
@@ -15,11 +16,27 @@ TIER_LABELS = {"quick": "Quick", "lean": "Lean", "full": "Full"}
 WINDOW_DAYS = {"quick": "3", "lean": "3–5", "full": "5–7"}
 
 
+RISK_PROFILE_NAMES: tuple[str, ...] = ("throwaway", "pilot", "production")
+
+
+def window_label(tier: str) -> str:
+    """Czech days wording of the between-session window: "3 dny" / "3–5 dní" / "5–7 dní"."""
+    days = WINDOW_DAYS[tier]
+    return f"{days} dny" if days == "3" else f"{days} dní"
+
+
 def validate_tier(tier: str, capacity_profile: str | None = None) -> str:
-    """Return the normalised tier or raise ValueError."""
+    """Return the normalised tier or raise ValueError (Czech, human sentence)."""
     t = (tier or "").strip().lower()
     if t not in TIERS:
-        raise ValueError(f"tier must be one of {TIERS}, got '{tier}'.")
+        if t in RISK_PROFILE_NAMES:
+            raise ValueError(
+                f"‚{t}‘ je risk profil (throwaway|pilot|production), ne stupeň. "
+                "Stupeň: quick|lean|full (pilot má výchozí lean).")
+        near = difflib.get_close_matches(t, TIERS, n=1, cutoff=0.6)
+        hint = f" Myslel jste ‚{near[0]}‘?" if near else ""
+        raise ValueError(f"Neznámý stupeň ‚{tier}‘.{hint} Stupeň: quick|lean|full "
+                         "(risk profil throwaway|pilot|production se zadává zvlášť).")
     if t == "quick" and capacity_profile == "audit-grade":
         raise ValueError(
             "tier='quick' nejde s capacity_profile='audit-grade' — audit-grade "

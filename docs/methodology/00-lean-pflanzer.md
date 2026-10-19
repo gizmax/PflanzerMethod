@@ -188,3 +188,5 @@ produktu) je nouzová cesta, viz `docs/governance/`.
   konfliktů, agendy pro větší/regulované projekty). Kde se liší od
   tohoto 1-pageru, platí tento 1-pager a ADR-0021.
 - `docs/governance/` — audit-grade vrstva.
+
+**Online:** Build jde i na dálku — vývojář sdílí jednu obrazovku, jádro (max 5 lidí) naviguje hlasem, hlasuje se tiše najednou; detail v [`04-session-1.md`](04-session-1.md) § Build online.

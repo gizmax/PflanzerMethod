@@ -157,6 +157,17 @@ Konflikt pojmenuj v 5. minutě výskytu, ne na konci.
 - **Voting o UI, ne o kódu** → diff walkthrough povinný.
 - **Charter creep** → nové vstupy mimo zadání na 1 stránku se odmítají.
 
+## Build online
+
+Ano: vývojář sdílí **jednu obrazovku** (jeho Claude Code + běžící varianty), jádro naviguje hlasem; max 5 lidí; checkpoint bezpečnosti online 20 min. **Ne** 3 paralelní breakout místnosti — rozhoduje se nad stejnou obrazovkou. Hlasování tiše najednou přes chat nebo formulář.
+
+- Sdílí **vývojář** (jeho Claude Code, worktrees a běžící varianty); jádro
+  (PdM, designér, druhý vývojář) navádí hlasem a píše do chatu.
+- Checkpoint bezpečnosti & práva proběhne online jako samostatné 20min okno
+  s tím, kdo bezpečnost podepisuje, nad stejnou sdílenou obrazovkou.
+- Silent voting: všichni hlasují **najednou a tiše** přes chat nebo formulář,
+  hlasy se odkryjí společně (Decider na Buildu není ani online).
+
 ## Odchylky podle stupně
 
 - **Quick** (`/pm live`): Kickoff + Build v jednom, 1 kolo stavby × ~30 min

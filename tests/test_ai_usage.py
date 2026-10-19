@@ -229,7 +229,7 @@ def test_cli_unknown_slug(tmp_db: Path, capsys: pytest.CaptureFixture[str]) -> N
 
 
 def test_ship_md_without_logs(project: dict[str, Any]) -> None:
-    md = handoff_pr.render_ship_md(project["slug"])
+    md = handoff_pr.render_ship_detail_md(project["slug"])
     assert "## AI náklady (viditelnost)" in md
     assert ("Žádné session logy Claude Code pro worktrees tohoto projektu na tomto stroji."
             in md)
@@ -244,7 +244,7 @@ def test_ship_md_with_logs_and_snapshot_fallback(
     slug = project["slug"]
     d = _seed_variant_a(isolated_env["home"], isolated_env["targets"] / f"{slug}-A")
 
-    md = handoff_pr.render_ship_md(slug)
+    md = handoff_pr.render_ship_detail_md(slug)
     assert "## AI náklady (viditelnost)" in md
     assert "| `A` | 2 | 4 | 131 | 67 | 1 003 | 2 004 |" in md
     assert "| **Celkem za cyklus** | 2 | 4 |" in md
@@ -255,12 +255,12 @@ def test_ship_md_with_logs_and_snapshot_fallback(
     prices.write_text(json.dumps({"claude-": {"input": 1000000, "output": 0}}),
                       encoding="utf-8")
     monkeypatch.setenv("PFLANZER_AI_PRICES", str(prices))
-    md = handoff_pr.render_ship_md(slug)
+    md = handoff_pr.render_ship_detail_md(slug)
     assert "USD (odhad)" in md and "$131.00" in md
 
     ai_usage.record_snapshot(slug)
     shutil.rmtree(d)
-    md = handoff_pr.render_ship_md(slug)
+    md = handoff_pr.render_ship_detail_md(slug)
     assert "poslední snapshot z DB" in md
     assert "| `A` | 2 | 4 | 131 |" in md
 
@@ -272,5 +272,5 @@ def test_ship_md_never_fails_on_usage_error(project: dict[str, Any],
 
     monkeypatch.setattr(ai_usage, "usage_for_project", boom)
     monkeypatch.setattr(ai_usage, "load_snapshot", boom)
-    md = handoff_pr.render_ship_md(project["slug"])
+    md = handoff_pr.render_ship_detail_md(project["slug"])
     assert "Žádné session logy Claude Code" in md

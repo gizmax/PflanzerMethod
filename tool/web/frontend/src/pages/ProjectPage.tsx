@@ -4,8 +4,9 @@ import { api } from "../lib/api";
 import type { ProjectDetail, Variant } from "../lib/types";
 import { ErrorScreen, Loading } from "../components/StateScreen";
 import { IdentityPicker } from "../components/IdentityPicker";
-import { Md, formatDate, phaseLabel } from "../lib/text";
+import { Md, formatDate, ownerLabel, phaseLabel } from "../lib/text";
 import { PATH_STEPS } from "../lib/identity";
+import { buildTask, firstName } from "../lib/task";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
 export default function ProjectPage() {
@@ -36,6 +37,9 @@ export default function ProjectPage() {
   const range = names.length > 1 ? `${names[0]}–${names[names.length - 1]}` : names[0] ?? "A–C";
   const done = variants.filter((v) => v.my_feedback).length;
   const inAsync = project.status === "session_1";
+  const task = buildTask(data, identity, range,
+    data.async_deadline ? formatDate(data.async_deadline) : null, project.slug);
+  const confirmer = firstName(data.pm_name);
 
   return (
     <div className="space-y-6">
@@ -58,11 +62,16 @@ export default function ProjectPage() {
       {inAsync && (
         <section className="pf-card border-accent space-y-3" aria-labelledby="task-h">
           <h2 id="task-h">Vaše úloha</h2>
+          {task.lead && <p>{task.lead}</p>}
           <ol className="list-decimal pl-5 space-y-1">
-            <li>Otevřete varianty {range}.</li>
-            <li>Ke každé napište, co vás zastaví.</li>
-            {data.async_deadline && <li>Do <strong>{formatDate(data.async_deadline)}</strong>.</li>}
+            {task.steps.map((t, i) => <li key={i}>{t}</li>)}
+            {task.key !== "decider" && data.async_deadline && (
+              <li>Do <strong>{formatDate(data.async_deadline)}</strong>.</li>
+            )}
           </ol>
+          {task.command && (
+            <pre className="overflow-x-auto rounded-md bg-soft p-3 text-sm whitespace-pre-wrap break-words"><code>{task.command}</code></pre>
+          )}
           {variants.length > 0 && (
             <p className="text-sm text-muted">
               Váš feedback: odesláno k {done} z {variants.length} variant.
@@ -97,8 +106,8 @@ export default function ProjectPage() {
             return (
               <li key={k} className="rounded-md border border-line px-3 py-2">
                 <span className="block text-sm text-muted">{label}</span>
-                <span className="font-semibold">{owner ?? "— nepřiřazeno"}</span>
-                {me && <span className="pf-pill ml-2">to jste vy</span>}
+                <span className="font-semibold">{ownerLabel(owner, confirmer) ?? "— nepřiřazeno"}</span>
+                {me && <>{" "}<span className="pf-pill ml-1">to jste vy</span></>}
               </li>
             );
           })}

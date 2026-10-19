@@ -260,6 +260,10 @@ Build jede lokálně (3 dev servery), ale Async tak nemá na co klikat. Zkuste
 draft PR s preview nebo nahrávku průchodu (`pflanzer worktree preview`,
 viz [`postup.md`](postup.md#kde-varianty-fyzicky-jsou)). Jinak pilot posuňte.
 
+### …možnost sejít se (Build online)
+
+Ano: vývojář sdílí **jednu obrazovku** (jeho Claude Code + běžící varianty), jádro naviguje hlasem; max 5 lidí; checkpoint bezpečnosti online 20 min. **Ne** 3 paralelní breakout místnosti — rozhoduje se nad stejnou obrazovkou. Hlasování tiše najednou přes chat nebo formulář.
+
 ### …jediného vývojáře
 
 Jde. Build je delší (varianty staví po sobě, ne paralelně), ostatní z jádra

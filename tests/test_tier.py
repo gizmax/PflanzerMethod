@@ -49,7 +49,7 @@ def test_default_tier(capacity: str, quick: bool, risk: str | None, expected: st
 
 def test_validate_tier_rejects_unknown_and_quick_audit_grade() -> None:
     assert validate_tier(" Lean ") == "lean"
-    with pytest.raises(ValueError, match="tier must be one of"):
+    with pytest.raises(ValueError, match="Neznámý stupeň"):
         validate_tier("medium")
     with pytest.raises(ValueError, match="audit-grade"):
         validate_tier("quick", "audit-grade")

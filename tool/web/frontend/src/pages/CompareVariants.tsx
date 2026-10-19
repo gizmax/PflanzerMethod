@@ -11,6 +11,7 @@ export default function CompareVariants() {
   const [variants, setVariants] = useState<Variant[] | null>(null);
   const [shortlist, setShortlist] = useState<string[]>([]);
   const [title, setTitle] = useState("");
+  const [decided, setDecided] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const desktop = useIsDesktop();
   usePageTitle("Varianty");
@@ -20,6 +21,7 @@ export default function CompareVariants() {
     Promise.all([api.getProject(slug), api.listVariants(slug)])
       .then(([d, vs]) => {
         setTitle(d.project.name);
+        setDecided(["session_2", "handoff", "killed"].includes(d.project.status));
         setShortlist(d.shortlist ?? []);
         setVariants(vs);
       })
@@ -49,7 +51,7 @@ export default function CompareVariants() {
 
       <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {variants.map((v) => {
-          const short = shortlist.includes(v.name);
+          const short = decided && shortlist.includes(v.name);
           const hasPreview = !!v.prototype_url;
           return (
             <li key={v.id}>
@@ -57,7 +59,7 @@ export default function CompareVariants() {
                 aria-labelledby={`v-${v.id}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id={`v-${v.id}`}>Varianta {v.name}</h2>
-                  {short && <span className="pf-pill">V užším výběru</span>}
+                  {short && decided && <span className="pf-pill">V užším výběru</span>}
                 </div>
                 <p className="text-sm text-muted">Varianta k rozhodnutí — není hotový produkt.</p>
                 {v.description_md && <p className="text-sm"><Md text={v.description_md} /></p>}

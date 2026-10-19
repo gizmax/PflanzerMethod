@@ -14,7 +14,6 @@ Hodnocení `--score` je 0–1 (vyšší = lepší); bez něj se odvodí ze záva
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 import unicodedata
@@ -24,9 +23,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import count, tips  # noqa: E402
+from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import die, emit, normalize_severity, severity_label  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, normalize_severity, severity_label  # noqa: E402
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -106,7 +105,7 @@ def add_feedback(
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
+            raise ProjectNotFound(slug)
         project_id = int(proj[0])
         variant_id = _find_variant(conn, project_id, variant)
         if variant_id is None:
@@ -147,7 +146,7 @@ def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
+            raise ProjectNotFound(slug)
         cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
         resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
         sql = f"""
@@ -200,8 +199,8 @@ def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], s
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="pflanzer feedback", description=__doc__.split("\n")[0])
-    sub = p.add_subparsers(dest="cmd", required=True)
+    p = CzechArgumentParser(prog="pflanzer feedback", description=__doc__.split("\n")[0])
+    sub = p.add_subparsers(dest="cmd", required=True, parser_class=CzechArgumentParser)
 
     a = sub.add_parser("add", help="Zapíše jeden feedback (offline)")
     a.add_argument("--slug", required=True)
@@ -252,7 +251,7 @@ def main() -> None:
                 nxt, phase = f"`pflanzer feedback list --slug {res['slug']}`", "async"
             emit(res, title=f"Feedback #{res['id']} zapsán", lines=lines,
                  next_step=nxt,
-                 tips=tips(res["slug"], phase, {}, fallback="async")[:2], as_json=args.json)
+                 tips=tips(res["slug"], phase, {}, limit=2), as_json=args.json)
         else:
             rows = list_feedback(args.slug, args.variant)
             if args.json:
@@ -265,8 +264,9 @@ def main() -> None:
                 return
             title, lines, nxt, ctx = _list_view(args.slug, rows)
             emit(rows, title=title, lines=lines, next_step=nxt,
-                 tips=tips(args.slug, "async", ctx)[:2])
+                 tips=tips(args.slug, "async", ctx, limit=2))
     except ValueError as e:
+        exit_if_project_missing(e)
         die(str(e), ADD_EXAMPLE if args.cmd == "add" else "")
 
 

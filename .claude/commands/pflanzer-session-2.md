@@ -82,7 +82,9 @@ dřív, než PR vítěze projde.
 
 - Go → `/pm ship <slug>` — vývojáři + provoz (checkpoint 20 min)
 - Iterate → `/pm build <slug>` — jádro, jen to, co se mění
-- Kill → hotovo; krátká retro do decision logu
+- Kill → poděkuj týmu nahlas a veď k poučením:
+  `pflanzer retro lesson --slug <slug> --text "<poučení>"` (1–3 poučení,
+  jedna věta každé); pak hotovo
 
 ## Co NEDĚLAT
 

@@ -239,7 +239,7 @@ def test_tier_default_by_risk_and_explicit(tmp_db: Path, bare_repo: Path) -> Non
     assert bootstrap_project(slug="t-prod", risk_profile="production",
                              target_repo_url=url)["tier"] == "lean"
     assert bootstrap_project(slug="t-live", target_repo_url=url, tier="quick")["tier"] == "quick"
-    with pytest.raises(ValueError, match="tier"):
+    with pytest.raises(ValueError, match="stupeň"):
         bootstrap_project(slug="t-bad", target_repo_url=url, tier="huge")
 
 

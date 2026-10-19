@@ -15,7 +15,10 @@ Mapování `projects.status` (DB) na fáze v0.5 (ADR-0021):
 | handoff (před Ship)| Rozhodnutí: Go               | checkpoint … / /pm ship       |
 | handoff (po Ship) | Ship hotový                   | /pm handoff  (PR)             |
 | handoff (SHIP.md) | Handoff hotový                | /pm retro  (T+7)              |
-| killed            | Kill — konec                  | —                             |
+| killed            | Ukončeno (Kill) — <datum>     | retro lesson (pak —)          |
+
+Po Kill status nezobrazuje blokace, critical ani čekající podpisy (projekt je ukončený);
+další krok je `pflanzer retro lesson --slug S --text "…"`, po zapsání poučení „—“.
 
 Blokace mají přednost před fází: blokovaný checkpoint (kdo ho odblokuje),
 otevřené critical (počet, varianta, kdo je nahlásil), AI draft čekající na
@@ -28,7 +31,6 @@ po handoffu / SHIP.md `/pm retro <slug>` (T+7). „Ship hotový“ se pozná pod
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
@@ -39,8 +41,15 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.charter import is_ai_owner, owner_display  # noqa: E402
 from tool.cli.db import transaction  # noqa: E402
-from tool.cli.tier import TIER_LABELS, WINDOW_DAYS  # noqa: E402
-from tool.cli.ux import die, emit, severity_label, tips_for_project  # noqa: E402
+from tool.cli.tier import TIER_LABELS, window_label  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    CzechArgumentParser,
+    die,
+    emit,
+    project_not_found_message,
+    severity_label,
+    tips_for_project,
+)
 
 PATH_STEPS = [
     ("byznys", "Byznys"), ("produkt", "Produkt"), ("design", "Design"),
@@ -102,7 +111,8 @@ def _audit_state(conn: Any, pid: int) -> dict[str, Any]:
     if ship == "done" and (latest("handoff.generate") is not None
                            or latest("ship.render") is not None):
         ship = "handed_off"
-    return {"build_running": latest("worktree.setup") is not None, "ship": ship}
+    return {"build_running": latest("worktree.setup") is not None, "ship": ship,
+            "lesson": latest("retro.lesson") is not None}
 
 
 def project_detail(slug: str) -> dict[str, Any]:
@@ -112,7 +122,7 @@ def project_detail(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         p = conn.execute("SELECT * FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not p:
-            raise ValueError(f"Projekt „{slug}“ neexistuje (zkus `pflanzer status`).")
+            raise ValueError(project_not_found_message(slug))
         pid = int(p["id"])
         cols = p.keys()
         risk = load_risk_profile(conn, pid)
@@ -190,6 +200,18 @@ def project_detail(slug: str) -> dict[str, Any]:
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
                         build_running=evidence["build_running"])
     nxt = _with_slug(nxt, slug)
+    killed = p["status"] == "killed"
+    killed_at = None
+    if killed:
+        kill_ts = next((d["atribuce_ts"] for d in reversed(decisions) if d["type"] == "kill"), None) \
+            or next((s["decision_ts"] for s in reversed(sessions)
+                     if s["decision"] == "kill" and s["decision_ts"]), None) \
+            or (p["updated_at"] if "updated_at" in cols else None)
+        killed_at = str(kill_ts)[:10] if kill_ts else None
+        phase = "Ukončeno (Kill)" + (f" — {killed_at}" if killed_at else "")
+        nxt = "—" if evidence["lesson"] else f'pflanzer retro lesson --slug {slug} --text "…"'
+        crit_by_variant, critical, critical_total, blocking_variants = {}, 0, 0, []
+        critical_info = {}
 
     # dedup variant names (po Iterate nový řádek přebíjí starý)
     seen: dict[str, dict[str, Any]] = {}
@@ -201,7 +223,7 @@ def project_detail(slug: str) -> dict[str, Any]:
         }
 
     # --- blokace: checkpointy, critical, AI drafty, chybějící podpisy ---------------
-    cps = list_checkpoints(slug)
+    cps = [] if killed else list_checkpoints(slug)
     late = p["status"] in ("session_1", "session_2", "handoff")  # po Buildu, před/při Ship
     blockers: list[dict[str, str]] = []
     info: list[str] = []
@@ -226,8 +248,8 @@ def project_detail(slug: str) -> dict[str, Any]:
                         "kind": "missing_signature", "window": "design", "command": cmd,
                         "text": text + " — u production blokuje Ship."})
                 else:
-                    info.append(text + (" — u pilotu Ship neblokuje." if risk != "production"
-                                        else ""))
+                    info.append(text + (f" — u {'throwaway' if risk == 'throwaway' else 'pilotu'} "
+                                        "Ship neblokuje." if risk != "production" else ""))
             continue
         if c["state"] == "blocked":
             reason = f": {c['note']}" if c.get("note") else ""
@@ -265,7 +287,7 @@ def project_detail(slug: str) -> dict[str, Any]:
     def _pending_sig() -> dict[str, str] | None:
         return next((b for b in blockers if b["kind"] in ("ai_draft", "missing_signature")), None)
 
-    if p["status"] != "killed":
+    if not killed:
         first = next((b for b in blockers if b["kind"] == "blocked"), None)
         crit_b = next((b for b in blockers if b["kind"] == "critical"), None)
         if first:
@@ -290,7 +312,8 @@ def project_detail(slug: str) -> dict[str, Any]:
                      "critical_informational": {v: len(w) for v, w in critical_info.items()},
                      "by_severity": sev},
         "checkpoints": cps, "blockers": blockers, "info": info,
-        "ship_state": evidence["ship"],
+        "ship_state": evidence["ship"], "killed_at": killed_at,
+        "lesson_recorded": evidence["lesson"],
         "decision": decision, "iterate_rounds": iterate_rounds,
         "decision_log": [dict(d) for d in decisions],
         "gate_score": gate if gate else None, "gate_target": target,
@@ -316,7 +339,7 @@ def _short(name: str, max_len: int = 50) -> str:
 def tier_label(tier: str | None) -> str:
     if not tier:
         return "—"
-    return f"{TIER_LABELS[tier]} (okno {WINDOW_DAYS[tier]} dny)" if tier in TIER_LABELS else tier
+    return f"{TIER_LABELS[tier]} (okno {window_label(tier)})" if tier in TIER_LABELS else tier
 
 
 def _tip_plan(d: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -326,8 +349,10 @@ def _tip_plan(d: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
            "open_critical": "critical" in kinds,
            "missing_signatures": "missing_signature" in kinds or "ai_draft" in kinds,
            "ai_design": "design" in d["ai_stand_ins"]}
-    plan: list[tuple[str, dict[str, Any]]] = [("status", ctx)]
     status, ship = d["status"], d["ship_state"]
+    if status == "killed":
+        return [("after_kill", ctx)]
+    plan: list[tuple[str, dict[str, Any]]] = [("status", ctx)]
     if status == "handoff":
         plan.append(("after_ship" if ship in ("done", "handed_off") else "after_go", ctx))
         plan.append(("handoff" if ship == "handed_off" else "ship", ctx))
@@ -365,6 +390,10 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
     fb = d["feedback"]
     dec = f" · rozhodnutí: **{d['decision']}**" if d["decision"] else ""
     win = f" · vítěz: **{d['winner']}**" if d.get("winner") else ""
+    if d["status"] == "killed":
+        lines.append(f"Feedback: {fb['total']}{dec}")
+        lines.append("Poučení: " + ("zapsáno" if d.get("lesson_recorded") else "zatím nezapsáno"))
+        return lines
     lines.append(f"Feedback: {fb['total']} (critical otevřené: {fb['critical']}){dec}{win}")
     cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
     lines.append("Podpisy: " + " · ".join(f"{c['label']} — {c['state_text']}" for c in cps))
@@ -379,6 +408,8 @@ def ai_notes(d: dict[str, Any]) -> list[str]:
     """Jedna věta za každý krok s AI náhradou, který potřebuje člověka (bez opakování blokací)."""
     from tool.cli.checkpoint import WINDOWS, guidance_core
 
+    if d["status"] == "killed":
+        return []
     owners = d["path_owners"]
     by_window = {c["window"]: c for c in d["checkpoints"]}
     notes: list[str] = []
@@ -392,6 +423,9 @@ def ai_notes(d: dict[str, Any]) -> list[str]:
             continue
         if key == "produkt":
             notes.append(f"{label}: {who} — scope drží Decider ({d['decider'] or 'Decider'}).")
+        elif cp and cp["state"] == "čeká" and d["risk_profile"] == "throwaway":
+            notes.append(f"{label}: {who} — u throwaway stačí AI pre-check "
+                         f"(`pflanzer checkpoint --slug {d['slug']} {win} --ai --note \"…\"`).")
         elif cp and cp["state"] == "čeká":
             signer = cp["designated"]
             notes.append(f"{label}: {who} — čeká na podpis: "
@@ -401,7 +435,7 @@ def ai_notes(d: dict[str, Any]) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(prog="pflanzer status", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer status", description=__doc__.split("\n")[0])
     p.add_argument("--slug", help="Detail jednoho projektu (default: seznam všech)")
     p.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args(argv)
@@ -416,18 +450,28 @@ def main(argv: list[str] | None = None) -> None:
                 "(migrace) nebo `python3 tool/db/migrate.py`.")
             return
         raise
+    if not args.slug and not args.json and len(data) == 1:
+        data = data[0]             # jediný projekt: rovnou detail
+        args.slug = data["slug"]
     if args.slug:
         d = data
         warnings = [b["text"] for b in d["blockers"]] + ai_notes(d)
+        if d["next_step"] != "—":
+            nxt = f"`{d['next_step']}`"
+        elif d["status"] == "killed":
+            nxt = "— (projekt skončil Killem, poučení je zapsáno)"
+        else:
+            nxt = "—"
         emit(d, title=f"{d['name']} (`{d['slug']}`)", lines=detail_lines(d),
-             next_step=f"`{d['next_step']}`" if d["next_step"] != "—" else "projekt skončil Killem",
+             next_step=nxt,
              tips=[] if args.json else _tips(d), warnings=warnings, as_json=args.json)
         return
     lines = []
     for r in data:
         blocked = next((b for b in r["blockers"] if b["kind"] == "blocked"), None)
         flag = f" · ⚠ {blocked['text'].split(' — ')[0]}" if blocked else ""
-        lines.append(f"`{r['slug']}` — {_short(r['name'])} · {r['phase']}{flag} → `{r['next_step']}`")
+        step = f"`{r['next_step']}`" if r["next_step"] != "—" else "—"
+        lines.append(f"`{r['slug']}` — {_short(r['name'])} · {r['phase']}{flag} → {step}")
     emit(data, title="Projekty" if data else "Zatím žádný projekt", lines=lines,
          next_step=(f"`pflanzer status --slug {data[0]['slug']}`" if data else "`/pm start`"),
          tips=[], as_json=args.json)

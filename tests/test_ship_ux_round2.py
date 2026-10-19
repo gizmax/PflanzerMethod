@@ -248,7 +248,7 @@ def test_ship_md_ai_stand_in_section_and_czech_labels(worktree_project: dict[str
             assert old not in text
     assert "## Co se mění" in body
     assert "Rychlejší checkout pro B2B zákazníky" in body.split("## Výstup")[0]
-    assert "Vítěz A: Varianta A" in body.split("## Výstup")[0]
+    assert "Vítěz A — Varianta A" in body.split("## Výstup")[0]
     assert "gh pr view --json url" in md
 
 
@@ -347,7 +347,7 @@ def test_user_value_out_of_range_is_human_error(project: dict[str, Any]) -> None
 
 def test_session_unknown_slug_is_czech(tmp_db: Path) -> None:
     spec = {"slug": "neexistuje", "variants": [{"name": "A", "builder": "manual"}]}
-    with pytest.raises(ValueError, match=r"Projekt 'neexistuje' neexistuje.*pflanzer status"):
+    with pytest.raises(ValueError, match=r"Projekt „neexistuje“ neexistuje.*pflanzer status"):
         session.persist(spec)
 
 

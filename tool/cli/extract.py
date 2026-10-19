@@ -39,7 +39,6 @@ Ship (audit N3) — method selection order:
 """
 from __future__ import annotations
 
-import argparse
 import os
 import re
 import shutil
@@ -52,6 +51,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import ProjectNotFound  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.triage import load_risk_profile  # noqa: E402
 from tool.cli.worktree import TARGETS_CACHE, verify_cwd_in_target  # noqa: E402
@@ -633,7 +633,7 @@ def _git_clone(repo_url: str, dest: Path, force: bool = False) -> tuple[int, int
         capture_output=True, text=True,
     )
     if res.returncode != 0:
-        raise RuntimeError(f"git clone failed: {res.stderr.strip()}")
+        raise RuntimeError(f"git clone selhal: {res.stderr.strip()}")
     # Remove .git so it doesn't conflict with parent repo
     git_dir = dest / ".git"
     if git_dir.exists():
@@ -874,7 +874,7 @@ def _load_variant(slug: str, variant_name: str) -> dict[str, Any]:
             "SELECT id, name, target_repo_url, target_branch FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id = int(proj[0])
         risk_profile = load_risk_profile(conn, project_id)
 
@@ -888,7 +888,8 @@ def _load_variant(slug: str, variant_name: str) -> dict[str, Any]:
             (project_id, variant_name),
         ).fetchone()
         if not variant:
-            raise ValueError(f"Variant '{variant_name}' not found in Build for {slug}.")
+            raise ValueError(f"Varianta {variant_name} v Buildu projektu {slug} neexistuje. "
+                             f"Zkontroluj název (A/B/C): `pflanzer status`.")
     return {
         "project_id": project_id,
         "target_repo_url": proj[2],
@@ -990,7 +991,7 @@ def extract(
             "builder_api extraction není v MVP — zatím použij git_clone nebo manual_paste."
         )
     else:
-        raise ValueError(f"Unknown extraction_method '{method}'")
+        raise ValueError(f"Neznámá metoda načtení kódu „{method}“.")
 
     # Persist
     with transaction() as conn:
@@ -1061,7 +1062,9 @@ def extract(
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    from tool.cli.ux import CzechArgumentParser
+
+    p = CzechArgumentParser(prog="pflanzer extract", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--variant", required=True, help="A / B / C")
     p.add_argument("--source-url", default=None,
@@ -1075,6 +1078,7 @@ def main() -> None:
     p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
 
+    from tool.cli._compat import exit_if_project_missing
     from tool.cli.ux import die, emit  # lazy: ux nepatří k jádru extrakce
     try:
         out = extract(
@@ -1083,6 +1087,7 @@ def main() -> None:
             method_override=args.method, force=args.force,
         )
     except (ExtractionError, ValueError) as exc:
+        exit_if_project_missing(exc)
         die(str(exc), f"pflanzer extract --slug {args.slug} --variant {args.variant}")
     lines = [f"Varianta {args.variant}: kód načten ({out.get('method')}), "
              f"{out.get('files_count', '?')} souborů"]

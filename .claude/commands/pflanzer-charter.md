@@ -135,7 +135,17 @@ Ukaž lidský výstup toolu (s brand line) a předej jeho **Doporučení**; dopl
 - **Zadání na 1 stránku:** problém · metrika · kill kritérium · Decider.
 - Tabulka: krok cesty → jméno (nebo „AI (agent), podepisuje X“) → jádro/okno
   → termín okna.
-- Rizika z `doctor` (pokud jsme pokračovali vědomě).
+- Rizika z `doctor` (pokud jsme pokračovali vědomě) — **vždy s vlastníkem
+  a termínem**, ne anonymně: preview / CI → zástupce **provozu**, lockfile /
+  testy → zástupce **vývoje** (jména z kroků cesty v projektu), termín
+  „před Buildem“. Např. „⚠ preview chybí — Tomáš (provoz), před Buildem.“
+
+### Commit po Kickoffu
+
+Připomeň commit i s tím, co Kickoff vytvořil: `.pflanzer/decisions/`
+a `tests/acceptance/` (vedle `docs`, `.pflanzer`, `tests`):
+`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): kickoff" && git push`.
+Specy v `.pflanzer/specs/` se necommitují.
 
 ### Pozvánky pro okna (napiš rovnou, nečekej na další pokyn)
 

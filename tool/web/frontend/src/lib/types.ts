@@ -79,6 +79,9 @@ export type ProjectDetail = {
   triage: Triage[];
   /** klíč kroku cesty -> jméno zástupce (starší DB: prázdné) */
   path_owners?: Record<string, string | null>;
+  decider_name?: string | null;
+  /** jméno PdM (zástupce kroku Produkt), pokud je to člověk */
+  pm_name?: string | null;
   core?: string[];
   shortlist?: string[];
   async_deadline?: string | null;

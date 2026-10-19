@@ -25,19 +25,19 @@ def count(n: int, one: str, few: str, many: str) -> str:
 
 
 def tips(slug: str | None, phase: str, ctx: dict[str, Any] | None = None, *,
-         fallback: str | None = None) -> list[str]:
+         fallback: str | None = None, limit: int = 3) -> list[str]:
     """Doporučení pro fázi; `fallback` = starší fáze, když `ux.py` novou fázi ještě nezná."""
     fn = getattr(_ux, "tips_for_project", None)
     if fn is not None and slug:
         try:
-            got = fn(slug, phase, ctx or {})
+            got = fn(slug, phase, ctx or {}, limit=limit)
             if got or fallback is None:
                 return got
         except Exception:  # noqa: BLE001 — tipy nikdy nesmí shodit příkaz
             pass
-    got = _ux.tips_for(phase, ctx)
+    got = _ux.tips_for(phase, ctx, limit)
     if not got and fallback:
-        got = _ux.tips_for(fallback, ctx)
+        got = _ux.tips_for(fallback, ctx, limit)
     return got
 
 
@@ -77,3 +77,40 @@ def ai_stand_in_line(slug: str) -> str | None:
         else:
             parts.append(f"{label}: {ai}, čeká na podpis člověka")
     return " · ".join(parts) or None
+
+
+def signatures_line(slug: str) -> str | None:
+    """„Zadání: Dana · Provoz: Karel (zástup) · Bezpečnost: Petr (autor kódu)“ — podepsaná okna.
+
+    Podpis cizí osobou (ne zástupce kroku z Kickoffu) je vždy označený jako „zástup“.
+    Okna s AI náhradou jdou do `ai_stand_in_line`, tady se nezobrazují. None = nic nepodepsáno.
+    """
+    parts: list[str] = []
+    for r in checkpoint_rows(slug):
+        kind = (r.get("signer_kind") or "").strip()
+        agent = (r.get("ai_agent") or "").strip()
+        who = (r.get("signed_by") or "").strip()
+        if r.get("state") != "ok" or not who or agent or kind == "AI draft":
+            continue
+        label = _WINDOW_LABELS.get(r.get("window") or "", (r.get("window") or "?").capitalize())
+        extra = f" ({kind})" if kind in ("zástup", "autor kódu") else ""
+        parts.append(f"{label}: {who}{extra}")
+    return " · ".join(parts) or None
+
+
+class ProjectNotFound(ValueError):
+    """Projekt se zadaným slugem neexistuje.
+
+    Knihovní funkce ji vyhazují (jde zachytit jako ValueError); CLI na hranici zavolá
+    `ux.project_not_found(e.slug)` — česká chyba se seznamem existujících projektů.
+    """
+
+    def __init__(self, slug: str) -> None:
+        self.slug = slug
+        super().__init__(f"Projekt „{slug}“ neexistuje. Přehled projektů: `pflanzer status`.")
+
+
+def exit_if_project_missing(exc: BaseException) -> None:
+    """Na hranici CLI: `ProjectNotFound` → `ux.project_not_found(slug)` (česky, exit 2)."""
+    if isinstance(exc, ProjectNotFound):
+        _ux.project_not_found(exc.slug)

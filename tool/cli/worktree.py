@@ -8,7 +8,7 @@ v cwd se do worktrees zkopírují, viz `_copy_kickoff_inputs`).
 Postup (ADR-0009) + audit 2026-09 (N8, N9, N11, N13, N14):
 1. Pro každý repo z `projects.target_repos` (FE / BE / monorepo workspace;
    fallback = jediný `target_repo_url`) cached full clone
-   v `~/.pflanzer/targets/<repo-slug>/` (override: `PFLANZER_TARGETS_DIR`).
+   v `<datová složka>/targets/<repo-slug>/` (`pflanzer data`; override: `PFLANZER_TARGETS_DIR`).
 2. Worktrees A/B/C (nebo 1× mob, max 5 lidí u monitoru, ADR-0016) per repo, branch `pflanzer/<slug>-<X>` ve
    všech repech. Primární repo: `<targets>/<slug>-<X>`, další repa:
    `<targets>/<slug>-<X>-<role>`.
@@ -43,11 +43,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402,F401
-from tool.cli.ux import die, emit, tips_for_project  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, project_not_found_message, tips_for_project  # noqa: E402
 
-TARGETS_CACHE = Path(
-    os.environ.get("PFLANZER_TARGETS_DIR") or (Path.home() / ".pflanzer" / "targets")
-).expanduser()
+
+def default_targets_dir() -> Path:
+    """Cache klonů target repů: `PFLANZER_TARGETS_DIR`, jinak `<DATA_ROOT>/targets`.
+
+    Pod datovou složkou (izolace: jiná DATA_ROOT / PFLANZER_DATA = jiné klony), ne pod
+    pevným `~/.pflanzer`.
+    """
+    from tool.cli import db
+    env = os.environ.get("PFLANZER_TARGETS_DIR")
+    return (Path(env) if env else db.DATA_ROOT / "targets").expanduser()
+
+
+TARGETS_CACHE = default_targets_dir()
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates"
 CLAUDE_MD_TEMPLATE = TEMPLATES_DIR / "CLAUDE.md.pflanzer.template"
 INTEGRATION_GUIDE_TEMPLATE = TEMPLATES_DIR / "INTEGRATION_GUIDE.md.template"
@@ -271,7 +281,7 @@ def load_project(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         row = conn.execute("SELECT * FROM projects WHERE slug = ?", (slug,)).fetchone()
     if not row:
-        raise ValueError(f"Project '{slug}' not found.")
+        raise ValueError(project_not_found_message(slug))
     return dict(row)
 
 
@@ -1061,7 +1071,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     repos = load_target_repos(slug, proj)
     if not repos:
         raise ValueError(
-            f"Project '{slug}' has no target_repo_url / target_repos set. "
+            f"Projekt „{slug}“ nemá nastavený target_repo_url / target_repos. "
             "Povinné pro pilot/production. Spusť `pflanzer init` v target repu "
             "(vyplní .pflanzer/project.toml) a založ projekt znovu přes `/pm start`, "
             "nebo nastav `projects.target_repos`. Stav projektů: `pflanzer status`; "
@@ -1620,7 +1630,7 @@ def _setup_json(s: WorktreeSetup) -> dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="pflanzer worktree", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer worktree", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     js = {"action": "store_true", "help": "Strojový JSON výstup místo lidského"}
 

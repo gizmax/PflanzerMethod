@@ -30,11 +30,8 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         (None, "Commitněte a pushněte vše najednou, než spustíte Kickoff (worktrees se klonují "
                "z originu)."),
     ],
-    "doctor": [
-        ("no_preview", "Bez preview URL zástupci v Asyncu nemají na co klikat — domluvte "
-                       "s provozem sdílení dřív než Kickoff (viz docs/postup.md)."),
-        ("no_ci", "Bez CI půjde PR ze Ship bez automatických kontrol; stačí lint + test + build."),
-    ],
+    # Doctor: ⚠ řádky tabulky už říkají, co chybí (CI, preview) — tip to nesmí opakovat.
+    "doctor": [],
     "kickoff": [
         ("metric_weak", "Metrika zatím nemá číslo nebo termín. Dobrá: „10 z 15 obchodníků otevře "
                         "přehled aspoň 3× týdně do 30 dnů“. „Budou to používat“ nestačí."),
@@ -245,8 +242,8 @@ def did_you_mean(word: str, choices: Any) -> str | None:
     return hit[0] if hit else None
 
 
-def project_not_found(slug: str) -> NoReturn:
-    """Czech "no such project" error with existing slugs; exit 2."""
+def project_not_found_message(slug: str) -> str:
+    """Czech "no such project" sentence with did-you-mean and existing slugs."""
     slugs: list[str] = []
     try:
         from tool.cli.db import transaction
@@ -260,8 +257,13 @@ def project_not_found(slug: str) -> NoReturn:
         msg += f" Myslel jste „{near}“?"
     msg += (" Existující projekty: " + ", ".join(slugs) + "." if slugs
             else " Zatím žádný projekt nemáte — založíte ho přes /pm start.")
-    msg += " Přehled: pflanzer status"
-    die(msg)
+    return msg + " Přehled: pflanzer status"
+
+
+def project_not_found(slug: str) -> NoReturn:
+    """Czech "no such project" error with existing slugs; exit 2."""
+    die(project_not_found_message(slug))
+    raise SystemExit(2)  # pragma: no cover — die() already exits
 
 
 class CzechArgumentParser(argparse.ArgumentParser):
@@ -306,6 +308,15 @@ class CzechArgumentParser(argparse.ArgumentParser):
         sys.exit(2)
 
 
+# U throwaway stačí AI pre-check (ADR-0023): tipy o podpisu člověkem se nezobrazují.
+_HUMAN_SIGN_PHASES = frozenset({"ai_stand_in"})
+_HUMAN_SIGN_CONDITIONS = frozenset({"ai_pending", "ai_stand_ins", "missing_signatures"})
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
 def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
              seen: set[str] | None = None) -> list[str]:
     """Recommendations for `phase`, filtered by truthy keys in `ctx`.
@@ -314,12 +325,17 @@ def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
     skipped and the returned ones are added to it, so the same tip never repeats.
     """
     ctx = ctx or {}
+    throwaway = bool(ctx.get("throwaway"))
+    if throwaway and phase in _HUMAN_SIGN_PHASES:
+        return []
     items = TIPS.get(phase, [])
-    conditional = [t for c, t in items if c and ctx.get(c)]
+    conditional = [t for c, t in items if c and ctx.get(c)
+                   and not (throwaway and c in _HUMAN_SIGN_CONDITIONS)]
     generic = [t for c, t in items if c is None]
     ordered = conditional + [t for t in generic if t not in conditional]
     if seen is not None:
-        ordered = [t for t in ordered if t not in seen]
+        shown = {_norm(t) for t in seen}
+        ordered = [t for t in ordered if _norm(t) not in shown]
     picked = ordered[:limit]
     if seen is not None:
         seen.update(picked)
@@ -340,6 +356,12 @@ def tips_for_project(slug: str, phase: str, ctx: dict[str, Any] | None = None,
             if not row:
                 return tips_for(phase, ctx, limit)
             pid = int(row[0])
+            try:
+                from tool.cli.triage import load_risk_profile
+                if load_risk_profile(conn, pid) == "throwaway":
+                    ctx = {**(ctx or {}), "throwaway": True}
+            except Exception:  # noqa: BLE001 — advisory
+                pass
             seen: set[str] = set()
             for r in conn.execute(
                     "SELECT payload_json FROM audit_log WHERE action = 'tip.shown' "

@@ -18,7 +18,6 @@ writes a prefilled `pflanzer.gates.yml` from
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import subprocess
@@ -36,7 +35,7 @@ GATES_FILENAME = "pflanzer.gates.yml"
 
 sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 
 def guide_template_for(path: Path) -> Path:
@@ -357,7 +356,7 @@ def _short_action(action: str) -> str:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="pflanzer init", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer init", description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Target repo path (default: cwd)")
     p.add_argument("--force", action="store_true", help="Přepíše existující soubory")
     p.add_argument("--json", action="store_true", help="Strojový výstup")

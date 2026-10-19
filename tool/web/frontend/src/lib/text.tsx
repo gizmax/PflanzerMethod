@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 /** Minimální render markdownu z DB: **tučné**, jinak prostý text bez značek. */
 export function Md({ text }: { text: string }): ReactNode {
   const clean = text
+    .replace(/([.!?])\*\*\.(?!\.)/g, "$1**")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/^\s*[-*]\s+/gm, "• ");
@@ -12,6 +13,15 @@ export function Md({ text }: { text: string }): ReactNode {
       {parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : <span key={i}>{p}</span>))}
     </>
   );
+}
+
+/** Zástupce kroku může být AI: "AI:ux-expert" -> "AI (ux-expert) — potvrzuje Petr". */
+export function ownerLabel(owner: string | null | undefined, confirmer?: string | null): string | null {
+  if (!owner) return null;
+  const m = /^AI(?::\s*(.+))?$/i.exec(owner.trim());
+  if (!m) return owner;
+  const base = m[1] ? `AI (${m[1]})` : "AI";
+  return confirmer ? `${base} — potvrzuje ${confirmer}` : base;
 }
 
 export function stripMd(text: string): string {

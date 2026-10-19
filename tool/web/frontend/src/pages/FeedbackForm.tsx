@@ -5,6 +5,7 @@ import type { Feedback, ProjectDetail, Variant } from "../lib/types";
 import { ErrorScreen, Loading } from "../components/StateScreen";
 import { IdentityPicker } from "../components/IdentityPicker";
 import { SEVERITY } from "../lib/text";
+import { feedbackExample } from "../lib/task";
 import { vocative } from "../lib/identity";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
@@ -162,7 +163,7 @@ export default function FeedbackForm() {
             onChange={(e) => setRationale(e.target.value)}
             aria-invalid={!!errors.rationale}
             aria-describedby={errors.rationale ? "rationale-err howto" : "howto"}
-            placeholder="U varianty A se platí bez souhlasu s podmínkami → riziko GDPR → přidat zaškrtávátko" />
+            placeholder={feedbackExample(identity.step)} />
           {errors.rationale && <p id="rationale-err" role="alert" className="pf-error">{errors.rationale}</p>}
         </div>
 

@@ -31,7 +31,18 @@ Předpoklad: Kickoff proběhl (`pflanzer status --slug $ARGUMENTS`). Jinak
 > **Full** = governance / regulované (5–6 h agenda a 4 triage tracky v
 > `docs/methodology/04-session-1.md`, přizvi i `/pm roles` a `/pm triage`).
 
+## Krok 0 — Výhrady z doctoru
+
+Spusť `pflanzer doctor` a jednou větou pojmenuj otevřené ⚠ **s vlastníkem
+a termínem** (jména z kroků cesty v `pflanzer status`): preview chybí →
+zástupce provozu, chybí lockfile / testy → vývojář; termín „dnes, před
+pushem“. Bez preview Async nemá na co klikat — řekni to nahlas. Nic dalšího
+neopakuj.
+
 ## Krok 1 — Worktrees a prompty
+
+**„Hook“** vysvětli lidsky při prvním použití: je to jednověté zadání
+z Kickoffu (co má varianta uživateli slíbit), ze kterého vznikají tři úhly.
 
 ```bash
 pflanzer worktree setup --slug $ARGUMENTS
@@ -219,6 +230,9 @@ kontrol / checkpoint B&P (a které kroky zastoupila AI) a předej
 > Další krok: `/pm feedback <slug>` — zástupci klikají na preview po dobu
 > okna (Lean 3–5 dní, Quick 3, Full 5–7 pracovních dní; ADR-0017); kdo
 > feedback nevyplnil, zapíše ho offline přes `pflanzer feedback add`.
+
+Skonči **jednou výzvou** (např. „Pošlete zástupcům odkaz na hub — chcete
+text pozvánky?“), ne seznamem možností.
 
 ## Co NEDĚLAT
 

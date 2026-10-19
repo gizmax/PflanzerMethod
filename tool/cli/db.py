@@ -27,8 +27,8 @@ def _resolve_data_root() -> Path:
     3. <repo>/data (dev mode — running from cloned source)
 
     The decision keys on the DB *file*, not on the ~/.pflanzer/ directory:
-    `worktree.py setup` creates ~/.pflanzer/targets/ as a clone cache, which
-    must not silently move a dev-mode DB away from data/pflanzer.db.
+    A clone cache directory under ~/.pflanzer (e.g. older `targets/`) must not
+    silently move a dev-mode DB away from data/pflanzer.db.
     (PFLANZER_DB overrides just the DB file, see `_resolve_db_path`.)
     """
     import os

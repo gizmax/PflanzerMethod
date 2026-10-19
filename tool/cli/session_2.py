@@ -23,11 +23,11 @@ Pravidla:
 - **Druhé Go/Kill po platném Go/Kill** se odmítne; změna jen přes `--force --rationale`.
 - **Iterate max 1×** (další Build kolo). Třetí kolo = problém je špatně zadaný.
 - Decider se bere z projektu (`decider_name`); `--decider` je jen override.
-- Kill nevyžaduje vítěze ani nepodléhá blokaci critical.
+- Kill nevyžaduje vítěze ani nepodléhá blokaci critical. Decision log má sekci „Poučení“
+  a seznam critical všech variant; poučení se doplní `pflanzer retro lesson --slug S --text "…"`.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
@@ -38,12 +38,19 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import count, tips  # noqa: E402
+from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.conflict_resolver import detect_conflicts  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, table_has_col  # noqa: E402
 from tool.cli.feedback_pull import aggregate as pull_aggregate  # noqa: E402
-from tool.cli.ux import die, emit, severity_label  # noqa: E402
+from tool.cli.feedback_pull import critical_summary_lines  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    CzechArgumentParser,
+    did_you_mean,
+    die,
+    emit,
+    severity_label,
+)
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 VALID_DECISIONS = {"go", "iterate", "kill"}
@@ -188,7 +195,7 @@ def prep(slug: str) -> dict[str, Any]:
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id, status, kill, xyz, decider = (
             int(proj[0]), proj[1], proj[2], proj[3], proj[4],
         )
@@ -230,6 +237,7 @@ def prep(slug: str) -> dict[str, Any]:
         "xyz": xyz,
         "kill_criteria": kill,
         "commitment_index": round(commitment_index, 3),
+        "commitments_count": len(commitments),
         "commitment_threshold": COMMITMENT_THRESHOLD,
         "ready_for_decision": commitment_index >= COMMITMENT_THRESHOLD,
         "variants": votes,
@@ -245,6 +253,8 @@ def prep(slug: str) -> dict[str, Any]:
         },
         "open_critical": criticals,
         "focus_variants": focus,
+        "winner": agg["winner"],
+        "critical_on_all_variants": agg["critical_on_all_variants"],
         "conflicts": conflicts["top_conflicts"][:3],  # top 3
         "unmapped_conflicts": conflicts["unmapped_count"],
         "next_action": _suggest_next_action(commitment_index, len(criticals), conflicts),
@@ -282,7 +292,7 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         if not table_has_col(conn, "feedback", "resolved_at"):
             raise RuntimeError("DB nemá sloupec feedback.resolved_at - spusť `pflanzer update` "
                                "(migrace).")
@@ -327,7 +337,10 @@ def record_decision(
 ) -> dict[str, Any]:
     """Persist Decider's call (idempotentní per projekt: jedna session type=2)."""
     if decision not in VALID_DECISIONS:
-        raise ValueError(f"decision must be one of {sorted(VALID_DECISIONS)}")
+        near = did_you_mean(decision, sorted(VALID_DECISIONS))
+        raise ValueError(f"Neznámé rozhodnutí „{decision}“."
+                         + (f" Myslel jste „{near}“?" if near else "")
+                         + " Možnosti: go, iterate, kill.")
     if not rationale or not rationale.strip():
         raise ValueError("--rationale je POVINNÉ (decision log: kdo, co, proč; DORA / AI Act čl. 14).")
     winner = winner.strip().upper() if winner else None
@@ -350,7 +363,7 @@ def record_decision(
             "SELECT id, status, decider_name FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id = int(proj[0])
         decider = (decider_attribution or "").strip() or (proj[2] or "").strip() or current_actor()
 
@@ -436,10 +449,12 @@ def record_decision(
             )
 
         votes = _votes_summary(conn, project_id)
+        all_open = open_criticals(conn, project_id) if decision == "kill" else []
         decision_md = render_decision_md(
             slug, decision, rationale, decider, iterate_focus,
             winner=winner, override_critical=override_critical,
             criticals=criticals, votes=votes, checkpoints=checkpoints,
+            all_criticals=all_open,
         )
         conn.execute(
             "INSERT INTO decisions (project_id, type, body_md, atribuce_user, atribuce_ts) "
@@ -501,6 +516,7 @@ def render_decision_md(
     *, winner: str | None = None, override_critical: str | None = None,
     criticals: list[dict[str, Any]] | None = None,
     votes: list[dict[str, Any]] | None = None, checkpoints: list[str] | None = None,
+    all_criticals: list[dict[str, Any]] | None = None,
 ) -> str:
     when = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
@@ -530,6 +546,15 @@ def render_decision_md(
         lines += ["### Checkpointy", ""] + [f"- {c}" for c in checkpoints] + [""]
     if decision == "iterate":
         lines += ["### Iterate (max 1×)", "", (iterate_focus or rationale).strip(), ""]
+    if decision == "kill":
+        lines += ["### Critical všech variant (v době Kill)", ""]
+        if all_criticals:
+            lines += [f"- {describe_critical(c)}" for c in all_criticals]
+        else:
+            lines.append("- žádné otevřené")
+        lines += ["", "### Poučení", "", "- ", "- ", "- ", "",
+                  f"> Doplň přes `pflanzer retro lesson --slug {slug} --text \"…\"` "
+                  "(co jsme se dozvěděli o problému, o uživatelích, o zadání).", ""]
     return "\n".join(lines)
 
 
@@ -540,7 +565,8 @@ def _next_step_label(decision: str, slug: str, winner: str | None = None) -> str
     if decision == "iterate":
         return (f"`/pm build {slug}` — jedno další Build kolo (jen to, co se mění), pak znovu "
                 f"`/pm feedback {slug}` a `/pm decide {slug}`. **Max 1× Iterate.**")
-    return "Projekt ukončen (Kill). Krátká retro do decision logu: co jsme se naučili."
+    return (f"Projekt ukončen (Kill). Zapiš poučení: "
+            f"`pflanzer retro lesson --slug {slug} --text \"co jsme se dozvěděli\"`.")
 
 
 def _write_summary(slug: str, project_id: int, session_id: int, decision_md: str) -> Path:
@@ -599,15 +625,11 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                                                                        "low"].index(kv[0])
                            if kv[0] in ("critical", "high", "medium", "low") else 9))
     lines.append(f"Feedback: {fb['count']}" + (f" ({sev})" if sev else ""))
-    if crit:
-        lines.append(f"Otevřené kritické: {len(on_win)} na vítězi"
-                     + (f" ({'/'.join(focus)})" if focus else "")
-                     + f", {len(other)} ostatní")
-    for c in on_win[:2]:
-        lines.append("Na vítězi: " + describe_critical(c))
-    if len(on_win) > 2:
-        n_more = len(on_win) - 2
-        lines.append(f"…a {count(n_more, 'další kritický', 'další kritické', 'dalších kritických')}")
+    lines += critical_summary_lines(crit, focus, out.get("winner"),
+                                    out.get("critical_on_all_variants", False))
+    if out.get("commitments_count"):
+        lines.append(f"Jak moc se tým za vedoucí variantu postaví: {out['commitment_index']:.0%} "
+                     f"(na Go stačí {out['commitment_threshold']:.0%})")
     for c in out["conflicts"][:1]:
         lines.append(f"Hlavní spor u varianty {c['variant']}: {c['role_a']['label']} vs. "
                      f"{c['role_b']['label']}")
@@ -616,12 +638,13 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         nxt = (f"vyřeš kritické #{c0['id']} s autorem ({c0['submitted_by']}): `pflanzer session_2 "
                f"resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO --note \"…\"`")
     elif not out["ready_for_decision"]:
-        nxt = (f"sežeň víc hlasů a feedbacku (závaznost {out['commitment_index']:.0%}, "
-               f"cíl {out['commitment_threshold']:.0%}): `pflanzer feedback add --slug {slug} …`")
+        nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — sežeň víc hlasů "
+               f"a feedbacku: `pflanzer feedback add --slug {slug} --variant A --role Produkt "
+               "--severity major --text \"…\"`")
     else:
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
                f"--winner {(focus or ['A'])[0]} --rationale \"proč\"`")
-    return (f"Příprava Rozhodnutí: {slug}", lines[:6], [], nxt,
+    return (f"Příprava Rozhodnutí: {slug}", lines[:8], [], nxt,
             {"open_critical": bool(on_win)})
 
 
@@ -638,7 +661,11 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
                  + (f" ({out['decision_log_repo']}) — commitni ho." if out.get("decision_log_repo")
                     else "; z target repa se zapíše i do `.pflanzer/decisions/`."))
     nxt = out["next_step"]
-    phase = "iterate" if dec == "iterate" else "after_go" if dec == "go" else "decide"
+    phase = ("iterate" if dec == "iterate" else "after_go" if dec == "go"
+             else "after_kill" if dec == "kill" else "decide")
+    if dec == "kill":
+        nxt = (f"zapiš 1–3 poučení: `pflanzer retro lesson --slug {slug} "
+               "--text \"co jsme se dozvěděli o problému, uživatelích nebo zadání\"`")
     return f"Rozhodnutí {slug}: {label}", lines, [], nxt, phase
 
 
@@ -649,8 +676,8 @@ DECIDE_EXAMPLE = ('pflanzer session_2 decide --slug moje-appka go --winner A '
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    sub = p.add_subparsers(dest="cmd", required=True)
+    p = CzechArgumentParser(prog="pflanzer session_2", description=__doc__.split("\n")[0])
+    sub = p.add_subparsers(dest="cmd", required=True, parser_class=CzechArgumentParser)
 
     p_prep = sub.add_parser("prep", help="Příprava Rozhodnutí: agregace + spory (read-only)")
     p_prep.add_argument("--slug", required=True)
@@ -658,9 +685,9 @@ def main() -> None:
 
     p_dec = sub.add_parser("decide", help="Zapiš Go / Iterate / Kill")
     p_dec.add_argument("--slug", required=True)
-    p_dec.add_argument("decision_pos", nargs="?", choices=sorted(VALID_DECISIONS),
-                       metavar="{go,iterate,kill}", help="rozhodnutí (alternativa k --decision)")
-    p_dec.add_argument("--decision", choices=sorted(VALID_DECISIONS), default=None)
+    p_dec.add_argument("decision_pos", nargs="?", metavar="{go,iterate,kill}",
+                       help="rozhodnutí (alternativa k --decision)")
+    p_dec.add_argument("--decision", default=None, metavar="{go,iterate,kill}")
     p_dec.add_argument("--rationale", default=None, help="důvod, 1–2 věty (povinné)")
     p_dec.add_argument("--winner", default=None, help="vítěz A|B|C (povinné u Go)")
     p_dec.add_argument("--decider", default=None,
@@ -719,6 +746,11 @@ def main() -> None:
             decision = args.decision_pos or args.decision
             if not decision:
                 die("Chybí rozhodnutí: go, iterate, nebo kill.", DECIDE_EXAMPLE)
+            if decision not in VALID_DECISIONS:
+                near = did_you_mean(decision, sorted(VALID_DECISIONS))
+                die(f"Neznámé rozhodnutí „{decision}“."
+                    + (f" Myslel jste „{near}“?" if near else "")
+                    + " Možnosti: go, iterate, kill.", DECIDE_EXAMPLE)
             if args.decision_pos and args.decision and args.decision_pos != args.decision:
                 die("Rozhodnutí je zadané dvakrát a různě.", DECIDE_EXAMPLE)
             out = record_decision(
@@ -731,6 +763,7 @@ def main() -> None:
             emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
                  tips=tips(args.slug, phase, {}, fallback="decide"), as_json=args.json)
     except ValueError as e:
+        exit_if_project_missing(e)
         msg = str(e)
         die(msg, {"resolve": RESOLVE_EXAMPLE, "decide": DECIDE_EXAMPLE}.get(args.cmd, "")
             if ("--by" in msg or "--note" in msg or "--rationale" in msg or "--winner" in msg)

@@ -11,7 +11,6 @@ kvůli porovnání s originem).
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import subprocess
@@ -21,7 +20,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PLUGIN_ROOT))
 
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 GUIDE_TEMPLATE = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
 GUIDE_TEMPLATE_PYTHON = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
@@ -380,9 +379,6 @@ def _human(repo: Path, rows: list[dict[str, str]]):
     for r in warns:
         impact = (r["impact"][0].upper() + r["impact"][1:] + ". ") if r.get("impact") else ""
         lines.append(f"⚠ {r['check']} — {r['detail']}. {impact}{r['advice']}".strip())
-    if len(lines) > 6:
-        extra = len(lines) - 6
-        lines = lines[:6] + [f"… a dalších {extra} (`pflanzer doctor --json`)"]
     if oks:
         lines.append(f"✓ V pořádku ({len(oks)}): " + ", ".join(r["check"] for r in oks))
     ready = "ano" if not fails else "ne"
@@ -392,13 +388,11 @@ def _human(repo: Path, rows: list[dict[str, str]]):
         nxt = f"oprav ✗ ({fails[0]['check']}): {fails[0]['advice']} — pak `pflanzer doctor` znovu"
     else:
         nxt = "restartuj Claude Code v tomto repu a spusť `/pm start`"
-    ctx = {"no_preview": any(r["check"] == "Preview deploy" and r["status"] == WARN for r in rows),
-           "no_ci": any(r["check"] == "CI konfigurace" and r["status"] == WARN for r in rows)}
-    return title, lines, nxt, [], tips_for("doctor", ctx)
+    return title, lines, nxt, [], tips_for("doctor", {})
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="pflanzer doctor", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer doctor", description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Cesta k target repu (default: cwd)")
     p.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args()

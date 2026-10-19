@@ -1,8 +1,10 @@
 """Handoff — SHIP.md + podklady pro `gh pr create` (v0.5).
 
-SHIP.md je primární handoff artefakt: 1 stránka s tím, co se mění, kdo to merguje,
-skóre quality gates vítěze ("X/100, práh Y"), kill kritériem, měřením a copy-paste
-příkazem pro PR. Osm souborů per role (`handoff.py`) je doplněk pro audit.
+SHIP.md je primární handoff artefakt: 1 stránka (≤ ~60 řádků) s vítězem a popisem, tím, co se
+mění, skóre quality gates ("X/100, práh Y" jednou větou), podpisy a AI náhradou, copy-paste
+příkazem pro PR a tím, co měřit za 30 dní (`pflanzer retro …`, jednou). Detaily (brány, původ
+kódu a podíl AI, AI náklady, critical poražených, Co selhalo, triage) jsou v `SHIP-detail.md`.
+Osm souborů per role (`handoff.py`) je doplněk pro audit.
 
 Pravidla výstupu:
 - první řádek je brand line,
@@ -32,7 +34,6 @@ Rozhraní:
 """
 from __future__ import annotations
 
-import argparse
 import re
 import shlex
 import shutil
@@ -47,7 +48,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli import ai_usage  # noqa: E402
-from tool.cli._compat import ai_stand_in_line, count, tips  # noqa: E402
+from tool.cli._compat import (  # noqa: E402
+    ProjectNotFound,
+    ai_stand_in_line,
+    count,
+    exit_if_project_missing,
+    signatures_line,
+    tips,
+)
 from tool.cli.db import audit, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     BRAND,
@@ -62,10 +70,14 @@ from tool.cli.extract import (  # noqa: E402
 )
 from tool.cli.quality_gates import (  # noqa: E402
     GATE_TYPES,
+    PRODUCTION_TARGET,
+    UNVERIFIED_PREFIX,
+    acceptance_unverified,
     aggregate_score,
     gates_summary_line,
     parse_test_failures,
     skip_reasons,
+    unverified_gates,
 )
 from tool.cli.session_2 import (  # noqa: E402
     describe_critical,
@@ -80,7 +92,7 @@ from tool.cli.triage import (  # noqa: E402
     path_owners,
     ship_triage_gate,
 )
-from tool.cli.ux import die, emit  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit  # noqa: E402
 
 SHIP_DIR = DATA_ROOT / "handoffs"
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
@@ -91,7 +103,7 @@ _FALLBACK_MEASURE_30D = """## Změř po 30 dnech
 Termín: 30 dní po merge. Změř: (1) kolik kódu vítěze (`{branch}` @ `{head_sha_short}`)
 přežilo v `main`, (2) incidenty způsobené změnou, (3) metriku úspěchu vs. cíl
 ({metric_primary}). Kill kritérium: {kill}
-Měření a připomínky vede `/pm retro {slug}` (`pflanzer retro measure --slug {slug}`).
+Měření a připomínky: viz `SHIP.md`, sekce „Co měřit za 30 dní“.
 """
 
 _PLACEHOLDER_RE = re.compile(r"doplnit|doplň|nezadán|nezadáno|^tbd|^\W*$|\btodo\b", re.IGNORECASE)
@@ -333,7 +345,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             """, (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id = int(proj[0])
 
         sess1 = conn.execute(
@@ -507,15 +519,25 @@ def _render_gate_badges(gates: list) -> tuple[str, int, int]:
     if not gates:
         return "(automatické kontroly ještě neběžely - `/pm ship`)", 0, 0
     label = {"pass": "PASS", "warn": "WARN", "fail": "FAIL", "skipped": "SKIP", "unsupported": "SKIP"}
-    line = " · ".join(f"{label.get(g[1], '?')} {g[0]}" for g in gates)
+
+    def badge(g: Any) -> str:
+        if g[1] in ("skipped", "unsupported") and str(g[3] or "").startswith(UNVERIFIED_PREFIX):
+            return "NEOVĚŘENO"
+        return label.get(g[1], "?")
+
+    line = " · ".join(f"{badge(g)} {g[0]}" for g in gates)
     applicable = sum(1 for g in gates if g[1] in ("pass", "warn", "fail"))
     return line, applicable, len(gates)
 
 
-def _verdict(score: int, target: int) -> str:
+def _verdict(score: int, target: int, unverified: list[dict[str, str]] | None = None) -> str:
     if target <= 0:
         return "informativně (throwaway)"
-    return "splňuje práh" if score >= target else "pod prahem"
+    if score < target:
+        return "pod prahem"
+    if unverified:
+        return "splňuje práh ⚠ ale neověřeno: " + ", ".join(u["gate"] for u in unverified)
+    return "splňuje práh"
 
 
 def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -538,20 +560,28 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
     suff = gates_sufficiency({"results": [{"gate": g[0], "status": g[1]} for g in gates]})
     if gates and target > 0 and not suff["sufficient"]:
         blocked_by.append(suff["blocker"])
+    unverified = unverified_gates([{"gate": g[0], "status": g[1], "details": g[3] or ""}
+                                   for g in gates])
+    unv_blocks = bool(gates and target >= PRODUCTION_TARGET and acceptance_unverified(unverified))
+    if unv_blocks:
+        blocked_by.append("gates:acceptance-neověřeno")
     # Výjimka z prahu (Decider, `session_3 --override-threshold`): jen pod prahem a bez jiné blokace.
     override = ctx.get("threshold_override")
     if not (gates and target > 0 and score < target and not blocked_by):
         override = None
     if ctx["triage"]["blocked_by"]:
         verdict = "BLOKOVÁNO (triage)"
+    elif unv_blocks and blocked_by == ["gates:acceptance-neověřeno"]:
+        reason = next(u["reason"] for u in unverified if u["gate"] == "acceptance")
+        verdict = f"nesplňuje práh: acceptance je neověřená ({reason})"
     elif blocked_by:
         verdict = "BLOKOVÁNO (nedostatek gates)"
     elif override:
         verdict = f"pod prahem — Ship na odpovědnost Decidera ({override['decider']})"
     else:
-        verdict = _verdict(score, target)
+        verdict = _verdict(score, target, unverified)
     return {"score": score, "target": target, "blocked_by": blocked_by, "verdict": verdict,
-            "suff": suff, "threshold_override": override,
+            "suff": suff, "unverified": unverified, "threshold_override": override,
             "ready": bool(gates) and target > 0 and not blocked_by
             and (score >= target or override is not None)}
 
@@ -612,7 +642,7 @@ def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None) -> list
         if desc:
             first = next((x.strip() for x in desc.split("\n\n") if x.strip()), desc)
             first = " ".join(first.lstrip("# ").split())
-            lines.append(f"Vítěz {w[0]}: {trim_words(first, 300)}")
+            lines.append(f"Vítěz {w[0]} — {trim_words(first, 300)}")
         else:
             lines.append(f"Vítěz {w[0]}.")
     return lines
@@ -680,6 +710,10 @@ def build_pr(slug: str) -> dict[str, Any]:
         warnings.append(
             f"Nový kód bez testů: {notests['new_source_files']} nových zdrojových souborů, "
             "žádný nový ani změněný test.")
+    if state["unverified"] and target > 0:
+        warnings.append(
+            "Neověřeno: " + ", ".join(f"{u['gate']} ({u['reason']})" for u in state["unverified"])
+            + " — skóre o tom nic neříká.")
     failures = [(g[0], line) for g in gates if g[1] == "fail"
                 for line in failure_lines(g[3] or "", root=wt)]
     crit_lines = _criticals_md(ctx, w[0] if w else None)
@@ -688,6 +722,7 @@ def build_pr(slug: str) -> dict[str, Any]:
     pr_title = f"feat({slug}): {trim_words(name, 60)}"
     summary = _gate_summary(gates) if gates else None
     ai_line = ai_stand_in_line(slug)
+    sign_line = signatures_line(slug)
     resolved_on_win = [c for c in ctx.get("resolved_critical", [])
                        if w and c["variant"] == w[0]]
     body_lines: list[str] = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary),
@@ -720,6 +755,8 @@ def build_pr(slug: str) -> dict[str, Any]:
                ("Pojistka (guardrail)", metric_guardrail)]
     if any(v for _, v in metrics):
         body_lines += ["## Měření"] + [f"- {k}: {v}" for k, v in metrics if v] + [""]
+    if sign_line:
+        body_lines += ["## Podpisy oken", sign_line, ""]
     if ai_line:
         body_lines += ["## Kroky s AI náhradou (ADR-0023)", ai_line, ""]
     prov_lines = [f"- Nástroj (builder): {builder}"]
@@ -747,71 +784,203 @@ def build_pr(slug: str) -> dict[str, Any]:
         "keyboard": keyboard, "variants": variants, "warnings": warnings,
         "failures": failures, "critical_lines": crit_lines, "model": model,
         "resolved_critical": resolved_on_win, "ai_stand_in": ai_line,
+        "signatures": sign_line,
         "decider_line": decider_line,
     }
 
 
-def render_ship_md(slug: str) -> str:
+def _ship_parts(slug: str) -> dict[str, Any]:
+    """Společné podklady pro SHIP.md (1 stránka) i SHIP-detail.md (brány, provenance, náklady)."""
     pr = build_pr(slug)
     ctx, state = pr["ctx"], pr["state"]
     p, w, e = ctx["project"], ctx["winner"], ctx["extracted"]
-    name, decider = p[1], p[5]
-    target_repo = public_repo_ref(p[6])
     target_branch = p[7] or "main"
-    branch_owner = real(p[8])
-    shadow_pm = real(p[9]) or real(ctx["path_owners"].get("produkt"))
+    parts: dict[str, Any] = {
+        "pr": pr, "ctx": ctx, "state": state, "p": p, "w": w, "e": e,
+        "target_repo": public_repo_ref(p[6]), "target_branch": target_branch,
+        "branch_owner": real(p[8]),
+        "shadow_pm": real(p[9]) or real(ctx["path_owners"].get("produkt")),
+        "triage": ctx["triage"], "winner_block": None,
+    }
+    if not (w and e):
+        return parts
+    builder, wt, prov = pr["builder"], pr["worktree"], pr["provenance"]
+    adapter_warnings: list[str] = []
+    if wt is not None:
+        adapter = base_gates_adapter(wt, target_branch)
+        if adapter.get("tmp_dir"):
+            shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
+        adapter_warnings = adapter["warnings"]
+    feat_branch = f"pflanzer/{slug}-{w[0]}"
+    trailers = [f"Pflanzer-Variant: {slug}-{w[0]}", "Pflanzer-Session: ship"]
+    if builder != "manual":
+        trailers.append(f"AI-Assisted: {builder}")
+    labels = ["pflanzer", f"pflanzer:{slug}"]
+    if builder != "manual":
+        labels.insert(1, "ai-generated")
+    parts["winner_block"] = {
+        "builder": builder, "wt": wt, "prov": prov, "adapter_warnings": adapter_warnings,
+        "feat_branch": feat_branch, "trailers": trailers, "labels": labels,
+        "work_dir": tilde(wt) if wt else e[1],
+    }
+    return parts
+
+
+def _winner_description(w: Any) -> str | None:
+    """První odstavec popisu vítěze (ne boilerplate), nebo None."""
+    desc = real(w[4]) if w else None
+    if not desc:
+        return None
+    first = next((x.strip() for x in desc.split("\n\n") if x.strip()), desc)
+    return trim_words(" ".join(first.lstrip("# ").split()), 300)
+
+
+def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
+    """Krátký copy-paste blok: commit s trailery, push, labely, `gh pr create` (tělo z --pr-body)."""
+    wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
+    branch_owner = parts["branch_owner"]
+    reviewer = branch_owner if (branch_owner and " " not in branch_owner) else None
+    label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
+    label_create = "\n".join(
+        f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
+        for lbl in wb["labels"])
+    commit_msg = f"{pr['title']}\n\n" + "\n".join(wb["trailers"])
+    draft_flag = " \\\n  --draft" if (state["blocked_by"] or state["threshold_override"]) else ""
+    reviewer_flag = f"  --reviewer {reviewer} \\\n" if reviewer else ""
+    return f"""## Otevři PR
+
+Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).
+
+```bash
+cd {wb['work_dir']}
+git add -A
+git diff --cached --quiet || git commit -F - <<'COMMITMSG'
+{commit_msg}
+COMMITMSG
+git push -u origin {pr['branch']}
+{label_create}
+pflanzer handoff_pr --slug {slug} --pr-body | gh pr create \\
+  --title {shlex.quote(pr['title'])} --body-file - \\
+  --base {parts['target_branch']} \\
+{reviewer_flag}  {label_flags}{draft_flag}
+```
+"""
+
+
+def _measure_md(slug: str, pr: dict[str, Any]) -> str:
+    """„Co měřit za 30 dní“ — jediné místo v SHIP.md, kde se mluví o retru."""
+    lines = [
+        "- Kolik kódu vítěze přežilo v `main` a za kolik dní se dostal do produkce (cíl ≥ 80 %, "
+        "≤ 14 dní). Po merge, z worktree vítěze: "
+        f"`pflanzer retro measure --slug {slug} --pr-url \"$(gh pr view --json url -q .url)\"`",
+    ]
+    for k, v in (("Hlavní metrika", pr["metrics"][0]), ("Ranná metrika", pr["metrics"][1]),
+                 ("Pojistka (guardrail)", pr["metrics"][2])):
+        if v:
+            lines.append(f"- {k}: {v}")
+    if pr["kill"]:
+        lines.append(f"- Kill kritérium: {pr['kill']}")
+    lines.append(f"- Čtení T+7/30/60/90: `pflanzer retro report --slug {slug}`; připomínky do "
+                 f"kalendáře: `pflanzer retro reminders --slug {slug} --format ics "
+                 f"--out {slug}-pripominky.ics`")
+    return "## Co měřit za 30 dní\n\n" + "\n".join(lines) + "\n"
+
+
+def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
+    """SHIP.md — jedna stránka (≤ ~60 řádků). Detaily jsou v SHIP-detail.md."""
+    parts = parts or _ship_parts(slug)
+    pr, state, p, w = parts["pr"], parts["state"], parts["p"], parts["w"]
+    name, decider = p[1], p[5]
     score, target, verdict = pr["gate_score"], pr["target"], state["verdict"]
-    blocked_by = state["blocked_by"]
-    triage = ctx["triage"]
-    triage_top, triage_section = _render_triage_block(triage, slug)
-    threshold_md = (_render_threshold_override(state["threshold_override"], score, target) + "\n"
-                    if state["threshold_override"] else "")
+    triage = parts["triage"]
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    winner_info = pr_command = ""
-    if w and e:
-        builder, wt, prov = pr["builder"], pr["worktree"], pr["provenance"]
-        adapter_warnings: list[str] = []
-        if wt is not None:
-            adapter = base_gates_adapter(wt, target_branch)
-            if adapter.get("tmp_dir"):
-                shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
-            adapter_warnings = adapter["warnings"]
-        feat_branch = f"pflanzer/{slug}-{w[0]}"
-        reviewer = branch_owner if (branch_owner and " " not in branch_owner) else None
-        trailers = [f"Pflanzer-Variant: {slug}-{w[0]}", "Pflanzer-Session: ship"]
-        if builder != "manual":
-            trailers.append(f"AI-Assisted: {builder}")
-        labels = ["pflanzer", f"pflanzer:{slug}"]
-        if builder != "manual":
-            labels.insert(1, "ai-generated")
-        label_flags = " ".join(f'--label "{lbl}"' for lbl in labels)
-        label_create = "\n".join(
-            f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
-            for lbl in labels
-        )
-        commit_msg = f"{pr['title']}\n\n" + "\n".join(trailers)
-        prov_warn = "\n".join(f"  - {x}" for x in prov["warnings"]) or (
-            f"  - {prov['commits']} commit(ů) na `{prov['base']}..{feat_branch}` "
-            "má trailery, autor = člověk, bez AI `Co-Authored-By`."
-        )
-        adapter_md = "\n".join(f"- {x}" for x in adapter_warnings) or (
-            "- gates běžely s adaptérem z base branche (nebo autodetekcí); worktree ho nemění."
-        )
+    triage_top = ""
+    if triage["blocked_by"]:
+        who = human_triage_blockers(slug, triage["windows"])
+        triage_top = ("\n> ## BLOKOVÁNO: chybí podpisy oken\n"
+                      + "".join(f"> - {m}\n" for m in who[:3])
+                      + (f"> - …a další ({len(who) - 3})\n" if len(who) > 3 else "")
+                      + f"> Decider může přebít: `pflanzer session_3 --slug {slug} "
+                        "--override-triage --rationale \"…\"`\n")
+    threshold_md = (_render_threshold_override(state["threshold_override"], score, target) + "\n"
+                    if state["threshold_override"] else "")
+    ov = triage.get("override")
+    sec_gap = ov and any(b.startswith(("triage:security", "triage:legal"))
+                         for b in ov.get("blocked_by", []))
+    gap_notes = ([f"Ship na odpovědnost {decider_genitive(ov.get('decider') or 'Decider')}: "
+                  "bezpečnost nepodepsal člověk."] if sec_gap else [])
+    verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *pr["warnings"]])
+
+    if w:
+        desc = _winner_description(w)
+        winner_md = f"## Vítěz {w[0]}" + (f" — {desc}" if desc else "") + "\n"
+    else:
+        winner_md = "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
+    changes = [real(p[4]) or name]
+    if pr["metrics"][0]:
+        changes.append(f"Metrika úspěchu: {pr['metrics'][0]}")
+    changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
+
+    score_line = (pr["gates_summary"] or f"{score}/100") + f" (práh {target}) — {verdict}"
+    if pr["loc_added"] is not None:
+        score_line += f". Rozsah: +{pr['loc_added']} řádků"
+    owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
+                  ("Shadow PdM (hlídá Async)", parts["shadow_pm"])]
+    people = [f"- {k}: {v}" for k, v in owner_rows if v]
+    if pr.get("signatures"):
+        people.append(f"- Podepsaná okna: {pr['signatures']}")
+    if pr["ai_stand_in"]:
+        people.append(f"- Kroky s AI náhradou (ADR-0023): {pr['ai_stand_in']}")
+    people_md = ("## Podpisy a odpovědnosti\n\n" + "\n".join(people) + "\n\n") if people else ""
+
+    pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
+    return f"""{BRAND}
+
+# SHIP — {name}
+
+> Projekt: `{p[2]}` · {today} · {verdict}
+> Detaily (brány, původ kódu, AI náklady, kritické na poražených): `SHIP-detail.md`
+{verdict_notes}{triage_top}
+{winner_md}
+{changes_md}
+## Skóre
+
+{score_line}
+
+{people_md}{threshold_md}{pr_command}
+{_measure_md(slug, pr)}"""
+
+
+def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str:
+    """SHIP-detail.md — brány, AI provenance, AI náklady, critical poražených, Co selhalo, triage."""
+    parts = parts or _ship_parts(slug)
+    pr, state, ctx, p, w = parts["pr"], parts["state"], parts["ctx"], parts["p"], parts["w"]
+    score, target, verdict = pr["gate_score"], pr["target"], state["verdict"]
+    triage = parts["triage"]
+    _top, triage_section = _render_triage_block(triage, slug)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    wb = parts["winner_block"]
+
+    winner_info = ""
+    if wb:
+        builder, prov = wb["builder"], wb["prov"]
         skipped = skip_reasons([{"gate": g[0], "status": g[1], "details": g[3] or ""}
                                 for g in ctx["gates"]])
         skipped_md = ("\nNeběžely (důvod):\n" + "\n".join(f"- {x}" for x in skipped) + "\n"
                       if skipped else "")
-        ai_line = ai_stand_in_line(slug)
-        ai_md = f"- **Kroky s AI náhradou (ADR-0023)**: {ai_line}\n" if ai_line else ""
         suff = state["suff"]
         gates_md = (
             f"{suff['gates_run']}/{len(GATE_TYPES)} spuštěno"
             + ("" if suff["sufficient"] else f" - `{suff['blocker']}` (viz tool/templates/README-gates.md)")
         ) if ctx["gates"] else "(Ship ještě neběžel)"
-        draft_flag = " \\\n  --draft" if (blocked_by or state["threshold_override"]) else ""
-        reviewer_flag = f"  --reviewer {reviewer} \\\n" if reviewer else ""
-        work_dir = tilde(wt) if wt else e[1]
+        adapter_md = "\n".join(f"- {x}" for x in wb["adapter_warnings"]) or (
+            "- gates běžely s adaptérem z base branche (nebo autodetekcí); worktree ho nemění.")
+        prov_warn = "\n".join(f"  - {x}" for x in prov["warnings"]) or (
+            f"  - {prov['commits']} commit(ů) na `{prov['base']}..{wb['feat_branch']}` "
+            "má trailery, autor = člověk, bez AI `Co-Authored-By`.")
+        ai_md = (f"- **Kroky s AI náhradou (ADR-0023)**: {pr['ai_stand_in']}\n"
+                 if pr["ai_stand_in"] else "")
         extra_parts: list[str] = []
         if pr["failures"]:
             extra_parts.append("\n### Co selhalo\n\n" + "\n".join(
@@ -825,12 +994,11 @@ def render_ship_md(slug: str) -> str:
             extra_parts.append("\n### Vyřešené kritické připomínky (vítěz)\n\n"
                                + "\n".join(_resolved_line(c) for c in pr["resolved_critical"])
                                + "\n")
-        extra_md = "".join(extra_parts)
         winner_info = f"""## Vítěz
 
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
-- **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} v `{target_repo}`
+- **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} v `{parts['target_repo']}`
 {f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or str(score) + '/100'} (práh {target}) - {verdict}
 
 ### Automatické kontroly ({pr['applicable']} z {pr['total']} aplikovatelných)
@@ -838,7 +1006,7 @@ def render_ship_md(slug: str) -> str:
 {pr['badges']}
 {skipped_md}
 - **Spuštěno bran**: {gates_md}
-{extra_md}
+{''.join(extra_parts)}
 ### Gate adaptér - integrita
 
 {adapter_md}
@@ -848,38 +1016,8 @@ def render_ship_md(slug: str) -> str:
 {ai_md}- **Nástroj (builder)**: `{builder}`{f" · **Model**: {pr['model']}" if pr['model'] else ''}
 - **Varianty**: {len(pr['variants'])} postaveny ({'/'.join(pr['variants'])}), do PR jde vítěz {w[0]}
 {f"- **U klávesnice**: {', '.join(pr['keyboard'])}" + chr(10) if pr['keyboard'] else ''}
-- **Kontrola `{feat_branch}`** (read-only, historie se nepřepisuje):
+- **Kontrola `{wb['feat_branch']}`** (read-only, historie se nepřepisuje):
 {prov_warn}
-"""
-        pr_command = f"""## Otevři PR (copy-paste)
-
-Autor commitu = **dev u klávesnice** (`git config user.name` / `user.email` ve worktree).
-AI nikdy jako author ani `Co-Authored-By` - AI asistenty značí jen trailery níže
-(07-handoff-do-vyvoje.md § AI code provenance).
-
-```bash
-cd {work_dir}
-
-# Ship commit s provenance trailery (jen pokud je co commitnout)
-git add -A
-git diff --cached --quiet || git commit -F - <<'COMMITMSG'
-{commit_msg}
-COMMITMSG
-
-git push -u origin {pr['branch']}
-
-# Labely musí v target repu existovat (idempotentní)
-{label_create}
-
-gh pr create \\
-  --title {shlex.quote(pr['title'])} \\
-  --body "$(cat <<'PRBODY'
-{pr['body']}
-PRBODY
-)" \\
-  --base {target_branch} \\
-{reviewer_flag}  {label_flags}{draft_flag}
-```
 """
 
     measure = render_measure_30d({
@@ -887,36 +1025,13 @@ PRBODY
         "loc_added": pr["loc_added"], "metric_primary": pr["metrics"][0] or "dle Kickoffu",
         "guardrail": pr["metrics"][2], "kill": pr["kill"] or "viz Kickoff",
     })
-    owner_rows = [("Decider", real(decider)), ("Branch owner / merger", branch_owner),
-                  ("Shadow PdM (hlídá Async)", shadow_pm)]
-    owners_md = "\n".join(f"| **{k}** | {v} |" for k, v in owner_rows if v)
-    owners_section = (f"## Odpovědnosti\n\n| Role | Kdo |\n|------|-----|\n{owners_md}\n"
-                      if owners_md else "")
-    metrics_rows = [("Hlavní metrika", pr["metrics"][0]), ("Ranná metrika", pr["metrics"][1]),
-                    ("Pojistka (guardrail)", pr["metrics"][2])]
-    measure_md = "\n".join(f"- **{k}**: {v}" for k, v in metrics_rows if v)
-    measure_section = f"## Měření\n\n{measure_md}\n\n" if measure_md else ""
-    kill_section = f"## Kill kritéria\n\n{pr['kill']}\n\n" if pr["kill"] else ""
-    ov = triage.get("override")
-    sec_gap = ov and any(b.startswith(("triage:security", "triage:legal"))
-                         for b in ov.get("blocked_by", []))
-    gap_notes = ([f"Ship na odpovědnost {decider_genitive(ov.get('decider') or 'Decider')}: "
-                  "bezpečnost nepodepsal člověk."] if sec_gap else [])
-    verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *pr["warnings"]])
-    what_md = "\n\n".join(_what_changes(p, w, name, pr["metrics"][0]))
-
     return f"""{BRAND}
 
-# SHIP — {name}
+# SHIP — detail — {p[1]}
 
-> Projekt: `{p[2]}` · Vygenerováno: {today} · {verdict}
-> SHIP.md je primární handoff (1 stránka). Soubory per role jsou doplněk pro audit.
-{verdict_notes}
-{triage_top}{threshold_md}## Co se mění
+> Projekt: `{p[2]}` · {today} · {verdict}
+> Hlavní stránka je `SHIP.md`; tady jsou podklady pro audit a review.
 
-{what_md}
-
-{owners_section}
 {winner_info}
 {render_ai_usage_section(slug)}
 ## Rizikový profil
@@ -924,15 +1039,6 @@ PRBODY
 - **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profil**: `{p[11]}` · **Risk profil**: `{triage['risk_profile']}`
 
 {triage_section}
-{kill_section}{measure_section}{pr_command}
-## Co dál (T+0 → T+90)
-
-- **Dnes**: PR otevřený, branch owner dělá review
-- **T+1d**: PR merged, preview sdílen; `pflanzer retro measure --slug {slug} --pr-url "$(gh pr view --json url -q .url)"` (URL PR vypíše `gh pr create`) — kolik kódu vítěze přežilo a za kolik dní se dostal do produkce
-- **Hned po merge**: připomínky do kalendáře: `pflanzer retro reminders --slug {slug} --format ics --out {slug}-pripominky.ics`
-- **T+7 / 30 / 60 / 90 dní**: čtení metrik přes `/pm retro {slug}`
-- **T+30 dní**: plný rollout, nebo rollback podle kill kritérií; **změř, co z kódu přežilo** (níže)
-
 {measure}
 ## Záznam rozhodnutí
 
@@ -944,7 +1050,7 @@ PRBODY
 ---
 
 *Soubory per role: `decision, be, fe, qa, platform, data, support, compliance` (`.md`) ve
-výstupní složce (`pflanzer data`) slouží pro audit a hlubší pohled; u stolu je nikdo nečte.*
+výstupní složce (`pflanzer data`) jsou doplněk pro audit.*
 """
 
 
@@ -956,7 +1062,9 @@ def write_ship(slug: str) -> Path:
     wt = _winner_worktree(slug, ctx["winner"][0], ctx["extracted"]) if ctx["winner"] else None
     # Worktree trailer hook se přepne na `Pflanzer-Session: ship`.
     session_switched = _switch_worktree_session(wt)
-    out.write_text(render_ship_md(slug), encoding="utf-8")
+    parts = _ship_parts(slug)
+    out.write_text(render_ship_md(slug, parts), encoding="utf-8")
+    (project_dir / "SHIP-detail.md").write_text(render_ship_detail_md(slug, parts), encoding="utf-8")
 
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
@@ -998,7 +1106,7 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer handoff_pr", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--print", action="store_true",
                    help="Vypiš SHIP.md na stdout (default: zapiš do výstupní složky)")
@@ -1020,6 +1128,7 @@ def main() -> None:
                  warnings=view["warnings"], next_step=view["next_step"],
                  tips=tips(args.slug, "handoff", view["ctx"]), as_json=args.json)
     except ValueError as e:
+        exit_if_project_missing(e)
         die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff_pr --slug moje-appka")
 
 

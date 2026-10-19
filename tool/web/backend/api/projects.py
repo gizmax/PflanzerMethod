@@ -69,11 +69,15 @@ def get_project(slug: str, db: Session = Depends(get_session)) -> dict:
 
     extra = _extra_columns(db, project.id)
     owners = _json_or(extra.get("path_owners_json"), {})
+    owners = owners if isinstance(owners, dict) else {}
+    pm = owners.get("produkt")
     return {
         "project": project,
         "roles": roles,
         "triage": triage,
-        "path_owners": owners if isinstance(owners, dict) else {},
+        "path_owners": owners,
+        "decider_name": project.decider_name or None,
+        "pm_name": pm if isinstance(pm, str) and pm and not pm.upper().startswith("AI") else None,
         "core": _json_or(extra.get("core_json"), []),
         "shortlist": _shortlist(db, project.id),
         "async_deadline": extra.get("async_deadline"),

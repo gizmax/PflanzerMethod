@@ -11,7 +11,6 @@ a JSON with a `track` field + `status` + artefact_md. This module:
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sqlite3
@@ -22,8 +21,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import ProjectNotFound, exit_if_project_missing  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import die, emit, read_spec  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, read_spec  # noqa: E402
 
 try:  # výstupy mimo repo metody (DATA_ROOT z tool.cli.db); fallback <repo>/data
     from tool.cli.db import DATA_ROOT  # type: ignore[attr-defined]  # noqa: E402
@@ -49,7 +49,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     seen_tracks = {r["track"] for r in results}
     missing = set(EXPECTED_TRACKS) - seen_tracks
     if missing:
-        raise ValueError(f"Missing triage tracks: {missing}")
+        raise ValueError("Chybí výsledky triage pro: " + ", ".join(sorted(missing)) + ".")
 
     # Aggregate
     blockers: list[str] = []
@@ -70,7 +70,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     with transaction() as conn:
         row = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not row:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id = int(row[0])
 
         for r in results:
@@ -198,7 +198,7 @@ def derive_risk_profile(
 def load_risk_profile(conn: sqlite3.Connection, project_id: int) -> str:
     row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
     if not row:
-        raise ValueError(f"Project id={project_id} not found.")
+        raise ValueError(f"Projekt č. {project_id} neexistuje. Přehled: `pflanzer status`.")
     keys = row.keys()
     return derive_risk_profile(
         throwaway_or_evolve=row["throwaway_or_evolve"],
@@ -468,7 +468,7 @@ def run_from_json(path: Path | str) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = CzechArgumentParser(prog="pflanzer triage", description=__doc__.split("\n")[0])
     parser.add_argument("--spec", required=True,
                         help="JSON se 4 výsledky triage (soubor, nebo `-` pro stdin)")
     parser.add_argument("--json", action="store_true", help="Výstup jako JSON")
@@ -476,6 +476,7 @@ def main() -> None:
     try:
         out = run_from_json(args.spec)
     except (ValueError, KeyError) as e:
+        exit_if_project_missing(e)
         die(str(e) if isinstance(e, ValueError) else f"V specu chybí klíč {e}.",
             TRIAGE_SPEC_EXAMPLE)
     slug = out["slug"]

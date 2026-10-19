@@ -33,17 +33,32 @@ def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     assert "AI-Assisted: claude-code" in md
     assert '--label "ai-generated"' in md
     assert f'--label "pflanzer:{slug}"' in md
-    assert "## Původ kódu a podíl AI" in md
-    assert "## AI náklady (viditelnost)" in md  # N16: always present, never fails
-    assert "**Vybrán podle**: Ship -" in md
     assert "Co-Authored-By: Claude" not in md
     # Blocked (deferred triage + 2 gates) -> draft PR, blocked verdict.
     assert "BLOKOVÁNO" in md
     assert "--draft" in md
-    # Clean provenance on the winner branch.
-    assert "má trailery, autor = člověk" in md
-    # Co dál: one T+1d row (deploy preview + retro).
-    assert md.count("- **T+1d**") == 1
+    # Hlavní stránka je krátká a retro zmiňuje jen jednou.
+    assert len(md.splitlines()) <= 60
+    assert md.count("pflanzer retro measure") == 1
+    assert "SHIP-detail.md" in md and "u stolu" not in md
+    assert "## Původ kódu a podíl AI" not in md and "## AI náklady" not in md
+    # Detaily (AI provenance, náklady, kdo a proč vybral vítěze) jsou v SHIP-detail.md.
+    detail = handoff_pr.render_ship_detail_md(slug)
+    assert "## Původ kódu a podíl AI" in detail
+    assert "## AI náklady (viditelnost)" in detail  # N16: always present, never fails
+    assert "**Vybrán podle**: Ship -" in detail
+    assert "má trailery, autor = člověk" in detail  # čistá provenance na větvi vítěze
+    assert "pflanzer retro" not in detail.split("## Změř po 30 dnech")[-1].split("## Záznam")[0]
+
+
+def test_ship_md_is_one_page_and_detail_is_written(shipped: dict[str, Any]) -> None:
+    path = handoff_pr.write_ship(shipped["slug"])
+    detail = path.parent / "SHIP-detail.md"
+    assert detail.is_file()
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) <= 60, len(lines)
+    assert "Vítěz A — " in "\n".join(lines)
+    assert "Vítěz A: " not in "\n".join(lines)
 
 
 def test_write_ship_switches_session(shipped: dict[str, Any]) -> None:

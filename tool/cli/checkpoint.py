@@ -31,7 +31,6 @@ neblokuje, u production ano (`design_gate`).
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
@@ -43,7 +42,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tool.cli.charter import ai_agent, is_ai_owner, owner_display  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import die, emit, tips_for_project  # noqa: E402
+from tool.cli.ux import (
+    CzechArgumentParser,
+    did_you_mean,
+    die,
+    emit,
+    project_not_found_message,
+    tips_for_project,
+)  # noqa: E402
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -68,11 +74,20 @@ USAGE = ('  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "co 
          '  pflanzer checkpoint --slug <slug> provoz --ai --note "AI pre-check"')
 
 
+def killed_message(slug: str) -> str:
+    return (f"Projekt „{slug}“ je ukončen (Kill) — checkpointy už nemají smysl. "
+            f"Zapište poučení: pflanzer retro lesson --slug {slug} --text \"…\"")
+
+
 def _window(name: str) -> str:
     key = name.strip().lower()
     key = ALIASES.get(key, key)
     if key not in WINDOWS:
-        raise ValueError(f"Neznámé okno '{name}' (zadani | bezpecnost | provoz | design).")
+        near = did_you_mean(key, [*WINDOWS, *ALIASES])
+        near = ALIASES.get(near, near) if near else None
+        raise ValueError(f"Neznámé okno ‚{name}‘."
+                         + (f" Myslel jste ‚{near}‘?" if near else "")
+                         + " Okna: zadani | bezpecnost | provoz | design.")
     return key
 
 
@@ -125,6 +140,8 @@ def _human(name: str | None) -> str | None:
 
 def guidance_core(window: str, owners: dict[str, str], risk: str) -> str:
     """Kdo smí podepsat okno, které zastupuje AI a nikdo není určen (bez názvu okna)."""
+    if risk == "throwaway":
+        return "u throwaway stačí AI pre-check (ADR-0023)"
     decider, pdm, dev = (_human(owners.get(k)) for k in ("byznys", "produkt", "vyvoj"))
 
     def named(role: str, who: str | None) -> str:
@@ -188,9 +205,11 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
     warnings: list[str] = []
     countersigned = False
     with transaction() as conn:
-        proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+        proj = conn.execute("SELECT id, status FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
+            raise ValueError(project_not_found_message(slug))
+        if proj[1] == "killed":
+            raise ValueError(killed_message(slug))
         pid = int(proj[0])
         owners = _load_owners(conn, pid)
         core = _load_core(conn, pid)
@@ -328,6 +347,7 @@ def _append_decision_log(slug: str, label: str, by: str, status: str, note: str,
     return str(path.relative_to(Path.cwd()))
 
 
+AI_OK_TEXT = "podepsáno AI — u throwaway stačí (ADR-0023)"
 STATE_LABELS = {"ok": "podepsáno", "blocked": "BLOKOVÁNO",
                 "pending": "AI draft čeká na podpis člověka", "čeká": "čeká"}
 DESIGN_PENDING = "AI design čeká na potvrzení člověkem"
@@ -352,7 +372,7 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
+            raise ValueError(project_not_found_message(slug))
         pid = int(proj[0])
         owners = _load_owners(conn, pid)
         risk = load_risk_profile(conn, pid)
@@ -385,6 +405,8 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                     "note": (last.get(key) or {}).get("note") if state == "blocked" else None,
                     "ai_agent": ai_agent(owner, WINDOW_STEP[key]) if is_ai_owner(owner) else None,
                     "state_text": (DESIGN_PENDING if key == "design" and state == "pending"
+                                   else AI_OK_TEXT if (state == "ok" and risk == "throwaway"
+                                                       and str(signer or "").startswith("AI"))
                                    else STATE_LABELS[state])})
     return out
 
@@ -421,7 +443,7 @@ def design_gate(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
+            raise ValueError(project_not_found_message(slug))
         risk = load_risk_profile(conn, int(proj[0]))
     row = next((r for r in list_checkpoints(slug) if r["window"] == "design"), None)
     if not row:
@@ -439,7 +461,7 @@ def design_gate(slug: str) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(prog="pflanzer checkpoint", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer checkpoint", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("window", nargs="?", help="zadani | bezpecnost | provoz | design")
     p.add_argument("--by", default="", help="Kdo za krok cesty podepisuje (jméno z Kickoffu)")
@@ -453,6 +475,11 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
     try:
         if args.list or not args.window:
+            with transaction() as conn:
+                st = conn.execute("SELECT status FROM projects WHERE slug = ?",
+                                  (args.slug,)).fetchone()
+            if st and st[0] == "killed":
+                raise ValueError(killed_message(args.slug))
             rows = list_checkpoints(args.slug)
             lines = []
             for r in rows:
@@ -474,7 +501,7 @@ def main(argv: list[str] | None = None) -> None:
     except ValueError as e:
         die(str(e))
         return
-    state = {"ok": "podepsáno", "blocked": "BLOKOVÁNO",
+    state = {"ok": AI_OK_TEXT if out["ai"] else "podepsáno", "blocked": "BLOKOVÁNO",
              "pending": AI_DRAFT_MARK}[out["status"]]
     lines = [f"{out['label']}: **{state}** · {out['signed_by']}"
              + (f" ({out['signed_by_role']})" if out["signed_by_role"] not in ("zástupce",)

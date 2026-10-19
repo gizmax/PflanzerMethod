@@ -13,7 +13,6 @@ AI-only deflace (max 0.5) se aplikuje už při zápisu (hub i `feedback add`).
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 import unicodedata
@@ -25,9 +24,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import count, tips  # noqa: E402
+from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
-from tool.cli.ux import die, emit, severity_label  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, severity_label  # noqa: E402
 
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
@@ -80,7 +79,7 @@ def aggregate(slug: str) -> dict[str, Any]:
             "SELECT id, name, status FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         project_id, name, status = int(proj[0]), proj[1], proj[2]
 
         # Feedback ke všem variantám projektu (i po Iterate)
@@ -156,6 +155,18 @@ def aggregate(slug: str) -> dict[str, Any]:
             if ai_only_ratio_data["total"] else 0.0
         )
         silent = silent_reps(conn, project_id, feedback)
+        from tool.cli.session_2 import focus_variants, get_winner  # lazy: session_2 importuje nás
+
+        winner = get_winner(conn, project_id)
+        focus = focus_variants(conn, project_id)
+        build_variants = sorted(r[0] for r in conn.execute(
+            "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
+            "WHERE s.project_id = ? AND s.type = 1", (project_id,)).fetchall())
+        critical_flags.sort(key=lambda c: c["id"])
+        for c in critical_flags:
+            c["role"] = ("vítěz" if winner and c["variant"] == winner
+                         else "shortlist" if c["variant"] in focus else "ostatní")
+        crit_variants = {c["variant"] for c in critical_flags}
         by_variant_severity: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         for fb in feedback:
             by_variant_severity[fb["variant_name"]][fb["severity"]] += 1
@@ -183,6 +194,9 @@ def aggregate(slug: str) -> dict[str, Any]:
         "by_department": dept_avg,
         "by_variant": dict(by_variant),
         "critical_flags": critical_flags,
+        "winner": winner,
+        "focus_variants": focus,
+        "critical_on_all_variants": bool(build_variants) and set(build_variants) <= crit_variants,
         "by_variant_severity": {v: dict(c) for v, c in by_variant_severity.items()},
         "silent_reps": silent,
         "ai_only_ratio": round(ai_only_ratio, 3),
@@ -201,7 +215,42 @@ def critical_line(c: dict[str, Any], limit: int = 90) -> str:
     if len(text) > limit:
         text = text[: limit - 1].rsplit(" ", 1)[0] + "…"
     return (f"#{c['id']} {c.get('submitted_by') or 'autor neznámý'} "
-            f"(krok {c['department']}) na variantě {c['variant']}: „{text}“")
+            f"(krok {c['department']}) na variantě {c['variant']}"
+            + (f": „{text}“" if text else ""))
+
+
+ALL_VARIANTS_CRITICAL_LINE = ("Critical na všech variantách: Kill je legitimní výsledek — "
+                              "nebo Iterate s jedním jasným zadáním.")
+
+
+def critical_summary_lines(crits: list[dict[str, Any]], focus: list[str], winner: str | None,
+                           all_variants: bool = False) -> list[str]:
+    """Řádky o otevřených kritických — společné pro `feedback_pull` i `session_2 prep`.
+
+    Všechny otevřené (stejná sada, stejná id, řazeno podle id); rozlišuje vítěze / shortlist /
+    ostatní varianty. Critical na všech variantách dostane navíc větu o Kill / Iterate.
+    """
+    if not crits:
+        return []
+    on_focus = [c for c in crits if c["variant"] in focus]
+    other = [c for c in crits if c["variant"] not in focus]
+    who = "na vítězi" if winner else "na shortlistu"
+    head = f"Otevřené kritické: {len(crits)}"
+    if focus:
+        head += f" — {len(on_focus)} {who} ({'/'.join(focus)}), {len(other)} na ostatních variantách"
+    lines = [head]
+    shown = (on_focus[:2] + other[:1]) if on_focus else other[:2]
+    for c in shown:
+        tag = ("vítěz" if winner and c["variant"] == winner
+               else "shortlist" if c["variant"] in focus else "ostatní")
+        lines.append(f"{tag}: {critical_line(c)}")
+    hidden = len(crits) - len(shown)
+    if hidden > 0:
+        lines.append("…a " + count(hidden, "další otevřený kritický", "další otevřené kritické",
+                                  "dalších otevřených kritických"))
+    if all_variants:
+        lines.append(ALL_VARIANTS_CRITICAL_LINE)
+    return lines
 
 
 def render_summary_md(agg: dict[str, Any]) -> str:
@@ -298,14 +347,11 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
     crit = agg["critical_flags"]
     silent = agg["silent_reps"]
     lines = [f"Připomínek celkem: {agg['feedback_count']} ({severity_text(agg['by_severity'])})"]
-    for v in sorted(agg["by_variant"])[:3]:
-        lines.append(f"Varianta {v}: {severity_text(agg['by_variant_severity'].get(v, {}))}")
-    for c in crit[:2]:
-        lines.append("Otevřené kritické: " + critical_line(c))
-    if len(crit) > 2:
-        n_more = len(crit) - 2
-        lines.append("…a " + count(n_more, "další otevřený kritický", "další otevřené kritické",
-                                  "dalších otevřených kritických"))
+    lines += critical_summary_lines(crit, agg["focus_variants"], agg["winner"],
+                                    agg["critical_on_all_variants"])
+    if not crit:
+        for v in sorted(agg["by_variant"])[:3]:
+            lines.append(f"Varianta {v}: {severity_text(agg['by_variant_severity'].get(v, {}))}")
     if silent:
         lines.append("Ještě bez feedbacku: " + ", ".join(f"{r['label']} ({r['name']})"
                                                         for r in silent))
@@ -314,8 +360,9 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
         warns.append(f"{agg['ai_only_ratio']:.0%} feedbacku píše AI persona, ne lidé — "
                      "před Rozhodnutím zkus rozhovor se skutečným uživatelem.")
     if crit:
-        nxt = (f"vyřeš kritické #{crit[0]['id']} s autorem ({crit[0].get('submitted_by') or '?'}): "
-               f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
+        first = next((c for c in crit if c["variant"] in agg["focus_variants"]), crit[0])
+        nxt = (f"vyřeš kritické #{first['id']} s autorem ({first.get('submitted_by') or '?'}): "
+               f"`pflanzer session_2 resolve --slug {slug} --feedback-id {first['id']} "
                f"--by JMÉNO --note \"…\"`")
     elif silent:
         r = silent[0]
@@ -326,12 +373,12 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
         nxt = f"`pflanzer session_2 prep --slug {slug}`"
     if summary_path:
         lines.append(f"Souhrn: {display_path(summary_path)}")
-    return (f"Feedback {slug}", lines[:6], warns, nxt,
+    return (f"Feedback {slug}", lines[:8], warns, nxt,
             {"silent_reps": bool(silent), "open_critical": bool(crit)})
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer feedback_pull", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--json", action="store_true",
                    help="Vypíše celý agregát jako JSON (default: lidský souhrn + zápis MD)")
@@ -340,6 +387,7 @@ def main() -> None:
     try:
         agg = aggregate(args.slug)
     except ValueError as e:
+        exit_if_project_missing(e)
         die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer feedback_pull --slug moje-appka")
 
     if args.json:

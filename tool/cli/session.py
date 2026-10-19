@@ -18,7 +18,6 @@ is a read replica per ADR-0008 (Hybrid form-factor).
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -28,10 +27,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import tips  # noqa: E402
+from tool.cli._compat import ProjectNotFound, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, git_info, locate_worktree, table_has_col  # noqa: E402
-from tool.cli.ux import die, emit, read_spec  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, read_spec  # noqa: E402
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
@@ -254,7 +253,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             "SELECT id, status, target_repo_url FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Projekt '{slug}' neexistuje. Přehled projektů: `pflanzer status`.")
+            raise ProjectNotFound(slug)
         project_id, status, target_repo_url = int(proj[0]), proj[1], proj[2]
         # session_2 = Iterate → další Build kolo (ADR-0021)
         if status not in ("triage", "session_1", "session_2"):
@@ -613,7 +612,7 @@ def _owners_for(slug: str) -> dict[str, str]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer session", description=__doc__.split("\n")[0])
     p.add_argument("--spec", required=True,
                    help="JSON spec (slug + variants + role_preferences): soubor, nebo `-` pro stdin")
     p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
@@ -621,6 +620,7 @@ def main() -> None:
     try:
         out = run_from_json(args.spec)
     except ValueError as e:
+        exit_if_project_missing(e)
         die(str(e), "pflanzer session --spec spec.json   (nebo: … | pflanzer session --spec -)\n"
             "Formát specu:\n" + SPEC_EXAMPLE)
     ranked = sorted(out["variants"], key=lambda v: -v["preference_score"])

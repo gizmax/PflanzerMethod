@@ -11,7 +11,6 @@ Output: charter markdown (DATA_ROOT/charters) + řádek v projects + audit log.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from dataclasses import dataclass, field
@@ -23,8 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import DATA_ROOT, audit, current_actor, load_project_toml, transaction  # noqa: E402
-from tool.cli.tier import TIER_LABELS, WINDOW_DAYS, default_tier, validate_tier  # noqa: E402
-from tool.cli.ux import plural  # noqa: E402
+from tool.cli.tier import TIER_LABELS, default_tier, validate_tier, window_label  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, plural  # noqa: E402
 
 CHARTER_DIR = DATA_ROOT / "charters"
 
@@ -129,9 +128,9 @@ def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
             "produkt": path_owners.get("byznys", "Decider"),
             "design": (path_owners.get("produkt") if not is_ai_owner(path_owners.get("produkt"))
                        else path_owners.get("byznys")) or "PdM",
-            "bezpecnost": ("AI pre-check stačí" if risk_profile == "throwaway"
+            "bezpecnost": ("AI pre-check stačí (throwaway)" if risk_profile == "throwaway"
                            else _security_signers(path_owners, risk_profile)),
-            "provoz": ("AI pre-check stačí" if risk_profile == "throwaway"
+            "provoz": ("AI pre-check stačí (throwaway)" if risk_profile == "throwaway"
                        else (path_owners.get("vyvoj") if risk_profile == "pilot"
                              else "člověk z provozu")),
         }[step]
@@ -331,7 +330,7 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
 - **Profil**: `{c.capacity_profile}` (default v0.5 ≈ 6–8 PD; regulated a
   audit-grade přidávají okna a brány, viz ADR-0021 + ADR-0008)
 - **Person-days commit**: **{c.capacity_person_days}**{repo_line}
-- **Stupeň**: **{TIER_LABELS[c.tier]}** · mezi-session okno {WINDOW_DAYS[c.tier]} pracovních dní (ADR-0017)
+- **Stupeň**: **{TIER_LABELS[c.tier]}** · mezi-session okno {window_label(c.tier)} (pracovní dny, ADR-0017)
 
 ## Risk profile
 - **AI Act risk-tier**: `{c.ai_act_tier}` *(předběžný, přehodnotí se při Rozhodnutí)*
@@ -467,7 +466,7 @@ def run_from_json(path: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = CzechArgumentParser(prog="pflanzer charter", description=__doc__.split("\n")[0])
     parser.add_argument("--spec", required=True,
                         help="JSON se vstupy Charteru, nebo `-` pro stdin (target_repo_url se doplní "
                              "z .pflanzer/project.toml). Doporučená cesta je /pm start "
