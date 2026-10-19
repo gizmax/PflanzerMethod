@@ -39,3 +39,4 @@ logs/
 
 # Local config
 .claude/settings.local.json
+website/qwen38-m5max.html
