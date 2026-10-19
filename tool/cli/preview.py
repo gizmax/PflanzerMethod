@@ -28,6 +28,7 @@ import json
 import os
 import re
 import secrets
+import select
 import shutil
 import socket
 import socketserver
@@ -59,13 +60,26 @@ HUB_URL = "http://localhost:8000/method/"
 # --------------------------------------------------------------------------
 
 
+# SPA (React/Vite…): štítek, který appka vykreslí sama až za běhu, v HTML kostře není vidět.
+# Proxy proto vloží svůj štítek a malý skript ho skryje, jakmile je v DOM štítek jiný.
+_LABEL_DEDUP_JS = (
+    b"<script>(function(){var m=document.querySelector('[data-pflanzer-label]');"
+    b"if(!m)return;var re=/k rozhodnut/i;function other(){"
+    b"var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;"
+    b"while((n=w.nextNode())){if(!m.contains(n)&&re.test(n.nodeValue))return true}"
+    b"return false}function chk(){m.style.display=other()?'none':''}"
+    b"chk();var o=new MutationObserver(chk);"
+    b"o.observe(document.body,{childList:true,subtree:true,characterData:true});"
+    b"setTimeout(function(){o.disconnect()},20000)})();</script>")
+
+
 def label_html(variant: str) -> bytes:
     name = f"Varianta {variant}" if variant in ("A", "B", "C") else "Varianta"
     text = f"{name} k rozhodnutí — není to hotový produkt"
     return (f'<div {LABEL_MARK} style="position:sticky;top:0;z-index:2147483647;'
             "background:#fff3cd;color:#664d03;font:14px/1.4 system-ui,sans-serif;"
             "padding:6px 12px;text-align:center;border-bottom:1px solid #e0c97a\">"
-            f"{text}</div>").encode("utf-8")
+            f"{text}</div>").encode("utf-8") + _LABEL_DEDUP_JS
 
 
 _BODY_RE = re.compile(rb"<body\b[^>]*>", re.IGNORECASE)
@@ -121,12 +135,56 @@ def _make_handler(app_port: int, password: str, variant: str) -> type:
                 return (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
             return loc
 
+        def _is_upgrade(self) -> bool:
+            return ("upgrade" in self.headers.get("Connection", "").lower()
+                    and bool(self.headers.get("Upgrade")))
+
+        def _tunnel(self) -> None:
+            """WebSocket (Vite HMR…): přepošli handshake na aplikaci a kopíruj bajty oběma směry."""
+            try:
+                up = socket.create_connection(("127.0.0.1", app_port), timeout=10)
+            except OSError as exc:
+                self._reply(502, f"Aplikace varianty {variant} neodpovídá ({exc}).\n".encode())
+                return
+            lines = [f"{self.command} {self.path} HTTP/1.1"]
+            for k, v in self.headers.items():
+                kl = k.lower()
+                if kl == "authorization":
+                    continue
+                if kl == "host":
+                    v = f"127.0.0.1:{app_port}"
+                elif kl == "origin":
+                    v = f"http://127.0.0.1:{app_port}"
+                lines.append(f"{k}: {v}")
+            up.sendall(("\r\n".join(lines) + "\r\n\r\n").encode("latin-1"))
+            up.settimeout(None)
+            client = self.connection
+            socks = [client, up]
+            try:
+                while True:
+                    readable, _, _ = select.select(socks, [], [], 60)
+                    if not readable:
+                        continue
+                    for src in readable:
+                        data = src.recv(65536)
+                        if not data:
+                            return
+                        (up if src is client else client).sendall(data)
+            except OSError:
+                pass
+            finally:
+                up.close()
+                self.close_connection = True
+
         def _proxy(self) -> None:
             if not self._authorized():
                 self._reply(401, "Přihlášení je potřeba (uživatel pflanzer a heslo od "
                                  "organizátora).\n".encode(),
                             extra={"WWW-Authenticate": 'Basic realm="Pflanzer preview", '
                                                        'charset="UTF-8"'})
+                return
+            if self._is_upgrade():
+                self._tunnel()
                 return
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else None
@@ -436,6 +494,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
         "variants": {},
     }
     warnings: list[str] = []
+    notes: list[str] = []
     failures: list[str] = []
     procs: dict[str, subprocess.Popen] = {}
     try:
@@ -479,6 +538,9 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             w = check_reachable(name, path, app_port)
             if w:
                 warnings.append(w)
+            elif is_spa(path):
+                notes.append(f"Varianta {name} je SPA — kontrola „nabízí něco nového“ se "
+                             "přeskakuje (odkazy vznikají až v prohlížeči).")
         if use_tunnel:
             for name, *_ in plan:
                 v = state["variants"][name]
@@ -523,7 +585,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
         warnings.append("Odkazy fungují jen na tomto počítači. Pro kolegy použijte "
                         "--host 0.0.0.0 (stejná síť) nebo cloudflared (odkudkoli).")
     return {"slug": slug, "user": USER, "password": password, "host": host,
-            "tunnel": state["tunnel"], "deadline": deadline, "warnings": warnings,
+            "tunnel": state["tunnel"], "deadline": deadline, "warnings": warnings, "notes": notes,
             "variants": {n: {k: v.get(k) for k in ("url", "local_url", "tunnel_url", "app_port",
                                                    "proxy_port", "command", "source", "log")}
                          for n, v in state["variants"].items()},
@@ -535,10 +597,36 @@ _ROUTE_RES = (
     re.compile(r"""@\w+\.(?:get|post|route|api_route)\(\s*['"](/[^'"{<:]*)['"]"""),
     re.compile(r"""\bpath\(\s*r?['"]([\w\-/]+)['"]"""),
 )
+_SPA_ROUTE_RES = (
+    re.compile(r"""\bpath\s*:\s*['"`](/[\w\-/]*)['"`]"""),
+    re.compile(r"""<Route\b[^>]*?\bpath\s*=\s*[{]?['"`](/?[\w\-/]*)['"`]"""),
+)
+_SPA_ROOT_RE = re.compile(r"""id\s*=\s*['"](?:root|app|__next)['"]""", re.I)
+_SPA_DEPS = ("react-router", "react-router-dom", "vue-router", "@tanstack/react-router",
+             "@sveltejs/kit", "vite", "react-scripts")
+
+
+def is_spa(wt: Path) -> bool:
+    """SPA = index.html s mount bodem (`<div id="root">`) + vite / router v package.json."""
+    try:
+        for cand in (wt / "index.html", wt / "public" / "index.html"):
+            if cand.is_file() and _SPA_ROOT_RE.search(cand.read_text(encoding="utf-8", errors="replace")):
+                break
+        else:
+            return False
+        if any((wt / f).is_file() for f in ("vite.config.ts", "vite.config.js", "vite.config.mjs")):
+            return True
+        pkg = json.loads((wt / "package.json").read_text(encoding="utf-8"))
+        deps = {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}
+        return any(d in deps for d in _SPA_DEPS)
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 _SKIP_PARTS = ("test", "spec", "docs/", "node_modules", ".pflanzer", "fixtures", "__tests__")
 
 
-def _added_routes(wt: Path) -> list[str]:
+def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
     """Statické cesty, které varianta přidala proti mainu (z diffu: route definice + nové soubory)."""
     base = None
     for ref in ("origin/main", "origin/master", "main", "master"):
@@ -552,10 +640,11 @@ def _added_routes(wt: Path) -> list[str]:
     diff = subprocess.run(["git", "diff", "--unified=0", f"{base}...HEAD"], cwd=wt,
                           capture_output=True, text=True, timeout=30).stdout
     routes: list[str] = []
+    spa = is_spa(wt) if spa is None else spa
     for ln in diff.splitlines():
         if not ln.startswith("+") or ln.startswith("+++"):
             continue
-        for rx in _ROUTE_RES:
+        for rx in (_SPA_ROUTE_RES if spa else _ROUTE_RES):
             for m in rx.finditer(ln):
                 r = m.group(1)
                 if not r.startswith("/"):
@@ -563,6 +652,8 @@ def _added_routes(wt: Path) -> list[str]:
                 r = r.rstrip("/") or "/"
                 if r != "/" and r not in routes:
                     routes.append(r)
+    if spa:  # nové .tsx/.jsx soubory jsou komponenty, ne cesty
+        return routes
     names = subprocess.run(["git", "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD"],
                            cwd=wt, capture_output=True, text=True, timeout=30).stdout.split()
     for n in names:
@@ -586,7 +677,9 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
     Nic nenajde-li / nejde-li to zjistit, mlčí (None).
     """
     try:
-        routes = _added_routes(wt)
+        if is_spa(wt):  # DOM vzniká až v prohlížeči, v HTML kostře odkazy nejsou
+            return None
+        routes = _added_routes(wt, spa=False)
         if not routes:
             return None
         st, body, _ct = apprun.http_fetch(f"http://127.0.0.1:{app_port}/", timeout=5.0)
@@ -630,6 +723,7 @@ def _up_view(res: dict[str, Any]) -> tuple[list[str], str, str]:
     slug = res["slug"]
     lines = [f"Varianta {n}: {v['url']}" for n, v in res["variants"].items()]
     lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
+    lines.extend(f"Info: {n}" for n in res.get("notes") or [])
     hub = HUB_URL if hub_running() else None
     msg = share_message(res, hub)
     lines.append("Zpráva k přeposlání zástupcům:\n\n"

@@ -89,7 +89,7 @@ def _window(name: str) -> str:
         near = ALIASES.get(near, near) if near else None
         raise ValueError(f"Neznámé okno ‚{name}‘."
                          + (f" Myslel jste ‚{near}‘?" if near else "")
-                         + " Okna: zadani | bezpecnost | provoz | design.")
+                         + " Okna: zadani | bezpecnost | pravo | provoz | design.")
     return key
 
 
@@ -241,6 +241,15 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         core = _load_core(conn, pid)
         owner = owners.get(step)
         if window == "pravo":
+            leg = conn.execute("SELECT status, artefact_md FROM triage WHERE project_id = ? "
+                               "AND track = 'legal'", (pid,)).fetchone()
+            separate = bool(leg) and leg[0] in ("deferred", "blocked") \
+                and "Kickoff" not in (leg[1] or "")[:80]
+            if not separate and "pravo" not in _last_audit(conn, pid):
+                raise ValueError(
+                    "Právo se podepisuje spolu s bezpečností (plný triage ho neodložil): "
+                    f'`pflanzer checkpoint --slug {slug} bezpecnost --by "<jméno>" '
+                    '--note "co jste ověřili"`.')
             # Právo (DPIA) podepisuje ten, koho jmenoval plný triage (typicky DPO), ne vlastník
             # kroku Bezpečnost & právo.
             lg = conn.execute("SELECT signed_by FROM triage WHERE project_id = ? AND "
@@ -556,7 +565,7 @@ def design_gate(slug: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> None:
     p = CzechArgumentParser(prog="pflanzer checkpoint", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
-    p.add_argument("window", nargs="?", help="zadani | bezpecnost | provoz | design")
+    p.add_argument("window", nargs="?", help="zadani | bezpecnost | pravo | provoz | design (pravo jen při odloženém právu z plného triage)")
     p.add_argument("--by", default="", help="Kdo za krok cesty podepisuje (jméno z Kickoffu)")
     p.add_argument("--note", default="", help="Co se ověřilo / co chybí (povinné)")
     p.add_argument("--blocked", action="store_true", help="Okno neprošlo — blokuje Ship")

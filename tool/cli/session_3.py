@@ -64,6 +64,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     gates_summary_line,
     parse_test_failures,
     skip_reason,
+    spa_line,
     unverified_gates,
     verdict_label,
 )
@@ -333,6 +334,7 @@ def hardening_run(
     if informational:
         blocked_by.append(f"ship:neni-vitez (Rozhodnutí = {decided})")
     summary_line = gates_summary_line(w_score, winner["gates"]["results"])
+    spa_note = spa_line(winner["gates"]["results"])
     warnings: list[str] = list(warnings_pre)
     if unverified and target > 0:
         what = ", ".join(f"{u['gate']} ({u['reason']})" for u in unverified)
@@ -474,6 +476,7 @@ def hardening_run(
             "gate_score": w_score,
             "score_display": f"{w_score}/100 (práh {target})",
             "summary_line": summary_line,
+            "spa_line": spa_note,
             "unverified": unverified,
             "verdict": verdict,
             "meets_threshold": meets,
@@ -812,6 +815,8 @@ def _render_report(
         )
     elif summary_line:
         verdict_block += f"\nBrány: {summary_line}.\n"
+    if spa_line(w["gates"]["results"]):
+        verdict_block += f"\n{spa_line(w['gates']['results'])}.\n"
     if warnings:
         verdict_block += "\n" + "\n".join(f"> Varování: {x}" for x in warnings) + "\n"
     adapter_warnings = "\n".join(
@@ -931,6 +936,8 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
     failed = _failed_gate_lines(w.get("failures") or [])
     if failed:
         lines = [lines[0], *failed[:2], *lines[1:]]
+    if w.get("spa_line"):
+        lines.insert(1, w["spa_line"])
     lines = lines[:5]
     lines.append(f"Detail: {out['report_nice_path']}")
     nxt = w["next_step"]

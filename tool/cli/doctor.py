@@ -88,7 +88,20 @@ def check_git(repo: Path) -> tuple[list[dict[str, str]], str | None]:
     if rc != 0:
         return [_check("Git repo + origin", FAIL, "chybí remote `origin`",
                        "Worktrees se klonují z originu: `git remote add origin <url>`.")], None
-    return [_check("Git repo + origin", OK, origin)], origin
+    ok, shown = _origin_valid(repo, origin)
+    if not ok:
+        return [_check("Git repo + origin", FAIL, f"origin `{origin}` není platná git URL",
+                       "Očekávám https://<host>/<org>/<repo>, git@<host>:<org>/<repo>.git nebo "
+                       "existující lokální cestu: `git remote set-url origin <url>`.")], origin
+    return [_check("Git repo + origin", OK, shown)], origin
+
+
+def _origin_valid(repo: Path, origin: str) -> tuple[bool, str]:
+    """Stejná validace jako Kickoff; relativní lokální cesta se resolvuje vůči repu."""
+    from tool.cli.db import resolve_local_repo_url
+    from tool.cli.worktree import validate_repo_url
+    resolved = resolve_local_repo_url(origin, repo) or origin
+    return validate_repo_url(resolved), resolved
 
 
 PLACEHOLDER_RE = re.compile(r"<[^<>\n]*(?:\s\||\|\s|\s[^<>\n]*\s|doplň|vyplň)[^<>\n]*>")
@@ -323,8 +336,8 @@ def check_preview(repo: Path) -> dict[str, str]:
 
 def _git_add_command(repo: Path) -> str:
     """`git add` jen pro existující cesty (.gitignore nemusí v repu být)."""
-    paths = ["docs", ".pflanzer", "tests"] + ([".gitignore"] if (repo / ".gitignore").exists() else [])
-    return f"git add -A {' '.join(paths)}"
+    from tool.cli.init import git_add_command
+    return git_add_command(repo)
 
 
 def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
@@ -381,6 +394,14 @@ def check_project_toml(repo: Path) -> dict[str, str]:
     if not path.is_file():
         return _check(name, FAIL, "chybí", "`pflanzer init`.")
     text = path.read_text(encoding="utf-8", errors="replace")
+    from tool.cli.db import load_project_toml
+    url = load_project_toml(repo).get("target_repo_url")
+    if url:
+        ok, _ = _origin_valid(repo, url)
+        if not ok:
+            return _check(name, FAIL, f"target_repo_url `{url}` není platná git URL",
+                          "Oprav `target_repo_url` v .pflanzer/project.toml (https://<host>/<org>/<repo>, "
+                          "git@<host>:<org>/<repo>.git nebo existující lokální cesta).")
     left = re.findall(r"=\s*\"<[^\"]*>\"", text)
     if left:
         return _check(name, WARN, f"{len(left)}× nevyplněný placeholder",

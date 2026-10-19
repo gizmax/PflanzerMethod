@@ -68,9 +68,17 @@ def _git_origin(cwd: Path) -> str | None:
         return None
 
 
-def _normalize_origin(url: str) -> str:
-    """git@github.com:foo/bar.git → https://github.com/foo/bar (lokální cesty beze změny)"""
-    if url.startswith(("/", "file:", "./", "../", "~")):
+def _normalize_origin(url: str, base: Path | None = None) -> str:
+    """git@github.com:foo/bar.git → https://github.com/foo/bar.
+
+    Relativní lokální cesta (`../origin.git`) se převede na absolutní vůči `base` (target repo),
+    jinak by ji `quick_session bootstrap` z jiného cwd nenašel ani neprošla validací.
+    """
+    if url.startswith(("./", "../", "~")) or (base and not url.startswith(("/", "file:"))
+                                              and "://" not in url and "@" not in url):
+        from tool.cli.db import resolve_local_repo_url
+        return resolve_local_repo_url(url, base) or url
+    if url.startswith(("/", "file:")):
         return url
     url = re.sub(r"\.git/?$", "", url)
     return url.replace("git@github.com:", "https://github.com/")
@@ -248,7 +256,7 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
         return {"ok": False, "reason": f"{target_repo} není git repo. Spusť `git init` a `git remote add origin ...`"}
 
     origin = _git_origin(target_repo)
-    origin_normalized = _normalize_origin(origin) if origin else None
+    origin_normalized = _normalize_origin(origin, target_repo) if origin else None
 
     actions: list[str] = []
 
