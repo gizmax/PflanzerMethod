@@ -1017,9 +1017,12 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
                    *, mob: bool = False, stack: StackProfile | None = None) -> str:
     """Společná pravidla pro AI buildera (v0.5): constitution, kontroly v Buildu, štítek."""
     stack = stack or StackProfile()
+    acc_file = ("tests/acceptance/test_*.py" if stack.stack == "python"
+                else "tests/acceptance/*.test.js")
     feature_line = (
         f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
-        "implementace musí projít všemi scénáři.\n"
+        "implementace musí projít všemi scénáři. Akceptační testy k nim napiš do "
+        f"`{acc_file}` (běžný test runner projektu) — Ship je spustí jako bránu acceptance.\n"
         if has_feature else ""
     )
     n = 4 if has_feature else 3

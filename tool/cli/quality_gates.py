@@ -994,11 +994,13 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
         return native
     if not (st.node and "@playwright/test" in st.deps):
         if st.python and not st.node:
-            return _skip("acceptance", "scénáře v tests/acceptance/ jsou, ale automaticky se "
-                                       "spouští jen Playwright (pro Python je běží `tests`; "
-                                       "případně definuj příkaz v pflanzer.gates.json)")
-        return _unverified("acceptance", "chybí @playwright/test",
-                           "scénáře v tests/acceptance/ jsou, ale nespustily se")
+            return _unverified("acceptance", "chybí akceptační testy",
+                               "scénáře v tests/acceptance/*.feature jsou, ale chybí k nim "
+                               "spustitelné testy — napište je do tests/acceptance/test_*.py")
+        return _unverified("acceptance", "chybí akceptační testy",
+                           "scénáře v tests/acceptance/*.feature jsou, ale chybí k nim "
+                           "spustitelné testy — napište je do tests/acceptance/*.test.js "
+                           "(node --test), nebo použijte @playwright/test")
     if (s := _needs_deps(ctx, "acceptance")):
         return s
     rc, out, err = _run(["npx", "--no-install", "playwright", "test", "tests/acceptance",

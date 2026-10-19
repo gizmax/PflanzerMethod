@@ -116,7 +116,7 @@ pflanzer init
 #    Zkontrolujte i .pflanzer/CONSTITUTION.md (krátká nepřekročitelná pravidla pro AI).
 
 # 4. Commit a push všeho najednou
-git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push -u origin HEAD
+git add -A docs .pflanzer tests .gitignore .claude && git commit -m "chore(pflanzer): init" && git push -u origin HEAD
 
 # 5. Je repo připravené?
 pflanzer doctor

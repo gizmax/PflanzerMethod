@@ -52,6 +52,8 @@ def git_add_command(target_repo: Path) -> str:
     paths = ["docs", ".pflanzer", "tests"]
     if (target_repo / ".gitignore").exists():
         paths.append(".gitignore")
+    if (target_repo / ".claude" / "settings.json").exists():
+        paths.append(".claude/settings.json")
     return f"git add -A {' '.join(paths)}"
 
 
@@ -313,6 +315,22 @@ shadow_pm = "<jméno PdM>"
 # Vygenerováno: {date.today().isoformat()}
 """, encoding="utf-8")
         actions.append("napsáno: .pflanzer/project.toml")
+
+    # 3b. Claude Code: AI není spoluautor commitu — původ nesou trailery Pflanzer-* (N11).
+    #     Výchozí `Co-Authored-By` by byl v rozporu s CONSTITUTION, proto ho vypneme v repu.
+    cc_settings = target_repo / ".claude" / "settings.json"
+    try:
+        cfg = json.loads(cc_settings.read_text(encoding="utf-8")) if cc_settings.exists() else {}
+    except (ValueError, OSError):
+        cfg = None  # nevalidní JSON: nesahej, jen upozorni
+    if cfg is None:
+        actions.append("pozor: .claude/settings.json není validní JSON — "
+                       "nastav ručně \"includeCoAuthoredBy\": false")
+    elif cfg.get("includeCoAuthoredBy") is not False:
+        cfg["includeCoAuthoredBy"] = False
+        cc_settings.parent.mkdir(parents=True, exist_ok=True)
+        cc_settings.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        actions.append("napsáno: .claude/settings.json (AI není spoluautor commitů — původ nesou trailery)")
 
     # 4. .gitignore — pridej extracted/ pokud chybí
     gitignore = target_repo / ".gitignore"

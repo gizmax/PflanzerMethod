@@ -161,7 +161,7 @@ def test_acceptance_without_playwright_is_unverified_not_skip(tmp_path: Path) ->
                                        encoding="utf-8")
     res = {r.gate_type: r for r in quality_gates.run_gates_on_path(proj)}
     assert res["acceptance"].status == "skipped"
-    assert res["acceptance"].details.startswith("NEOVĚŘENO: chybí @playwright/test")
+    assert res["acceptance"].details.startswith("NEOVĚŘENO: chybí akceptační testy")
     assert res["types"].details.startswith("SKIP:")  # typy bez TS = nedává smysl
     # a11y bez UI souborů a bez možnosti spustit app = NEOVĚŘENO (ne SKIP)
     assert res["a11y"].details.startswith("NEOVĚŘENO:")
