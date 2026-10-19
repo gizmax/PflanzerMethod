@@ -37,7 +37,7 @@ opravdu žije v produkci a co se s ním stalo za 7 / 30 / 60 / 90 dní.**
 
 | Podpříkaz | Co udělá | Milník |
 |-----------|----------|--------|
-| `measure` | Najde vítěze (stejné pravidlo jako SHIP.md), lokalizuje clone target repa (`~/.pflanzer/targets/<repo>/`), `git fetch`, spočítá `loc_winner`, `loc_merged_unchanged`, `loc_reused_pct`, `days_to_prod`, `winner_commits` | `ship` |
+| `measure` | Najde vítěze (stejné pravidlo jako SHIP.md), lokalizuje clone target repa (`$(pflanzer data)/targets/<repo>/`), `git fetch`, spočítá `loc_winner`, `loc_merged_unchanged`, `loc_reused_pct`, `days_to_prod`, `winner_commits` | `ship` |
 | `record` | Ruční readout (bugy, leading/lagging metrika, rework, verdikt) | `t7` / `t30` / `t60` / `t90` |
 | `report` | `data/retro/<slug>-retro.md` + porovnání s cíli (reuse ≥ 80 %, days-to-prod ≤ 14 → jinak FLAG) | — |
 | `reminders` | T+7/30/60/90 od Go v Rozhodnutí s ownery z Charteru jako `.ics`, checklist nebo `gh issue create` příkazy | — |

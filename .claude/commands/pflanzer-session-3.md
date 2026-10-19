@@ -20,11 +20,11 @@ Krok Provoz musí mít jméno; jinak se zeptej, kdo deploy převezme.
 (`/pflanzer-session-3` a `tool/cli/session_3.py` jsou jen technické názvy
 tohoto kroku.)
 
-Kód vítěze je ve **worktree target repa** (`~/.pflanzer/targets/<slug>-<X>/`,
-branch `pflanzer/<slug>-<X>`, ADR-0009) — Ship gate nic nekopíruje a na
-GitHub URL se neptá. Ověř, že worktree existuje a patří do target repa:
-`pflanzer worktree verify --slug <slug> --cwd <worktree>`. Chybí-li, řekni
-týmu, ať spustí `pflanzer worktree setup --slug <slug>` a vítěze commitne.
+Kód vítěze je ve **worktree target repa** (větev `pflanzer/<slug>-<X>`,
+ADR-0009). **Cestu nehledej ručně** (datová složka se liší podle
+`PFLANZER_DATA`) — rovnou spusť `pflanzer session_3 --slug <slug>`: tool
+worktree vítěze najde sám, a když chybí, řekne to i s příkazem. Ship gate nic
+nekopíruje a na GitHub URL se neptá.
 URL buildru (Bolt / v0 / Lovable) je jen fallback u `--prefer-hosted`
 projektů (`--repo-urls`); skeleton pro `pilot` / `production` nikdy.
 

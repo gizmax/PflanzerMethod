@@ -84,7 +84,7 @@ gantt
 ```mermaid
 flowchart LR
     T["Target repo<br/>(GitHub / GitLab firmy)"]
-    C["Cache clone u buildera<br/>~/.pflanzer/targets/&lt;repo&gt;/"]
+    C["Cache clone u buildera<br/>datová složka toolu (`pflanzer data`)/targets/&lt;repo&gt;/"]
     WA["worktree A<br/>branch pflanzer/&lt;slug&gt;-A"]
     WB["worktree B<br/>branch pflanzer/&lt;slug&gt;-B"]
     WC["worktree C<br/>branch pflanzer/&lt;slug&gt;-C"]
