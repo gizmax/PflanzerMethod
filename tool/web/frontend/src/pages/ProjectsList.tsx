@@ -19,7 +19,7 @@ export default function ProjectsList() {
         <p className="mt-2 text-brand-500">
           Žádné projekty zatím nejsou. Spusť v Claude Code:{" "}
           <code className="font-mono bg-brand-50 px-1.5 py-0.5 rounded">
-            /pflanzer-charter &lt;slug&gt;
+            /pm start &lt;slug&gt;
           </code>
         </p>
       </div>

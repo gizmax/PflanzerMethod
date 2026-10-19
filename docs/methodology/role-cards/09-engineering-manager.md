@@ -2,32 +2,34 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #9 — Engineering manager
 
-> Hlídáš kapacitu a závislosti — z varianty se stává závazek týmu, ne jen demo.
+> Zastupuješ krok provoz: hlídáš kapacitu, závislosti a to, co s vítězem bude po nasazení — z varianty se stává závazek týmu.
+
+**Krok cesty:** Provoz · **Kde jsi:** okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)
 
 Status v catalogu: **doporučená** · Kdy se zve: Bude scope déle než 2 sprinty / je to PI priority?
 
-## Přines do Session 1
+## Přines do svého okna
 - Kapacitu týmu a roadmapu (PI commit %)
 - Závislosti na platform / identity / data týmech
 - T-shirt sizing rubriku
 
 ## Podepisuješ
-- Veto na workshop, pokud je PI commit > 80 %
+- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)
 - Dependency Map a T-shirt odhad (+ 2denní capped spike)
-- Capacity buffer 25 % pro Pflanzer-driven features
+- Capacity buffer 25 % pro Pflanzer-driven features; veto, pokud je PI commit > 80 %
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: kapacitu potvrdíš po session
-- Lean (3 h) — **blok**: T-shirt sizing a silent vote; podepisuješ kapacitu
-- Full (5–6 h) — **celá session**: jako senior delegát; blok tech feasibility + T-shirt
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: kapacitu potvrdíš po Rozhodnutí
+- Lean (3 h) — **blok**: okno u Shipu: kapacita, monitoring, kdo to bude provozovat
+- Full (5–6 h) — **celý běh**: senior delegát; blok tech feasibility + T-shirt v Buildu
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; effort opíráš o T-shirt sizing, ne o dojem.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **strategic_fit**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **strategic_fit**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
-- PI commit > 80 % — řekni to před Session 1 (veto)
+- PI commit > 80 % — řekni to před Kickoffem (veto)
 - Varianta závisí na týmu, který o tom neví
 - Odhad nad 2 sprinty bez spiku
 

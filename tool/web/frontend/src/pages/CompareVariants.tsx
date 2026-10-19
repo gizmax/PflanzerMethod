@@ -27,7 +27,7 @@ export default function CompareVariants() {
           <p className="text-brand-500">
             Žádné variants zatím nebyly publikovány. V Claude Code:{" "}
             <code className="font-mono bg-brand-50 px-1.5 py-0.5 rounded">
-              /pflanzer-session-1 {slug}
+              /pm build {slug}
             </code>
           </p>
         </div>

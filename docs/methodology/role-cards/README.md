@@ -6,10 +6,12 @@ Pflanzer Method | pflanzer.cz/method
 > `python3 tool/cli/roles.py cards --all`. **Needitovat ručně** — test
 > `tests/test_role_cards.py` hlídá, že karty odpovídají generátoru.
 
-Sponzor, Security ani UX nemusí číst celou metodiku: každá karta na jedné
-straně říká, co do Session 1 přinést, co role podepisuje, kdy je v místnosti
-(Quick / Lean / Full), na co hlasuje a co má okamžitě nahlásit. Detail role
-je v `docs/methodology/02-role-catalog.md`.
+Sponzor, Security ani UX nemusí číst celou metodiku. Karta = co zástupce
+kroku cesty (byznys, produkt, design, vývoj, bezpečnost & právo, provoz)
+přinese do svého okna: jestli je v jádru, nebo v okně, co přinést, co
+podepisuje (u bezpečnosti & práva a provozu příkazem `pflanzer checkpoint`),
+o čem hlasuje a co má okamžitě nahlásit. Stupeň (Quick / Lean / Full) je
+jen jeden řádek. Detail role je v `docs/methodology/02-role-catalog.md`.
 
 Pro konkrétní projekt vygeneruj karty se jmény, Deciderem, termíny a stupněm:
 `python3 tool/cli/roles.py cards --slug <slug>` → `data/role-cards/<slug>/`.

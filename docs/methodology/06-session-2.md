@@ -1,242 +1,115 @@
-# 06 — Session 2
+# 06 — Rozhodnutí
 
-> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Session 2 = **Rozhodnutí** (60–90 min, Decider + jádro). Agenda 3 h níže je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+**Pflanzer Method | pflanzer.cz/method**
 
-> Status: v1.0. **Rozhodovací session, ne generativní** [perspektiva 03].
-> 3 hodiny. Cíl: go / iterate / kill rozhodnutí s explicitním kritériem,
-> handoff package do vývoje, nebo re-charter / kill log.
+> K čemu je tento dokument: jak vést Rozhodnutí (`/pm decide`) — agenda,
+> top 3 spory, silent voting, rozhodnutí Decidera Go / Iterate / Kill a co
+> když Decider nerozhodne. Je to rozhodovací setkání, ne generativní: žádné
+> nové varianty. Délka je ve všech stupních stejná (60–90 min); Full smí
+> využít širší agendu (viz konec). Stupně: [`00-lean-pflanzer.md`](00-lean-pflanzer.md).
 
-## Cíl Session 2
+## Cíl
 
-Vyhodnotit feedback ze scoring windowu, vyřešit top 3 sporné body podle
-conflict-resolution playbooku, dát Decider's call (go / iterate / kill)
-a předat handoff package. **Nepokračuje v generaci variant** — pokud panel
-chce další varianty, signál je: re-charter, ne třetí session [perspektiva 01].
+Z agregovaného feedbacku, běžících variant a diffu udělat **jedno
+rozhodnutí s rationale**: Go s vítězem, Iterate (max 1×), nebo Kill.
+Zapíše se do decision logu v target repu (`.pflanzer/decisions/<slug>.md`,
+**commitni**). Po Go následuje Ship, ne další setkání. Pokud skupina chce
+další varianty, je to signál špatného zadání: vrať se ke Kickoffu.
 
-**Hard rule z Charteru**: max 2 sessions, pak buď go/kill, nebo escalation
-k CPO. Třetí session = metoda selhala, learning loop, ne pokračování.
+## Kdo
 
-## Délka a energy
+**Decider + jádro**, max 5 lidí. Decider u Buildu nebyl, proto začíná
+demo. Zástupce bezpečnosti & práva nebo provozu přizvi jen při otevřeném
+critical v jejich kroku. **Bez Decidera Rozhodnutí neprobíhá** (ADR-0001).
 
-**3 hodiny**, ne 6 [perspektiva 03]. Druhá session je rozhodovací; pokud
-trvá 6 h, tým nerozhodl, jen unavil. Doporučený slot: **9:00–12:00**
-(decision-making peak). Bez oběda. Konec → handoff package distribuce
-do 48 h.
+## Agenda (60–90 min)
 
-## Účastníci
+| Čas | Blok | Poznámka |
+|-----|------|----------|
+| 0–10 | **Demo** běžících variant na preview | Decider je vidí poprvé „naostro"; vývojářský pár řekne reuse/nové/mock |
+| 10–25 | **Agregovaný feedback** | `pflanzer session_2 prep`: commitment index, počet critical, verdikt debtu, mlčící role (zapsané jako „no objection") — AI fakta neutrálně, bez interpretace |
+| 25–40 | **Critical** | každý otevřený critical: opraveno / varianta ven / Decider override s rationale |
+| 40–65 | **Top 3 spory** | 5 min kontext → 5 min návrh řešení → 5 min hlasování → zápis nebo eskalace |
+| 65–75 | **Silent voting** | jádro tiše, výsledek se zveřejní až po hlasování; **Decider hlasuje poslední** |
+| 75–90 | **Rozhodnutí Decidera** | Go / Iterate / Kill + rationale (1–2 věty, povinné) |
 
-**v0.5 default (ADR-0021):** **jádro + Decider** (Decider hlasuje poslední,
-ADR-0001). Zástupci bezpečnosti & práva a provozu přes krátká okna
-(checkpoint 20 min), ne celých 60–90 min. Max 5 lidí naráz.
+Příkazy:
 
-**Rozšířená sestava** (větší / regulované projekty):
+```bash
+pflanzer session_2 prep --slug <slug>
+pflanzer session_2 decide --slug <slug> go --winner A --rationale "…"
+pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "…"
+pflanzer session_2 decide --slug <slug> kill --rationale "…"
+pflanzer session_2 resolve --slug <slug> --feedback-id <id> --note "<jak>"
+```
 
-- **Stejní jako Session 1** (kontinuita interpretace; bez toho AI syntéza
-  ztrácí kontext).
-- **Decider povinně přítomen** [perspektiva 01]. Bez Decidera Session 2
-  **neprobíhá** — viz **kanonický Decider eskalační protokol v ADR-0001**
-  (Scenario A: posun max 5 pracovních dní, dál eskalace na CPO).
-- **Security on-call** + **Legal on-call** ve volných slotech (ne celé 3 h),
-  triggered pokud Critical flag eskaluje. Pre-read jejich triage update
-  z mezi-sessions povinný.
-- **EM** povinně pro capacity / dependency rozhodnutí.
-- **Champion** (#17) pokud běží Coaching Kata loop pro pilot v BU
-  [synthesis 03].
+## Pravidla rozhodnutí
 
-> Sanity check: > 8 lidí v 3h decision sessionu = paralýza. Konzultativní
-> role mohou dorazit jen pro svůj blok.
+- **Go vyžaduje vítěze** (`--winner`). Poražené varianty se smažou po
+  mergi.
+- **Otevřený critical na vítězi blokuje Go** — tool jej odmítne zapsat.
+  Cesty: vyřešit (`resolve`), nebo Decider override s rationale
+  (`--override-critical`). Iterate je povolen (opraví ho).
+- **Iterate = jedno další kolo Buildu, max 1×** s úzce definovaným
+  zaměřením (`--iterate-focus`). Druhý Iterate tool odmítne: třetí kolo
+  znamená špatně zadaný problém, zpět ke Kickoffu.
+- **Kill** má rationale a stručné retro do decision logu.
+- **Decider hlasuje poslední.** Přebije-li výsledek silent voting, dělá to
+  **veřejně s rationale do decision logu** (ADR-0001). Critical od
+  bezpečnosti/práva se hlasem přebít nedá, jen mitigací nebo pivotem.
+- **Mlčení:** nevetovací role = „no objection"; vetovací role bez
+  vyjádření = Rozhodnutí je jen review (ADR-0017).
 
-## Detailní agenda
+## Top 3 spory
 
-| Čas | Blok | Aktivita | Vede |
-|-----|------|----------|------|
-| 09:00–09:30 | **Recap + feedback agregace** | AI prezentuje aggregate by department: heatmap score × varianta × role; severity distribution; Discovery Debt Detector skóre; veto registr stav. **AI mluví neutrálně, fakta, ne interpretace** [perspektiva 03] | **AI vede prvních 20 min**, pak Facilitátor |
-| 09:30–10:15 | **Conflict-resolution playbook na top 3 sporné body** | Pre-identifikované z mezi-sessions. Každý bod: 5 min context → 5 min návrh resolution → 5 min hlasování → 5 min commit / eskalace | Facilitátor + AI |
-| 10:15–10:30 | **Break** | Pulsní check-in (1–5 prst) | — |
-| 10:30–11:15 | **AI návrhy zapracování + variant convergence** | AI prezentuje, **jak** zapracovat top feedback do preferované varianty: konkrétní změny v UI, OpenAPI, A11y mitigations, ticket prediction adjustments. Panel reaguje, ne re-designuje | AI první draft, Facilitátor + role validují |
-| 11:15–11:45 | **Decider's call: go / iterate / kill** | Decider rozhoduje s commitment indexem (0–100) z scoring window. Threshold definován v Charteru | **Decider** |
-| 11:45–12:00 | **Handoff package preview + AI Act Fáze C sign-off** | Recap artefaktů, sign-off check, P2P gate stav, eskalace items. **DPO podepisuje AI Act final classification** (Fáze C dvoufázového protokolu — viz `03-pre-session-priprava.md` § Legal & Privacy Triage) s data flow diagramem, Annex IV skeletonem a human-oversight designem (per čl. 14). Bez Fáze C podpisu handoff package **není kompletní**. | Facilitátor + AI + DPO |
-| **12:00** | **Konec** | — | — |
+`session_2 prep` vybere tři nejostřejší osy (typicky mezi kroky cesty).
+AI navrhuje řešení, nerozhoduje; neznámý spor rozhodne Decider
+s rationale. Opakující se vzorce:
 
-## Conflict-resolution playbook (top 3 sporné body)
+| Spor | Vzorec řešení |
+|------|---------------|
+| bezpečnost/právo vs tlak byznysu | critical = pivot nebo mitigace; reálná PII = okamžitý stop |
+| vývoj/provoz vs termín | T-shirt odhad, ne story pointy; > L = 2denní spike mimo setkání; přetrvávající spor eskalovat mimo místnost |
+| PdM vs design | scope rozhoduje PdM, flow design; persona je sdílený artefakt |
+| FE vs BE kontrakt | contract-first, OpenAPI diff, breaking-change registr s vlastníkem |
+| „už to skoro běží, pošleme to zákazníkovi" | vítěz jde do produkce **přes Ship**; sdílení preview před gates je incident ([`08`](08-edge-cases-a-rizika.md) § 8) |
 
-[synthesis 01]. Mezi-sessions identifikuje top 3 cross-cutting konflikty;
-Session 2 je řeší strukturovaně podle resolution patterns.
+**Hierarchie závaznosti:** critical = blocker (STRIDE Critical, AI Act
+High-risk bez DPIA, WCAG Critical/Serious na veřejném rozhraní, breaking
+change bez konzumentů) · varianta s varováním = viditelné v decision logu,
+bez veta · skóre = váha pro zbytek (AI-only max 0,5).
 
-### Hierarchie závaznosti — strukturovaná místo binárního veta
+## Když Decider nerozhodne
 
-[synthesis 01, blok D]:
+Autoritativní zdroj je **ADR-0001** (kanonický eskalační protokol); sem se
+text nekopíruje. Pro orientaci:
 
-1. **Critical risk = blocker** — varianta se nepokračuje:
-   - Security STRIDE Critical
-   - Legal AI Act high-risk + bez DPIA
-   - A11y WCAG Critical/Serious na public-facing
-   - EM capacity overrun bez champion alternativy
-   - BE breaking change bez consumer alignment
-   → **Session pivotuje na alt. variantu** nebo iterate s mitigation deadlinem.
-2. **Yellow flag = viditelný warning v decision matrici, bez veta**:
-   - UX usability debt
-   - QA testability concern
-   - CS load increase
-   → Decider rozhoduje s plnou viditelností warningu; warning jde do
-   decision logu.
-3. **Score závaznosti** (0–1 s rationale field) — váhy pro non-blocker
-   feedback. AI-only persona feedback **score deflation max 0.5**
-   [synthesis 02].
+- **Decider chybí:** Rozhodnutí se odkládá (max 5 pracovních dní), pak
+  eskalace na sponzora; mlčení sponzora = Kill.
+- **„Potřebuji víc času":** písemné rozhodnutí do decision logu do 48 h,
+  pak eskalace; mlčení vede k Iterate, ne k tichému úmrtí.
+- **Iterate vyčerpán:** další Rozhodnutí musí skončit Go nebo Kill, jinak
+  automaticky Kill.
 
-**Anti-HiPPO**: Decider hlasuje **poslední**. Pokud Decider override-uje
-silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
-[perspektiva 03].
+Eskalační kontakt a případný záložní Decider se zapisují v Kickoffu.
 
-### Konkrétní resolution patterns
+## Výstup
 
-[synthesis 01]:
+- Rozhodnutí + rationale, vítěz, počet a stav critical, decision log
+  v repu (commit).
+- Go → `/pm ship <slug>` ([`07`](07-handoff-do-vyvoje.md)) — vývojáři +
+  provoz; Iterate → `/pm build <slug>` (jen to, co se mění); Kill → hotovo.
 
-- **Prototyp do prod**: evolve je default v Kickoffu (Track P + evolve,
-  ADR-0005 v0.4) — vítězná varianta jde do produkce bez re-implementace.
-  Samotný prod deploy je ale podmíněn Ship (gates na vítěze, pilot ≥ 80 / production ≥ 85 ze 100)
-  + kompletním sign-off paketem (FE + EM + Security + Legal + Platform + QA
-  P2P checklist); do té doby žije varianta jen v sandboxu. Throw-away je
-  explicit opt-in s rationale z Kickoffu (discovery-only pilot, audit-grade
-  evidence separate od prod, regulated certified production).
-- **Security veto + zadavatel push**: Pre-charter triage zachytí 80 %.
-  Critical = pivot. L4 data v promptu = okamžitý stop.
-- **EM kapacita vs business timeline**: T-shirt v session, story points
-  až po 2-day capped spike. Persistence konflikt = eskalace mimo místnost.
-- **PdM + UX persona ownership**: shared artefakt; PdM tie-breaker na scope,
-  UX na flow. Persona doc podepsaný oběma.
-- **FE + BE contract**: contract-first, OpenAPI shadow paralelní.
-  Breaking-change registr.
+## Full — širší agenda
 
-## Decision gate
-
-[perspektiva 01]:
-
-### Go-criteria
-
-- **Commitment index ≥ threshold z Charteru** (default 70/100).
-- **Zero Critical** v veto registru.
-- **Discovery Debt Detector ≤ 6** (≥ 7 = STOP).
-- **WCAG Critical/Serious mitigated** pro public-facing + B2B nad
-  250 zaměstnanců.
-- **Capacity sign-off od EM** finalizovaný (žádné „posune se to").
-- **P2P gate checklist** kompletní pro evolve (default), nebo explicitní throw-away flag.
-- **Decider podepisuje** explicit go.
-
-### Iterate criteria
-
-- Commitment index 50–70 + jasné mitigation items s ownery a deadlines.
-- ≤ 3 Critical s jasným resolution path do 1 týdne.
-- Discovery Debt 3–6 (exploratory mode).
-- Iterate cycle definovaný **úzce** (1 week, scoped scope), ne otevřený.
-
-### Kill criteria
-
-- **Commitment index < 50** napříč rolemi.
-- **Kill criteria z Charteru splněny** (XYZ hypotéza falsifikována, kapacita
-  zmizela, market shift).
-- **Discovery Debt ≥ 7** + Decider odmítá discovery sprint.
-- **Persistent Critical bez mitigation path** (Security high-risk, Legal AI
-  Act non-compliance, BE breaking change bez consumer ownerů).
-- **L4 data incident** v scoring windowu.
-
-### Escalation path
-
-- Capacity konflikt → CPO + VP Eng [perspektiva 01].
-- Security/Legal Critical bez resolution → CISO + DPO.
-- Decider conflict mezi BU → exec committee.
-- Charter creep / scope drift → re-charter, nikoli třetí session.
-
-## Score-based commitment
-
-Každá zúčastněná role potvrzuje commitment level **0–3** [synthesis 03]:
-
-| Level | Význam | Závazek |
-|-------|--------|---------|
-| **0** | Nesouhlas | Eskalace nebo opt-out z handoff scope |
-| **1** | Read-only | Bere na vědomí, neúčastní se delivery |
-| **2** | Active scoring | Bude reviewovat handoff artefakty, on-call pro otázky |
-| **3** | Co-creation | Aktivně se podílí na delivery, owns dependency |
-
-**Critical role** (PdM, EM, Security, Legal pokud relevantní) musí mít **≥ 2**;
-pokud kterákoli má 0, automatické iterate / re-charter.
-
-**AI-assisted commitment** se započítává deflated max 0.5 (AI proxy nemá
-podpis, jen briefing) [synthesis 02].
-
-## Sign-off package (do 48 h od Session 2)
-
-> **Track-aware (v0.4, per ADR-0020):** Session 2 output a sign-off package
-> se liší podle Charter track. **Track P** (preferred ~80 %) → **winner
-> varianta = běžící produkt v target prod repo**, sign-off package = audit
-> trail. **Track S** (fallback ~20 %) → **winner varianta = precision spec
-> ≥ 80/100 quality gate**, sign-off package = spec navigation + audit trail
-> + 5-stage handoff ritual triggered.
-
-### Track P sign-off package (GO call, default)
-
-Winner varianta JE produkt. Žádný re-impl handoff k dev týmu — dev byl v room.
-
-- **Winner kód v target prod repo** (PR-ready commit, quality gates ≥ 80/100:
-  lint, types, tests, security, a11y, build, observability)
-- **Scoped epic** (PRD-lite, 1 stránka): JTBD, persona, success metric,
-  scope in/out, otevřené otázky [perspektiva 02].
-- **Akceptační kritéria** v Gherkin (verifikační, ne implementační — kód
-  už existuje), ≥ 1 negative scenario per flow.
-- **Akceptovaný OpenAPI 3.1** lintovaný (Spectral) + 3–5 ADR + contract
-  test passing (Pact / Schemathesis).
-
-### Track S sign-off package (GO call)
-
-Winner = **precision spec ≥ 80/100** + reference prototype z Session 1 +
-5-stage handoff ritual triggered. Per
-`tool/templates/precision-spec-track-s.md.template`.
-
-- **Precision spec** sekce A–E (Functional INVEST-RA / Technical OpenAPI
-  + ERD / Quality STRIDE + WCAG + AI Act / Implementation / Sign-off
-  12-role matrix) ≥ 80/100 quality gate
-- **Reference prototype** z Session 1 = Combined SoT s spec (anti-drift)
-- **5-stage handoff ritual scheduled**: 90-min walkthrough → 5-day Q&A
-  window → amendment protocol → first milestone review → T+30 embedded
-  reviewer (per `07-handoff-do-vyvoje.md` Track S section)
-- **Akceptační kritéria** v executable Gherkin (BDD scenarios runnable,
-  ne prose), ≥ 1 negative scenario per flow.
-- **Akceptovaný OpenAPI 3.1** lintovaný (Spectral) + 3–5 ADR + contract
-  test skeleton (Pact / Schemathesis), passing dle spec verifikace.
-
-### Společné pro Track P a Track S
-- **Dependency Map**: feature → team → typ → required by → owner.
-- **Tech debt flagy** s ownerem a planned-pay-down sprintem.
-- **Updated business case + exec one-pager** pro CPO/board (problém,
-  řešení, investice, expected impact, next milestone) [perspektiva 01].
-- **DPIA artefakt** podepsaný DPO + AI Act tech doc skeleton (Annex IV)
-  pokud high-risk.
-- **Privacy Notice draft** + Legal basis statement per feature.
-- **Measurement plan v1**: primary lagging + 2–3 leading + guardrail
-  metrics; A/B test design + kill criteria; instrumentation deadline
-  ship-2d [synthesis 02].
-- **Support readiness checklist**: KB článek D-7, makra D-2, training,
-  escalation [synthesis 02].
-- **SLO baseline** + runbook stub + on-call assignment.
-- **P2P (Prototype-to-Prod) checklist**: SBOM, secret scan, IaC v monorepu,
-  observability, SLO, runbook, change advisory, DPIA, A11y human review
-  [synthesis 02].
-- **Audit log** session 1 + 2 s lidskou atribucí (DORA 7 let pro regulované).
-- **Veto registr finalizovaný** + decision atribuce.
-- **Reinforcement track**: T+7 ticket category check vs prediction;
-  T+30 build progress + leading metric readout; T+60 retro + verbatim
-  sample; T+90 lagging metric vs success criterion + churn cohort
-  + learning loop do role catalogu [perspektiva 01, synthesis 02].
-
-Pokud Decider's call = **ITERATE**:
-
-- Scoped iterate package: konkrétní mitigation items, ownery, deadlines,
-  re-Session 2 datum (ne otevřené, max 1 týden iterate cycle).
-- Stávající artefakty zůstávají v hub repo; sandbox TTL prodloužen.
-
-Pokud Decider's call = **KILL**:
-
-- Kill log s rationale (které kill criteria z Charteru se naplnily).
-- Learning loop entry: co metoda zachytila, co ne, update do role catalogu.
-- Sandbox teardown, audit log retention per regulační framework.
-- Charter archivovaný, exec one-pager s kill rationale.
+Ve stupni Full může Rozhodnutí využít až 3 h: delší agregace per role
+(heatmapa skóre, severity), konvergence na vítěze s návrhy zapracování
+(AI první draft, panel reaguje, nepřekresluje), a nakonec **podpis DPO
+(AI Act Fáze C)** s data flow diagramem, intended use, human oversight
+a Annex IV kostrou ([`03`](03-pre-session-priprava.md) § Legal & Privacy
+Triage). Go-kritéria navíc: commitment index nad prahem zadání, nula
+critical, debt ≤ 6, WCAG Critical/Serious zmírněné, kapacita potvrzená EM.
+Každá kritická role potvrzuje commitment aspoň 2 ze 3 (0 nesouhlas ·
+1 čtu · 2 reviewuji · 3 spolutvořím); 0 = automaticky Iterate. Eskalační
+cesty: kapacita → sponzor + vedení vývoje, bezpečnost/právo → CISO + DPO,
+spor mezi jednotkami → vedení.

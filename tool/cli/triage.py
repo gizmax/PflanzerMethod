@@ -158,10 +158,10 @@ def render_summary_md(
 
 
 # --------------------------------------------------------------------------
-# Ship gate — triage hard gate (audit N5)
+# Ship — triage hard gate (audit N5)
 # --------------------------------------------------------------------------
 
-# Risk profiles where the Ship gate refuses production_ready without signed
+# Risk profiles where Ship refuses production_ready without signed
 # triage. Throwaway never ships, so it is not gated.
 SHIP_GATED_PROFILES = ("pilot", "production")
 TRIAGE_OVERRIDE_MARKER = "pflanzer:triage-override"
@@ -250,7 +250,7 @@ def _latest_override(conn: sqlite3.Connection, project_id: int) -> dict[str, Any
 
 
 def ship_triage_gate(conn: sqlite3.Connection, project_id: int) -> dict[str, Any]:
-    """Evaluate the triage hard gate for the Ship gate.
+    """Evaluate the triage hard gate for Ship.
 
     For pilot/production every track must be 'ok'; anything else (deferred,
     pending, blocked, missing row) blocks production_ready. A Decider
@@ -288,7 +288,7 @@ def record_triage_override(
     actor = actor or current_actor()
     payload = {"blocked_by": blocked_by, "rationale": rationale.strip()}
     body = (
-        f"# Triage override (Ship gate) — {slug}\n\n"
+        f"# Triage override (Ship) — {slug}\n\n"
         f"<!-- {TRIAGE_OVERRIDE_MARKER} {json.dumps(payload, ensure_ascii=False)} -->\n\n"
         f"**Decider override:** production_ready povoleno i přes nedokončený triage.\n\n"
         f"**Blokace, které override pokrývá:** {', '.join(blocked_by)}\n\n"
@@ -306,6 +306,64 @@ def record_triage_override(
         payload={"slug": slug, **payload, "decision_id": cur.lastrowid},
     )
     return int(cur.lastrowid)
+
+
+THRESHOLD_OVERRIDE_MARKER = "pflanzer:threshold-override"
+_THRESHOLD_RE = re.compile(
+    r"<!-- " + re.escape(THRESHOLD_OVERRIDE_MARKER) + r" (\{.*?\}) -->")
+
+
+def record_threshold_override(
+    conn: sqlite3.Connection, *, project_id: int, slug: str, decider: str | None,
+    score: int, target: int, rationale: str, actor: str | None = None,
+) -> int:
+    """Persist a Decider override of the Ship score threshold (decisions + audit log)."""
+    if not rationale or not rationale.strip():
+        raise ValueError("--override-threshold vyžaduje --rationale \"…\" (zapisuje se do decision logu).")
+    actor = actor or current_actor()
+    decider = (decider or "").strip() or actor
+    payload = {"score": int(score), "target": int(target), "decider": decider,
+               "rationale": rationale.strip()}
+    body = (
+        f"# Výjimka z prahu (Ship) — {slug}\n\n"
+        f"<!-- {THRESHOLD_OVERRIDE_MARKER} {json.dumps(payload, ensure_ascii=False)} -->\n\n"
+        f"**Verdikt:** pod prahem — Ship na odpovědnost Decidera ({decider}).\n\n"
+        f"**Skóre:** {score}/100 (práh {target})\n\n"
+        f"**Rationale:** {rationale.strip()}\n\n"
+        f"**Atribuce:** {actor}\n"
+    )
+    cur = conn.execute(
+        "INSERT INTO decisions (project_id, type, body_md, atribuce_user, atribuce_ts) "
+        "VALUES (?, 'escalation', ?, ?, CURRENT_TIMESTAMP)",
+        (project_id, body, actor),
+    )
+    audit(
+        conn, actor=actor, action="ship_gate.threshold_override",
+        target_type="project", target_id=project_id,
+        payload={"slug": slug, **payload, "decision_id": cur.lastrowid},
+    )
+    return int(cur.lastrowid)
+
+
+def latest_threshold_override(
+    conn: sqlite3.Connection, project_id: int, *, score: int, target: int,
+) -> dict[str, Any] | None:
+    """Latest threshold override, valid only for the same score/threshold it was given for."""
+    row = conn.execute(
+        "SELECT id, body_md, atribuce_user, atribuce_ts FROM decisions "
+        "WHERE project_id = ? AND type = 'escalation' AND body_md LIKE ? "
+        "ORDER BY id DESC LIMIT 1",
+        (project_id, f"%{THRESHOLD_OVERRIDE_MARKER}%"),
+    ).fetchone()
+    m = _THRESHOLD_RE.search(row[1] or "") if row else None
+    if not m:
+        return None
+    payload = json.loads(m.group(1))
+    if payload.get("score") != int(score) or payload.get("target") != int(target):
+        return None
+    return {"decision_id": int(row[0]), "score": payload["score"], "target": payload["target"],
+            "decider": payload.get("decider", ""), "rationale": payload.get("rationale", ""),
+            "by": row[2], "at": row[3]}
 
 
 def run_from_json(path: Path) -> dict[str, Any]:

@@ -626,7 +626,7 @@ def render_support(ctx: dict[str, Any]) -> str:
 
 ```
 TODO: Customer support proxy doplní 5 verbatim citací k Voice of Customer
-ritual (per `04-session-1.md` § 09:00–09:30 blok).
+ritual (per `04-session-1.md` § Full — rozšířená agenda).
 ```
 
 ## Capacity baseline

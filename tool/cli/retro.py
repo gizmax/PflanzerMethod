@@ -67,7 +67,7 @@ RECOMMENDED_METRICS: dict[str, dict[str, str]] = {
     },
 }
 
-# Default reinforcement owners from 07-handoff-do-vyvoje.md § Reinforcement
+# Default reinforcement owners from 07-handoff-do-vyvoje.md § Retro
 # track — used when the Charter leaves the milestone empty.
 DEFAULT_OWNERS = {
     "t7": "CS proxy + Champion",
@@ -125,7 +125,7 @@ def _parse_ts(value: Any) -> datetime | None:
 
 
 def _go_date(conn: sqlite3.Connection, project_id: int) -> tuple[datetime | None, str]:
-    """Return (Session 2 GO timestamp, source).
+    """Return (Rozhodnutí GO timestamp, source).
 
     Order: sessions(type=2, decision='go').decision_ts → first decisions row
     of type 'handoff' (session_2.py writes it on GO) → None.
@@ -156,7 +156,7 @@ def _winner_name(slug: str, project_id: int) -> str:
 
     Reuses `handoff_pr._fetch_ship_context` so SHIP.md and retro always
     agree on the winner; falls back to the highest preference_score of the
-    latest Session 1 when that helper is unavailable.
+    latest Build when that helper is unavailable.
     """
     try:
         from tool.cli.handoff_pr import _fetch_ship_context
@@ -177,7 +177,7 @@ def _winner_name(slug: str, project_id: int) -> str:
         ).fetchone()
     if not row:
         raise ValueError(
-            f"Projekt '{slug}' nemá žádnou variantu v Session 1 — winner nelze "
+            f"Projekt '{slug}' nemá žádnou variantu v Buildu — winner nelze "
             "určit. Zadej ho ručně přes `--winner A`."
         )
     return str(row[0])
@@ -318,7 +318,7 @@ def measure(
       the target branch before the merge → the number is a lower bound.
       A modified line counts as one removal (+ one addition, ignored).
     - `loc_reused_pct` = loc_merged_unchanged / loc_winner × 100.
-    - `days_to_prod` = calendar days from Session 2 GO (sessions/decisions)
+    - `days_to_prod` = calendar days from Rozhodnutí GO (sessions/decisions)
       to the merge (gh `mergedAt`, else committer date of the merge commit).
       Merge is used as the prod proxy; if deploy happens later, record the
       real deploy date as a note.
@@ -411,7 +411,7 @@ def measure(
             f"{merge_dt.date().isoformat()}; target <= {TARGET_DAYS_TO_PROD}",
         ))
     else:
-        print("[retro] warn: datum Session 2 GO nenalezeno — days_to_prod se nezapíše.",
+        print("[retro] warn: datum Rozhodnutí (Go) nenalezeno — days_to_prod se nezapíše.",
               file=sys.stderr)
 
     actor = current_actor()
@@ -619,8 +619,8 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 # Retro — {p['name']}
 
 > Slug: `{p['slug']}` · Vygenerováno: {now} · Stav projektu: `{p['status']}`
-> Session 2 GO: {go_dt.date().isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
-> Per audit N4 + `docs/methodology/07-handoff-do-vyvoje.md` § Reinforcement track.
+> Rozhodnutí (Go): {go_dt.date().isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
+> Per audit N4 + `docs/methodology/07-handoff-do-vyvoje.md` § Retro.
 
 ## Cíle metody
 
@@ -637,7 +637,7 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 - `loc_reused_pct` = řádky přidané winner branchí, které v merge commitu
   zůstaly beze změny (heuristika `added − removed` po cestách, které winner
   změnil; konzervativní dolní odhad — viz docstring `retro.py measure`).
-- `days_to_prod` = kalendářní dny od Session 2 GO do merge commitu (proxy
+- `days_to_prod` = kalendářní dny od Rozhodnutí (Go) do merge commitu (proxy
   pro první prod deploy).
 - T+7/30/60/90 = ruční readouty (`retro.py record`), evidence URL povinně
   tam, kde existuje (issue, dashboard, retro zápis).
@@ -735,10 +735,10 @@ def _reminder_items(
     if from_date:
         start, start_source = date.fromisoformat(from_date), "--from"
     elif go_dt:
-        start, start_source = go_dt.date(), "Session 2 GO"
+        start, start_source = go_dt.date(), "Rozhodnutí (Go)"
     else:
         raise ValueError(
-            "Datum Session 2 GO v DB není. Zadej `--from YYYY-MM-DD`."
+            "Datum Rozhodnutí (Go) v DB není. Zadej `--from YYYY-MM-DD`."
         )
     owners = _owners(slug, project)
     items = []
@@ -899,7 +899,7 @@ def main() -> None:
     p_rem = sub.add_parser("reminders", help="Připomínky T+7/30/60/90 (ics | md | gh-issues)")
     p_rem.add_argument("--slug", required=True)
     p_rem.add_argument("--format", choices=["ics", "md", "gh-issues"], default="md")
-    p_rem.add_argument("--from", dest="from_date", help="YYYY-MM-DD (default: datum Session 2 GO)")
+    p_rem.add_argument("--from", dest="from_date", help="YYYY-MM-DD (default: datum Rozhodnutí (Go))")
     p_rem.add_argument("--out", help="Zapsat do souboru místo stdout")
 
     args = p.parse_args()

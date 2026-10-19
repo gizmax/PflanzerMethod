@@ -55,7 +55,7 @@ def create_variant(
     if not project:
         raise HTTPException(404, f"Project '{slug}' not found")
 
-    # Find or create Session 1 row
+    # Find or create the Build (type=1) row
     session_row = db.exec(
         select(PSession).where(PSession.project_id == project.id, PSession.type == 1)
     ).first()

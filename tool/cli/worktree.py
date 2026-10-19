@@ -591,7 +591,7 @@ def _configure_worktree(clone: Path, wt: Path, *, variant: str, builder: str,
     """Per-worktree trailer values (`git config --worktree pflanzer.*`).
 
     Session is only initialised (to 1) when unset, so re-running setup never
-    moves a worktree back from session 2 / ship.
+    moves a worktree back from Rozhodnutí / ship.
     """
     rc, _, err = _git(clone, "config", "extensions.worktreeConfig", "true")
     if rc != 0:
@@ -607,7 +607,7 @@ def _configure_worktree(clone: Path, wt: Path, *, variant: str, builder: str,
 
 
 def _variant_builders(project_id: int) -> dict[str, str]:
-    """name → builder from the latest Session 1 variants (if voting already ran)."""
+    """name → builder from the latest Build variants (if voting already ran)."""
     with transaction() as conn:
         rows = conn.execute(
             "SELECT v.name, v.builder FROM variants v JOIN sessions s ON s.id = v.session_id "
@@ -1240,7 +1240,7 @@ def set_session(slug: str, session: str, variant: str | None = None) -> list[dic
 
 
 def set_prototype_url(slug: str, variant: str, url: str) -> bool:
-    """Write variants.prototype_url for the latest Session 1 row. False = no row yet."""
+    """Write variants.prototype_url for the latest Build row. False = no row yet."""
     with transaction() as conn:
         row = conn.execute(
             "SELECT v.id FROM variants v JOIN sessions s ON s.id = v.session_id "
@@ -1325,7 +1325,7 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                 f"> {BRAND_LINE}\n\n"
                 f"## Pflanzer preview — `{slug}` varianta {variant} ({repo.role})\n\n"
                 "Draft PR jen pro **preview mezi sessions** (non-tech stakeholdeři hodnotí ve "
-                "web hubu). Nemergovat — winner jde do prod přes Ship gate (`handoff_pr.py`).\n\n"
+                "web hubu). Nemergovat — winner jde do prod přes Ship (`/pm ship`) (`handoff_pr.py`).\n\n"
                 "## AI provenance\n"
                 f"- **Builder**: {builder}\n"
                 "- **Model family**: " + ("Claude" if builder == "claude-code" else builder) + "\n"
@@ -1604,7 +1604,7 @@ def main() -> None:
     p_prev.add_argument("--yes", action="store_true",
                         help="draft-pr --run: potvrdit push do remote target repa bez interaktivní otázky")
 
-    p_sess = sub.add_parser("set-session", help="Přepnout Pflanzer-Session trailer (1 | 2 | ship)")
+    p_sess = sub.add_parser("set-session", help="Přepnout trailer Pflanzer-Session (1 = Build, 2 = Rozhodnutí, ship)")
     p_sess.add_argument("--slug", required=True)
     p_sess.add_argument("--session", required=True, choices=list(SESSION_VALUES))
     p_sess.add_argument("--variant", default=None, help="Jen jedna varianta (A/B/C/mob)")

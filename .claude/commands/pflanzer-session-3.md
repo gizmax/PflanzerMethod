@@ -63,6 +63,9 @@ Pod povrchem:
   lint/observability = warning). AskUserQuestion Decideru: pilot s malou
   skupinou a paralelní oprava / pauza a znovu `/pm ship` / Ship i přesto
   (override + rationale do decision logu). Neuhýbej: gate fail = pozdější bug.
+- Ship pod prahem (jen Decider, skóre < práh; triage ani minimum bran se tím
+  neobchází): `pflanzer session_3 --slug <slug> --override-threshold --rationale "…"`
+  → verdikt „pod prahem — Ship na odpovědnost Decidera", draft PR, sekce „Výjimka z prahu" v SHIP.md i PR.
 
 ## Krok 3 — Checkpoint provozu (20 min)
 

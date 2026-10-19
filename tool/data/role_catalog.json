@@ -10,30 +10,30 @@
       "trigger": "always",
       "expert_agent": "zadavatel-expert",
       "card": {
-        "why": "Vlastníš nápad i budget — bez tebe projekt nestartuje a výsledek nemá kdo převzít.",
+        "why": "Vlastníš nápad i budget a jsi Decider — bez tebe projekt nestartuje a výsledek nemá kdo převzít.",
         "bring": [
-          "Business case one-pager (ARR / efficiency impact) a XYZ hypotézu",
-          "Písemný decider mandát od CPO — kdo smí říct Go / Iterate / Kill",
-          "Capacity pre-check: kdo z týmu má čas na mezi-session iteraci",
-          "Success threshold v jedné větě + kill criteria z Charteru"
+          "Zadání na 1 stránku do Kickoffu: problém v jedné větě, metrika úspěchu, kill kritérium",
+          "Písemný mandát, že smíš říct Go / Iterate / Kill",
+          "Jméno zástupce za každý z 6 kroků cesty a zabookovaná okna",
+          "Kapacitu týmu na Async okno (kdo komentuje a zapracovává)"
         ],
         "sign_off": [
-          "Shortlist 1–3 variant na konci Session 1 (Decider's call = tie-breaker, ne konsenzus)",
-          "Go / Iterate / Kill v Session 2 s commitment index threshold",
-          "Reinforcement track T+30 / 60 / 90 a jeho budget"
+          "Zadání z Kickoffu (`/pm start`)",
+          "Go / Iterate / Kill v Rozhodnutí (`/pm decide`) — hlasuješ poslední",
+          "Při Shipu pod prahem skóre: výjimku z prahu na vlastní odpovědnost (`--override-threshold`)"
         ],
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "bez tebe se session nekoná"
+            "note": "Kickoff i Rozhodnutí; bez tebe se nic nekoná"
           },
           "lean": {
             "presence": "full",
-            "note": "Session 1 i Session 2 (obě 3 h)"
+            "note": "Kickoff 15 min a Rozhodnutí 60–90 min; Build běží bez tebe"
           },
           "full": {
             "presence": "full",
-            "note": "bez tebe se Session 1 odkládá"
+            "note": "Kickoff, Rozhodnutí i závěrečné commitmenty"
           }
         },
         "vote_on": {
@@ -50,11 +50,13 @@
           "note": "Hlasuješ **poslední** (anti-HiPPO) a svou preferenci neříkáš před silent vote. Override výsledku jen veřejně s rationale do decision logu."
         },
         "red_flags": [
-          "Chybí písemný mandát nebo budget — řekni to před Session 1, ne v ní",
+          "Chybí písemný mandát nebo budget — řekni to před Kickoffem, ne po něm",
           "Kdokoli (i ty) prozradí preferovanou variantu před silent vote",
           "Scope creep „když už tu jsme…“ — patří do parking lotu"
         ],
-        "ai_proxy": "❌ Nelze nahradit AI. Bez tebe se Session 1 odkládá."
+        "ai_proxy": "❌ Nelze nahradit AI. Bez tebe se Kickoff ani Rozhodnutí nekoná.",
+        "step": "Byznys",
+        "place": "okno — Decider: Kickoff 15 min + Rozhodnutí 60–90 min"
       }
     },
     {
@@ -65,30 +67,30 @@
       "trigger": "always",
       "expert_agent": "pm-expert",
       "card": {
-        "why": "Překládáš business do produktových požadavků a držíš JTBD, prioritu a OKR alignment.",
+        "why": "Jako PdM překládáš business do produktových požadavků a držíš JTBD, prioritu a OKR alignment.",
         "bring": [
           "JTBD kartu a personu ne starší než 6 měsíců",
           "OST v0 vyplněný aspoň na 60 %",
-          "Success metric: lagging + leading, s baseline",
-          "OKR alignment a XYZ hypotézu"
+          "Metriku úspěchu: lagging + leading, s baseline",
+          "Zadání z Kickoffu rozepsané do kritérií, podle kterých se varianty posoudí"
         ],
         "sign_off": [
-          "JTBD podpis v Discovery Readiness Gate — bez něj se Session 1 odkládá",
-          "JTBD a persona lock na začátku Session 1 (spolu s UX)",
-          "PRD-lite a aktualizovaný OST po Session 1"
+          "JTBD podpis v Discovery Readiness Gate — bez něj se Build odkládá",
+          "JTBD a persona lock na začátku Buildu (spolu s UX)",
+          "PRD-lite a aktualizovaný OST po Rozhodnutí"
         ],
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "držíš JTBD a parking lot"
+            "note": "celý Quick běh; držíš JTBD a parking lot"
           },
           "lean": {
             "presence": "full",
-            "note": "Session 1 i Session 2; držíš JTBD"
+            "note": "Kickoff, celý Build, Async i Rozhodnutí; držíš JTBD"
           },
           "full": {
             "presence": "full",
-            "note": "s UX vedeš Charter alignment + JTBD warm-up"
+            "note": "s UX vedeš JTBD warm-up a sladění zadání"
           }
         },
         "vote_on": {
@@ -102,14 +104,16 @@
             "user_value",
             "strategic_fit"
           ],
-          "note": "Skóruješ všechny 4 dimenze s povinným rationale. S Facilitátorem máš právo poslat nový požadavek do parking lotu."
+          "note": "Skóruješ všechny 4 dimenze s povinným rationale. S facilitátorem máš právo poslat nový požadavek do parking lotu."
         },
         "red_flags": [
-          "Persona po expiraci nebo JTBD bez podpisu → Discovery Sprint, ne Session 1",
+          "Persona po expiraci nebo JTBD bez podpisu → Discovery Sprint, ne Build",
           "Varianta řeší jiný JTBD než ten zamčený",
-          "Success metric nejde změřit (chybí baseline)"
+          "Metrika úspěchu nejde změřit (chybí baseline)"
         ],
-        "ai_proxy": "⚠️ Krátkodobě s předem připraveným briefem; finální slovo máš ty."
+        "ai_proxy": "⚠️ Krátkodobě s předem připraveným briefem; finální slovo máš ty.",
+        "step": "Produkt",
+        "place": "jádro — celý Build, Async a Rozhodnutí"
       }
     },
     {
@@ -120,10 +124,10 @@
       "trigger": "always",
       "expert_agent": "facilitator",
       "card": {
-        "why": "Vedeš session: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.",
+        "why": "Vedeš Kickoff, Build a Rozhodnutí: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.",
         "bring": [
-          "Energy curve plán podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)",
-          "Charter, seznam rolí a agendu s časovými boxy",
+          "Plán energie podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)",
+          "Zadání z Kickoffu, jména zástupců a agendu s časovými boxy",
           "Šablonu parking lotu a decision logu s lidskou atribucí",
           "Potvrzený dev pár u klávesnice pro každou variantu"
         ],
@@ -134,11 +138,11 @@
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "vedeš wizard `/pm live`"
+            "note": "vedeš `/pm live` od Kickoffu po silent vote"
           },
           "lean": {
             "presence": "full",
-            "note": "během buildu nemáš otevřené IDE"
+            "note": "vedeš Kickoff, `/pm build` i Rozhodnutí; během buildu nemáš otevřené IDE"
           },
           "full": {
             "presence": "full",
@@ -155,7 +159,9 @@
           "U klávesnice sedí facilitátor nebo AI proxy místo dev páru",
           "Víc než 10 lidí v místnosti nebo chybí senior delegát vetovací role"
         ],
-        "ai_proxy": "❌ Lidský facilitátor nutný — AI konflikt mezi rolemi nevyřeší; AI co-pilota orchestruješ ty."
+        "ai_proxy": "❌ Lidský facilitátor nutný — AI konflikt mezi rolemi nevyřeší; AI co-pilota orchestruješ ty.",
+        "step": "Produkt (vedení Buildu)",
+        "place": "jádro — celý Build, Async a Rozhodnutí"
       }
     },
     {
@@ -167,7 +173,7 @@
       "trigger_question": "Mění se UI nebo přidává se nový view?",
       "expert_agent": "fe-vibe-coding-expert",
       "card": {
-        "why": "Jsi builder: u klávesnice Claude Code stavíš varianty přímo v target repu, takže winner jde do produkce bez re-implementace.",
+        "why": "Jsi builder: u klávesnice stavíš varianty s Claude Code přímo v target repu, takže vítěz jde do produkce bez re-implementace.",
         "bring": [
           "Design tokens a component manifest (Storybook URL)",
           "Tech stack contract: framework, ESLint / Prettier, a11y baseline",
@@ -175,7 +181,7 @@
           "Anti-pattern list komponent"
         ],
         "sign_off": [
-          "PR-ready commit winner varianty (token compliance > 90 %)",
+          "PR-ready commit vítězné varianty (token compliance > 90 %)",
           "Diff walkthrough a komponentový mapping své varianty"
         ],
         "when_in_room": {
@@ -185,11 +191,11 @@
           },
           "lean": {
             "presence": "full",
-            "note": "2 kola × 30 min + diff walkthrough"
+            "note": "builder, 2 kola × 30 min + diff walkthrough; po Go pouštíš Ship"
           },
           "full": {
             "presence": "full",
-            "note": "od minuty 0"
+            "note": "od minuty 0 do Shipu"
           }
         },
         "vote_on": {
@@ -210,7 +216,9 @@
           "Mock / stub vypadá jako hotová funkce — řekni to v diff walkthrough",
           "V target repu nejde build nebo testy — winner by nešel do produkce"
         ],
-        "ai_proxy": "⚠️ Pro greenfield části jde, brownfield vyžaduje tvůj review."
+        "ai_proxy": "⚠️ Pro greenfield části jde, brownfield vyžaduje tvůj review.",
+        "step": "Vývoj",
+        "place": "jádro — celý Build a Ship"
       }
     },
     {
@@ -240,7 +248,7 @@
           },
           "lean": {
             "presence": "full",
-            "note": "builder backendové části"
+            "note": "builder backendové části; po Go připravuješ Ship"
           },
           "full": {
             "presence": "full",
@@ -265,7 +273,9 @@
           "Změna datového modelu bez migration planu",
           "Reálná osobní data v promptu nebo v sandboxu"
         ],
-        "ai_proxy": "⚠️ Jen pro velmi greenfield části; brownfield vyžaduje lidského BE leada."
+        "ai_proxy": "⚠️ Jen pro velmi greenfield části; brownfield vyžaduje lidského BE leada.",
+        "step": "Vývoj (backend)",
+        "place": "jádro — Build (backendová část) a Ship"
       }
     },
     {
@@ -284,21 +294,21 @@
           "Design tokens, component inventory a brand voice & tone"
         ],
         "sign_off": [
-          "JTBD a persona lock (spolu s Produkt manažerem)",
+          "JTBD a persona lock (spolu s PdM)",
           "DS deviation list s ownerem a Figma ↔ kód mapping"
         ],
         "when_in_room": {
           "quick": {
             "presence": "full",
-            "note": "default sestava místnosti"
+            "note": "default sestava jádra"
           },
           "lean": {
             "presence": "full",
-            "note": "hlídáš flow integrity v obou kolech buildu"
+            "note": "hlídáš flow integrity v obou kolech Buildu a v Async komentářích"
           },
           "full": {
             "presence": "full",
-            "note": "s Produkt manažerem vedeš JTBD warm-up"
+            "note": "s PdM vedeš JTBD warm-up"
           }
         },
         "vote_on": {
@@ -318,7 +328,9 @@
           "Odchylka od design systému bez ownera",
           "Persona drift — tým navrhuje pro sebe, ne pro uživatele"
         ],
-        "ai_proxy": "✅ Pro design system audit, ⚠️ pro flow integrity (tvůj sign-off)."
+        "ai_proxy": "✅ Pro design system audit, ⚠️ pro flow integrity (tvůj sign-off).",
+        "step": "Design",
+        "place": "jádro — Build a Async (u interního toolu může krýt PdM)"
       }
     },
     {
@@ -331,30 +343,30 @@
       "mandatory_if_triggered": true,
       "expert_agent": "security-expert",
       "card": {
-        "why": "Máš veto na varianty s kritickým rizikem — veto je veto, ne hlas mezi hlasy.",
+        "why": "Zastupuješ krok bezpečnost & právo a máš veto na varianty s kritickým rizikem — veto je veto, ne hlas mezi hlasy.",
         "bring": [
-          "Data Classification L1–L4 pro projekt",
-          "STRIDE one-pager (threat model lite)",
-          "Approved AI Tool list a sandbox spec (24h TTL)",
+          "Data classification L1–L4 pro projekt",
+          "STRIDE one-pager (threat model lite): datový tok, egress limit, riziko prompt injection",
+          "Strop tokenů / nákladů a Approved AI Tool list se sandbox spec (24h TTL)",
           "SSO + MFA pravidla a DORA 3rd-party checklist, pokud se týká"
         ],
         "sign_off": [
+          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)",
           "Veto registr — veto na varianty se STRIDE Critical",
-          "Security triage a sandbox-to-prod gate",
-          "SBOM + CVE scan a secret scan před Ship gate"
+          "SBOM + CVE scan a secret scan před Shipem"
         ],
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "triage je deferred — podepíšeš ji před pilotem (`/pm triage`)"
+            "note": "checkpoint se odkládá — před pilotem ho doběhneš (`/pm triage`) a podepíšeš"
           },
           "lean": {
             "presence": "async",
-            "note": "1-page checklist místo účasti (data L1/L2)"
+            "note": "checkpoint 20 min nad datovým tokem + 1-page checklist (data L1/L2)"
           },
           "full": {
             "presence": "full",
-            "note": "jako senior delegát; triage 48–72 h předem"
+            "note": "senior delegát; 4 triage tracky 48–72 h předem"
           }
         },
         "vote_on": {
@@ -367,14 +379,16 @@
           "focus": [
             "risk"
           ],
-          "note": "Skóruješ 4 dimenze, ale Critical riziko neřešíš hlasem: zapíšeš veto do veto registru a session pivotuje na jinou variantu."
+          "note": "Skóruješ 4 dimenze, ale Critical riziko neřešíš hlasem: zapíšeš veto do veto registru a Build pivotuje na jinou variantu."
         },
         "red_flags": [
-          "Reálná PII / L4 data v promptu → přerušení session, incident playbook, 72h GDPR clock",
+          "Reálná PII / L4 data v promptu → přerušení Buildu, incident playbook, 72h GDPR clock",
           "Nástroj mimo Approved AI Tool list",
           "Secret nebo credential v kódu varianty"
         ],
-        "ai_proxy": "❌ Veto podepisuje člověk; AI připraví STRIDE draft a SBOM / CVE scan."
+        "ai_proxy": "❌ Veto podepisuje člověk; AI připraví STRIDE draft a SBOM / CVE scan.",
+        "step": "Bezpečnost & právo",
+        "place": "okno — checkpoint 20 min v posledních 30 min Buildu (stačí Security nebo Legal / DPO)"
       }
     },
     {
@@ -402,15 +416,15 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "Gherkin seed a P2P checklist v mezi-session okně"
+            "note": "Gherkin seed a P2P checklist v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "scénáře připravíš před session, review v mezi-session okně"
+            "note": "scénáře připravíš před Buildem, review v Async okně"
           },
           "full": {
             "presence": "full",
-            "note": "ve wrap-upu Gherkin seed per varianta"
+            "note": "ve wrap-upu Buildu Gherkin seed per varianta"
           }
         },
         "vote_on": {
@@ -431,7 +445,9 @@
           "Acceptance scénáře v diff walkthrough neprojely, a přesto se hlasuje",
           "AI testuje implementaci místo chování"
         ],
-        "ai_proxy": "⚠️ AI generuje testy, každý scénář ale před CI reviewuje člověk."
+        "ai_proxy": "⚠️ AI generuje testy, každý scénář ale před CI reviewuje člověk.",
+        "step": "Vývoj (kvalita)",
+        "place": "jádro nebo okno — Build (scénáře) a Ship (gates)"
       }
     },
     {
@@ -443,29 +459,29 @@
       "trigger_question": "Bude scope déle než 2 sprinty / je to PI priority?",
       "expert_agent": "em-expert",
       "card": {
-        "why": "Hlídáš kapacitu a závislosti — z varianty se stává závazek týmu, ne jen demo.",
+        "why": "Zastupuješ krok provoz: hlídáš kapacitu, závislosti a to, co s vítězem bude po nasazení — z varianty se stává závazek týmu.",
         "bring": [
           "Kapacitu týmu a roadmapu (PI commit %)",
           "Závislosti na platform / identity / data týmech",
           "T-shirt sizing rubriku"
         ],
         "sign_off": [
-          "Veto na workshop, pokud je PI commit > 80 %",
+          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)",
           "Dependency Map a T-shirt odhad (+ 2denní capped spike)",
-          "Capacity buffer 25 % pro Pflanzer-driven features"
+          "Capacity buffer 25 % pro Pflanzer-driven features; veto, pokud je PI commit > 80 %"
         ],
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "kapacitu potvrdíš po session"
+            "note": "kapacitu potvrdíš po Rozhodnutí"
           },
           "lean": {
             "presence": "block",
-            "note": "T-shirt sizing a silent vote; podepisuješ kapacitu"
+            "note": "okno u Shipu: kapacita, monitoring, kdo to bude provozovat"
           },
           "full": {
             "presence": "full",
-            "note": "jako senior delegát; blok tech feasibility + T-shirt"
+            "note": "senior delegát; blok tech feasibility + T-shirt v Buildu"
           }
         },
         "vote_on": {
@@ -482,11 +498,13 @@
           "note": "Skóruješ všechny 4 dimenze; effort opíráš o T-shirt sizing, ne o dojem."
         },
         "red_flags": [
-          "PI commit > 80 % — řekni to před Session 1 (veto)",
+          "PI commit > 80 % — řekni to před Kickoffem (veto)",
           "Varianta závisí na týmu, který o tom neví",
           "Odhad nad 2 sprinty bez spiku"
         ],
-        "ai_proxy": "❌ Kapacita a roadmapa jsou citlivé — vždy člověk."
+        "ai_proxy": "❌ Kapacita a roadmapa jsou citlivé — vždy člověk.",
+        "step": "Provoz",
+        "place": "okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)"
       }
     },
     {
@@ -498,7 +516,7 @@
       "trigger_question": "Osobní data, marketing, novel AI use case (≥ Limited risk-tier), nebo regulovaný produkt (PSD2/MiFID)?",
       "expert_agent": "legal-gdpr-expert",
       "card": {
-        "why": "Hlídáš právní základ: osobní data, marketing claims a AI Act risk-tier.",
+        "why": "Zastupuješ krok bezpečnost & právo z právní strany: osobní data, marketing claims a AI Act risk-tier.",
         "bring": [
           "RoPA a DPIA trigger checklist (GDPR čl. 35/3)",
           "AI Act risk-tier klasifikaci use casu",
@@ -506,22 +524,22 @@
           "Marketing compliance brief, pokud jsou ve hře claims"
         ],
         "sign_off": [
-          "Legal & Privacy triage (≥ 2 DPIA triggery = session odložena)",
-          "DPIA podepsaná DPO a legal basis per feature",
-          "Veto při high-risk AI Act nebo special category datech"
+          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)",
+          "Legal & privacy triage (≥ 2 DPIA triggery = Build odložen)",
+          "DPIA podepsaná DPO a legal basis per feature; veto při high-risk AI Act nebo special category datech"
         ],
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "triage je deferred — podepíšeš ji před pilotem"
+            "note": "checkpoint se odkládá — podepíšeš ho před pilotem"
           },
           "lean": {
             "presence": "async",
-            "note": "1-page checklist místo účasti"
+            "note": "checkpoint 20 min + 1-page checklist místo účasti v Buildu"
           },
           "full": {
             "presence": "full",
-            "note": "jako senior delegát; pre-read 48 h předem"
+            "note": "senior delegát; pre-read 48 h předem"
           }
         },
         "vote_on": {
@@ -541,7 +559,9 @@
           "Marketing claim, který nejde doložit",
           "AI use case ≥ High risk-tier v Quick / Lean stupni"
         ],
-        "ai_proxy": "⚠️ AI zvládne L1/L2 data a minimal / limited risk; high-risk AI Act, special categories a profiling podepisuje lidský DPO."
+        "ai_proxy": "⚠️ AI zvládne L1/L2 data a minimal / limited risk; high-risk AI Act, special categories a profiling podepisuje lidský DPO.",
+        "step": "Bezpečnost & právo",
+        "place": "okno — checkpoint 20 min v posledních 30 min Buildu (stačí Legal / DPO nebo Security)"
       }
     },
     {
@@ -569,11 +589,11 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "AI udělá axe-core scan, tvůj review v mezi-session okně"
+            "note": "AI udělá axe-core scan, tvůj review v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "AI proxy draft + tvůj sign-off do 24–48 h"
+            "note": "AI proxy draft + tvůj sign-off v Async okně (24–48 h)"
           },
           "full": {
             "presence": "full",
@@ -598,7 +618,9 @@
           "Nízký kontrast nebo chybějící labely formulářů",
           "Opt-out z role bez podepsané justifikace"
         ],
-        "ai_proxy": "⚠️ AI zvládne static audit, axe-core a kontrast; pre-launch review je nedelegovatelný."
+        "ai_proxy": "⚠️ AI zvládne static audit, axe-core a kontrast; pre-launch review je nedelegovatelný.",
+        "step": "Design (přístupnost)",
+        "place": "okno — Async a Ship (quickscan nad preview)"
       }
     },
     {
@@ -625,11 +647,11 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "metriky jsou v Quick TBD — measurement plan doplníš mezi sessions"
+            "note": "metriky jsou v Quick TBD — measurement plan doplníš v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "AI navrhne event schema, measurement plan schválíš do 24–48 h"
+            "note": "AI navrhne event schema, measurement plan schválíš v Async okně (24–48 h)"
           },
           "full": {
             "presence": "full",
@@ -653,7 +675,9 @@
           "Event bez privacy klasifikace",
           "Ship bez instrumentace"
         ],
-        "ai_proxy": "✅ AI navrhne event schema, ⚠️ measurement plan schvaluješ ty."
+        "ai_proxy": "✅ AI navrhne event schema, ⚠️ measurement plan schvaluješ ty.",
+        "step": "Produkt (měření)",
+        "place": "okno — Async a Ship (measurement plan)"
       }
     },
     {
@@ -679,11 +703,11 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "ticket prediction v mezi-session okně"
+            "note": "ticket prediction v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "AI proxy draft (s přístupem k ticketům) + tvůj sign-off"
+            "note": "AI proxy draft (s přístupem k ticketům) + tvůj sign-off v Async okně"
           },
           "full": {
             "presence": "full",
@@ -708,7 +732,9 @@
           "Chybí error nebo empty state = nové tickety",
           "Launch bez KB článku a maker"
         ],
-        "ai_proxy": "⚠️ Jen pokud má AI přístup k ticket history; jinak člověk."
+        "ai_proxy": "⚠️ Jen pokud má AI přístup k ticket history; jinak člověk.",
+        "step": "Provoz (podpora)",
+        "place": "okno — Async okno nad preview a příprava Shipu"
       }
     },
     {
@@ -736,11 +762,11 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "AI archetype check, tvůj review v mezi-session okně"
+            "note": "AI archetype check, tvůj review v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "AI proxy draft + tvůj sign-off do 24–48 h"
+            "note": "AI proxy draft + tvůj sign-off v Async okně (24–48 h)"
           },
           "full": {
             "presence": "full",
@@ -764,7 +790,9 @@
           "„Uživatelé chtějí…“ bez evidence",
           "Varianta bez JTBD / OST node"
         ],
-        "ai_proxy": "⚠️ AI je vstup do session, ne výstup: archetype check ano, novel insight ne."
+        "ai_proxy": "⚠️ AI je vstup do session, ne výstup: archetype check ano, novel insight ne.",
+        "step": "Produkt (evidence od uživatelů)",
+        "place": "okno — Async okno a Rozhodnutí (evidence)"
       }
     },
     {
@@ -776,7 +804,7 @@
       "trigger_question": "Změny v infra / deploy / runtime / sandbox? (téměř vždy)",
       "expert_agent": "devops-platform-expert",
       "card": {
-        "why": "Zajišťuješ sandbox a cestu do produkce — deploy footprint, SLO a observability.",
+        "why": "Zastupuješ krok provoz: sandbox, cestu do produkce, deploy footprint, SLO a observability.",
         "bring": [
           "Sandbox spec (Terraform modul, 24h TTL)",
           "Approved runtime list a secret policy (Vault + OIDC)",
@@ -784,22 +812,22 @@
           "Observability contract (OTel, structured logs, tracing)"
         ],
         "sign_off": [
-          "Platform triage (sandbox provisioning, runtime approval)",
+          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)",
           "SLO baseline a Promote-to-prod gate checklist",
-          "Deploy footprint TCO per varianta"
+          "Deploy footprint TCO vítězné varianty"
         ],
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "triage je deferred; sandbox a worktrees připravíš předem"
+            "note": "triage se odkládá; sandbox a worktrees připravíš předem"
           },
           "lean": {
             "presence": "async",
-            "note": "sandbox připravíš předem, footprint review mezi sessions"
+            "note": "sandbox připravíš předem, okno 20 min u Shipu"
           },
           "full": {
             "presence": "full",
-            "note": "sandbox a footprint per varianta"
+            "note": "sandbox a footprint per varianta v Buildu"
           }
         },
         "vote_on": {
@@ -820,7 +848,9 @@
           "Secret v kódu nebo v promptu",
           "Chybí observability — výpadek v produkci nepoznáme"
         ],
-        "ai_proxy": "⚠️ Jen pro typické vzory; custom infra řeší člověk."
+        "ai_proxy": "⚠️ Jen pro typické vzory; custom infra řeší člověk.",
+        "step": "Provoz",
+        "place": "okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)"
       }
     },
     {
@@ -846,11 +876,11 @@
         "when_in_room": {
           "quick": {
             "presence": "async",
-            "note": "copy review v mezi-session okně"
+            "note": "copy review v Async okně"
           },
           "lean": {
             "presence": "async",
-            "note": "compliance sub-agent draft + tvůj review"
+            "note": "compliance sub-agent draft + tvůj review v Async okně"
           },
           "full": {
             "presence": "full",
@@ -874,7 +904,9 @@
           "Marketing claim bez doložení",
           "Žargon místo plain language"
         ],
-        "ai_proxy": "⚠️ Compliance sub-agent připraví draft, ty reviewuješ."
+        "ai_proxy": "⚠️ Compliance sub-agent připraví draft, ty reviewuješ.",
+        "step": "Design (texty)",
+        "place": "okno — Async okno nad preview"
       }
     },
     {
@@ -900,11 +932,11 @@
         "when_in_room": {
           "quick": {
             "presence": "absent",
-            "note": "retro a Coaching Kata po session"
+            "note": "retro a Coaching Kata po Rozhodnutí"
           },
           "lean": {
             "presence": "async",
-            "note": "retro a T+30 reporting"
+            "note": "retro (`/pm retro`) a T+30 reporting"
           },
           "full": {
             "presence": "block",
@@ -921,7 +953,9 @@
           "Chybí security buddy",
           "Tým vynechává rituál, který předchozí retro označilo za kritický"
         ],
-        "ai_proxy": "❌ Social capital v BU nelze nahradit AI."
+        "ai_proxy": "❌ Social capital v BU nelze nahradit AI.",
+        "step": "Byznys (metoda)",
+        "place": "okno — Kickoff a závěr; mimo hlasování o variantách"
       }
     },
     {
@@ -951,7 +985,7 @@
           },
           "lean": {
             "presence": "async",
-            "note": "review breaking changes v mezi-session okně"
+            "note": "review breaking changes v Async okně"
           },
           "full": {
             "presence": "full",
@@ -976,7 +1010,9 @@
           "Víc než 3 týmy ve scope bez federovaného modelu",
           "Breaking change bez záznamu v registru"
         ],
-        "ai_proxy": "⚠️ Jen typické vzory; doménový úsudek je tvůj."
+        "ai_proxy": "⚠️ Jen typické vzory; doménový úsudek je tvůj.",
+        "step": "Vývoj (architektura)",
+        "place": "okno — Async okno nad PR diffem"
       }
     }
   ],
@@ -1014,7 +1050,7 @@
     "if_audit_grade": "co-facilitator SHOULD (devil's advocate Útok 10)"
   },
   "card_presence": {
-    "full": "celá session",
+    "full": "celý běh",
     "block": "blok",
     "async": "async",
     "absent": "nepřítomna"

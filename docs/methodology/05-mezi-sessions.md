@@ -1,244 +1,132 @@
-# 05 — Mezi sessions
+# 05 — Async
 
-> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default Async trvá 3–5 dní; okno 5–7 dní níže je rozšířená reference; kde se liší, platí 1-pager.
+**Pflanzer Method | pflanzer.cz/method**
 
-> Status: v1.0. Scoring window mezi Session 1 a Session 2: prototype hub
-> s 1–3 variantami, strukturovaný feedback per oddělení, async triage update,
-> Discovery Debt Detector audit. Délka podle stupně: **Quick 3 / Lean 3–5 /
-> Full 5–7 pracovních dní** (ADR-0017). Detail níže popisuje Full stupeň.
+> K čemu je tento dokument: co se děje mezi Buildem a Rozhodnutím —
+> sběr feedbacku zástupců na preview URL, keep/fix/kill nad diffem, pravidla
+> pro mlčení a eskalace. Příkaz: `/pm feedback`. Délka okna podle stupně
+> je jen v kanonické tabulce [`00-lean-pflanzer.md`](00-lean-pflanzer.md)
+> § Tři stupně a v ADR-0017; tady je Lean a odchylky pro Quick a Full.
 
-## Cíl mezi-sessions okna
+## Cíl
 
-Zhmotnit Session 1 shortlist do **klikacího prototypu v 1–3 variantách** se
-sdíleným rozcestníkem, sebrat **score-based feedback per role × per
-varianta**, aktualizovat triage stanoviska a doručit Session 2 rozhodovací
-materiál — ne pokračovat v generaci.
+Dát všem zástupcům kroků cesty šanci **vidět běžící varianty ve svém
+prohlížeči** a říct, co jim vadí, dřív než se u Rozhodnutí sejde Decider.
+Async nahrazuje velkou místnost: místo 3 hodin přítomnosti ~15 minut
+denně nad konkrétním artefaktem. Zároveň zmírňuje hlavní riziko modelu —
+Decider u stavby nebyl.
 
-## Délka okna
+## Průběh (Lean)
 
-v0.5 default (Lean) je **3–5 dní** (Async). Délka se řídí stupněm, protože stupeň určuje, kdo musí dát feedback (ADR-0017):
+| Den | Co |
+|-----|----|
+| 1 | Builder pushne 3 větve, preview URL (se štítkem „k rozhodnutí, ne produkt") a pošle odkazy všem zástupcům; spustí se `pflanzer hub` |
+| 2–3 | Zástupci klikají a komentují; technické role procházejí diff; builder zapracovává |
+| 4 | `pflanzer feedback_pull`: agregace, audit debtu, top 3 spory; pre-read pro Decidera nejpozději 24 h před Rozhodnutím |
 
-| Stupeň | Okno | Plán |
-|--------|------|------|
-| **Quick** | 3 pracovní dny | Den 1 preview (draft PR / Playwright záznam) · Den 1–2 diff review + scoring · Den 3 syntéza + prep pack |
-| **Lean** | 3–5 pracovních dní (default 4) | Den 1 preview · Den 2–3 diff review + scoring · Den 4 syntéza + Decider review |
-| **Full** | 5–7 pracovních dní | viz rozpis níže |
+Délka okna se řídí stupněm, protože stupeň určuje, kdo musí dát feedback:
+**Quick** má kratší okno (bez vetovacích rolí v místnosti), **Full**
+nejdelší (async vetovací role potřebují pracovní dny). Okno se
+**neprodlužuje** nad horní hranici stupně; potřeba delšího okna je signál
+k upgradu stupně nebo odkladu Rozhodnutí (ADR-0017).
 
-**Úkol v okně** (ADR-0017 § 2): dev páry a technické role projdou PR diff
-varianty a ke každému souboru napíšou **keep / fix / kill**; non-tech
-stakeholdeři hodnotí preview přes scoring formulář. Mlčení nevetovací role
-po deadline = „no objection“ v decision logu; mlčení vetovací role souhlas
-není. Připomínka 48 h a 24 h před deadline.
+## Co kdo dělá v okně
 
-**Full stupeň — 5–7 pracovních dní** [perspektiva 03]:
+- **Technické role** (vývoj, QA, provoz): projdou **PR diff** varianty
+  (draft PR, `pflanzer worktree preview --slug <slug>`) a ke každému
+  změněnému souboru napíšou **keep / fix / kill** jako PR komentář.
+  Feedback míří přímo do kódu, ne jen do preferencí.
+- **Ostatní zástupci** (byznys, produkt, design, právo): klikají na
+  preview a píšou feedback v hubu.
+- **Builder** zapracovává připomínky ve větvích (preview se aktualizuje),
+  neprodukuje čtvrtou variantu.
+- **Facilitátor/PdM** hlídá termín a pokrytí kroků cesty; chybějící hlasy
+  jmenuje.
 
-- **Den 1–2**: deploy prototypů do sandboxu (max 48 h od konce Session 1).
-- **Den 3–5**: scoring window (3 prac. dny pro role).
-- **Den 6**: AI syntéza a clustering feedbacku.
-- **Den 7**: Decider review a Session 2 prep pack distribuce 24 h předem.
+## Preview a sandbox
 
-Delší než 7 dní = ztráta kontextu a momentum. Ve Full stupni je kratší než 5
-dní málo — async vetovací role (Legal, Security, Engineering manager) nestihnou
-triage update a AI Act Fázi B. Quick a Lean vetovací role v okně nemají, proto
-jim stačí 3–5 dní (ADR-0017).
+Preview = to, co firma už má (Vercel/Netlify preview, review apps, preview
+namespace). Pravidla (kontrolována v checkpointu bezpečnost & právo):
 
-## Variant hub spec
+- bez produkčních dat a bez cesty do produkční sítě, noindex, watermark,
+- viditelný štítek „Varianta X — k rozhodnutí, ne produkt" + 1 věta,
+  jaký problém řeší,
+- URL nejsou pro externí osoby ani zákazníky (viz [`08`](08-edge-cases-a-rizika.md) § 8),
+- bez skutečné URL nemá Async na co klikat — nehraj ho; zařiď preview,
+  nebo pilot posuň.
 
-> **Track-aware (v0.4, per ADR-0020):** Hub obsahuje **track-příslušný
-> artefakt** per varianta. **Track P (default ~80 %)** = běžící produkční-ready
-> apps na sandbox URL (real code v target repo). **Track S (fallback ~20 %)**
-> = lightweight reference prototypy + draft precision spec sekce A-C.
+## Sběr feedbacku
 
-Rozcestník na sdílené URL (sandbox doména + watermark + noindex), bez
-accountu, bez prod credentials.
+**Web hub** (sdílí DB s CLI): `pflanzer hub` (kolegům ve firemní síti
+`--host 0.0.0.0`). **Bez hubu**, offline — kdo klikal a nezadal, zapíše
+ho facilitátor za něj podle jeho slov:
 
-**Povinný obsah:**
+```bash
+pflanzer feedback add --slug <slug> --variant A --role <krok/role> \
+  --severity critical|major|minor --text "<co a proč>"
+pflanzer feedback list --slug <slug>
+```
 
-- **Hero rozcestník** s 1–3 variantami, každá karta:
-  - Embed link (sandbox URL) — **Track P:** běžící produkční-ready app
-    z target repo. **Track S:** lightweight reference prototyp.
-  - **Version diff popis** vůči ostatním variantám: 3–5 odrážek
-    (UX flow, datový model, performance trade-off, A11y stav, security stance).
-  - OST tag + JTBD card mapping [perspektiva 14].
-  - T-shirt size od EM + draft effort estimate.
-  - **Track designation + evolve/throw-away flag** (per Charter; default =
-    Track P + evolve per ADR-0005 v0.4).
-- **Sandbox URL** s 24h TTL refreshovaným do konce scoring windowu;
-  audit logging do SIEM, žádný route do prod sítě [perspektiva 07].
-- **OpenAPI 3.1 draft** per varianta + breaking-change registr.
-- **Token compliance report** + DS deviation list.
-- **A11y quickscan report** (axe-core) + Critical/Serious flag.
-- **Ticket prediction worksheet** per varianta.
-- **Deploy footprint estimate** (TCO sheet).
-- **Risk register** + veto registr ze Session 1.
-- **AI Act Fáze B — Interim review** (dvoufázový protokol v0.3, Útok 4):
-  DPO znovu klasifikuje risk-tier proti **konkrétnímu** variantu (data flow,
-  downstream decision, intended user) — ne proti Charteru. Output:
-  ratified tier + delta vs Fáze A. Pokud upgrade (např. Limited → High-risk),
-  Session 2 dostává **mandatory Conflict bod** pro Decider's call.
-  Fáze C (final) se podepisuje až v Session 2 / handoff.
-- **Decision log Session 1** s lidskou atribucí.
-- **Acceptance criteria seed** (Gherkin, ≥ 1 negative scenario per varianta).
-- **Feedback formulář link** (viz níže).
+Minimum každého záznamu: **varianta, krok cesty/role, závažnost, text s
+důvodem** (bez rationale záznam nic neříká). Závažnosti:
 
-**Track S only (pokud Charter = Track S):**
+- **critical** — brání nasazení: bezpečnost, právo, data, rozbitý hlavní
+  tok, WCAG Critical/Serious na veřejném rozhraní, breaking change bez
+  konzumentů. Kdo dává critical, píše proč; critical bez důkazu se
+  downgraduje.
+- **major** — zásadní výhrada, nebrání nasazení; viditelné v Rozhodnutí.
+- **minor** — nit, zapracuje builder.
 
-- **Draft precision spec sekce A–C** (Functional / Technical / Quality)
-  z Session 1 — stakeholdeři ve scoring window komentují **spec**, ne
-  jen reference prototyp. Combined SoT pattern: Spec + Reference Prototype +
-  Decision Log + Tests = 4 anchory proti drift (anti-drift mechanism #3
-  per ADR-0020).
-- **5-stage handoff ritual draft schedule** — kdy walkthrough (po Session 2
-  GO call), kdy 5-day Q&A window, kdo bude embedded reviewer T+30.
+**Otevřený critical na vítězi blokuje Go** (Iterate ho může opravit).
+Řešení: opravit hned, varianta ven ze shortlistu, nebo nechat na Decidera
+(override vyžaduje rationale v decision logu).
 
-**Sandbox guardrails** [perspektiva 07]:
-- Vlastní VPC, default-deny network, watermark + noindex.
-- Žádné prod credentials, žádný route do prod sítě.
-- 24h TTL refresh, audit log retention 7 let pro regulované projekty.
-- Approved AI tool only (Claude Enterprise / Cursor Business / v0 Team
-  / Bolt Pro s DPA).
+AI-only feedback (sub-agenti) se označuje a má váhu max 0,5; je to vstup,
+ne hlas. V rozšířené sestavě Full se navíc používá score závaznosti per
+role ([`04`](04-session-1.md) § Score závaznosti).
 
-## Feedback formulář — scoring schema
+## Mlčení
 
-Strukturovaný formulář, ne free-text mailem. Generuje se per varianta
-× per role; AI co-pilot agreguje a klasifikuje.
+- **Nevetovací role:** chybějící feedback po termínu = „no objection",
+  zapíše se do decision logu s atribucí (kdo mlčel).
+- **Vetovací role** (bezpečnost & právo, kapacita EM): ticho **není**
+  souhlas. Bez jejich vyjádření je Rozhodnutí jen review, ne rozhodnutí.
+  Pravidlo kvóra a postup: [`08`](08-edge-cases-a-rizika.md) § 11.
+- **Připomínky** 48 h a 24 h před termínem; ve Full navíc vetovací role
+  upozorni uprostřed okna.
 
-### Povinná pole
+## Audit discovery debtu
 
-| Pole | Typ | Pravidla |
-|------|-----|----------|
-| Role | enum | Z role catalogu (1–17) |
-| Hodnotitel | SSO ID | Auditovatelná atribuce, ne anonym |
-| Varianta | enum | A / B / C |
-| Severity | enum | **Critical** (blocker) / **Serious** (high) / **Yellow flag** (warning) / **Nit** (low) |
-| Department | enum | Z role taxonomie |
-| Kategorie | enum | UX / A11y / Security / Legal / Performance / Data / Effort / Other |
-| **Score závaznosti** | **0–1 float** | 0 = ignorovat / 0.25 / 0.5 / 0.75 / 1 = blocker. **AI-only persona feedback max 0.5** [synthesis 02] |
-| **Rationale** | text | **Povinný field**. Bez rationale score neplatí [perspektiva 02] |
-| Mitigation návrh | text | Volitelný; pokud Critical, povinný |
-| AI-assisted? | bool | Označit, pokud feedback generoval AI proxy |
-| Evidence link | URL | Volitelné: ticket ID, transcript citace, persona note, axe-core run |
+Při agregaci (`pflanzer feedback_pull`, jen pokud je feedback; prázdná data
+auditovat nemá smysl) běží sub-agent `discovery-debt-detector`: kolik
+tvrzení o uživateli má zdroj, kolik feedbacku je AI-only, zda existuje
+uzel OST. Skóre 0–10: ≤ 2 OK · 3–6 varování (výstupy jen exploratory) ·
+**≥ 7 STOP**, předřaď discovery. Je to vstup pro Decidera, ne verdikt.
 
-### Severity × department × kategorie matrix
+## Eskalace
 
-[baseline 03 + perspektivy 11, 10]:
+**Svolat Rozhodnutí dřív:** všichni dali feedback a nic není critical, nebo
+Decider potřebuje Go k pevnému termínu.
 
-- **Security STRIDE Critical** → blocker, session pivotuje.
-- **Legal AI Act high-risk + bez DPIA** → blocker.
-- **A11y WCAG Critical / Serious na public-facing** → blocker [perspektiva 11].
-- **EM capacity overrun** → blocker s eskalací.
-- **BE breaking change bez consumer alignment** → blocker s registrem.
-- **UX usability debt** → Yellow flag (warning, ne veto).
-- **QA testability concern** → Yellow flag.
-- **CS load increase** → Yellow flag, požaduje predikci ticket volume.
+**Odložit Rozhodnutí:** critical bez návrhu řešení (posun o 3–5 dní na
+opravu) · nové vysoké riziko · debt ≥ 7 · Decider nedostupný (ADR-0001) ·
+vetovací role bez vyjádření.
 
-### WCAG dimenze
+**Ukončit projekt bez Rozhodnutí:** únik L4 dat v preview (incident playbook,
+ne rozhodnutí) · splněné kill kritérium ze zadání · debt ≥ 7 a Decider
+odmítá discovery.
 
-WCAG Critical / Serious (axe-core severity) = blokující váha 1.0 v score
-závaznosti, bez ohledu na ostatní hodnocení. Public-facing + B2B nad
-250 zaměstnanců default-on, EAA platí od 28. 6. 2025 [perspektiva 11].
+## Full — navíc
 
-### AI Act risk tier dimenze
+- Okno 5–7 pracovních dní, triage updates (re-klasifikace datového toku,
+  STRIDE update, scany, **AI Act Fáze B** nad skutečnými variantami,
+  odhad provozní stopy, SLO a runbook) odevzdat nejpozději v den 5 —
+  bez nich se Rozhodnutí nesvolá ([`03`](03-pre-session-priprava.md)).
+- Upgrade Limited → High-risk ve Fázi B = povinný sporný bod Rozhodnutí.
+- Hub navíc ukazuje odhad T-shirt od EM a risk register.
 
-[perspektiva 10]:
-- **Unacceptable** → varianta vyřazena, ne hlasování.
-- **High-risk** → DPIA povinný + Annex IV tech doc + human oversight per
-  čl. 14. Score nemůže být > 0.5 bez kompletního paketu.
-- **Limited risk** → transparency povinnosti, score normální.
-- **Minimal** → score normální.
+## Výstup do Rozhodnutí (24 h předem)
 
-### Anti-pattern: politické skóre
-
-Pokud oddělení dá nízký score, aby se zbavilo práce, AI co-pilot flaguje
-**pattern „chronický blocker"** [perspektiva 02]. Facilitátor tento pattern
-prezentuje v Session 2 jako samostatný bod.
-
-## Async triage update
-
-Tři triage tracks z Kroku 0a (`03-pre-session-priprava.md`) **aktualizují
-stanovisko** v scoring window:
-
-### Security & Data Triage update
-
-- Re-classify data flow per varianta (pokud se změnil).
-- STRIDE one-pager update + nové mitigation needs.
-- SBOM scan, license scan, CVE scan, secret scan na každém prototypu.
-- Approved AI tool list compliance check (žádný shadow tool nepoužit).
-- Veto registr finalizace.
-
-### Legal & Privacy Triage update
-
-- AI Act tier potvrzení per varianta.
-- DPIA lite finalizace (pokud trigger).
-- Privacy Notice draft per varianta.
-- Vendor risk register update.
-- Marketing claim review (UCPD + ePrivacy).
-
-### Platform Triage update
-
-- Deploy footprint estimate finalize per varianta.
-- SLO baseline draft + runbook stub.
-- Observability contract check (OTel + structured logs + tracing).
-- P2P (Prototype-to-Prod) gate checklist update.
-
-**Termín**: triage updates do hub repo nejpozději **Den 5** scoring windowu.
-Bez nich se Session 2 nesvolá.
-
-## Discovery debt detector — průběžný audit
-
-AI co-pilot skill běží **na každém feedback batch** [perspektiva 14]:
-
-- Kolik tvrzení o uživateli ve feedbacku má zdroj (research artefakt, citace
-  transcriptu, ticket ID) vs. assumption-stated-as-fact?
-- Kolik feedback bodů je AI-only (bez human sign-off)?
-- Existuje OST node pro každý feedback bod?
-- Skóre 0–10 s rozhraním:
-  - **≤ 2** = OK, Session 2 pokračuje.
-  - **3–6** = WARNING, závaznost session 2 výstupů omezena na *exploratory*;
-    no full handoff bez additional discovery.
-  - **≥ 7** = STOP, předřaď discovery sprint, Session 2 odložena.
-
-## Eskalační protokol
-
-### Kdy svolat Session 2 dřív (před plánovaným D7)
-
-- Všichni účastníci dali score do D3 (kapacita využita).
-- Decider potřebuje go-decision pro PI planning gate (kalendářní hard
-  deadline).
-- **Zero Critical** ve veto registru a **≥ 80 % role coverage** ve scoring.
-
-### Kdy odložit Session 2
-
-- **Kterákoli role flagne Critical** bez mitigation návrhu — session 2
-  posunuta o 3–5 dní pro mitigation work [synthesis 01].
-- **Triage update** přinesl nový high-risk finding (Security STRIDE
-  Critical, Legal AI Act high-risk bez DPIA, A11y WCAG Critical).
-- **Discovery Debt Detector ≥ 7** — discovery sprint se předřazuje.
-- **Decider nedostupný** — session se posunuje, ne probíhá bez něj
-  [perspektiva 01].
-- **EM kapacita zmizela** — aktivuje se champion alternativa v jiné BU
-  [synthesis 01], nebo se projekt přesouvá do IP iteration.
-
-### Kdy ukončit projekt mezi sessions (kill bez Session 2)
-
-- **L4 data leak** v sandboxu (incident response playbook, ne Session 2).
-- **Discovery Debt Detector ≥ 7 + Decider odmítá discovery sprint**
-  (problem-fit chybí, alignment je theatre).
-- **Capacity buffer < 0** napříč celým PI a žádný champion není dostupný.
-- **Kill criteria z Charteru splněny** (např. NPS shift threshold prolomen).
-
-## Výstupy mezi-sessions (vstup do Session 2)
-
-Doručené Decider + všem rolím **24 h před Session 2**:
-
-- **Score-based feedback aggregate** per role × per varianta + commitment
-  level mapping.
-- **Triage updates** (Security, Legal, Platform) finalizované.
-- **Discovery Debt Detector** report.
-- **Veto registr** finalizovaný.
-- **Top 3 sporné body** připravené pro conflict-resolution playbook
-  v Session 2.
-- **Decider's pre-read shortlist** — který směr Decider preferuje vs.
-  co říká panel.
-- **Updated risk register** + mitigation deadlines.
-- **P2P gate checklist** stav per varianta (kompletní / blocker / N/A).
+Agregovaný feedback per krok a variantu · seznam critical a jejich stav ·
+top 3 sporné body · veto registr · verdikt debtu · u Full triage updates.
+Další krok: `/pm decide <slug>` ([`06`](06-session-2.md)) — přizvi Decidera.

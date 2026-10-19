@@ -129,7 +129,7 @@ pflanzer retro reminders --slug <slug> --format ics \
 ```
 
 Owneři se berou z Charteru (`reinforcement_t7…t90`); prázdný milník dostane
-default ownera z `07-handoff-do-vyvoje.md` § Reinforcement track.
+default ownera z `07-handoff-do-vyvoje.md` § Retro.
 
 ### Krok 5 — Report + next step
 
@@ -156,6 +156,6 @@ další krok ve tvaru `/pm retro <slug>` s termínem nejbližšího milníku.
 
 - `tool/cli/retro.py` (heuristika v docstringu `measure`)
 - `tool/db/schema.sql` — tabulka `outcomes`
-- `docs/methodology/07-handoff-do-vyvoje.md` § Reinforcement track
+- `docs/methodology/07-handoff-do-vyvoje.md` § Retro
 - `docs/research/review-2026-09/01-audit-a-navrhy-zlepseni.md` § N4
 - `docs/zacni.md` § Co měřit

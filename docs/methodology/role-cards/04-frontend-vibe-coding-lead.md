@@ -2,29 +2,31 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #4 — Frontend / Vibe-coding lead
 
-> Jsi builder: u klávesnice Claude Code stavíš varianty přímo v target repu, takže winner jde do produkce bez re-implementace.
+> Jsi builder: u klávesnice stavíš varianty s Claude Code přímo v target repu, takže vítěz jde do produkce bez re-implementace.
+
+**Krok cesty:** Vývoj · **Kde jsi:** jádro — celý Build a Ship
 
 Status v catalogu: **doporučená** · Kdy se zve: Mění se UI nebo přidává se nový view?
 
-## Přines do Session 1
+## Přines do svého okna
 - Design tokens a component manifest (Storybook URL)
 - Tech stack contract: framework, ESLint / Prettier, a11y baseline
 - Přístup do target repa a funkční lokální build
 - Anti-pattern list komponent
 
 ## Podepisuješ
-- PR-ready commit winner varianty (token compliance > 90 %)
+- PR-ready commit vítězné varianty (token compliance > 90 %)
 - Diff walkthrough a komponentový mapping své varianty
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **celá session**: builder, 1 kolo × 30 min
-- Lean (3 h) — **celá session**: 2 kola × 30 min + diff walkthrough
-- Full (5–6 h) — **celá session**: od minuty 0
+## Kdy jsi u toho
+- Quick (60–90 min) — **celý běh**: builder, 1 kolo × 30 min
+- Lean (3 h) — **celý běh**: builder, 2 kola × 30 min + diff walkthrough; po Go pouštíš Ship
+- Full (5–6 h) — **celý běh**: od minuty 0 do Shipu
 
 ## Hlasuješ o
 Hlasuješ silent jako ostatní; před hlasováním máš 5 min diff walkthrough (`git diff --stat`, co je mock / stub).
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Varianta obchází design system nebo existující komponenty

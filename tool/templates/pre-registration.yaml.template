@@ -1,5 +1,5 @@
 # Pflanzer Pre-Registration Document
-# Per ADR-0013. Signed PŘED Session 1. Immutable po podpisu (kromě signed amendments).
+# Per ADR-0013. Signed PŘED Buildem. Immutable po podpisu (kromě signed amendments).
 
 pilot_id: P-NNNN
 project_slug: <project-slug>
@@ -86,7 +86,7 @@ secondary_endpoints_preregistered:
 protocol_deviations: []
 # Example entry:
 # - date: 2026-XX-XX
-#   description: "Champion absent for Session 2 due to medical leave; backup Champion stepped in"
+#   description: "Champion absent for Rozhodnutí due to medical leave; backup Champion stepped in"
 #   impact_on_metrics: "May affect compliance score elements #7, #8"
 #   amendment_signed: false
 

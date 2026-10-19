@@ -105,7 +105,7 @@ RISK_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
-# 5-role default mix per `02-role-catalog.md` § Decision tree
+# 5-role default mix per `02-role-catalog.md` § Výběr zástupců — rychlý strom
 # (always-on 1+2+3, plus FE+UX pro UI fíčuru — covers 80 % corporate cases).
 DEFAULT_ROOM = [1, 2, 3, 4, 6]
 
@@ -1057,7 +1057,7 @@ def render_handoff(slug: str) -> str:
 
     Pulled fields:
     - Project (Charter): name, xyz, decider, kill_criteria, risk profile.
-    - Latest Session 1 row: variants + scores + commitment per role.
+    - Latest Build row: variants + scores + commitment per role.
     - Latest decisions row (type='preference'): shortlist + rationale.
     - Triage deferred → flagni TODO před pilot/production.
     """

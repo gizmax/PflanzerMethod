@@ -1,495 +1,174 @@
-# 07 — Sign-off + deploy do produkce (dual-track)
+# 07 — Ship, handoff a retro
 
-> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default cesta do produkce je **Ship** (`/pm ship` → `/pm handoff`); tento dokument je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+**Pflanzer Method | pflanzer.cz/method**
 
-> Závěrečný krok Pflanzerovy metody. **Output závisí na Track designation**
-> v Charteru (per ADR-0020 dual-track model):
->
-> - **Track P (preferred, default ~80 %):** Output = běžící produkt na URL
->   (winner varianta) + sign-off package. Dev v room → žádný handoff.
-> - **Track S (fallback ~20 %, 4 hard triggers):** Output = precision spec
->   ≥ 80/100 + 5-stage handoff ritual. Re-impl gap target ≤ 15 %.
+> K čemu je tento dokument: co se děje po Go — Ship (`/pm ship`), handoff
+> (`/pm handoff`) a měření outcome (`/pm retro`). Obsahuje i pravidla
+> značení AI kódu (§ AI code provenance), na která odkazuje tool. Ship není
+> setkání, ale pipeline a práce vývojářů; vítěz byl od začátku v target repu,
+> takže se **nic nepřepisuje** (ADR-0005, ADR-0009).
 
-## Track P — produkt do produkce (default)
+## Ship (1–2 dny, vývojáři + provoz)
 
-### Filozofie
+Předpoklad: Rozhodnutí skončilo Go s vítězem a krok Provoz má jméno.
 
-**Default = Track P + evolve.** Programátor byl v room od minuty 0
-specifically proto, aby kód šel rovnou do prod — bez re-impl, bez paper
-handoff, bez *„dev team picks up the prototype"* loop. Quality gates
-v Session 2 (token compliance > 90 %, a11y Critical/Serious clean, SBOM +
-secret scan clean, DPIA pokrytí, IaC v platform monorepu) jsou
-**production prerequisite**, ne *„prototype hardening checklist"*
-[perspektivy 04, 15; synthesis 01 osa A].
+1. **Ověř worktree** vítěze v target repu (`pflanzer worktree verify`).
+2. **Quality gates jen na vítěze** (`pflanzer session_3 --slug <slug>`):
+   lint, typy, testy, security, a11y, build, observability → **skóre X/100**.
+   Práh **pilot 80 / production 85** (podle risk profilu ze zadání);
+   security a testy mají dvojnásobnou váhu. Poražené varianty se nehodnotí.
+   - Příkazy gates bere **adaptér `pflanzer.gates.yml` z base branche**
+     target repa — varianta ho nepřepíše (report to hlásí). Bez adaptéru
+     autodetekce stacku.
+   - Verdikt „připraveno" vyžaduje aspoň build a testy a celkem 4 gates;
+     jinak `blocked_by: gates:insufficient`. Neoverriduje se.
+   - U `pilot`/`production` (a vždy u Full) musí být všechny triage tracky
+     `ok`; jinak blokace. Override jen Decider s rationale
+     (`--override-triage`).
+3. **Pod prahem:** seznam, co dopravit (security/testy = blocker, lint/
+   observability = varování). Decider volí: pilot s malou skupinou a
+   paralelní oprava · pauza · Ship i přesto (override s rationale do
+   decision logu).
+4. **Checkpoint provozu** (20 min): deploy plán, monitoring, on-call,
+   rollback, strop nákladů. Podpis:
+   `pflanzer checkpoint --slug <slug> provoz --by "<jméno>" --note "…"`
+   (`--list` ukáže stav oken). Bez podpisu Ship neprojde.
+5. **PR vítěze do `main` target repa** přes běžnou pipeline a review;
+   poražené větve se smažou.
 
-**Throw-away pro Track P** je explicit opt-in flag pro discovery-only piloty
-(per ADR-0005 v0.4 — Track P + throw-away = ~5 % cases). Sponzor explicit
-v Charteru s rationale. Throw-away **NENÍ default**.
+### Checklist před prvním produkčním deployem
 
-Bez kompletního sign-off paketu sandbox technicky neuvolní deploy do prod
-sítě (24h TTL, noindex, watermark, network default-deny) [perspektiva 15].
-Sandbox je guardrail proti governance bypass.
-
-### Track P sign-off package (Session 2 deliverable)
-
-Track P sign-off = **audit trail**, ne re-impl spec:
-
-- Decision log s human attribution per AI Act čl. 14
-- Preference matrix + score závaznosti per role + veto registr
-- DORA 7y audit log entry
-- Acceptance kritéria (Gherkin) — verifikační, ne implementační (winner kód už existuje)
-- AI Act Fáze C signed
-- Compliance pakety (audit-grade jen): DPIA, Annex IV, Privacy Notice, SBOM,
-  secret scan, axe-core, SLO baseline + runbook
-
-### Track P D11-14: production hardening
-
-Dev tým (same people kteří byli v Session 1 + 2):
-- Polish + observability hookup
-- Edge case handling
-- Monitoring + alerting setup
-- Production deploy
-
-**Žádná re-implementace.** Winner kód z Session 2 → polish → prod.
-
-## AI code provenance (Track P i Track S)
-
-Decision log řeší atribuci **rozhodnutí** (kdo navrhl, kdo schválil —
-AI Act čl. 14). Tato sekce řeší atribuci **kódu**: kdo je autor
-AI-generovaného commitu, jak se značí, jak se reviewuje a jaké má IP /
-licenční implikace. Platí pro Track P (winner kód jde do prod) i Track S
-(reference prototype ze Session 1 + implementace dev týmem).
-
-### Pravidlo 1 — autor commitu = dev u klávesnice
-
-- Git `author` (a `committer`) je vždy **člověk, který seděl u klávesnice**
-  a řídil builder — typicky #4 FE / Vibe-coding lead nebo #5 BE / API lead
-  (viz `glossary.md` § dev-in-room). Nikdy facilitátor s AI proxy, nikdy
-  sdílený bot účet.
-- Autor **ručí za kód jako za vlastní** — stejná odpovědnost za bugy,
-  bezpečnost a licence jako u ručně psaného kódu.
-- **AI nikdy jako autor ani spoluautor.** Žádný `Co-Authored-By: <AI>`
-  trailer (GitHub ho zobrazuje jako spoluautorství) — automatickou
-  atribuci builderu vypnout v jeho nastavení. AI asistence se značí
-  výhradně trailery z pravidla 2.
-- Mob mode (1 sdílený worktree, ADR-0016): autor = aktuální driver;
-  při rotaci driveru se commituje před předáním klávesnice.
-
-### Pravidlo 2 — commit trailery (zapisuje Pflanzer tool)
-
-Pflanzer tool zapisuje trailery **automaticky**: `worktree.py` je nastaví
-per worktree při zakládání variant (Session 1), `handoff_pr.py` je
-přepne na `ship` a ověří jejich přítomnost před otevřením PR.
-
-| Trailer | Hodnota | Kdy |
-|---------|---------|-----|
-| `Pflanzer-Variant` | `<slug>-A` / `-B` / `-C` / `-mob` | každý commit ve worktree varianty |
-| `Pflanzer-Session` | `1` \| `2` \| `ship` | fáze, ve které commit vznikl (`ship` = Ship gate + D11-14 hardening, resp. Track S implementace) |
-| `AI-Assisted` | `claude-code` (nebo jiný builder: `codex-cli`, `cursor`, …) | builder z variant registru; u builderu `manual` se trailer vynechává |
-
-Ukázka commit message:
+Sjednocuje výstupy gates a oken; vlastní ho vývoj s provozem.
 
 ```
-feat(onboarding): add plan-upgrade retry CTA
-
-Idempotency-key reused on retry so gateway timeout never double-charges.
-
-Pflanzer-Variant: onboarding-2026-A
-Pflanzer-Session: 2
-AI-Assisted: claude-code
+[ ] build, testy a lint zelené; skóre ≥ práh (80 / 85)
+[ ] secret scan a SBOM/licence scan clean (žádné Critical/High CVE)
+[ ] acceptance scénáře (Gherkin, aspoň 1 negativní) projíždějí
+[ ] AI provenance: trailery a PR labely přítomné, autor = člověk u klávesnice
+[ ] observability: logy, metriky, traces; dashboard se 4 golden signals
+[ ] SLO baseline a runbook; on-call a alerty nastavené
+[ ] rollback otestovaný; feature flag default OFF, postupný rollout
+[ ] checkpointy bezpečnost & právo a provoz podepsané
+[ ] přístupnost: automat zelený; u veřejného rozhraní lidský review
+[ ] měření: eventy/instrumentace nasazené, dashboard metriky ze zadání
+[ ] podpora připravená (KB, makra) — je-li změna viditelná uživatelům
+[ ] change advisory podle firemního procesu
 ```
 
-Trailery jsou strojově čitelné (`git log --format='%(trailers:key=AI-Assisted)'`)
-— compliance si z nich vytáhne podíl AI-asistovaných commitů bez ručního
-dohledávání.
-
-### Pravidlo 3 — PR labely + sekce „AI provenance"
-
-- PR labely: `ai-generated` + `pflanzer:<slug>` (vedle stávajícího
-  `pflanzer`). `handoff_pr.py` je předvyplní v `gh pr create`.
-- PR body obsahuje sekci **„AI provenance"**:
-
-  ```markdown
-  ## AI provenance
-  - **Builder**: claude-code
-  - **Model family**: Claude (přesná verze není nutná)
-  - **Varianty**: 3 postaveny (A/B/C), do PR jde winner A
-  - **U klávesnice**: <jméno> (git author commitů)
-  - **Decision log**: <odkaz na decision log / SHIP.md>
-  ```
-
-### Pravidlo 4 — review AI kódu = stejná code review jako lidský kód
-
-AI-asistovaný kód prochází **stejnou** code review jako lidský (stejní
-reviewers, stejné CODEOWNERS, stejné CI gates). Žádný „AI review-only"
-(AI reviewer může pomoct, ale approve dává člověk mimo autora). Navíc
-reviewer odpoví na **3 povinné otázky** (do review komentáře nebo PR
-checklistu):
-
-1. **Existující vs nové komponenty** — použila varianta existující
-   komponenty / helpery repa (`INTEGRATION_GUIDE.md`), nebo vytvořila
-   paralelní nové? Každá nová musí mít důvod.
-2. **Mocky a stuby** — jsou v kódu mocky, stuby, hardcoded data nebo
-   TODO z session, které musí pryč před prod? Jsou vyjmenované a mají
-   ownera?
-3. **AI-generované testy** — ověřil člověk, že testy testují skutečné
-   chování (ne jen zrcadlí implementaci, ne `expect(true)`)?
-
-### Pravidlo 5 — IP a licence
-
-- Vygenerovaný kód podléhá **firemní licence policy** stejně jako
-  lidský kód nebo third-party dependency.
-- **Secret scan + license scan (SBOM) před merge** — viz Promote-to-prod
-  gate níže (SBOM řádek zahrnuje i licence mimo firemní allowlist).
-- **Zákaz vkládat do promptů** produkční data a cizí licencovaný kód
-  (zkopírované snippety z proprietárních zdrojů, kód pod nekompatibilní
-  licencí). Hranice dat se řídí Data Classification Statement L1–L4
-  (`03-pre-session-priprava.md` § Security & Data Triage): L4 = session
-  se nekoná, v promptech jen syntetická data se správnou shape.
-- Builder musí mít podepsaný DPA (viz sekce 8 Compliance handoff).
-
-### Pravidlo 6 — retence
-
-- **Default profil:** git history (autor + trailery) + PR (labely,
-  „AI provenance" sekce, review) stačí jako audit trail kódu.
-- **Regulated / audit-grade profil:** navíc `prompts` tabulka a
-  `audit_log` v Pflanzer DB drží prompt history s 7letou retencí (viz
-  Track P sign-off package — DORA 7y audit log, a sekce 8 — audit trail
-  s retencí 7 let dle DORA; human oversight per AI Act čl. 14). Vazba
-  prompt → varianta jde přes trailer `Pflanzer-Variant`; transkript
-  builder session se archivuje ve stejném retenčním režimu.
-
-### Kdo podepisuje co
-
-| Kdo | Podepisuje | Kde |
-|-----|------------|-----|
-| **Dev** (u klávesnice) | kód — git author, ručí jako za vlastní | commit + PR |
-| **Decider** | rozhodnutí — výběr winner varianty, Go/Iterate/Kill | decision log |
-| **Security** | scan — secret scan + SBOM / license scan clean | Promote-to-prod gate |
-| **EM** | kapacitu — dev tým na D11-14 hardening + review | True Cost Worksheet (`03` § Krok 1a) |
-
-### AI náklady (viditelnost)
-
-SHIP.md má sekci **„AI náklady (viditelnost)"**: tokeny (input / output /
-cache write / cache read) per varianta a celkem za cyklus, načtené ze
-session logů Claude Code pro worktrees projektu na stroji, kde běžel build
-(`tool/cli/ai_usage.py`, snapshot do DB přes `--record`). Je to jen viditelnost
-pro EM („session stála X"), žádný limit ani gate. Jiné stroje a hosted buildery
-se nezapočítají. Odhad v USD se zobrazí jen s lokálním ceníkem
-(`pflanzer.prices.json`, viz `tool/templates/README-ai-usage.md`).
-
-## Track S — precision spec do vývoje (fallback)
-
-### Když Track S
-
-Dev #4 + #5 NENÍ v room. **4 hard triggers** (per ADR-0020) — bez triggeru
-projekt odložit, ne přepnout:
-
-1. Distributed dev tým ≥ 3 časové pásma
-2. AI Act High-risk + certified production (Annex IV separate impl)
-3. FDA / IEC 62304 / DO-178C / PSD2 SCA (regulated certified prod)
-4. Sponsor mandate spec-as-deliverable (multi-vendor, legacy modernization, acquisition DD)
-
-Method Decider (per ADR-0011) má autoritu hard-gate. EM + Sponzor
-dual-signature v Charteru. Method Steward audituje trigger validation
-v 5. pre-flight tracku.
-
-### Track S sign-off package (Session 2 deliverable)
-
-Track S sign-off = **spec navigation + audit trail**:
-
-- **Precision spec ≥ 80/100 quality gate** (12 dimensions, per
-  `tool/templates/precision-spec-track-s.md.template`):
-  - A. Functional: INVEST-RA user stories, Mermaid diagrams, executable
-    Gherkin BDD, edge cases enumeration, out-of-scope explicit
-  - B. Technical: OpenAPI 3.1 + Spectral lint, ERD + JSON schemas + sample
-    payloads, tech stack MUST/MAY/MUST NOT, NFRs
-  - C. Quality: STRIDE one-pager, WCAG 2.2 AA checklist, AI Act/DPIA/DORA,
-    BDD scenarios + unit prerequisites + E2E
-  - D. Implementation: file structure, naming, pinned libs, anti-patterns,
-    PR checklist
-  - E. Sign-off: 12-role matrix s veto rights, parallel approval
-- **Reference prototype z Session 1** = combined SoT s spec (anti-drift weapon)
-- Decision log + AI Act Fáze C + DORA 7y log
-- Spec quality gate score (publikováno transparentně)
-
-### Track S 5-stage handoff ritual
-
-**Critical:** žádný „throw spec over the wall". 5 stages:
-
-1. **90-min walkthrough** (PdM + dev tým lead + spec authors)
-   - Spec authors present each section (A-E)
-   - Reference prototype demonstrated
-   - Q&A inline
-2. **5-day Q&A window** (dev tým ↔ spec authors async)
-   - Dev klade clarification questions
-   - Spec authors odpovídají + update spec amendments inline
-   - SLA: 24h response time
-3. **Amendment protocol**
-   - Dev requests changes (form: rationale + impact assessment)
-   - Sponzor approves / rejects within 5 dní
-   - Approved amendments → spec version bump (SemVer)
-4. **First milestone review** (T+14-30 v dev sprint)
-   - Dev demos first implementation slice (typicky 20-30 % spec scope)
-   - Spec authors verify alignment vs reference prototype + Gherkin BDD
-   - Drift assessment: ≤ 5 % = OK, > 5 % = root cause analysis
-5. **T+30 embedded spec author shadowing**
-   - 1 spec author shadows dev sprint po dobu 1 týdne
-   - Detects drift early, answers questions inline
-   - Reports back to Method Steward (drift metrics)
-
-### Track S anti-drift mechanismy
-
-Per `docs/research/dual-track-design/03-precision-spec-engineering.md`:
-
-1. SemVer + MADR ADR cross-link pro spec changes
-2. Amendment protocol s sponsor approval (above)
-3. Reference prototype as combined SoT (Session 1 artifact)
-4. Executable Gherkin (BDD scenarios runnable, ne prose)
-5. CI sync monitoring (linter flags spec ≠ impl)
-6. 30-day spec expiry — forces refresh, prevents staleness
-7. T+30 embedded reviewer (above)
-
-Track S re-impl gap target ≤ 15 % (vs SDD 9.8-42.1 % Yan et al. 2025).
-
-## Champion model adopce (oba tracks)
-
-[synthesis 03 #17]. Každý handoff má pojmenovaného championa — senior
-engineer z přijímajícího týmu (Track P: byl v Session 1+2; Track S: dev
-tým lead, attendovaný walkthrough), podepsal Decision log. Vlastní delivery,
-vede T+30/60/90 readout, reportuje do CoP. Bez championa metoda zhasne po
-druhém pilotu.
-
-**Champion model adopce** [synthesis 03 #17]. Každý handoff má
-pojmenovaného championa — senior engineer z přijímajícího týmu, byl v
-Session 1+2, podepsal Decision log. Vlastní delivery, vede T+30/60/90
-readout, reportuje do CoP. Bez championa metoda zhasne po druhém pilotu.
-
-## Definition of Done pro handoff package
-
-Každá ze sekcí níže musí mít před Session 2 closure stav **ano / ne /
-N/A s důvodem**. „N/A" vyžaduje větu proč (např. *„Data handoff: N/A —
-internal tooling bez release intentu"*). Bez explicitních checkboxů se
-handoff nepodepisuje a Session 2 končí ve stavu „iterate".
-
-## Handoff Package — 7 + 1 sekcí
-
-### 1. Decision package (PdM + Facilitátor)
-
-- **Business Charter** finální: problém, segment, ARR impact, success
-  metric (lagging + ≥1 leading), XYZ hypotéza, decider mandate podepsaný
-  CPO, throw-away/evolve flag [synthesis 02].
-- **Decision log** s lidskou atribucí každého rozhodnutí (DORA, AI Act
-  čl. 14, GDPR čl. 22) [synthesis 01 osa C]. Formát: `<rozhodnutí> |
-  <kdo navrhl> | <kdo schválil> | <datum> | <rationale>`.
-- **ADR drafty** 3–5 kusů (API versioning, idempotency, transakční
-  hranice, error model, sync vs eventy) [perspektiva 05].
-- **Parking lot rezoluce** — každý odložený bod má owner + due date.
-- **Score závaznosti per role** (1–5 Likert + rationale, AI-only weight
-  max 0.5) [synthesis 02 bod 5].
-
-### 2. Backend handoff (BE lead) [perspektiva 05]
-
-- **Lintovaný OpenAPI 3.1** finální varianty (Spectral clean, examples,
-  RFC 7807 errors, idempotency-key konvence). Raw spec v repu, ne PDF.
-- **ERD diff** + breaking-change registr per consumer:
-
-  ```
-  | Field/Endpoint | Změna | Consumer | Owner | Migration window |
-  |----------------|-------|----------|-------|------------------|
-  | /v1/orders.id  | UUID→ULID | mobile-app, billing | @ne... | 2 sprinty |
-  ```
-- **Migration plan stub**: backfill, dual-write window, rollback,
-  feature flag, odhad po 2-day capped spiku [synthesis 03 EM patch].
-- **Contract test skeleton** (Pact / Schemathesis) — názvy testů.
-- **Observability checklist**: metriky/traces/logs, owner dashboardů,
-  alert thresholds, cardinality estimate.
-
-### 3. Frontend handoff (FE lead) [perspektivy 04, 06]
-
-- **Component manifest delta**: každá obrazovka označená `reused / new
-  candidate / one-off`. Cíl pro evolve: >80 % reused, <10 % one-off.
-- **Design tokens diff** proti Style Dictionary export + token
-  compliance report (cíl pro evolve >90 %).
-- **A11y baseline** = axe-core + manual keyboard test top 3 obrazovek.
-  Critical/Serious = blocker pro „final" [perspektiva 11].
-- **Figma↔commit lineage**: každá Figma frame má git commit hash;
-  každá komponenta v repu má Figma node ID. Figma vizuál, kód
-  implementace, oba mapují na stejné tokeny [perspektiva 06].
-- **Repo + git history** (ne ZIP).
-
-### 4. QA handoff (QA lead) [perspektiva 08]
-
-- **3–5 BDD/Gherkin scénářů per accepted varianta**, min. 1 ne-happy
-  path:
-
-  ```gherkin
-  Feature: Plan upgrade
-    Scenario: Payment timeout during upgrade
-      Given user on Pro plan with valid card
-      When upgrade request times out at gateway
-      Then user sees retry CTA, not duplicate charge
-      And idempotency-key prevents second charge on retry
-  ```
-- **Test pyramide split** (70/20/10) s vlastníkem per vrstva.
-- **Contract test skeleton** synced s BE Pactem.
-- **Exploratory charter** (90 min: mission + areas + out-of-scope +
-  deliverable).
-- **P2P (Prototype-to-Prod) checklist — 9 položek** [perspektiva 08]:
-  1. Gherkin akceptace s ≥1 negative scenario per varianta.
-  2. Test pyramide split + vlastník per vrstva.
-  3. API contract + Pact testy zadané a passující.
-  4. Regression impact analysis (jaké existující flows feature ovlivňuje).
-  5. Observability v DoD (logs, metrics, traces instrumented).
-  6. Synthetic data sada (žádné prod data v testech).
-  7. Security sign-off (SBOM clean, secret scan clean).
-  8. A11y baseline (Critical/Serious clean pro public-facing).
-  9. DoD podepsaná QA + dev + PdM.
-
-  **Bez 9/9 položek prototyp neopouští sandbox.**
-
-### 5. Platform handoff (vlastní DevOps / Platform) [perspektiva 15]
-
-- **Sandbox spec** finální (Terraform modul `pflanzer-sandbox`: VPC,
-  throwaway DB, syntetický seeder, audit logging, 24h TTL, cost cap).
-  Sdílený artefakt se Security [synthesis 01 osa A].
-- **Paved-road template volba** — který cookiecutter (`internal-tool`,
-  `customer-portal`, `batch-job`, `realtime-api`, `mobile-be`). Vibe-coder
-  generoval *do* templatu, ne na zelené louce.
-- **SLO archetype** ze SLO Quick-Set library:
-  ```
-  Archetype: customer-portal
-  Availability: 99.9% / 30d
-  p95 latency: < 300ms (read), < 800ms (write)
-  Error budget: 0.1% / 30d
-  ```
-- **Promote-to-prod gate checklist** (viz níže) — DevOps owner.
-- **Runbook stub**: alert thresholds, on-call rotation, rollback
-  procedura, dependencies graph.
-- **Footprint TCO sheet** finální: services, compute, storage, third-
-  party SaaS (DORA čl. 28 vendor registr), est. monthly cost.
-
-### 6. Data handoff (vlastní Data / Analytics) [perspektiva 12]
-
-- **Event taxonomy delta** — nové eventy v `object_action` snake_case,
-  registered v schema registry (Avo / Snowplow Iglu). Schema diff blokuje
-  merge.
-- **Measurement plan** v1: 1 primary lagging metric, 2–3 leading
-  indicators, 1+ guardrail (latency, error rate, churn proxy).
-- **A/B test design**: control vs treatment, randomization unit, sample
-  size kalkulace, expected runtime, **kill criteria** (např. *„Po 14
-  dnech v 95% CI bez upliftu > MDE → treatment kill"*).
-- **Instrumentation deadline = ship date − 2 dny** (tvrdé pravidlo,
-  pre-commit hook na schema registry diff). Bez merge-blokujícího schema
-  checku eventy nikdy nevzniknou včas [perspektiva 12 § 5.4].
-- **Dashboard mockup link** (Looker/Amplitude drátěnka) — kde žije
-  primary + leading metrics, kdo má access.
-
-### 7. Support handoff (vlastní CS proxy) [perspektiva 13]
-
-- **Ticket prediction worksheet** per accepted varianta (top-3 kategorie,
-  volume tickets/week, median TTR, deflectable %, new macros, capacity
-  impact, VoC match z 20 verbatim citací).
-- **Support docs deadline plan**:
-  ```
-  D-7  KB draft v review
-  D-5  Enablement deck pro agenty
-  D-3  Peer review KB článku
-  D-2  Training + makra live + escalation path
-  D-0  Launch
-  D+1  Hourly ticket dashboard
-  D+30 Retro s verbatim sample, kalibrace worksheetu
-  ```
-  **D-2 readiness = merge-blocker.** Bez něj launch posunut.
-- **Churn signal radar baseline**: cancellations citing flow N / 90d,
-  1-CSAT M, reopened K, NPS detractor mentions L, trend ↑/↓/flat.
-- **Post-launch monitoring**: ticket tag pro feature, alert thresholds
-  (např. *>20 tiketů/h v category X = page on-call*), escalation path.
-
-### 8. Compliance handoff (vlastní Legal / DPO + Security) [perspektiva 10; synthesis 02 § AI Act]
-
-- **Audit trail** všech rozhodnutí (transcript + decision log + score
-  závaznosti, retence 7 let dle DORA).
-- **RoPA update** — Record of Processing Activities, nový/změněný
-  záznam pro feature.
-- **AI Act risk-tier classification entry — Fáze C (final)** v risk registru
-  (Unacceptable / High-risk / Limited / Minimal). Podepsáno DPO v Session 2
-  per **dvoufázový protokol v0.3** (Útok 4 resolution; viz
-  `03-pre-session-priprava.md` § Legal & Privacy Triage). Mandatory součásti
-  Fáze C: data flow diagram, intended-use statement, human-oversight design
-  (čl. 14), Annex IV technická dokumentace skeleton (high-risk). Provisional
-  flag (Fáze A) **není validní** pro handoff package — pokud Fáze C chybí,
-  pilot není kompletní a nezapočítává se do method-level success rate (ADR-0007).
-- **DPIA artefakt** (čl. 35 GDPR) podepsaný DPO, pokud feature spadá
-  do triggerů (osobní data, profiling, ADM, special categories,
-  novel AI use).
-- **DPA flag pro vendor**: každý použitý vibe-coding tool / SaaS má
-  podepsaný DPA + SCC (pokud cross-border non-adequacy země). TIA
-  pro audit-grade [synthesis 02 § Could].
-- **Privacy Notice draft** + **Legal basis statement** per feature,
-  z firemní template (nikdy AI-generated marketing claims).
-
-## Promote-to-prod gate
-
-Explicitní checklist před **prvním produkčním deployem** features
-postavené nad Pflanzer artefakty. Sjednocuje výstupy sekcí 4, 5, 7, 8.
-Owner: **Platform engineer + QA lead společně**. Bez 100 % zelených
-bodů merge nemožný.
-
-```
-[ ] OpenAPI lintovaný (Spectral) + Pact contract testy passující
-[ ] P2P checklist 9/9 (sekce 4)
-[ ] SBOM (cyclonedx/syft) clean, žádné Critical/High CVE ani licence
-    mimo firemní allowlist
-[ ] Secret scan (gitleaks/trufflehog) clean
-[ ] AI provenance: trailery + PR labely přítomné, autor = člověk z room
-[ ] IaC v platform monorepu, terraform plan + OPA policy check pass
-[ ] OpenTelemetry instrumented (logs/metrics/traces), 4 golden signals
-    dashboard live
-[ ] SLO baseline definovaný + runbook v on-call wiki
-[ ] On-call rotation assigned, alert thresholds nastaveny
-[ ] Change advisory approval (per CAB process)
-[ ] DPIA podepsán (pokud aplikabilní), AI Act **Fáze C final classification** podepsaná DPO + Annex IV tech doc skeleton hotový
-[ ] A11y human review pre-launch (screen reader UX, focus management) —
-    AI proxy NESTAČÍ pro EAA atestaci [perspektiva 11]
-[ ] Support readiness D-2: KB live, makra live, training proběhlý
-[ ] Instrumentation live (event schema deployed, dashboard nahozen)
-[ ] Feature flag default OFF, gradual rollout plán (0 % → 1 % → 10 %
-    → 50 % → 100 %)
-[ ] Rollback procedura otestovaná v staging
-```
-
-## Champion model — adopce a reinforcement
-
-[synthesis 02 bod 11; perspektivy 12, 13]
-
-**Pojmenování championa:** poslední bod Session 2. Champion = senior
-engineer z přijímajícího týmu, byl v Session 1+2, podepsal Decision log,
-má kapacitní commit od EM (≥10 % FTE na 90 dní).
-
-**Champion buddy** [edge cases, sekce 10]: druhý senior z téže BU jako
-záloha. Knowledge transfer protokol pro případ odchodu (recap deck,
-async video walkthrough handoff package, decision log čtení).
-
-**Reinforcement track** — champion vlastní:
-
-| Milník | Owner | Deliverable |
-|--------|-------|-------------|
-| **T+7**  | CS proxy + Champion | Ticket category check vs prediction worksheet |
-| **T+30** | Data + Champion | Build progress vs estimate, leading metric readout, retro s verbatim sample [perspektiva 12 § learning agenda] |
-| **T+60** | Champion + EM | Capacity actual vs estimate, dependency drift report |
-| **T+90** | Data + CS + Champion | Lagging metric vs success criterion, churn cohort analysis, learnings → role catalog patch |
-
-Bez čtyř readoutů adopce zhasne, role catalog se nekalibruje, score
-závaznosti zůstává politickým nástrojem. T+90 readout je **vstup do
-další iterace metody samotné** — Pflanzer se učí na svých výstupech
-[synthesis 02 bod 11].
+Regulované (Full) navíc: DPIA a AI Act Fáze C podepsané DPO, Annex IV
+kostra, vendor DPA/SCC, audit trail s retencí
+([`governance/`](../governance/README.md)).
+
+## Handoff (`/pm handoff`)
+
+Název příkazu je stabilní rozhraní, význam je **předání vítěze do běžného
+vývojového procesu přes PR**, ne re-implementace (ADR-0010). Generuje:
+
+- **`SHIP.md`** — primární výstup, **1 stránka**: vítěz (větev + SHA),
+  skóre X/100 vs práh, odpovědnosti (Decider, vlastník větve), příkaz
+  `gh pr create`, checkpoint provozu, sekce „Změř po 30 dnech",
+  viditelnost AI nákladů a kontrola trailerů.
+- **Balíček per role** (doplněk pro audit, *sign-off package*): každý
+  zástupce dostane jen svůj soubor.
+
+| Krok cesty | Co v balíčku |
+|------------|--------------|
+| Vývoj | OpenAPI + breaking-change registr (pole · změna · konzument · vlastník · okno), migration plan stub, contract test skeleton, component manifest (reuse / nové / jednorázové), diff tokenů, ADR drafty |
+| Provoz | SLO archetyp, runbook stub, odhad provozní stopy, rollback, on-call |
+| Bezpečnost & právo | výsledek checkpointu, veto registr, SBOM/scan, u Full DPIA/RoPA/AI Act Fáze C |
+| QA / test | 3–5 Gherkin scénářů per flow (aspoň 1 negativní), test pyramida, exploratory charter; kontrola, že AI testy testují chování, ne zrcadlí implementaci |
+| Data / podpora | event taxonomie (`object_action`), measurement plan (lagging + leading + guardrail), predikce ticketů, termíny podpůrných materiálů |
+| Rozhodnutí | decision log s lidskou atribucí, parking lot, zadání |
+
+Placeholdery `TODO` v balíčcích jsou záměr — doplní tým podle kontextu.
+Do balíčku nepiš osobní údaje.
+
+**Metriky pilotu** (tool je zapíše, slouží k vylepšení metody): čas
+Kickoff → merge · gate score vítěze · počet kol Iterate · kolik kódu vítěze
+přežije 30 dní v `main` · AI náklady.
+
+## AI code provenance
+
+Decision log řeší atribuci **rozhodnutí**; tato sekce **kódu**: kdo je
+autor AI-generovaného commitu, jak se značí, jak se reviewuje.
+
+1. **Autor commitu = vývojář u klávesnice** (git author i committer).
+   Ručí za kód jako za vlastní. **AI není autor ani spoluautor** — žádný
+   `Co-Authored-By` s AI; automatickou atribuci builderu vypni. V mob
+   režimu (ADR-0016) je autorem aktuální driver; commituje se před předáním
+   klávesnice.
+2. **Trailery** zapisuje tool automaticky (`worktree.py` při založení variant,
+   `handoff_pr.py` je přepne na `ship` a ověří před PR):
+
+   | Trailer | Hodnota |
+   |---------|---------|
+   | `Pflanzer-Variant` | `<slug>-A` / `-B` / `-C` / `-mob` |
+   | `Pflanzer-Session` | fáze vzniku commitu: `1` Build, `2` Iterate/Rozhodnutí, `ship` |
+   | `AI-Assisted` | builder (`claude-code`, `codex-cli`, `cursor`, …); u `manual` se vynechává |
+
+   Jsou strojově čitelné (`git log --format='%(trailers:key=AI-Assisted)'`).
+3. **PR labely** `pflanzer`, `ai-generated`, `pflanzer:<slug>` a sekce
+   **„AI provenance"** v PR body (builder, rodina modelu, 3 varianty / vítěz,
+   kdo seděl u klávesnice, odkaz na decision log / SHIP.md).
+4. **Review AI kódu = stejná review jako lidského** (stejní reviewers,
+   CODEOWNERS, CI); approve dává člověk mimo autora. Reviewer navíc
+   odpoví na tři otázky: (a) použila varianta existující komponenty repa,
+   nebo vytvořila paralelní? (b) jsou v kódu mocky, stuby, hardcoded data
+   nebo TODO, které musí pryč, a mají vlastníka? (c) ověřil člověk, že AI
+   testy testují skutečné chování?
+5. **IP a licence:** kód podléhá firemní licenční politice; secret a licence
+   scan před mergem; do promptů **nikdy produkční data** ani cizí
+   licencovaný kód; builder má podepsané DPA.
+6. **Retence:** default profil — git history (autor + trailery) a PR stačí.
+   Regulované: navíc prompt history a audit log s retencí podle regulace
+   (DORA 7 let).
+
+**Kdo podepisuje co:** vývojář kód (commit + PR) · Decider rozhodnutí
+(decision log) · bezpečnost scany a checkpoint · provoz checkpoint provozu ·
+EM kapacitu na hardening.
+
+### AI náklady
+
+SHIP.md ukazuje tokeny (input/output/cache) per varianta a za cyklus ze
+session logů Claude Code na stroji, kde běžel Build (`tool/cli/ai_usage.py`;
+USD jen s lokálním ceníkem `pflanzer.prices.json`). Je to viditelnost pro
+EM, ne limit ani gate. Strop nákladů hlídá checkpoint bezpečnost & právo.
+
+## Retro (`/pm retro`)
+
+Pod povrchem, mimo pět kroků hlavní cesty. Spouští ho ten, kdo vlastní měření
+(zástupce Produktu nebo Provozu), po mergi vítěze:
+
+- `measure` — z target repa spočítá % LOC vítěze v produkci beze změny
+  (cíl ≥ 80 %) a days-to-prod (cíl ≤ 14); při nesplnění FLAG.
+- `reminders` — nastaví readouty od Go: **T+7** bugy a hotfixy ·
+  **T+30** leading metrika, přijetí handoffu vývojem · **T+60** podíl
+  přepsaných LOC (rework) · **T+90** lagging metrika vs kritérium ze zadání
+  a verdikt Go/Iterate/Kill pro další vývoj.
+- `record` / `report` — ruční readouty a souhrn `data/retro/<slug>-retro.md`.
+
+T+90 je vstup pro zlepšení samotné metody (kalibrace váhy AI-only feedbacku,
+velikosti jádra, délky oken). Bez readoutů se metoda zlepšovat nedá.
+
+## Adopce a další piloty
+
+Druhý a další pilot v jednotce vede **Champion** (#17,
+[`02`](02-role-catalog.md)): drží retro a měření, předává zkušenosti,
+určuje zástupce (buddy), který ho zastoupí při odchodu (viz
+[`08`](08-edge-cases-a-rizika.md) § 10). Vrstva pro víc pilotů
+(Method Steward, pre-registrace, PflanzerIndex): [`governance/`](../governance/README.md).
+
+## Track S (jen výjimečně)
+
+Když vývojář není k dispozici a platí jeden ze čtyř triggerů, výstupem
+není kód, ale **precision spec ≥ 80/100** s pětistupňovým předáním vývoji
+(walkthrough, Q&A okno, amendment protokol, první milestone, embedded
+reviewer) a pravidly proti driftu. Je to mimo hlavní cestu: ADR-0020
+a [`governance/`](../governance/README.md). Platí pro něj stejná AI
+provenance.
 
 ## Co handoff NENÍ
 
-- ZIP soubor s prototypem hozený přes plot.
-- Jira ticket „implement Figma".
-- „Vibe-deployed" Bolt instance s prod credentials.
-- Confluence stránka bez decision atribuce.
-- Handoff bez P2P checklistu = **handoff bez metody**, jen
-  dramatizace alignmentu.
+ZIP s prototypem hozený přes plot · ticket „implementuj podle Figmy" ·
+„vibe-deployed" instance s produkčními credentials · stránka bez atribuce
+rozhodnutí · předání bez gates a checklistu.

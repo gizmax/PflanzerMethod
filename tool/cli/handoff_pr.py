@@ -9,11 +9,13 @@ Pravidla výstupu:
 - žádné absolutní lokální cesty v textu určeném do PR (jen větev, SHA, název),
 - výstupy do `<DATA_ROOT>/handoffs/<slug>/`.
 
-Ship gate (audit N5 + N11 + N16):
+Ship (audit N5 + N11 + N16):
 - vítěz = vítěz z Rozhodnutí; bez něj varianta s nejvyšším gate skóre (tie-break skóre z Buildu),
 - triage tvrdá brána: pilot/production s nedokončeným triage = blok "BLOKOVÁNO", nikdy
   "splňuje práh" (leda s override Decidera z `session_3 --override-triage`); totéž při
   méně než 4 reálně spuštěných bránách nebo bez build/tests,
+- skóre pod prahem + `session_3 --override-threshold` = SHIP.md i PR body mají sekci
+  „Výjimka z prahu“ (důvod, Decider) a PR je draft,
 - AI code provenance (07-handoff-do-vyvoje.md § AI code provenance): trailery
   `Pflanzer-Variant` / `Pflanzer-Session: ship` / `AI-Assisted`, PR labely `ai-generated`
   + `pflanzer:<slug>`, sekce "AI provenance" v PR body a read-only kontrola
@@ -58,7 +60,7 @@ from tool.cli.extract import (  # noqa: E402
 from tool.cli.quality_gates import GATE_TYPES, aggregate_score  # noqa: E402
 from tool.cli.session_2 import get_winner  # noqa: E402
 from tool.cli.session_3 import gates_sufficiency  # noqa: E402
-from tool.cli.triage import ship_triage_gate  # noqa: E402
+from tool.cli.triage import latest_threshold_override, ship_triage_gate  # noqa: E402
 
 SHIP_DIR = DATA_ROOT / "handoffs"
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
@@ -335,6 +337,13 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "WHERE project_id = ? AND type = 'handoff' ORDER BY id DESC LIMIT 1", (project_id,),
         ).fetchone()
         triage_gate = ship_triage_gate(conn, project_id)
+        threshold_override = None
+        if winner and gate_rows and proj[15] is not None:
+            _score = aggregate_score(
+                [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gate_rows]  # type: ignore[misc]
+            )["gate_score"]
+            threshold_override = latest_threshold_override(
+                conn, project_id, score=_score, target=int(proj[15]))
         dev_owners = [
             r[0] for r in conn.execute(
                 "SELECT human_owner FROM roles WHERE project_id = ? "
@@ -345,6 +354,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
 
     return {"project": proj, "winner": winner, "decided": decided, "extracted": ext,
             "gates": gate_rows, "decision": decision, "triage": triage_gate,
+            "threshold_override": threshold_override,
             "variant_names": variant_names, "dev_owners": dev_owners,
             "winner_basis": winner_basis}
 
@@ -438,14 +448,32 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
     suff = gates_sufficiency({"results": [{"gate": g[0], "status": g[1]} for g in gates]})
     if gates and target > 0 and not suff["sufficient"]:
         blocked_by.append(suff["blocker"])
+    # Výjimka z prahu (Decider, `session_3 --override-threshold`): jen pod prahem a bez jiné blokace.
+    override = ctx.get("threshold_override")
+    if not (gates and target > 0 and score < target and not blocked_by):
+        override = None
     if ctx["triage"]["blocked_by"]:
         verdict = "BLOKOVÁNO (triage)"
     elif blocked_by:
         verdict = "BLOKOVÁNO (nedostatek gates)"
+    elif override:
+        verdict = f"pod prahem — Ship na odpovědnost Decidera ({override['decider']})"
     else:
         verdict = _verdict(score, target)
     return {"score": score, "target": target, "blocked_by": blocked_by, "verdict": verdict,
-            "suff": suff, "ready": bool(gates) and target > 0 and score >= target and not blocked_by}
+            "suff": suff, "threshold_override": override,
+            "ready": bool(gates) and target > 0 and not blocked_by
+            and (score >= target or override is not None)}
+
+
+def _render_threshold_override(override: dict[str, Any], score: int, target: int) -> str:
+    """Sekce „Výjimka z prahu“ pro SHIP.md i tělo PR."""
+    return (
+        "## Výjimka z prahu\n\n"
+        f"Skóre **{score}/100** je pod prahem {target}. Ship jde na odpovědnost Decidera "
+        f"(**{override['decider']}**, rozhodnutí #{override['decision_id']}); PR je proto **draft**.\n\n"
+        f"**Důvod:** {override['rationale']}\n"
+    )
 
 
 def _winner_basis_md(basis: dict[str, Any]) -> str:
@@ -454,7 +482,7 @@ def _winner_basis_md(basis: dict[str, Any]) -> str:
         return (f"Rozhodnutí (Go s vítězem {basis['winner']})"
                 + (f"; gate skóre: {cmp_}" if cmp_ else ""))
     if basis["mode"] == "ship_gate":
-        return f"Ship gate - nejvyšší gate skóre (tie-break skóre z Buildu); porovnáno: {cmp_}"
+        return f"Ship - nejvyšší gate skóre (tie-break skóre z Buildu); porovnáno: {cmp_}"
     if basis["mode"] == "preference":
         return "fallback - nejvyšší skóre z Buildu (Ship ještě neběžel, žádné quality_gates)"
     return "—"
@@ -529,6 +557,10 @@ def build_pr(slug: str) -> dict[str, Any]:
         f"- U klávesnice: {', '.join(keyboard)} (git author commitů)", "",
         "---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*",
     ]
+    if state["threshold_override"]:
+        at = body_lines.index("## Decider")
+        body_lines[at:at] = _render_threshold_override(
+            state["threshold_override"], gate_score, target).splitlines() + [""]
     return {
         "ctx": ctx, "state": state, "title": pr_title, "body": "\n".join(body_lines),
         "branch": branch, "head_sha": head_sha, "loc_added": loc_added,
@@ -553,6 +585,8 @@ def render_ship_md(slug: str) -> str:
     blocked_by = state["blocked_by"]
     triage = ctx["triage"]
     triage_top, triage_section = _render_triage_block(triage, slug)
+    threshold_md = (_render_threshold_override(state["threshold_override"], score, target) + "\n"
+                    if state["threshold_override"] else "")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     winner_info = pr_command = ""
@@ -591,7 +625,7 @@ def render_ship_md(slug: str) -> str:
             f"{suff['gates_run']}/{len(GATE_TYPES)} spuštěno"
             + ("" if suff["sufficient"] else f" - `{suff['blocker']}` (viz tool/templates/README-gates.md)")
         ) if ctx["gates"] else "(Ship ještě neběžel)"
-        draft_flag = " \\\n  --draft" if blocked_by else ""
+        draft_flag = " \\\n  --draft" if (blocked_by or state["threshold_override"]) else ""
         work_dir = tilde(wt) if wt else e[1]
         winner_info = f"""## Vítěz
 
@@ -664,8 +698,7 @@ PRBODY
 > Projekt: `{p[2]}` · Vygenerováno: {today} · {verdict}
 > SHIP.md je primární handoff (1 stránka). Soubory per role jsou doplněk pro audit.
 
-{triage_top}
-## Co se mění
+{triage_top}{threshold_md}## Co se mění
 
 {p[4]}
 
@@ -740,6 +773,7 @@ def write_ship(slug: str) -> Path:
                 payload={
                     "slug": slug, "file": out.name,
                     "blocked_by": ctx["triage"]["blocked_by"],
+                    "threshold_override": bool(_ship_state(ctx)["threshold_override"]),
                     "worktree_session_ship": session_switched,
                 },
             )

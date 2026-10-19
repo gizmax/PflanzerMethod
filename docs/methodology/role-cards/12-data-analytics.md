@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Zajišťuješ, že winner jde změřit — bez measurement planu nevíme, jestli fíčura funguje.
 
+**Krok cesty:** Produkt (měření) · **Kde jsi:** okno — Async a Ship (measurement plan)
+
 Status v catalogu: **doporučená** · Kdy se zve: Release intent (= ship plánován) nebo nové metriky / A/B test?
 
-## Přines do Session 1
+## Přines do svého okna
 - Event taxonomy a naming convention
 - Baseline metriky a KPI strom
 - Power analysis pro případný A/B test
@@ -17,15 +19,15 @@ Status v catalogu: **doporučená** · Kdy se zve: Release intent (= ship pláno
 - Instrumentation deadline = ship-date − 2 dny (merge-blokující)
 - A/B test design a kill criteria
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: metriky jsou v Quick TBD — measurement plan doplníš mezi sessions
-- Lean (3 h) — **async**: AI navrhne event schema, measurement plan schválíš do 24–48 h
-- Full (5–6 h) — **celá session**: měřitelnost variant proti XYZ hypotéze
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: metriky jsou v Quick TBD — measurement plan doplníš v Async okně
+- Lean (3 h) — **async**: AI navrhne event schema, measurement plan schválíš v Async okně (24–48 h)
+- Full (5–6 h) — **celý běh**: měřitelnost variant proti XYZ hypotéze
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; hlavně jestli jde varianta změřit proti XYZ hypotéze.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **strategic_fit**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **strategic_fit**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Success metric bez baseline

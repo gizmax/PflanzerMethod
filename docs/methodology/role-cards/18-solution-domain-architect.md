@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Hlídáš hranice domén a dopady napříč týmy, když scope přesahuje jeden tým.
 
+**Krok cesty:** Vývoj (architektura) · **Kde jsi:** okno — Async okno nad PR diffem
+
 Status v catalogu: **volitelná (trigger)** · Kdy se zve: Multi-team scope (≥ 3 týmy) nebo komplexní doména (vyžaduje Event Storming) nebo regulovaný SDLC?
 
-## Přines do Session 1
+## Přines do svého okna
 - Bounded contexts a domain model
 - Integration map napříč týmy
 - ADR archiv
@@ -16,15 +18,15 @@ Status v catalogu: **volitelná (trigger)** · Kdy se zve: Multi-team scope (≥
 - Domain delta a dependency map per bounded context
 - ADR drafty
 
-## Kdy jsi v místnosti
+## Kdy jsi u toho
 - Quick (60–90 min) — **nepřítomna**: multi-team scope se v Quick nedělá
-- Lean (3 h) — **async**: review breaking changes v mezi-session okně
-- Full (5–6 h) — **celá session**: při > 3 týmech federovaný model
+- Lean (3 h) — **async**: review breaking changes v Async okně
+- Full (5–6 h) — **celý běh**: při > 3 týmech federovaný model
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; risk za tebe = dopad na ostatní bounded contexts.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **risk**, **strategic_fit**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **risk**, **strategic_fit**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Varianta sahá do bounded contextu jiného týmu bez jeho vědomí

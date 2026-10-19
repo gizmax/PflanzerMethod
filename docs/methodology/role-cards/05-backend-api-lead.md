@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Držíš data a API — bez tebe varianty stojí na mockovaném backendu, který v produkci neexistuje.
 
+**Krok cesty:** Vývoj (backend) · **Kde jsi:** jádro — Build (backendová část) a Ship
+
 Status v catalogu: **doporučená** · Kdy se zve: Mění se data nebo API?
 
-## Přines do Session 1
+## Přines do svého okna
 - Backend Context Pack: OpenAPI stávajícího API, ERD, NFR baseline
 - Event taxonomy a RFC 7807 konvence chyb
 - ADR archiv za posledních 12 měsíců
@@ -16,15 +18,15 @@ Status v catalogu: **doporučená** · Kdy se zve: Mění se data nebo API?
 - OpenAPI 3.1 final + procházející contract test (Pact / Schemathesis)
 - Migration plan a 3–5 ADR commitů
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **celá session**: pokud projekt má backend (dev pár u klávesnice)
-- Lean (3 h) — **celá session**: builder backendové části
-- Full (5–6 h) — **celá session**: vedeš BE feasibility (breaking-change check)
+## Kdy jsi u toho
+- Quick (60–90 min) — **celý běh**: pokud projekt má backend (dev pár u klávesnice)
+- Lean (3 h) — **celý běh**: builder backendové části; po Go připravuješ Ship
+- Full (5–6 h) — **celý běh**: vedeš BE feasibility (breaking-change check)
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; u effort a risk rozhoduje tvůj feasibility check.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Breaking change v API bez informovaného consumer ownera

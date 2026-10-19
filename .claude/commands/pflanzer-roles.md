@@ -21,7 +21,7 @@ Kickoff (`/pm start`) (status musí být `charter`).
 
 ## Co tento command dělá
 
-Aplikuje decision tree z `docs/methodology/02-role-catalog.md` § Decision tree
+Aplikuje decision tree z `docs/methodology/02-role-catalog.md` § Výběr zástupců — rychlý strom
 (15 kroků) a vybere podmnožinu rolí pro daný projekt. Persistne `roles` rows
 v DB a generuje `data/charters/<slug>-roles.md` summary.
 

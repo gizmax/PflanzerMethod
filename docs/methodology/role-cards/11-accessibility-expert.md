@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Hlídáš WCAG 2.2 AA — Critical / Serious nález blokuje finální rozhodnutí jako Security veto.
 
+**Krok cesty:** Design (přístupnost) · **Kde jsi:** okno — Async a Ship (quickscan nad preview)
+
 Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing nebo B2B nad 250 zaměstnanců?
 
-## Přines do Session 1
+## Přines do svého okna
 - WCAG 2.2 AA filtr na komponenty
 - Persona disability set (low vision, motor, cognitive)
 - Tooling: axe DevTools / Pa11y CI / Lighthouse
@@ -16,15 +18,15 @@ Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing 
 - Blocker na „final“ při WCAG Critical / Serious
 - Pre-launch human review (screen reader, focus, cognitive load)
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: AI udělá axe-core scan, tvůj review v mezi-session okně
-- Lean (3 h) — **async**: AI proxy draft + tvůj sign-off do 24–48 h
-- Full (5–6 h) — **celá session**: před votingem vedeš A11y quickscan
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: AI udělá axe-core scan, tvůj review v Async okně
+- Lean (3 h) — **async**: AI proxy draft + tvůj sign-off v Async okně (24–48 h)
+- Full (5–6 h) — **celý běh**: před votingem vedeš A11y quickscan
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; WCAG Critical / Serious řešíš blockerem, ne nízkým skóre.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**, **risk**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**, **risk**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Varianta nejde ovládat klávesnicí nebo ztrácí focus

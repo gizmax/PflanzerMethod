@@ -14,7 +14,9 @@ checkpoint provozu (ADR-0021). Tento modul:
    (ne z větve varianty), jinak z autodetekce stacku.
 4. Hard gates: odložený/nepodepsaný triage blokuje `production_ready` pro pilot/production
    (override jen `--override-triage --rationale "…"` do decision logu) a verdikt vyžaduje
-   aspoň 4 reálně spuštěné brány včetně build a tests.
+   aspoň 4 reálně spuštěné brány včetně build a tests. Skóre pod prahem smí Decider
+   přebít jen `--override-threshold --rationale "…"` (draft PR, sekce „Výjimka z prahu");
+   triage ani minimum bran tím obejít nejde.
 5. Zapíše report `<DATA_ROOT>/production_reports/<slug>-readiness.md` a (je-li cwd
    target repo s `.pflanzer/`) sekci Ship do decision logu.
 
@@ -22,6 +24,7 @@ Rozhraní:
     pflanzer session_3 --slug S [--variants A[,B]] [--checkpoint "Provoz: ok (Karel, on-call)"]...
                        [--repo-urls JSON] [--method-overrides JSON]
                        [--override-triage --rationale "…"]
+                       [--override-threshold --rationale "…"]   # Ship i pod prahem, na odpovědnost Decidera
 """
 from __future__ import annotations
 
@@ -56,7 +59,11 @@ from tool.cli.quality_gates import (  # noqa: E402
 from tool.cli.quality_gates import gates_sufficiency as _gates_sufficiency  # noqa: E402
 from tool.cli.quality_gates import run_all as run_gates  # noqa: E402
 from tool.cli.session_2 import get_shortlist, get_winner, write_repo_decision_log  # noqa: E402
-from tool.cli.triage import record_triage_override, ship_triage_gate  # noqa: E402
+from tool.cli.triage import (  # noqa: E402
+    record_threshold_override,
+    record_triage_override,
+    ship_triage_gate,
+)
 
 REPORTS_DIR = DATA_ROOT / "production_reports"
 BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
@@ -111,6 +118,7 @@ def hardening_run(
     extract_method_overrides: dict[str, str] | None = None,
     checkpoints: list[str] | None = None,
     override_triage: bool = False, override_rationale: str | None = None,
+    override_threshold: bool = False,
 ) -> dict[str, Any]:
     """Pusť Ship pro vítěze (nebo explicitně zadané varianty)."""
     variant_repo_urls = variant_repo_urls or {}
@@ -121,9 +129,14 @@ def hardening_run(
             "--override-triage vyžaduje --rationale \"…\" (zapisuje se do decision logu)."
         )
 
+    if override_threshold and not (override_rationale or "").strip():
+        raise ValueError(
+            "--override-threshold vyžaduje --rationale \"…\" (zapisuje se do decision logu)."
+        )
+
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT id, status, production_readiness_target, name, target_branch "
+            "SELECT id, status, production_readiness_target, name, target_branch, decider_name "
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
@@ -131,6 +144,7 @@ def hardening_run(
         project_id, status, name = int(proj[0]), proj[1], proj[3]
         target = int(proj[2]) if proj[2] is not None else 80
         target_branch = proj[4] or "main"
+        decider_name = proj[5]
         if status != "handoff":
             raise ValueError(
                 f"Project status='{status}'. Ship vyžaduje Go v Rozhodnutí "
@@ -212,10 +226,33 @@ def hardening_run(
         blocked_by.append(suff["blocker"])
     gate_ready = w_score >= target
     meets = gate_ready and not blocked_by
-    production_ready = meets and target > 0
+    threshold_override: dict[str, Any] | None = None
+    if override_threshold:
+        if target <= 0 or gate_ready:
+            raise ValueError(
+                f"--override-threshold se použije jen pod prahem projektu (skóre {w_score}/100, "
+                f"práh {target}); tady není co přebíjet."
+            )
+        if blocked_by:
+            print(f"[ship gate] --override-threshold nelze použít, dokud blokuje "
+                  f"{', '.join(blocked_by)} (triage má vlastní override, minimum bran ne).",
+                  file=sys.stderr)
+        else:
+            with transaction() as conn:
+                dec_id = record_threshold_override(
+                    conn, project_id=project_id, slug=slug, decider=decider_name,
+                    score=w_score, target=target, rationale=override_rationale or "")
+            threshold_override = {
+                "decision_id": dec_id, "score": w_score, "target": target,
+                "decider": (decider_name or "").strip() or "Decider",
+                "rationale": (override_rationale or "").strip(),
+            }
+    production_ready = (meets or threshold_override is not None) and target > 0
     verdict = verdict_label(w_score, target, low_conf)
     if triage_gate["blocked_by"]:
         verdict = f"blokováno triage - {verdict}"
+    if threshold_override:
+        verdict = (f"pod prahem — Ship na odpovědnost Decidera ({threshold_override['decider']})")
 
     with transaction() as conn:
         # run_gates přepisuje gate_score_latest po každé variantě; finální = vítěz
@@ -232,6 +269,7 @@ def hardening_run(
                 "winner": winner["variant"], "winner_score": w_score,
                 "target": target, "meets_threshold": meets,
                 "gate_ready": gate_ready, "production_ready": production_ready,
+                "threshold_override": threshold_override,
                 "risk_profile": risk_profile, "blocked_by": blocked_by,
                 "triage_override_decision_id": (
                     triage_gate["override"]["decision_id"] if triage_gate["override"] else None
@@ -246,11 +284,13 @@ def hardening_run(
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORTS_DIR / f"{slug}-readiness.md"
     report_md = _render_report(slug, name, target, per_variant, winner, meets,
-                               source, errors, checkpoints, triage_gate, blocked_by)
+                               source, errors, checkpoints, triage_gate, blocked_by,
+                               threshold_override)
     report_path.write_text(report_md, encoding="utf-8")
 
     repo_log = write_repo_decision_log(
-        slug, _render_log_section(winner, target, verdict, checkpoints, blocked_by),
+        slug, _render_log_section(winner, target, verdict, checkpoints, blocked_by,
+                            threshold_override),
         label="Ship")
 
     out: dict[str, Any] = {
@@ -260,6 +300,7 @@ def hardening_run(
         "production_readiness_target": target,
         "production_ready": production_ready,
         "blocked_by": blocked_by,
+        "threshold_override": threshold_override,
         "triage": {
             "gated": triage_gate["gated"],
             "tracks": {t["track"]: t["display"] for t in triage_gate["tracks"]},
@@ -276,12 +317,14 @@ def hardening_run(
             "meets_threshold": meets,
             "gate_ready": gate_ready,
             "production_ready": production_ready,
+            "threshold_override": threshold_override is not None,
             "blocked_by": blocked_by,
             "stack": winner["gates"].get("stack"),
             "applicable_gates": winner["gates"].get("applicable_gates"),
             "total_gates": winner["gates"].get("total_gates"),
             "local_path": winner["extraction"]["local_path"],
-            "next_step": _next_step(winner, meets, target, slug, blocked_by),
+            "next_step": _next_step(winner, meets, target, slug, blocked_by,
+                                    threshold_override),
         },
         "per_variant": [
             {
@@ -354,8 +397,13 @@ def _failing(winner: dict[str, Any]) -> tuple[list[str], list[str]]:
 
 
 def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
-               blocked_by: list[str] | None = None) -> str:
+               blocked_by: list[str] | None = None,
+               threshold_override: dict[str, Any] | None = None) -> str:
     score = winner["gates"]["gate_score"]
+    if threshold_override and not blocked_by:
+        return (f"Skóre {score}/100 je pod prahem {target}, Ship běží na odpovědnost Decidera "
+                f"({threshold_override['decider']}). Checkpoint provozu (20 min), pak draft PR: "
+                f"`pflanzer handoff_pr --slug {slug}` a `/pm handoff {slug}`.")
     if blocked_by and target > 0:
         parts: list[str] = []
         triage_b = [b for b in blocked_by if b.startswith("triage:")]
@@ -380,11 +428,13 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
     return (f"Skóre {score}/100 je pod prahem {target}. Dopravit: "
             f"{', '.join(fails) or 'viz report'}"
             + (f" (varování: {', '.join(warns)})" if warns else "")
-            + f". Pak znovu `/pm ship {slug}`, nebo pilot s malou skupinou na Decidera.")
+            + f". Pak znovu `/pm ship {slug}`, nebo Ship i přesto na odpovědnost Decidera: "
+            f"`pflanzer session_3 --slug {slug} --override-threshold --rationale \"…\"`.")
 
 
 def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
-                        checkpoints: list[str], blocked_by: list[str] | None = None) -> str:
+                        checkpoints: list[str], blocked_by: list[str] | None = None,
+                        threshold_override: dict[str, Any] | None = None) -> str:
     ext = winner["extraction"]
     lines = [
         "## Ship — quality gates",
@@ -395,6 +445,12 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
         f"- **Brány**: {winner['gates'].get('applicable_gates')} z {winner['gates'].get('total_gates')} "
         f"aplikovatelných, stack `{winner['gates'].get('stack')}`",
     ]
+    if threshold_override:
+        lines += ["", "### Výjimka z prahu", "",
+                  f"- Verdikt: pod prahem — Ship na odpovědnost Decidera "
+                  f"({threshold_override['decider']})",
+                  f"- Skóre {threshold_override['score']}/100, práh {threshold_override['target']}",
+                  f"- Důvod: {threshold_override['rationale']}"]
     if blocked_by and target > 0:
         lines += ["", "### Blokace", ""] + [f"- `{b}`" for b in blocked_by]
     if checkpoints:
@@ -407,6 +463,7 @@ def _render_report(
     per_variant: list[dict[str, Any]], winner: dict[str, Any],
     meets: bool, source: str, errors: list[dict[str, str]], checkpoints: list[str],
     triage_gate: dict[str, Any], blocked_by: list[str],
+    threshold_override: dict[str, Any] | None = None,
 ) -> str:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     w = winner
@@ -432,7 +489,21 @@ def _render_report(
         for g in w["gates"]["results"]
     )
     fails, warns = _failing(w)
-    if meets and target > 0:
+    if threshold_override and not blocked_by:
+        verdict_block = (
+            f"## Verdikt: pod prahem — Ship na odpovědnost Decidera ({threshold_override['decider']})\n\n"
+            f"Vítěz **{w['variant']}** má **{w_score}/100**, práh je {target}. "
+            f"Blokující: {', '.join(fails) or '—'}; varování: {', '.join(warns) or '—'}.\n\n"
+            f"### Výjimka z prahu\n\n"
+            f"- Rozhodnutí #{threshold_override['decision_id']}, Decider: "
+            f"{threshold_override['decider']}\n"
+            f"- Důvod: {threshold_override['rationale']}\n\n"
+            f"### Další krok\n"
+            f"1. Checkpoint provozu (20 min): deploy plán, monitoring, on-call, rollback.\n"
+            f"2. **Draft** PR vítěze do `{slug}` target repa: `pflanzer handoff_pr --slug {slug}`.\n"
+            f"3. `/pm handoff {slug}` — balíček per role a metriky pilotu.\n"
+        )
+    elif meets and target > 0:
         verdict_block = (
             f"## Verdikt: splňuje práh\n\n"
             f"Vítěz **{w['variant']}** má **{w_score}/100** (práh {target}). Kód je ve větvi "
@@ -462,7 +533,8 @@ def _render_report(
             f"Vítěz **{w['variant']}** má **{w_score}/100**, práh je {target}. "
             f"Blokující: {', '.join(fails) or '—'}; varování: {', '.join(warns) or '—'}.\n\n"
             f"Možnosti: (a) dopravit a znovu `/pm ship {slug}`, (b) pilot s malou skupinou "
-            f"a paralelní oprava, (c) Ship i přesto jen s override Decidera a důvodem v decision logu.\n"
+            f"a paralelní oprava, (c) Ship i přesto na odpovědnost Decidera: "
+            f"`pflanzer session_3 --slug {slug} --override-threshold --rationale \"…\"`.\n"
         )
     err_block = ""
     if errors:
@@ -533,13 +605,20 @@ def main() -> None:
     p.add_argument("--override-triage", action="store_true",
                    help="Override Decidera: triage tvrdá brána (vyžaduje --rationale)")
     p.add_argument("--rationale", default=None,
-                   help="Zdůvodnění override do decision logu (povinné s --override-triage)")
+                   help="Zdůvodnění override do decision logu (povinné s --override-triage "
+                        "a --override-threshold)")
+    p.add_argument("--override-threshold", action="store_true",
+                   help="Ship i pod prahem na odpovědnost Decidera (jen když skóre < práh; "
+                        "vyžaduje --rationale; PR bude draft)")
     p.add_argument("--repo-urls", default=None, help="JSON dict variant→GitHub URL")
     p.add_argument("--method-overrides", default=None, help="JSON dict variant→metoda")
     args = p.parse_args()
 
     if args.override_triage and not (args.rationale or "").strip():
         p.error("--override-triage vyžaduje --rationale \"…\"")
+
+    if args.override_threshold and not (args.rationale or "").strip():
+        p.error("--override-threshold vyžaduje --rationale \"…\"")
 
     variants = [v.strip().upper() for v in args.variants.split(",") if v.strip()] if args.variants else None
     try:
@@ -549,6 +628,7 @@ def main() -> None:
             extract_method_overrides=json.loads(args.method_overrides) if args.method_overrides else None,
             checkpoints=args.checkpoint,
             override_triage=args.override_triage, override_rationale=args.rationale,
+            override_threshold=args.override_threshold,
         )
     except (ExtractionError, ValueError) as e:
         print(f"{BRAND_LINE}\n\n" + json.dumps({"error": str(e)}, ensure_ascii=False, indent=2),

@@ -28,7 +28,7 @@ Pokud user nemá GitHub URL (ještě nepushl), můžeme:
 Po extractu: zaregistrovat row do `extracted_code` a vrátit local_path
 + files_count + total_loc pro `quality_gates.py`.
 
-Ship gate (audit N3) — method selection order:
+Ship (audit N3) — method selection order:
 1. explicit `method_override`,
 2. `worktree` — the variant's worktree from `worktree.py setup` exists
    (`~/.pflanzer/targets/<slug>-<variant>/`, branch `pflanzer/<slug>-<variant>`);
@@ -440,7 +440,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 """,
     "tests/acceptance/example.feature": """# Acceptance kritéria pro {slug} variant {variant}.
-# Tento soubor zapisuje Decider v Charter wizardu PŘED session 1.
+# Tento soubor zapisuje Decider při Kickoffu PŘED Buildem.
 # AI variants implementují TENTO spec, ne vlastní výmysl.
 # Per autoresearch synthesis T2 + ADR-0010 (acceptance gate).
 
@@ -559,7 +559,7 @@ npm test         # Vitest suite passes
 ## Deploy
 
 - Sandbox only (per Pflanzer Charter throwaway/evolve directive).
-- Production: pouze po /pflanzer-session-3 + handoff package.
+- Production: pouze po `/pm ship` + handoff package.
 """,
 }
 
@@ -644,7 +644,7 @@ def _count_files(root: Path) -> tuple[int, int]:
 
 
 # --------------------------------------------------------------------------
-# Worktree discovery + method selection (Ship gate, audit N3)
+# Worktree discovery + method selection (Ship, audit N3)
 # --------------------------------------------------------------------------
 
 
@@ -686,7 +686,7 @@ def plan_extraction(
 
     Order: explicit override > existing worktree > hosted repo URL >
     skeleton (throwaway only). Raises ExtractionError when nothing usable
-    exists, so the Ship gate can fail loud before running any gate.
+    exists, so Ship can fail loud before running any gate.
 
     Returns (method, worktree_path_or_None).
     """
@@ -754,7 +754,7 @@ def base_gates_adapter(worktree: Path, target_branch: str) -> dict[str, Any]:
     """Load the gate adapter (`pflanzer.gates.yml|yaml|json`) from the BASE branch.
 
     Integrity guard: the adapter lives in the same repo as the scored variant,
-    so an agent in the worktree could "simplify" it. The Ship gate therefore
+    so an agent in the worktree could "simplify" it. Ship therefore
     uses the base-branch version (`origin/<target_branch>`, fallback
     `<target_branch>`), written to a temp file, and only warns about the
     worktree copy. The caller removes `tmp_dir` when done.
@@ -838,7 +838,7 @@ def _load_variant(slug: str, variant_name: str) -> dict[str, Any]:
             (project_id, variant_name),
         ).fetchone()
         if not variant:
-            raise ValueError(f"Variant '{variant_name}' not found in Session 1 for {slug}.")
+            raise ValueError(f"Variant '{variant_name}' not found in Build for {slug}.")
     return {
         "project_id": project_id,
         "target_repo_url": proj[2],
