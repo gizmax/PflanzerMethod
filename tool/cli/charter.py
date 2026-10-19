@@ -539,7 +539,7 @@ def main() -> None:
         pid = persist_charter(inp, md)
     except TypeError as exc:
         die(f"Spec nesedí na Charter: {exc}. Doporučená cesta je `pflanzer quick_session "
-            "bootstrap --spec -` (viz /pm start).")
+            "bootstrap --spec soubor.json` (viz /pm start).")
         return
     except ValueError as exc:
         die(str(exc))

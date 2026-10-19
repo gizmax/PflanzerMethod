@@ -94,6 +94,24 @@ voting schema, auto-recommend signal capture v wizardu.
 
 Sprint 6 (later): hybrid mode + T+24h shared-understanding quiz.
 
+## Průchozí implementace (pilot Šlapka, 2026-10-19)
+
+Mob už není slepá ulička, celá cesta Kickoff → Ship drží jeden režim:
+
+- Kickoff spec přijme `session_mode` (`parallel` | `mob`), uloží ho do
+  `projects.session_mode`. Bootstrap ukáže výstup `recommend_mode()` jako
+  doporučení; nic nevynucuje (rozhoduje člověk).
+- `worktree setup`, `quick_session prompts` a `/pm build` bez `--mode` berou
+  uložený režim projektu.
+- Jedna společná varianta se jmenuje `mob` všude: worktree `<slug>-mob`, větev
+  `pflanzer/<slug>-mob`, trailer `Pflanzer-Variant: <slug>-mob`, hlas ve `vote`
+  (`"name": "mob"`). Iterace uvnitř mobu jsou kroky v jednom promptu, ne varianty.
+- `decide go --winner mob` projde: vítěz se ověřuje proti skutečným variantám
+  projektu z DB, ne natvrdo proti A/B/C. `prep` u mobu řekne, že se nic
+  neporovnává; Go bez porovnání je legitimní.
+- Ship, handoff a status texty říkají skutečný počet variant („jedna společná
+  varianta“), ne „tři“.
+
 ## Související
 
 - Autoresearch synthesis: `docs/research/mob-mode/synthesis.md`

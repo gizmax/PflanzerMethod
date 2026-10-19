@@ -56,7 +56,7 @@ splní metodu bez změny API; nechceme zatím B-ův report; riziko ceny hlídá
 Petra přes týdenní dashboard.“
 
 ```bash
-pflanzer session_2 decide --slug <slug> go --winner A --rationale "<1–2 věty>"
+pflanzer session_2 decide --slug <slug> go --winner A --rationale "<1–2 věty>"   # u mob mode: --winner mob
 pflanzer session_2 decide --slug <slug> go --winner A --rationale "…" --override-critical "<důvod>"
 pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "<co změnit>"   # max 1×
 pflanzer session_2 decide --slug <slug> kill --rationale "…"
@@ -66,6 +66,9 @@ pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note 
 pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
 ```
 
+- **Mob mode** (jedna společná varianta `mob`): není co porovnávat, `prep` to řekne
+  lidsky; Decider rozhoduje jen Go (`--winner mob`) / Iterate / Kill. `--winner`
+  bere skutečné varianty projektu z Buildu, ne natvrdo A/B/C.
 - **Iterate** = jedno další Build kolo (max 1×). Druhý Iterate tool
   odmítne — problém je špatně zadaný, zpět na Kickoff.
 - Decider nemůže rozhodnout → eskalace dle ADR-0001.

@@ -96,6 +96,48 @@ def _read(p: Path) -> str:
         return ""
 
 
+def workspace_packages(wt: Path) -> list[Path]:
+    """Adresáře workspace balíčků (npm/yarn `workspaces`: pole nebo `{packages: […]}`).
+
+    Podporuje globy (`apps/*`, `packages/**` se bere jako `packages/*`); bere jen adresáře
+    s `package.json`, negace (`!x`) vynechá. Bez workspaces = []."""
+    try:
+        data = json.loads((Path(wt) / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    ws = data.get("workspaces") if isinstance(data, dict) else None
+    if isinstance(ws, dict):
+        ws = ws.get("packages")
+    if not isinstance(ws, list):
+        return []
+    def norm(x: str) -> str:
+        return x.strip().rstrip("/").replace("/**", "/*")
+
+    excluded = {d for pat in ws if isinstance(pat, str) and pat.startswith("!")
+                for d in Path(wt).glob(norm(pat[1:])) if not norm(pat[1:]).startswith(("/", ".."))}
+    out: list[Path] = []
+    for pat in ws:
+        if not isinstance(pat, str) or pat.startswith("!"):
+            continue
+        pat = norm(pat)
+        if not pat or pat.startswith(("/", "..")):
+            continue
+        for d in sorted(Path(wt).glob(pat)):
+            if d in excluded:
+                continue
+            if d.is_dir() and (d / "package.json").is_file() and "node_modules" not in d.parts \
+                    and d not in out:
+                out.append(d)
+    return out
+
+
+def api_port_for(port: int, idx: int = 1) -> int:
+    """Port API části (placeholder `{api_port}`): port + 1000 + idx — stejné schéma jako
+    sekundární repa multi-repo preview, takže varianty (porty po 10) nikdy nesdílí API port."""
+    p = port + 1000 + idx
+    return p if p <= 65535 else max(1024, port - 1000 - idx)
+
+
 def _detect_node(wt: Path, port: int) -> RunSpec | None:
     pkg = wt / "package.json"
     if not pkg.is_file():
@@ -110,8 +152,10 @@ def _detect_node(wt: Path, port: int) -> RunSpec | None:
         argv = list(argv)
         if re.search(r"\bvite\b", str(scripts[name])):
             argv += ["--", "--port", str(port), "--strictPort", "--host", APP_HOST]
-        return RunSpec(" ".join(argv), argv, {"PORT": str(port), "HOST": APP_HOST}, wt,
-                       f"package.json ({name})")
+        env = {"PORT": str(port), "HOST": APP_HOST}
+        if workspace_packages(wt):  # monorepo: dev skript (concurrently / -w) dostane i API port
+            env["API_PORT"] = env["PFLANZER_API_PORT"] = str(api_port_for(port))
+        return RunSpec(" ".join(argv), argv, env, wt, f"package.json ({name})")
     return None
 
 
@@ -141,13 +185,17 @@ def _detect_python(wt: Path, port: int) -> RunSpec | None:
 
 
 def detect_run(wt: Path, port: int, role: str | None = None,
-               config_wt: Path | None = None) -> RunSpec | None:
+               config_wt: Path | None = None, api_port: int | None = None) -> RunSpec | None:
     """Příkaz ke spuštění aplikace ve worktree na daném portu; None = nenašel se.
 
     `role` (multi-repo, sekundární repo): hledá se `[preview.<role>] command` v project.toml
     primárního repa (`config_wt`) a pak v samotném repu (`[preview.<role>]`, `[preview]`);
-    jinak autodetekce podle obsahu repa (Node / Python)."""
+    jinak autodetekce podle obsahu repa (Node / Python).
+
+    V `command` se `{port}` nahradí portem aplikace a `{api_port}` portem API části monorepa
+    (`api_port`, jinak port+1001); oba jdou i do env (`PORT`, `API_PORT`)."""
     wt = Path(wt)
+    aport = api_port or api_port_for(port)
     cands: list[tuple[dict[str, Any], str]] = []
     if role:
         if config_wt is not None:
@@ -158,8 +206,11 @@ def detect_run(wt: Path, port: int, role: str | None = None,
     for cfg, src in cands:
         cmd = cfg.get("command")
         if isinstance(cmd, str) and cmd.strip():
-            full = cmd.replace("{port}", str(port))
-            return RunSpec(full, full, {"PORT": str(port)}, wt, src)
+            full = cmd.replace("{port}", str(port)).replace("{api_port}", str(aport))
+            env = {"PORT": str(port)}
+            if "{api_port}" in cmd:
+                env["API_PORT"] = env["PFLANZER_API_PORT"] = str(aport)
+            return RunSpec(full, full, env, wt, src)
     return _detect_node(wt, port) or _detect_python(wt, port)
 
 

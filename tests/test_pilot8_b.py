@@ -205,7 +205,7 @@ def test_a11y_reasons_merge_same_message_across_pages() -> None:
                "závažné · /: chybí <html lang>\nzávažné · /a: chybí <html lang>\n"
                "doporučení · /b: chybí meta viewport\n… a 4 dalších")
     assert quality_gates.a11y_reasons(details) == [
-        "chybí <html lang> (2 stránky)", "chybí meta viewport"]
+        "chybí <html lang> (2 stránky)", "/b: chybí meta viewport"]
 
 
 def test_pr_failure_lines_use_a11y_reasons() -> None:

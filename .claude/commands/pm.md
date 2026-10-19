@@ -30,9 +30,12 @@ Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
   `pflanzer … --spec .pflanzer/specs/<slug>-<krok>.json`. Specy se
   necommitují (`.pflanzer/specs/` je v `.gitignore` z `init`). Heredoc
   `--spec - <<'EOF'` je jen záložní varianta — v omezených oprávněních ho
-  blokuje bezpečnostní heuristika Bashe.
+  blokuje bezpečnostní heuristika Bashe, proto nikdy nedoporučuj heredoc, vždy
+  `--spec soubor.json` (Write).
+- Režim stavby (`parallel` | `mob`) je uložený v projektu z Kickoffu: `worktree
+  setup`, `quick_session prompts` i `/pm build` ho berou odtud, `--mode` nepiš.
 - Žargon při **prvním** použití v odpovědi vysvětli jednou větou, pak už ne:
-  Async (3–5 dní, kdy zástupci sami proklikají preview a napíšou feedback) ·
+  Async (3–5 dní, po Iterate 1–2 dny, kdy zástupci sami proklikají preview a napíšou feedback) ·
   Decider (člověk s mandátem říct Go i Kill) · checkpoint (20min okno
   s podpisem) · stupeň Lean (výchozí průběh: Build 3 h, Async 3–5 dní) ·
   worktree (oddělená kopie repa) · quality gate (automatická kontrola).
@@ -68,7 +71,7 @@ v toolu `pflanzer`; `pflanzer-*` commandy jsou interní implementace kroků.
 | `start` | `pflanzer-charter` | **Kickoff** 15 min — zadání + jména 6 kroků |
 | `build` | `pflanzer-session-1` | **Build** 3 h (Lean) — 3 varianty paralelně |
 | `live` | `pflanzer` | Kickoff + Build v jednom (**Quick**, 60–90 min; malý interní tool) |
-| `feedback` | `pflanzer-feedback-pull` | **Async** 3–5 dní — feedback zástupců |
+| `feedback` | `pflanzer-feedback-pull` | **Async** 3–5 dní (po Iterate 1–2 dny) — feedback zástupců |
 | `decide` | `pflanzer-session-2` | **Rozhodnutí** 60–90 min — Go / Iterate / Kill |
 | `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu, SHIP.md |
 | `handoff` | `pflanzer-handoff` | balíček per role + metriky pilotu |

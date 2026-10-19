@@ -58,7 +58,7 @@ gantt
    Zabookuj okna. *Chybí jméno → nesvolávat.* Kde člověk chybí, může krok
    v omezené míře zastoupit AI (design, předkontrola bezpečnosti a provozu);
    podepisuje vždy člověk — tabulka v [`zacni.md`](zacni.md#co-když-nemáme).
-2. **Build (3 h)** — jádro u jedné obrazovky (online: vývojář sdílí jednu obrazovku, ne 3 breakout místnosti). AI staví 3 varianty paralelně.
+2. **Build (3 h)** — jádro u jedné obrazovky (online: vývojář sdílí jednu obrazovku, ne 3 breakout místnosti). AI staví 3 varianty paralelně (výchozí; volitelně `mob` = jedna společná varianta u jednoho monitoru, ADR-0016; režim se volí v Kickoffu a drží celou cestu). Po Iterate jdou do druhého kola jen varianty, které pokračují, a Async je kratší (1–2 dny).
    Kontroly (lint, testy, build) běží průběžně. Checkpoint 20 min
    s bezpečností & právem potvrdí tři věci: jaká data AI vidí, kam smí
    síť a kolik smí AI stát (plus riziko podstrčené instrukce v cizím textu).

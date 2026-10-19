@@ -51,7 +51,12 @@ deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
    Quick = `/pm live`; Full = regulované, okno 5–7 dní — tabulka v
    `docs/methodology/00-lean-pflanzer.md` § Tři stupně) · zabookovaná okna
    (Build 3 h, checkpoint B&P 20 min, Rozhodnutí 60–90 min, checkpoint
-   provozu 20 min).
+   provozu 20 min). Okna (kdy je Build, checkpointy, Rozhodnutí) jdou do specu
+   jako `windows` — tool je uloží a ukáže ve `status`; nezapisuj je jen do
+   odpovědi. **Režim stavby:** `session_mode` `parallel` (výchozí, 3 varianty
+   A/B/C) nebo `mob` (jedna společná varianta u jednoho monitoru, max 5 lidí,
+   ADR-0016). Zeptej se jednou větou, jen když to Decider nebo jádro zmínilo;
+   tool po zápisu ukáže doporučení režimu (jen doporučení, nevynucuje).
 
 **AI náhrada (ADR-0023) — nabízej jen podle tabulky:**
 
@@ -132,7 +137,9 @@ v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe):
   "kill_criteria": "<kdy zabalit>",
   "path_owners": {"byznys": "Honza", "produkt": "Petra", "design": "AI:ux-expert", "vyvoj": "Jan", "bezpecnost": "AI:security-expert", "provoz": "Jan"},
   "ai_signers": {"bezpecnost": "Pavel Šnek", "design": "Petra"},
-  "core": ["Petra", "Jan", "Eva"]
+  "core": ["Petra", "Jan", "Eva"],
+  "session_mode": "parallel",
+  "windows": {"Build": "st 21.10. 9:00-12:00", "Rozhodnutí": "pá 30.10. 10:00"}
 }
 ```
 

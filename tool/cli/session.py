@@ -30,7 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli._compat import ProjectNotFound, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, git_info, locate_worktree, table_has_col  # noqa: E402
-from tool.cli.ux import CzechArgumentParser, die, emit, read_spec  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, async_days, die, emit, read_spec  # noqa: E402
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
@@ -187,7 +187,7 @@ def _validate_spec(spec: dict[str, Any]) -> None:
     seen_names: set[str] = set()
     for i, v in enumerate(variants, 1):
         label = f"Varianta {v.get('name') or '#' + str(i)}"
-        for k, why in (("name", "písmeno A, B nebo C"),
+        for k, why in (("name", "písmeno A, B nebo C; u mob mode `mob`"),
                        ("builder", "čím se stavěla, např. claude-code")):
             if not v.get(k):
                 raise ValueError(f"{label}: chybí `{k}` ({why}).")
@@ -501,7 +501,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             + (" URL variant (" + ", ".join(f"{v['name']} {v['prototype_url']}"
                                           for v in persisted_variants if v["prototype_url"]) + ")"
                if any(v["prototype_url"] for v in persisted_variants) else "")
-            + f" zástupcům kroků cesty (3–5 dní). Feedback sbírej přes `/pm feedback {slug}`, "
+            + f" zástupcům kroků cesty ({async_days(slug)}). Feedback sbírej přes `/pm feedback {slug}`, "
             f"pak `/pm decide {slug}`."
         ),
     }
@@ -591,7 +591,7 @@ def render_summary_md(
 
 ## Další krok
 
-1. Sdílej preview URL variant zástupcům kroků cesty (Async, 3–5 dní).
+1. Sdílej preview URL variant zástupcům kroků cesty (Async, {async_days(slug)}).
 2. `/pm feedback {slug}` — stáhne a agreguje feedback do DB.
 3. `/pm decide {slug}` — Rozhodnutí (Go / Iterate max 1× / Kill, Decider hlasuje poslední).
 """
@@ -648,7 +648,7 @@ def main() -> None:
         out = run_from_json(args.spec)
     except ValueError as e:
         exit_if_project_missing(e)
-        die(str(e), "pflanzer session --spec spec.json   (nebo: … | pflanzer session --spec -)\n"
+        die(str(e), "pflanzer session --spec spec.json   (JSON zapiš nástrojem Write)\n"
             "Formát specu:\n" + SPEC_EXAMPLE)
     ranked = sorted(out["variants"], key=lambda v: -v["preference_score"])
     lines = ["Hlasování jádra (0–1, vyšší = lepší): "

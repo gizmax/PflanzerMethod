@@ -97,17 +97,49 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
     return status, "/pm"
 
 
-def _variants_in_play(slug: str) -> list[str]:
-    """Po Iterate: varianty posledního Build kola (ostatní skončily). Jinak []."""
+def _last_build(slug: str) -> dict[str, Any]:
+    """Audit posledního zápisu Buildu (`session_1.persist`) projektu; {} když žádný."""
     try:
         with transaction() as conn:
             rows = conn.execute(
                 "SELECT payload_json FROM audit_log WHERE action = 'session_1.persist' "
                 "ORDER BY id DESC").fetchall()
-        data = next((d for d in (json.loads(r[0]) for r in rows if r[0])
+        return next((d for d in (json.loads(r[0]) for r in rows if r[0])
                      if d.get("slug") == slug), {})
     except Exception:  # noqa: BLE001 — advisory only
-        return []
+        return {}
+
+
+def iterate_plan(slug: str) -> dict[str, Any] | None:
+    """Po Rozhodnutí Iterate, před druhým Buildem: které varianty jdou do druhého kola a proč.
+
+    `variants` = shortlist z Buildu (jinak všechny varianty projektu), `focus` = text z Iterate.
+    None, když projekt není ve stavu „Iterate“ (status session_2).
+    """
+    try:
+        with transaction() as conn:
+            p = conn.execute("SELECT id, status FROM projects WHERE slug = ?", (slug,)).fetchone()
+            if not p or p[1] != "session_2":
+                return None
+            names = [r[0] for r in conn.execute(
+                "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
+                "WHERE s.project_id = ? AND s.type = 1 ORDER BY v.name", (p[0],)).fetchall()]
+            row = conn.execute(
+                "SELECT notes_md FROM sessions WHERE project_id = ? AND type = 3 "
+                "ORDER BY id DESC LIMIT 1", (p[0],)).fetchone()
+    except Exception:  # noqa: BLE001 — advisory only
+        return None
+    shortlist = [n for n in _last_build(slug).get("shortlist", []) or [] if n in names]
+    focus = (row[0] or "").strip() if row else ""
+    return {"variants": sorted(dict.fromkeys(shortlist)) or names, "focus": focus or None}
+
+
+def _variants_in_play(slug: str) -> list[str]:
+    """Po Iterate: varianty druhého kola (ostatní skončily). Jinak []."""
+    plan = iterate_plan(slug)
+    if plan is not None:           # Iterate rozhodnuto, druhý Build ještě neběžel
+        return plan["variants"]
+    data = _last_build(slug)
     return [str(v) for v in data.get("variants", [])] if data.get("iterate_round") else []
 
 
@@ -228,6 +260,11 @@ def project_detail(slug: str) -> dict[str, Any]:
     except (ValueError, TypeError):
         ai_signers = {}
     core = json.loads(p["core_json"]) if "core_json" in cols and p["core_json"] else []
+    try:
+        windows = json.loads(p["windows_json"]) if "windows_json" in cols and p["windows_json"] else []
+    except (ValueError, TypeError):
+        windows = []
+    session_mode = (p["session_mode"] if "session_mode" in cols else None) or "parallel"
     tier = p["tier"] if "tier" in cols and p["tier"] else None
 
     decision_row = next((s for s in reversed(sessions) if s["type"] == 2), None)
@@ -378,7 +415,7 @@ def project_detail(slug: str) -> dict[str, Any]:
         "ai_stand_ins": [k for k, _ in PATH_STEPS if is_ai_owner(path_owners.get(k))],
         "ai_signers": {k: ai_signers[k] for k, _ in PATH_STEPS
                        if is_ai_owner(path_owners.get(k)) and ai_signers.get(k)},
-        "core": core,
+        "core": core, "windows": windows, "session_mode": session_mode,
         "variants": list(seen.values()),
         "winner": winner,
         "feedback": {"total": fcount, "critical": critical, "critical_total": critical_total,
@@ -459,10 +496,17 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
              + (f" — AI draft, podepíše {signers[key]}" if signers.get(key) else "")
              for key, label in PATH_STEPS]
     lines.append("Kroky cesty: " + " · ".join(steps))
+    if d.get("windows"):
+        lines.append("Okna: " + " · ".join(
+            f"{w['okno']}" + (f" {w['kdy']}" if w.get("kdy") else "") for w in d["windows"]))
     if d["variants"]:
-        lines.append("Varianty: " + ", ".join(
+        mob = d.get("session_mode") == "mob" or [v["name"] for v in d["variants"]] == ["mob"]
+        lines.append(("Varianta (mob mode, jedna společná): " if mob else "Varianty: ")
+                     + ", ".join(
             f"{v['name']}" + (f" ({v['score']:.2f})" if v["score"] is not None else "")
             for v in d["variants"]))
+    elif d.get("session_mode") == "mob":
+        lines.append("Režim: mob (jedna společná varianta)")
     fb = d["feedback"]
     dec = f" · rozhodnutí: **{d['decision']}**" if d["decision"] else ""
     win = f" · vítěz: **{d['winner']}**" if d.get("winner") else ""

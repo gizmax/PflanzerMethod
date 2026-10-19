@@ -53,8 +53,16 @@ z Kickoffu (co má varianta uživateli slíbit), ze kterého vznikají tři úhl
 
 ```bash
 pflanzer worktree setup --slug <slug>
-pflanzer quick_session prompts --slug <slug> --hook "<hook ze zadání>" --n 3
+pflanzer quick_session prompts --slug <slug> --hook "<hook ze zadání>"
 ```
+
+Obojí bez `--mode` a bez `--n`: použije se **režim uložený v Kickoffu**
+(`session_mode`) — `parallel` = tři varianty A/B/C, `mob` = jedna společná
+varianta `mob` (větev `pflanzer/<slug>-mob`, jeden worktree, 2 iterace). Počet
+variant v hlášení vždy bere z toho, co tool skutečně postavil; nepiš „tři“,
+když je jedna. **Po Iterate** (druhé kolo) vydá `prompts` jen varianty, které
+pokračují, a do každého promptu dá „Cíl tohoto kola: …“ z Rozhodnutí — stejně
+postupuj v `/pm build`: staví se jen to, co `prompts` vypsal.
 
 - Worktrees vznikají v **target repu zákazníka** (ADR-0009), větve
   `pflanzer/<slug>-A|B|C`. Nikdy v repu metody. Víc repozitářů (FE + BE,
@@ -248,7 +256,8 @@ kontrol / checkpoint B&P (a které kroky zastoupila AI) a předej
 **Doporučení** z výstupu. Na konci **jeden** další krok:
 
 > Další krok: `/pm feedback <slug>` — zástupci klikají na preview po dobu
-> okna (Lean 3–5 dní, Quick 3, Full 5–7 pracovních dní; ADR-0017); kdo
+> okna (Lean 3–5 dní, Quick 3, Full 5–7 pracovních dní; ADR-0017; po Iterate
+> jen 1–2 dny, opravuje se jedna konkrétní věc); kdo
 > feedback nevyplnil, zapíše ho offline přes `pflanzer feedback add`.
 
 Skonči **jednou výzvou** (např. „Pošlete zástupcům odkaz na hub — chcete
