@@ -34,6 +34,10 @@ Předpoklad: Kickoff proběhl (`pflanzer status --slug <slug>`). Jinak
 > **Full** = governance / regulované (5–6 h agenda a 4 triage tracky v
 > `docs/methodology/04-session-1.md`, přizvi i `/pm roles` a `/pm triage`).
 
+> **Git identita při paralelním Buildu:** worktrees sdílejí jednu git konfiguraci.
+> Jméno autora (vývojář u klávesnice) nastav jednou v target repu před
+> `worktree setup` — ne zvlášť v každém worktree současně (zámek configu selže).
+
 ## Krok 0 — Výhrady z doctoru
 
 Spusť `pflanzer doctor` a jednou větou pojmenuj otevřené ⚠ **s vlastníkem

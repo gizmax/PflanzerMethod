@@ -1576,7 +1576,7 @@ def render_setup(s: WorktreeSetup) -> str:
     """Compact human view of a setup (no wide tables)."""
     from tool.cli.ux import render
     title, lines, nxt = _setup_view(s)
-    return render(title, lines, nxt, tips_for_project(s.slug, "after_setup"), _setup_warnings(s))
+    return render(title, lines + _setup_warnings(s), nxt, tips_for_project(s.slug, "after_setup"))
 
 
 def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
@@ -1616,8 +1616,10 @@ def _setup_warnings(s: WorktreeSetup) -> list[str]:
     out: list[str] = []
     if s.init_missing:
         miss = "; ".join(f"{m['repo']}: {', '.join(m['missing'])}" for m in s.init_missing)
-        out.append(f"Target repo nemá AI-readiness soubory ({miss}). "
-                   f"Spusť `pflanzer worktree init-pr --slug {s.slug}` — první PR pilotu.")
+        # Volitelné (ne problém pro tento Build): CLAUDE.md sekce, aby AI pravidla
+        # platila i mimo Pflanzer. Proto info řádek, ne ⚠.
+        out.append(f"Volitelně po pilotu: `pflanzer worktree init-pr --slug {s.slug}` přidá do repa "
+                   f"CLAUDE.md sekci ({miss}) — AI se pak drží pravidel i mimo Pflanzer.")
     return out
 
 
@@ -1698,9 +1700,9 @@ def _dispatch(args: argparse.Namespace) -> None:
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode,
                   run_guard=not args.no_guard)
         title, lines, nxt = _setup_view(s)
-        emit(_setup_json(s), title=title, lines=lines, next_step=nxt,
+        emit(_setup_json(s), title=title, lines=lines + _setup_warnings(s), next_step=nxt,
              tips=[] if args.json else tips_for_project(args.slug, "after_setup"),
-             warnings=_setup_warnings(s), as_json=args.json)
+             as_json=args.json)
         if args.strict and any(g["status"] != "OK" for g in s.guard):
             sys.exit(2)
     elif args.cmd == "guard":
