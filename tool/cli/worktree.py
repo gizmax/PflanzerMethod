@@ -117,8 +117,17 @@ _REPO_URL_RE = re.compile(
 
 
 def validate_repo_url(url: str | None) -> bool:
-    """Accept https/ssh/scp-like/file git URLs with at least `<owner>/<repo>`."""
-    return bool(url) and bool(_REPO_URL_RE.match(url.strip()))
+    """Accept https/ssh/scp-like/file git URLs with at least `<owner>/<repo>`.
+
+    An absolute path to an existing local repo (on-prem mirror, `git remote` set to a
+    path) is accepted too — git clones it the same way as `file://`.
+    """
+    if not url:
+        return False
+    url = url.strip()
+    if url.startswith("/") and Path(url).is_dir():
+        return True
+    return bool(_REPO_URL_RE.match(url))
 
 
 def _slugify_repo(url: str) -> str:
