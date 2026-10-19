@@ -953,7 +953,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
     jen varianty druhého kola (`status.iterate_plan`) a do promptů jde „Cíl tohoto kola“.
     V mob modu je jedna společná varianta `mob`; n_variants = počet iterací (default 2).
     """
-    from tool.cli.status import iterate_plan
+    from tool.cli.status import iterate_plan, split_iterate_focus, variant_findings
 
     with transaction() as conn:
         if not conn.execute("SELECT 1 FROM projects WHERE slug = ?", (slug,)).fetchone():
@@ -971,7 +971,29 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
     if n_variants is None:
         n_variants = len(angles) if mode == "parallel" else 2
     n_variants = min(n_variants, len(angles))
-    if focus:
+    revise: dict[str, str] = {}
+    if focus and mode == "parallel" and plan:
+        # Druhé kola: každá varianta dostane jen SVŮJ cíl (nebo společný), nic o cílech ostatních,
+        # a její nálezy; staví se nad existující větví (ne od nuly).
+        common, goals = split_iterate_focus(focus, plan["variants"])
+        for nm, ang, _brief in angles:
+            lines = []
+            if nm in goals:
+                lines.append(f"Cíl tohoto kola pro {nm}: {goals[nm].rstrip('.')}")
+                if common:
+                    lines.append(f"Společný cíl: {common.rstrip('.')}")
+            elif common:
+                lines.append(f"Cíl tohoto kola: {common.rstrip('.')}")
+            else:
+                lines.append(f"Cíl tohoto kola: {focus.rstrip('.')}" if not goals else
+                             f"Cíl tohoto kola pro {nm}: drž se nálezů níže, zadání z Iterate "
+                             "tuto variantu výslovně neuvádí")
+            found = variant_findings(slug, nm)
+            if found:
+                lines.append(f"Nálezy k variantě {nm} (oprav před dalším kolem; critical nejdřív):")
+                lines += [f"- {f}" for f in found]
+            revise[nm] = f"Přístup varianty: {ang}.\n" + "\n".join(lines)
+    elif focus:
         angles = [(nm, ang, f"{brief}.\nCíl tohoto kola: {focus.rstrip('.')}")
                   for nm, ang, brief in angles]
 
@@ -1043,7 +1065,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         else:
             facilitator, head, tail = _render_builder_prompt_parts(
                 hook, brief, constraints, builder, slug=slug, variant=name, repos=repos,
-                has_feature=has_feature, stack=stack)
+                has_feature=has_feature, stack=stack, revise=revise.get(name))
             ai_text = f"{head}\n{tail}" if tail else head
             if tail and mode == "parallel":
                 heads[name] = head
@@ -1525,8 +1547,13 @@ def _render_builder_prompt_parts(
     slug: str | None = None, variant: str | None = None,
     repos: list[TargetRepo] | None = None,
     has_feature: bool = False, stack: StackProfile | None = None,
+    revise: str | None = None,
 ) -> tuple[str, str, str]:
-    """(facilitátor, hlavička varianty, společná pravidla). Pro hosted buildery je tail prázdný."""
+    """(facilitátor, hlavička varianty, společná pravidla). Pro hosted buildery je tail prázdný.
+
+    `revise` = druhé kolo po Iterate: text cíle a nálezů varianty; místo „Postav“ se upravuje
+    existující varianta.
+    """
     stack = stack or StackProfile()
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
     slug = slug or "<slug>"
@@ -1561,7 +1588,15 @@ def _render_builder_prompt_parts(
 ```
 
 Do AI vlož text z bloku „Vlož do AI“ níže."""
-        head = f"""Cíl týmu: {hook}
+        if revise:
+            head = f"""Cíl týmu: {hook}
+
+Uprav existující variantu {variant} podle nálezů v tomto repu (větev pflanzer/{slug}-{variant}
+už existuje, nezačínej od nuly).
+{revise}
+{repo_block}"""
+        else:
+            head = f"""Cíl týmu: {hook}
 
 Postav variantu {variant} v tomto repu: {brief}.
 {repo_block}"""

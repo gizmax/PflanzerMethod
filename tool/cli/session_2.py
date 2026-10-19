@@ -626,11 +626,20 @@ def record_decision(
         from tool.cli.status import cleanup_steps
         out["cleanup"] = cleanup_steps(slug)
     if repo_log:
-        out["hint"] = f"Commitni decision log do target repa: git add {repo_log} && git commit"
+        out["git_commands"] = decision_log_git_commands(slug, repo_log, DECISION_LABEL[decision])
+        out["hint"] = ("Decision log je zatím jen lokálně — do originu: "
+                       + " && ".join(out["git_commands"]))
     else:
         out["hint"] = ("cwd neobsahuje `.pflanzer/` - decision log je jen ve výstupní složce "
                        "(`pflanzer data`). Spusť příkaz z target repa, ať ho můžeš commitnout.")
     return out
+
+
+def decision_log_git_commands(slug: str, repo_log: str, label: str) -> list[str]:
+    """Přesné příkazy, kterými decision log (a podpisy oken) dojdou do originu. Tool je nespouští."""
+    return [f"git add {repo_log}",
+            f'git commit -m "docs({slug}): decision log — {label}"',
+            "git push -u origin HEAD"]
 
 
 def render_decision_md(
@@ -641,7 +650,7 @@ def render_decision_md(
     votes: list[dict[str, Any]] | None = None, checkpoints: list[str] | None = None,
     all_criticals: list[dict[str, Any]] | None = None,
 ) -> str:
-    when = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    when = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     lines = [
         f"## Rozhodnutí — {DECISION_LABEL[decision]}",
         "",
@@ -816,8 +825,11 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
                      + plural(out["open_critical_overridden"], "kritický", "kritické", "kritických")
                      + f": {out['override_critical']}")
     lines.append("Zapsáno do decision logu"
-                 + (f" ({out['decision_log_repo']}) — commitni ho." if out.get("decision_log_repo")
+                 + (f" ({out['decision_log_repo']}) — zatím jen v pracovní kopii, do originu ho "
+                    "dostaneš až commitem a pushem:" if out.get("decision_log_repo")
                     else "; z target repa se zapíše i do `.pflanzer/decisions/`."))
+    for cmd in out.get("git_commands") or []:
+        lines.append(f"    {cmd}")
     nxt = out["next_step"]
     phase = ("iterate" if dec == "iterate" else "after_go" if dec == "go"
              else "after_kill" if dec == "kill" else "decide")

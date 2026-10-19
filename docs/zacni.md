@@ -110,7 +110,7 @@ curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.
 cd /cesta/k/vasemu/repu
 pflanzer init
 
-# 3. INTEGRATION_GUIDE (5 min): v Claude Code napište
+# 3. INTEGRATION_GUIDE (5 min přes Claude Code, ručně ~30 min): v Claude Code napište
 #    „vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“ a výsledek zkontrolujte
 #    (auth, API klient, state, logger, feature flags, struktura složek, test runner).
 #    Zkontrolujte i .pflanzer/CONSTITUTION.md (krátká nepřekročitelná pravidla pro AI).

@@ -157,9 +157,11 @@ def main() -> None:
         print()
     print("Ctrl+C ukončí.\n")
     env = {**os.environ, "PYTHONPATH": str(REPO_ROOT), "PFLANZER_DB": str(DB_PATH),
-           "PFLANZER_DATA": str(DATA_ROOT), **auth_env}
+           "PFLANZER_DATA": str(DATA_ROOT), "PFLANZER_HUB_BIND_HOST": args.host, **auth_env}
+    # --log-level warning: uvicorn jinak vypíše holé http://127.0.0.1:PORT bez /method/ (plná
+    # adresa hubu je ve výpisu výše); varování a chyby zůstanou.
     cmd = [str(py), "-m", "uvicorn", "tool.web.backend.main:app",
-           "--host", args.host, "--port", str(args.port)]
+           "--host", args.host, "--port", str(args.port), "--log-level", "warning"]
     # hub.json: ostatní příkazy (preview) z něj poznají port; po ukončení se smaže.
     write_hub_json(args.port)
     proc = subprocess.Popen(cmd, env=env)

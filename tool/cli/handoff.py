@@ -153,10 +153,13 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
         ).fetchone()
 
         # Extracted code per variant
+        diff_cols = ("e.diff_loc_added" if table_has_col(conn, "extracted_code", "diff_loc_added")
+                     else "NULL")
         extracted_rows = list(conn.execute(
-            """
+            f"""
             SELECT v.name, e.id, e.local_path, e.extraction_method,
-                   e.files_count, e.total_loc, e.source_url, e.source_repo_url
+                   e.files_count, e.total_loc, e.source_url, e.source_repo_url,
+                   {diff_cols}
             FROM extracted_code e
             JOIN variants v ON v.id = e.variant_id
             JOIN sessions s ON s.id = v.session_id
@@ -168,7 +171,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             row[0]: {
                 "extracted_id": row[1], "local_path": row[2],
                 "method": row[3], "files_count": row[4], "total_loc": row[5],
-                "source_url": row[6], "source_repo_url": row[7],
+                "source_url": row[6], "source_repo_url": row[7], "diff_loc_added": row[8],
                 "branch": branch_by_variant.get(row[0], (None, None))[0],
                 "head_sha": branch_by_variant.get(row[0], (None, None))[1],
             } for row in extracted_rows
@@ -344,6 +347,60 @@ def stack_commands(local_path: str | None) -> tuple[str, str]:
     return "unknown", "# stack nerozpoznán — použij příkazy z README / Makefile projektu"
 
 
+def _who(ctx: dict[str, Any], step: str, role: str) -> str:
+    """„Role (jméno)“ podle zástupce kroku cesty z Kickoffu; bez jména jen role."""
+    name = (ctx.get("path_owners") or {}).get(step)
+    return f"{role} ({name})" if name else role
+
+
+def _loc_text(ext: dict[str, Any]) -> str:
+    """Rozsah kódu: celkem ve větvi + (když je známo) kolik z toho přibylo oproti base."""
+    out = f"{ext['total_loc']} řádků celkem ve větvi"
+    if ext.get("diff_loc_added") is not None:
+        out += f", z toho +{ext['diff_loc_added']} přidáno oproti base (stejné číslo jako ve `SHIP.md`)"
+    return out
+
+
+def _winner_routes(ctx: dict[str, Any]) -> list[str]:
+    """Trasy (stránky) přidané ve větvi vítěze; [] když kód nebo rozpoznání chybí."""
+    top = ctx["variants"][0] if ctx["variants"] else None
+    ext = ctx["extracted_by_variant"].get(top["name"]) if top else None
+    if not ext or not ext.get("local_path"):
+        return []
+    try:
+        from tool.cli import preview
+        wt = Path(ext["local_path"]).expanduser()
+        return preview._added_routes(wt) if wt.is_dir() else []
+    except Exception:  # noqa: BLE001 — jen doplněk handoffu
+        return []
+
+
+_SCHEMA_HINT = re.compile(r"(?i)(^|/)(migrations?|models?|schema|prisma|db)(/|\.|$)")
+
+
+def _schema_files(ctx: dict[str, Any]) -> list[str]:
+    top = ctx["variants"][0] if ctx["variants"] else None
+    ext = ctx["extracted_by_variant"].get(top["name"]) if top else None
+    if not ext or not ext.get("local_path"):
+        return []
+    root = Path(ext["local_path"]).expanduser()
+    if not root.is_dir():
+        return []
+    found: list[str] = []
+    try:
+        for f in sorted(root.rglob("*")):
+            rel = f.relative_to(root).as_posix()
+            if (f.is_file() and not any(x in rel for x in ("node_modules/", ".git/", ".venv/"))
+                    and _SCHEMA_HINT.search(rel) and rel.endswith(
+                        (".sql", ".prisma", ".py", ".js", ".ts", ".rb", ".go", ".dbml"))):
+                found.append(rel)
+            if len(found) >= 6:
+                break
+    except OSError:
+        return found
+    return found
+
+
 def render_be(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top_variant = ctx["variants"][0] if ctx["variants"] else None
@@ -363,7 +420,7 @@ def render_be(ctx: dict[str, Any]) -> str:
                 f"- Větev: `{ext.get('branch') or '—'}`"
                 f"{' @ `' + ext['head_sha'][:10] + '`' if ext.get('head_sha') else ''}\n"
                 f"- Metoda: `{ext['method']}`\n"
-                f"- Soubory: {ext['files_count']} · LOC: {ext['total_loc']}\n"
+                f"- Soubory: {ext['files_count']} · Rozsah: {_loc_text(ext)}\n"
                 f"- Gate skóre: **{ctx['gate_score']}/100 (práh {ctx['production_readiness_target']})**\n\n"
                 f"BE kód hledej typicky v `server/` nebo `api/` dané větve. "
                 f"Pokud chybí, backend se píše v páru, FE už je hotové.\n"
@@ -381,6 +438,27 @@ def render_be(ctx: dict[str, Any]) -> str:
                     f"- Gate skóre celkem: **{ctx['gate_score']}/100 "
                     f"(práh {ctx['production_readiness_target']})**\n\n{where}\n")
 
+    be_owner = _who(ctx, "vyvoj", "Backend lead")
+    routes = _winner_routes(ctx)
+    if routes:
+        be_paths_yaml = (f"  # Trasy nalezené v kódu vítěze (z diffu větve). Operace a schémata\n"
+                         f"  # doplní {be_owner} při review PR.\n"
+                         + "".join(f"  {r}:\n    get:\n      summary: trasa z kódu vítěze\n"
+                                   "      responses:\n        '200': { description: ok }\n"
+                                   for r in routes[:10]))
+    else:
+        be_paths_yaml = (f"  # V kódu vítěze nástroj nerozpoznal žádné přidané trasy. Paths doplní\n"
+                         f"  # {be_owner} z kódu větve vítěze (nebo z OpenAPI repa, je-li).\n")
+    schema = _schema_files(ctx)
+    vname = top_variant["name"] if top_variant else "A"
+    if schema:
+        erd_md = (f"Soubory ve větvi vítěze ({vname}), které vypadají jako schéma dat / migrace:\n\n"
+                  + "\n".join(f"- `{x}`" for x in schema)
+                  + f"\n\nERD z nich nakreslí {be_owner} (dbml / erdantic) před merge do produkce.")
+    else:
+        erd_md = (f"Ve větvi vítěze ({vname}) nástroj nenašel migrace ani modely dat. Ověří "
+                  f"{be_owner}: pokud varianta data neukládá, napíše to sem; jinak doplní plán "
+                  "migrace (dbml / erdantic) před merge do produkce.")
     return f"""# Backend handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -398,9 +476,7 @@ info:
 servers:
   - url: https://api.{p[2]}.sandbox.example.com
 paths:
-  # TODO: BE expert v Buildu měl vygenerovat per varianta.
-  # Přenes paths sem z prototype repo.
-  /healthz:
+{be_paths_yaml}  /healthz:
     get:
       summary: Liveness probe
       responses:
@@ -409,10 +485,7 @@ paths:
 
 ## ERD placeholder
 
-```
-TODO: Z prototypu varianty {top_variant['name'] if top_variant else 'A'} extrahuj
-schema migration plán. Použij dbml/erdantic.
-```
+{erd_md}
 
 ## Breaking-change registr
 
@@ -423,7 +496,7 @@ schema migration plán. Použij dbml/erdantic.
 ## Contract test skeleton (Pact)
 
 - Provider: {p[2]} BE
-- Consumers: doplnit (podle výstupu BE experta z Buildu)
+- Consumers: seznam doplní {be_owner} (kdo volá API; z výstupu BE experta z Buildu)
 - Test framework: Pact / Schemathesis
 - CI gate: every PR runs contract tests against latest consumer pact
 
@@ -451,7 +524,7 @@ def render_fe(ctx: dict[str, Any]) -> str:
 
 - **Větev**: `{ext.get('branch') or '—'}`{' @ `' + ext['head_sha'][:10] + '`' if ext.get('head_sha') else ''}
 - **Metoda**: `{ext['method']}`
-- **Soubory**: {ext['files_count']} ({ext['total_loc']} LOC)
+- **Soubory**: {ext['files_count']} · {_loc_text(ext)}
 - **Gate skóre**: **{ctx['gate_score']}/100 (práh {ctx['production_readiness_target']})**
   ({'splňuje práh' if ctx['gate_score'] >= ctx['production_readiness_target'] else 'pod prahem'})
 
@@ -470,6 +543,14 @@ Detail per brána: `quality-{top['name']}.md` ve výstupní složce (`pflanzer d
 Kód už je ve větvi vítěze v target repu - nic se nekopíruje. Otevři PR příkazem
 ze `SHIP.md` (`pflanzer handoff_pr --slug {p[2]}`).
 """
+    fe_owner = _who(ctx, "vyvoj", "Frontend lead")
+    design_owner = _who(ctx, "design", "Design")
+    routes = _winner_routes(ctx)
+    routes_line = (f"Přidané trasy / stránky ve větvi vítěze: {', '.join(f'`{x}`' for x in routes[:10])}."
+                   if routes else "Přidané trasy / stránky nástroj ve větvi vítěze nerozpoznal.")
+    var_names = [v["name"] for v in ctx["variants"]] or ["A"]
+    tokens_md = "\n".join(f"- {n}: % doplní {design_owner} při review (cíl > 90 %)"
+                          for n in var_names)
     return f"""# Frontend handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -490,23 +571,17 @@ ze `SHIP.md` (`pflanzer handoff_pr --slug {p[2]}`).
 
 ## Component manifest delta
 
-```
-TODO: Diff component inventory PRE vs POST tohoto sprintu.
-- New components: doplnit (extract z prototypu)
-- Modified components: doplnit
-- Deprecated components: doplnit
-```
+Nástroj komponenty nepočítá. {routes_line}
+Seznam nových / změněných / zrušených komponent doplní {fe_owner} při review PR
+(`git diff --stat` ze `SHIP.md` ukáže dotčené soubory).
 
 ## Design tokens diff
 
-```
-TODO: Token compliance % per varianta:
-- A: doplnit% (target > 90 %)
-- B: doplnit%
-- C: doplnit%
+Podíl použitých design tokenů nástroj neměří. Per varianta ho doplní {design_owner}:
+
+{tokens_md}
 
 DS deviation list (s ownerem) — viz souhrn Buildu (`_summary.md`).
-```
 
 ## Figma↔commit lineage placeholder
 
@@ -717,8 +792,38 @@ DEPRECATED EVENTS:
 """
 
 
+def _predicted_issues(ctx: dict[str, Any], limit: int = 3) -> list[str]:
+    """Top problémy z feedbacku vítěze (critical → low) jako základ predikce ticketů."""
+    winner = ctx.get("winner") or (ctx["variants"][0]["name"] if ctx["variants"] else None)
+    if not winner:
+        return []
+    try:
+        with transaction() as conn:
+            rows = conn.execute(
+                "SELECT f.rationale FROM feedback f JOIN variants v ON v.id = f.variant_id "
+                "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? AND v.name = ? "
+                "ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 "
+                "WHEN 'medium' THEN 2 ELSE 3 END, f.id", (ctx["project_id"], winner)).fetchall()
+    except Exception:  # noqa: BLE001 — jen doplněk handoffu
+        return []
+    out: list[str] = []
+    for (why,) in rows:
+        t = " ".join(str(why or "").replace("|", "/").split())
+        if t and t[:80] not in [x[:80] for x in out]:
+            out.append(t[:140])
+        if len(out) >= limit:
+            break
+    return out
+
+
 def render_support(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
+    sup = _who(ctx, "provoz", "Customer support proxy")
+    issues = _predicted_issues(ctx)
+    rows = "\n".join(
+        f"| {txt} | odhad doplní {sup} | cíl doplní {sup} | doplní {sup} | feedback Buildu |"
+        for txt in issues) or (
+        f"| top 3 problémy doplní {sup} z feedbacku Asyncu | — | — | — | — |")
     return f"""# Customer Support handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -728,9 +833,7 @@ def render_support(ctx: dict[str, Any]) -> str:
 
 | Predicted issue | Volume estimate | TTR target | Deflectable? | VoC match |
 |-----------------|-----------------|------------|--------------|-----------|
-| doplnit issue 1     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
-| doplnit issue 2     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
-| doplnit issue 3     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
+{rows}
 
 > Per role catalog #13: top-3 predikované tickety = **P1 v acceptance
 > criteria** (řešeno v `qa.md`).
@@ -749,15 +852,13 @@ def render_support(ctx: dict[str, Any]) -> str:
 
 ## Verbatim citace baseline (z předchozích 90 dní ticketů)
 
-```
-TODO: Customer support proxy doplní 5 verbatim citací k Voice of Customer
-ritual (per `04-session-1.md` § Full — rozšířená agenda).
-```
+{sup} doplní 5 verbatim citací z ticketů posledních 90 dní k Voice of Customer
+(per `04-session-1.md` § Full — rozšířená agenda) nejpozději do D-7 před spuštěním.
 
 ## Capacity baseline
 
-- Predicted ticket volume increase: doplnit %
-- Required additional agent capacity: doplnit person-hours / week
+- Predicted ticket volume increase: odhad doplní {sup}
+- Required additional agent capacity: person-hours / week doplní {sup}
 - Escalation path: tier 1 → tier 2 → product team
 """
 

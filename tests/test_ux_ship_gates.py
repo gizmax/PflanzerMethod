@@ -93,7 +93,7 @@ def test_json_adapter_and_missing_pyyaml_message(py_project: Path,
     (py_project / "pflanzer.gates.json").unlink()
     (py_project / "pflanzer.gates.yml").write_text("build: 'true'\n", encoding="utf-8")
     monkeypatch.setitem(sys.modules, "yaml", None)  # import yaml -> ImportError
-    with pytest.raises(quality_gates.AdapterError, match="pyyaml.*pflanzer.gates.json"):
+    with pytest.raises(quality_gates.AdapterError, match="(?i)pyyaml.*pflanzer.gates.json"):
         quality_gates.run_gates_on_path(py_project)
 
 

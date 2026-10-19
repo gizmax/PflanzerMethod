@@ -78,7 +78,9 @@ def get_actor(request: Request) -> str:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    if get_auth_mode() == AUTH_MODE_DEV:
+    bind = os.environ.get("PFLANZER_HUB_BIND_HOST", "").strip().lower()
+    local_only = bind in ("127.0.0.1", "localhost", "::1")   # spuštěno přes `pflanzer hub`
+    if get_auth_mode() == AUTH_MODE_DEV and not local_only:
         log.warning(
             "%s=dev: trusting client-supplied X-User header — never use in production",
             AUTH_MODE_ENV,
