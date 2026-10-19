@@ -10,7 +10,8 @@ Pro worktree / adresář vítězné varianty spustí až 10 gates:
                     (+ `[preview] smoke_paths`) < 400; bez příkazu = NEOVĚŘENO
 - **acceptance**    Playwright scénáře z `tests/acceptance/` (jen pokud existují)
 - **security**      secret scan + `npm audit` (vždy)
-- **a11y**          heuristika nad HTML/JSX/TSX/Vue/Svelte (jen pokud UI soubory jsou)
+- **a11y**          statická kontrola stránek běžící aplikace (jako smoke); jinak heuristika nad
+                    HTML/JSX/TSX/Vue/Svelte; bez UI souborů i bez příkazu = NEOVĚŘENO
 - **observability** `console.*` ve zdrojácích (jen pro JS/TS)
 
 **Stack-aware:** gate, který pro stack nedává smysl (např. `types` bez
@@ -64,14 +65,14 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli import apprun  # noqa: E402
+from tool.cli import a11y_html, apprun  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
@@ -316,6 +317,7 @@ class Ctx:
     stack: Stack
     deps_ok: bool
     deps_reason: str
+    app_run: "AppRun | None" = None  # cache: aplikace se pro smoke + a11y spouští jen jednou
 
 
 def _skip(gate: str, reason: str) -> GateResult:
@@ -837,13 +839,8 @@ def gate_security(ctx: Ctx) -> GateResult:
                       "Žádné secrets" + (f"; {audit_note}" if audit_note else ""), metric=0)
 
 
-def gate_a11y(ctx: Ctx) -> GateResult:
-    """Heuristika (ne náhrada axe-core): alt u img, type u button, lang u html."""
-    if ctx.stack.other:
-        return _gate_other_stack("a11y", ctx.path, ctx.stack.other)
-    files = list(_iter_files(ctx.path, (".html", ".jsx", ".tsx", ".vue", ".svelte")))
-    if not files:
-        return _skip("a11y", "projekt nemá žádné UI soubory (html/jsx/tsx/vue/svelte)")
+def _a11y_heuristic(ctx: Ctx, files: list[Path]) -> GateResult:
+    """Heuristika nad zdrojáky (ne náhrada axe-core): alt u img, type u button, lang u html."""
     semantic = issues = 0
     for f in files:
         try:
@@ -867,6 +864,53 @@ def gate_a11y(ctx: Ctx) -> GateResult:
                       f"{len(files)} UI souborů, {semantic} se sémantickými značkami, 0 zjevných "
                       "problémů (heuristika" + ("; pro produkci doporuč. axe)" if ctx.stack.node else ")"),
                       metric=0)
+
+
+def _a11y_from_pages(run: AppRun) -> GateResult | None:
+    """Statická kontrola HTML stránek běžící aplikace; None = žádná HTML stránka."""
+    findings: list[tuple[str, str, str]] = []
+    checked = 0
+    for path, st, body, ctype in run.pages:
+        if st is None or st >= 400 or not body.strip():
+            continue
+        if "html" not in ctype.lower() and not body.lstrip().startswith(("<!", "<h", "<H")):
+            continue
+        checked += 1
+        findings += [(path, sev, msg) for sev, msg in a11y_html.analyze(body)]
+        if checked >= A11Y_MAX_PAGES:
+            break
+    if not checked:
+        return None
+    fails = sum(1 for f in findings if f[1] == a11y_html.FAIL)
+    if not findings:
+        return GateResult("a11y", "pass", f"a11y: {checked} stránek zkontrolováno staticky, "
+                          "0 nálezů (lehká kontrola, ne axe-core)", metric=0,
+                          duration_s=run.duration_s)
+    return GateResult("a11y", "fail" if fails else "warn", a11y_html.summarize(findings, checked),
+                      metric=len(findings), duration_s=run.duration_s)
+
+
+def gate_a11y(ctx: Ctx) -> GateResult:
+    """Statická kontrola stránek běžící aplikace; jinak heuristika nad UI soubory."""
+    if ctx.stack.other and not apprun.read_preview_config(ctx.path).get("command"):
+        return _gate_other_stack("a11y", ctx.path, ctx.stack.other)
+    files = list(_iter_files(ctx.path, (".html", ".jsx", ".tsx", ".vue", ".svelte")))
+    run = _app_run(ctx)
+    if run.state == "ok":
+        res = _a11y_from_pages(run)
+        if res is not None:
+            return res
+        if not files:
+            return _skip("a11y", "aplikace nevrací žádné HTML stránky (jen API?)")
+    elif not files:
+        if run.state == "deps":
+            return replace(run.block, gate_type="a11y")  # type: ignore[arg-type]
+        if run.state == "down":
+            return _unverified("a11y", "aplikace nenaběhla", f"{run.why} (`{run.command}`)")
+        return _unverified("a11y", "chybí příkaz pro spuštění",
+                           "doplňte `[preview] command = \"… {port}\"` do .pflanzer/project.toml "
+                           "v target repu; bez UI souborů nejde a11y ověřit")
+    return _a11y_heuristic(ctx, files)
 
 
 def gate_coverage(ctx: Ctx) -> GateResult:
@@ -1019,22 +1063,43 @@ def gate_observability(ctx: Ctx) -> GateResult:
                       + (" (vysoký šum)" if leaks > 10 else ""), metric=leaks)
 
 
-def gate_smoke(ctx: Ctx) -> GateResult:
-    """Aplikace vítěze naběhne a `/` (a `smoke_paths`) odpoví < 400; potom se ukončí."""
-    if ctx.stack.other and not apprun.read_preview_config(ctx.path).get("command"):
-        return _unverified("smoke", "chybí příkaz pro spuštění",
-                           "doplňte `[preview] command` do .pflanzer/project.toml")
-    paths = apprun.read_preview_config(ctx.path).get("smoke_paths")
+@dataclass
+class AppRun:
+    """Výsledek jednoho spuštění aplikace: stažené stránky (sdílí smoke a a11y)."""
+    state: str                      # ok | nospec | deps | down
+    command: str = ""
+    why: str = ""
+    log_tail: str = ""
+    block: GateResult | None = None  # state == deps
+    pages: list[tuple[str, int | None, str, str]] = field(default_factory=list)
+    smoke_paths: list[str] = field(default_factory=list)
+    duration_s: float = 0.0
+
+
+A11Y_MAX_PAGES = 5
+
+
+def _app_run(ctx: Ctx) -> AppRun:
+    """Spustí aplikaci (jednou na Ctx), stáhne `smoke_paths` a odkazy z první stránky."""
+    if ctx.app_run is not None:
+        return ctx.app_run
+    ctx.app_run = _do_app_run(ctx)
+    return ctx.app_run
+
+
+def _do_app_run(ctx: Ctx) -> AppRun:
+    cfg = apprun.read_preview_config(ctx.path)
+    if ctx.stack.other and not cfg.get("command"):
+        return AppRun("nospec")
+    paths = cfg.get("smoke_paths")
     paths = [str(p) for p in paths if str(p).strip()] if isinstance(paths, list) else []
     paths = [p if p.startswith("/") else "/" + p for p in paths] or ["/"]
     port = apprun.free_port()
     spec = apprun.detect_run(ctx.path, port)
     if spec is None:
-        return _unverified("smoke", "chybí příkaz pro spuštění",
-                           "doplňte `[preview] command = \"… {port}\"` do .pflanzer/project.toml "
-                           "v target repu")
+        return AppRun("nospec")
     if (missing := _needs_deps(ctx, "smoke")) is not None:
-        return missing
+        return AppRun("deps", block=missing)
     started = time.monotonic()
     timeout = float(os.environ.get("PFLANZER_SMOKE_TIMEOUT", "60"))
     with tempfile.TemporaryDirectory(prefix="pflanzer-smoke-") as tmp:
@@ -1047,18 +1112,41 @@ def gate_smoke(ctx: Ctx) -> GateResult:
             if not up:
                 why = ("aplikace skončila" if proc.poll() is not None
                        else f"aplikace do {int(timeout)} s neodpověděla")
-                return GateResult("smoke", "fail",
-                                  f"smoke: {why} (`{spec.command}`)\n{apprun.tail(log, 8)}",
-                                  duration_s=round(time.monotonic() - started, 2))
-            seen = [(p, apprun.http_get(base + p, timeout=10)) for p in paths]
+                return AppRun("down", spec.command, why, apprun.tail(log, 8), smoke_paths=paths,
+                              duration_s=round(time.monotonic() - started, 2))
+            pages = [(p, *apprun.http_fetch(base + p)) for p in paths]
+            first = next((pg for pg in pages if pg[1] is not None and pg[1] < 400 and pg[2]), None)
+            if first is not None and len(pages) < A11Y_MAX_PAGES:
+                for extra in a11y_html.same_host_links(first[2], base + first[0]):
+                    if len(pages) >= A11Y_MAX_PAGES:
+                        break
+                    if extra not in [pg[0] for pg in pages]:
+                        pages.append((extra, *apprun.http_fetch(base + extra)))
         finally:
             apprun.kill_group(proc.pid)
+    return AppRun("ok", spec.command, smoke_paths=paths, pages=pages,
+                  duration_s=round(time.monotonic() - started, 2))
+
+
+def gate_smoke(ctx: Ctx) -> GateResult:
+    """Aplikace vítěze naběhne a `/` (a `smoke_paths`) odpoví < 400; potom se ukončí."""
+    run = _app_run(ctx)
+    if run.state == "nospec":
+        return _unverified("smoke", "chybí příkaz pro spuštění",
+                           "doplňte `[preview] command = \"… {port}\"` do .pflanzer/project.toml "
+                           "v target repu")
+    if run.state == "deps":
+        return run.block  # type: ignore[return-value]
+    if run.state == "down":
+        return GateResult("smoke", "fail", f"smoke: {run.why} (`{run.command}`)\n{run.log_tail}",
+                          duration_s=run.duration_s)
+    seen = [(p, st) for p, st, _b, _c in run.pages if p in run.smoke_paths]
     bad = [(p, st) for p, st in seen if st is None or st >= 400]
     text = ", ".join(f"{p} odpovídá {st if st is not None else 'nic'}" for p, st in seen)
-    dur = round(time.monotonic() - started, 2)
     if bad:
-        return GateResult("smoke", "fail", f"smoke: {text}", metric=len(bad), duration_s=dur)
-    return GateResult("smoke", "pass", f"smoke: {text}", metric=0, duration_s=dur)
+        return GateResult("smoke", "fail", f"smoke: {text}", metric=len(bad),
+                          duration_s=run.duration_s)
+    return GateResult("smoke", "pass", f"smoke: {text}", metric=0, duration_s=run.duration_s)
 
 
 GATE_RUNNERS = {

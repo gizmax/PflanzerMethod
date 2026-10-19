@@ -498,14 +498,17 @@ def main(argv: list[str] | None = None) -> None:
         args.slug = data["slug"]
     if args.slug:
         d = data
-        warnings = [b["text"] for b in d["blockers"]] + ai_notes(d)
+        notes = ai_notes(d)
+        # U throwaway je AI pre-check platný — informace, ne varování (ADR-0023).
+        info_notes = [n for n in notes if "u throwaway stačí" in n]
+        warnings = [b["text"] for b in d["blockers"]] + [n for n in notes if n not in info_notes]
         if d["next_step"] != "—":
             nxt = f"`{d['next_step']}`"
         elif d["status"] == "killed":
             nxt = "— (projekt skončil Killem, poučení je zapsáno)"
         else:
             nxt = "—"
-        emit(d, title=f"{d['name']} (`{d['slug']}`)", lines=detail_lines(d),
+        emit(d, title=f"{d['name']} (`{d['slug']}`)", lines=detail_lines(d) + info_notes,
              next_step=nxt,
              tips=[] if args.json else _tips(d), warnings=warnings, as_json=args.json)
         return
