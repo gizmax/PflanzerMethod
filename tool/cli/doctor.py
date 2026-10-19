@@ -157,13 +157,58 @@ LOCKFILE_ADVICE = {
 }
 
 
+def _manifest_has_deps(repo: Path, manifest: str) -> bool:
+    """True, pokud manifest deklaruje závislosti (nečitelný/neznámý manifest = ano)."""
+    path = repo / manifest
+    try:
+        if manifest == "package.json":
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return any(bool(data.get(k)) for k in ("dependencies", "devDependencies",
+                                                   "optionalDependencies", "peerDependencies"))
+        if manifest == "pyproject.toml":
+            import tomllib
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            proj = data.get("project") or {}
+            poetry = (data.get("tool") or {}).get("poetry") or {}
+            poetry_deps = {k for k in (poetry.get("dependencies") or {}) if k.lower() != "python"}
+            poetry_groups = any((g or {}).get("dependencies")
+                                for g in (poetry.get("group") or {}).values())
+            return bool(proj.get("dependencies") or proj.get("optional-dependencies")
+                        or data.get("dependency-groups") or poetry_deps or poetry_groups
+                        or poetry.get("dev-dependencies"))
+        if manifest == "requirements.txt":
+            return True
+    except Exception:  # nečitelný manifest: raději upozorni na lockfile
+        return True
+    return True
+
+
+def _requirements_files(repo: Path) -> list[Path]:
+    return sorted(repo.glob("requirements*.txt"))
+
+
+def _requirements_declare_deps(path: Path) -> bool:
+    try:
+        return any(ln.split("#", 1)[0].strip() for ln in path.read_text(
+            encoding="utf-8", errors="replace").splitlines())
+    except OSError:
+        return True
+
+
 def check_package_manager(repo: Path) -> dict[str, str]:
     name = "Package manager / lockfile"
     found = [f for f in LOCKFILES if (repo / f).exists()]
     if found:
         return _check(name, OK, ", ".join(found))
     manifests = [m for m in LOCKFILE_ADVICE if (repo / m).exists()]
-    if manifests:
+    reqs = _requirements_files(repo)
+    if manifests or reqs:
+        declares = (any(_requirements_declare_deps(r) for r in reqs)
+                    or any(_manifest_has_deps(repo, m) for m in manifests
+                           if m != "requirements.txt"))
+        if not declares:
+            return _check(name, OK, "bez závislostí — lockfile netřeba")
+        manifests = manifests or ["requirements.txt"]
         return _check(name, WARN, f"{', '.join(manifests)} bez lockfilu",
                       LOCKFILE_ADVICE[manifests[0]],
                       "pilot půjde, ale 3 worktrees nemusí mít stejné verze závislostí")

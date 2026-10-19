@@ -724,6 +724,8 @@ def build_pr(slug: str) -> dict[str, Any]:
 
     # Název PR = co vítěz dělá (popis varianty), ne useknutá věta zadání.
     desc_title = (_winner_description(w) or "").strip().rstrip(".")
+    # Název PR = první celá část popisu (před ; — :), ať se neuseká uprostřed věty.
+    desc_title = re.split(r"\s*[;—]\s*|\s+-\s+", desc_title)[0].strip()
     pr_title = f"feat({slug}): {trim_words(desc_title or name, 60)}"
     summary = _gate_summary(gates) if gates else None
     ai_line = ai_stand_in_line(slug)

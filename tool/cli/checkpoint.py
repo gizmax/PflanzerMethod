@@ -102,6 +102,16 @@ def _load_owners(conn: Any, pid: int) -> dict[str, str]:
     return json.loads(row[0]) if row and row[0] else {}
 
 
+def _load_signers(conn: Any, pid: int) -> dict[str, str]:
+    """`ai_signers_json`: krok -> člověk, který podepíše AI náhradu (chybí sloupec = {})."""
+    try:
+        row = conn.execute("SELECT ai_signers_json FROM projects WHERE id = ?", (pid,)).fetchone()
+        data = json.loads(row[0]) if row and row[0] else {}
+    except Exception:  # starší DB bez sloupce / poškozený JSON
+        return {}
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
 def _load_core(conn: Any, pid: int) -> list[str]:
     row = conn.execute("SELECT core_json FROM projects WHERE id = ?", (pid,)).fetchone()
     try:
@@ -124,11 +134,16 @@ def _is_code_author(who: str, owners: dict[str, str], core: list[str]) -> bool:
 
 
 def _signer_kind(window: str, who: str, owner: str | None, owners: dict[str, str],
-                 core: list[str], *, ai: bool) -> str:
+                 core: list[str], *, ai: bool, designated: str | None = None) -> str:
     if ai:
         return "AI draft"
     if window == "bezpecnost" and _is_code_author(who, owners, core):
         return "autor kódu"
+    if designated and _same_person(who, designated):
+        return "zástupce"  # určený podepisující (Kickoff / ai_signers)
+    if owner and is_ai_owner(owner) and any(
+            _same_person(who, owners.get(k)) for k in ("byznys", "produkt") if _human(owners.get(k))):
+        return "zástupce"  # AI draft potvrzuje Decider nebo PdM (ADR-0023)
     if window == "design" and owner and is_ai_owner(owner):
         pdm = owners.get("produkt")
         if pdm and not is_ai_owner(pdm) and _same_person(who, pdm):
@@ -166,10 +181,14 @@ def signer_guidance(window: str, owners: dict[str, str], risk: str) -> str:
             f"{guidance_core(window, owners, risk)}.")
 
 
-def _designated(window: str, owner: str | None, owners: dict[str, str], risk: str) -> str | None:
+def _designated(window: str, owner: str | None, owners: dict[str, str], risk: str,
+                signers: dict[str, str] | None = None) -> str | None:
     """Člověk, který je pro okno určen k podpisu (None = nikdo nebyl určen)."""
     if _human(owner):
         return owner
+    named = _human((signers or {}).get(WINDOW_STEP[window]))
+    if named and is_ai_owner(owner):
+        return named          # tým výslovně určil, kdo AI draft podepíše (ai_signers)
     if window == "provoz" and risk == "pilot" and _human(owners.get("vyvoj")):
         return owners["vyvoj"]
     if window == "design":
@@ -216,6 +235,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             raise ValueError(killed_message(slug))
         pid = int(proj[0])
         owners = _load_owners(conn, pid)
+        signers = _load_signers(conn, pid)
         core = _load_core(conn, pid)
         owner = owners.get(step)
         risk = load_risk_profile(conn, pid)
@@ -238,7 +258,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             if status == "pending":
                 warnings.append(f"{label}: AI draft není podpis — Ship dál blokuje, dokud ho "
                                 "nepotvrdí člověk (`--by <jméno>`).")
-                if not _designated(window, owner, owners, risk):
+                if not _designated(window, owner, owners, risk, signers):
                     warnings.append(signer_guidance(window, owners, risk))
         else:
             who = by.strip()
@@ -258,7 +278,14 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             if owner_human and not allowed:
                 warnings.append(
                     f"{who} není zástupce kroku {label} ({owner}) — podpis zapsán jako zástup.")
-        kind = _signer_kind(window, who, owner, owners, core, ai=ai)
+            named = _human(signers.get(step)) if is_ai_owner(owner) else None
+            if named and not _same_person(who, named) and not allowed \
+                    and not (window == "design" and _same_person(who, owners.get("produkt"))):
+                warnings.append(
+                    f"Za {label} (AI náhrada) je určený podepisující {named}, "
+                    f"podepsal {who} — podpis zapsán jako zástup.")
+        kind = _signer_kind(window, who, owner, owners, core, ai=ai,
+                            designated=_designated(window, owner, owners, risk, signers))
         if kind == "autor kódu" and not blocked:
             head = "OK — potvrdil autor kódu"
             if risk == "production":
@@ -292,10 +319,10 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                        "signed_by_role": kind, "ai_agent": agent_name,
                        "countersigned_ai_draft": countersigned,
                        "tracks": list(WINDOWS[window]["tracks"])})
-    designated = _designated(window, owner, owners, risk)
+    designated = _designated(window, owner, owners, risk, signers)
     log = _append_decision_log(slug, label, who, status, note, now, kind=kind,
                                agent=agent_name, signer=designated)
-    next_step = _next_step(slug, window, status, owner, owners, risk, by=who)
+    next_step = _next_step(slug, window, status, owner, owners, risk, by=who, signers=signers)
     return {"slug": slug, "window": window, "label": label, "status": status,
             "tracks": list(WINDOWS[window]["tracks"]), "signed_by": who,
             "signed_by_role": kind, "ai_agent": agent_name,
@@ -304,8 +331,9 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
 
 
-def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: str) -> str:
-    designated = _designated(window, owner, owners, risk)
+def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: str,
+                signers: dict[str, str] | None = None) -> str:
+    designated = _designated(window, owner, owners, risk, signers)
     if designated:
         return designated
     decider = owners.get("byznys")      # krok bez člověka: určí Decider
@@ -313,8 +341,9 @@ def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: st
 
 
 def _next_step(slug: str, window: str, status: str, owner: str | None,
-               owners: dict[str, str], risk: str, by: str = "") -> str:
-    signer = _signer_for(window, owner, owners, risk)
+               owners: dict[str, str], risk: str, by: str = "",
+               signers: dict[str, str] | None = None) -> str:
+    signer = _signer_for(window, owner, owners, risk, signers)
     label = WINDOWS[window]["label"]
     if status == "blocked":
         return (f"{label} je zablokované — odblokuje {signer}. Až bude opraveno: "
@@ -379,6 +408,7 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
             raise ValueError(project_not_found_message(slug))
         pid = int(proj[0])
         owners = _load_owners(conn, pid)
+        signers = _load_signers(conn, pid)
         risk = load_risk_profile(conn, pid)
         last = _last_audit(conn, pid)
         rows = {r[0]: r for r in conn.execute(
@@ -404,8 +434,9 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                           None)
         out.append({"window": key, "label": w["label"], "state": state, "signed_by": signer,
                     "owner": owner_display(owner, WINDOW_STEP[key]) or None,
-                    "signer": _signer_for(key, owner, owners, risk),
-                    "designated": _designated(key, owner, owners, risk),
+                    "signer": _signer_for(key, owner, owners, risk, signers),
+                    "designated": _designated(key, owner, owners, risk, signers),
+                    "ai_signer": (signers.get(WINDOW_STEP[key]) if is_ai_owner(owner) else None),
                     "note": (last.get(key) or {}).get("note") if state == "blocked" else None,
                     "ai_agent": ai_agent(owner, WINDOW_STEP[key]) if is_ai_owner(owner) else None,
                     "state_text": (DESIGN_PENDING if key == "design" and state == "pending"
@@ -436,6 +467,7 @@ def checkpoint_summary(slug: str) -> list[dict[str, Any]]:
             "signer_kind": payload.get("signed_by_role") if signed else None,
             "ai_agent": payload.get("ai_agent") if signed else None,
             "note": payload.get("note") if signed else None,
+            "designated_signer": r.get("designated") if r.get("ai_signer") else None,
         })
     return out
 

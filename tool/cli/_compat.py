@@ -83,17 +83,19 @@ def signatures_line(slug: str) -> str | None:
     """„Zadání: Dana · Provoz: Karel (zástup) · Bezpečnost: Petr (autor kódu)“ — podepsaná okna.
 
     Podpis cizí osobou (ne zástupce kroku z Kickoffu) je vždy označený jako „zástup“.
-    Okna s AI náhradou jdou do `ai_stand_in_line`, tady se nezobrazují. None = nic nepodepsáno.
+    Okno s AI náhradou, které člověk potvrdil, se uvede s poznámkou. None = nic nepodepsáno.
     """
     parts: list[str] = []
     for r in checkpoint_rows(slug):
         kind = (r.get("signer_kind") or "").strip()
         agent = (r.get("ai_agent") or "").strip()
         who = (r.get("signed_by") or "").strip()
-        if r.get("state") != "ok" or not who or agent or kind == "AI draft":
+        if r.get("state") != "ok" or not who or kind == "AI draft":
             continue
         label = _WINDOW_LABELS.get(r.get("window") or "", (r.get("window") or "?").capitalize())
         extra = f" ({kind})" if kind in ("zástup", "autor kódu") else ""
+        if agent:  # člověk potvrdil AI draft — patří mezi podepsaná okna
+            extra = " (potvrdil AI draft)" + extra
         parts.append(f"{label}: {who}{extra}")
     return " · ".join(parts) or None
 

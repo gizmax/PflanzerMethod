@@ -635,8 +635,10 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                      f"{c['role_b']['label']}")
     if on_win:
         c0 = on_win[0]
-        nxt = (f"vyřeš kritické #{c0['id']} s autorem ({c0['submitted_by']}): `pflanzer session_2 "
-               f"resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO --note \"…\"`")
+        nxt = (f"kritické #{c0['id']} ({c0['submitted_by']}) na variantě {c0['variant']}: buď ho "
+               f"oprav a `pflanzer session_2 resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO "
+               f"--note \"…\"`, nebo na Rozhodnutí zvolte Iterate s cílem ho opravit "
+               f"(`pflanzer session_2 decide --slug {slug} iterate --iterate-focus \"…\" --rationale \"…\"`)")
     elif not out["ready_for_decision"]:
         nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — sežeň víc hlasů "
                f"a feedbacku: `pflanzer feedback add --slug {slug} --variant A --role Produkt "
