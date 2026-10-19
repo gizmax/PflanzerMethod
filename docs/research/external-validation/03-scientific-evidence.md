@@ -90,7 +90,7 @@ B. **Cross-functional integration ≠ univerzálně win.** Wuchty, Jones &
 ### USP-1: Cross-functional co-location v Session 1
 
 **Pflanzer claim:** Sponzor + 5 cross-funkčních (security, legal, UX, dev,
-PM) **v jedné místnosti od minuty 0** šetří měsíce vs. sériový handoff
+PdM) **v jedné místnosti od minuty 0** šetří měsíce vs. sériový handoff
 (6–9 měsíců baseline → 6–9 týdnů Pflanzer).
 
 | # | Citace | Finding | Strength | DOI/URL |
@@ -447,7 +447,7 @@ MODERATORS (when mechanism works / doesn't):
 #### I1 — Co-location → ↓ information asymmetry → ↓ time-to-handoff
 
 **Mechanism:** Když všichni stakeholdeři jsou v jedné místnosti, informační
-trh (Akerlof 1970) je *frictionless* — security ví, co dev vyvíjí; PM
+trh (Akerlof 1970) je *frictionless* — security ví, co dev vyvíjí; PdM
 ví, co legal blokuje. Eliminuje N²-handoff loops.
 
 **Kernel theories:**

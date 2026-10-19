@@ -10,7 +10,7 @@
 
 Pflanzer řeší alignment, ne discovery. Pokud na vstupu chybí validovaný
 problém, panel vyrobí „nejhladší feature factory v korporátu" [perspektiva 2].
-Před svoláním Session 1 musí PM doložit tři artefakty [perspektiva 14]:
+Před svoláním Session 1 musí PdM doložit tři artefakty [perspektiva 14]:
 
 1. **Persona freshness ≤ 6 měsíců** (B2C 6 mo, B2B SaaS 9 mo, internal tooling
    12 mo s povinným re-shadowingem). Minimálně 5 nedávných rozhovorů
@@ -18,7 +18,7 @@ Před svoláním Session 1 musí PM doložit tři artefakty [perspektiva 14]:
    pojmenované. Po pivotu / org change / market shift = auto-expire bez
    ohledu na věk.
 2. **JTBD statement** ve formátu *„When [situation], I want to [job], so I
-   can [outcome]"* podepsaný PM (a UX, pokud je v projektu).
+   can [outcome]"* podepsaný PdM (a UX, pokud je v projektu).
 3. **Opportunity Solution Tree v0** (Torres) — desired outcome → 2–3
    opportunities → uvažované solutions, vyplněný do 60 %.
 
@@ -183,7 +183,7 @@ Zadavatel hlasuje **poslední** (anti-HiPPO).
 
 | Profil | Total PD (orientačně) | Trigger |
 |--------|----------------------|---------|
-| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, evolve default (ADR-0005) |
+| **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, Track P + evolve (default per ADR-0005 v0.4) |
 | **Regulated** | ~14 PD | Finance (mimo PSD2 SCA), telco, healthtech non-PII, AI Act Limited risk |
 | **Audit-grade** | ~18–22 PD | DORA scope, AI Act High-risk, PSD2 SCA proximity, public sector |
 
@@ -200,7 +200,7 @@ audit-grade přidává na řádcích označených `+R` / `+A`.
 | Role (catalog #) | Pre-flight | Session 1 | Mezi-session | Session 2 | Handoff | Reinforcement (T+7/30/60/90) | Total PD |
 |-----------------|-----------|-----------|--------------|-----------|---------|------------------------------|----------|
 | Zadavatel (#1) | 0.5 | 0.75 (½ den) | 0.25 | 0.5 (3h) | 0.25 | 0.25 + 0.25 + 0 + 0.5 = 1.0 | **3.25** |
-| PM (#2) | 1.0 (Charter, OST) | 0.75 | 0.5 | 0.5 | 0.5 | 0.25 + 0.5 + 0.25 + 0.5 = 1.5 | **4.75** |
+| PdM (#2) | 1.0 (Charter, OST) | 0.75 | 0.5 | 0.5 | 0.5 | 0.25 + 0.5 + 0.25 + 0.5 = 1.5 | **4.75** |
 | Facilitátor (#3) | 0.5 (agenda, pre-read review) | 0.75 | 0.25 | 0.5 | 0.25 | 0 + 0.25 + 0 + 0.25 = 0.5 | **2.75** |
 | FE / Vibe-coding lead (#4) | 0.5 (vibe-brief, builder) | 0.75 | 1.0 (iterace) | 0.5 | 1.0 (extract / hardening, viz Sprint 2) | 0 + 0.5 + 0.5 + 0.5 = 1.5 | **5.25** |
 | BE / API lead (#5) | 0.5 (Context Pack) | 0.75 | 1.0 (OpenAPI shadow) | 0.5 | 1.0 | 0 + 0.5 + 0.5 + 0.5 = 1.5 | **5.25** |
@@ -238,9 +238,9 @@ hardening a reinforcement: **3× vyšší**.
 | Readout | Owner | Minimální FTE % | Co se musí stát |
 |---------|-------|-----------------|------------------|
 | **T+7** (1 týden) | Champion (#17) | **0.5 PD** = ~6 % týdenního FTE | Sync s dev týmem: handoff package přijatý? Co rozbilo build? Co se nepoužilo? Update SHIP.md status řádku. |
-| **T+30** | PM (#2) + EM (#9) + Champion | **2.0 PD souhrnně** | Leading metric check (handoff acceptance ≥ 80 %), re-work tracking start, retro 60 min. |
-| **T+60** | PM + Champion | **1.0 PD** | Leading metric trend, scope creep audit, Method Steward update (1-page report). |
-| **T+90** | Decider (#1) + PM + EM + Champion | **2.5 PD** | Guardrail metric vyhodnocení (re-work %), Go / Iterate / Kill **per pilot** rozhodnutí, ADR-0007 method-level data feed. |
+| **T+30** | PdM (#2) + EM (#9) + Champion | **2.0 PD souhrnně** | Leading metric check (handoff acceptance ≥ 80 %), re-work tracking start, retro 60 min. |
+| **T+60** | PdM + Champion | **1.0 PD** | Leading metric trend, scope creep audit, Method Steward update (1-page report). |
+| **T+90** | Decider (#1) + PdM + EM + Champion | **2.5 PD** | Guardrail metric vyhodnocení (re-work %), Go / Iterate / Kill **per pilot** rozhodnutí, ADR-0007 method-level data feed. |
 | **Method-level T+6 mo** | Method Steward | **0.25 PD/měsíc průběžně + 2 PD na report** | Agregace metrik napříč 3+ piloty, CoP publikace. |
 
 **Pravidlo:** Reinforcement budget commit je **prerequisite, ne nice-to-have**.
@@ -357,15 +357,15 @@ log export, opt-out trainingu. Bez toho = neschváleno.
 - **Capacity check**: EM má **veto na workshop**, pokud PI > 80 % committed
   [synthesis 02, perspektiva 09]. Bez kapacity = no session, ne „domluvíme
   to potom".
-- **Délka Session 1**: v0.5 default Build = 3 h; rozšířeně 5–6 h, konec v 16:00 [perspektiva 03]. Ne 8 h.
-- **Mezi-session**: v0.5 default 3–5 dní; rozšířeně 5–7 pracovních dní (ne 14).
+- **Délka Session 1**: 3–6 h podle stupně (Quick 60–90 min / Lean 3 h = v0.5 default / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně); Full konec v 16:00 [perspektiva 03]. Ne 8 h.
+- **Mezi-session**: 3–7 pracovních dní podle stupně (Lean 3–5; ne 14).
 - **Senior delegate**: každá vetovací role posílá senior s explicit
   veto/sign-off mandátem; junior bez mandátu = session se odkládá
   [perspektiva 01].
 
 ## Pre-flight checklist
 
-Předseda projektu (PM) prochází checklist 48 h před session. **Cokoli ✗ =
+Předseda projektu (PdM) prochází checklist 48 h před session. **Cokoli ✗ =
 session odložena**, ne začata s improvizací.
 
 ```
@@ -389,7 +389,7 @@ session odložena**, ne začata s improvizací.
 [ ] WCAG 2.2 AA baseline a persona disability set (pokud customer-facing)
 [ ] Event taxonomy + measurement plan draft (pokud release intent)
 [ ] Top-10 ticket kategorií + 20 verbatim (pokud existující customer base)
-[ ] Throw-away/evolve flag explicit (default = evolve, ADR-0005; throw-away jen explicitní opt-in)
+[ ] Evolve/throw-away flag explicit (default = evolve; throw-away jen s rationale z 3 use-casů ADR-0005 v0.4)
 [ ] Pre-read materiál distribuován 5–7 prac. dní předem
 [ ] Builder volba potvrzena per stack (decision tree výše)
 ```

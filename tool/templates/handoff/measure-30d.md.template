@@ -12,3 +12,5 @@ v target repu a do `method-metrics.json` (pole `after_30d`).
 | Guardrail | {guardrail} | _vyplnit_ | bez porušení |
 
 Kill kritérium (z Kickoffu): {kill}
+
+Měření vede `/pm retro {slug}`: `python3 tool/cli/retro.py measure --slug {slug} --pr-url <PR_URL>` spočítá podíl LOC vítěze v produkci a days-to-prod, `retro.py reminders` vygeneruje připomínky T+7/30/60/90.

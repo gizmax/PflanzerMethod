@@ -127,7 +127,7 @@ compliance_score:
     7_silent_voting_used_in_s1: null
     8_decider_voted_last_in_s2: null
     9_severity_hierarchy_used: null
-    10_throwaway_default_or_evolve_signed: null
+    10_evolve_or_throwaway_flag_signed: null
     11_handoff_package_6_artifacts: null
     12_ai_act_phase_c_signed: null
   audit_report_link: null

@@ -38,9 +38,11 @@ Ukaž, co tool sesbíral — slouží k vylepšení metody:
 
 ## Krok 4 — Další krok
 
-> Další krok: za 30 dní `/pm status <slug>` a doměř podíl přežitého kódu.
+> Další krok: po merge vítěze `/pm retro <slug>` — změří % LOC vítěze
+> v produkci a days-to-prod, hned nastaví připomínky T+7/30/60/90.
 
-Reinforcement podle zadání z Kickoffu (T+7/30/90) drží Decider.
+Reinforcement podle zadání z Kickoffu (T+7/30/90) drží Decider. Retro je
+pod povrchem: hlavní cesta končí Shipem a Handoffem.
 
 ## Co NEDĚLAT
 
@@ -51,3 +53,4 @@ Reinforcement podle zadání z Kickoffu (T+7/30/90) drží Decider.
 ## Reference
 
 - `docs/methodology/07-handoff-do-vyvoje.md`
+- `.claude/commands/pflanzer-retro.md` (`/pm retro`)

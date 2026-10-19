@@ -25,7 +25,7 @@
 | Perspektiva | Pozice |
 |-------------|--------|
 | Method Steward | **0.1 FTE (4 h/týden + 8 h spike T+6/T+12)** je minimum viable; cokoli víc bez hire budget = nereálné |
-| Skeptický VP | **0.7-1.0 FTE dedikovaný Senior PM, €150-200k/rok**, financováno z Engineering Excellence CoE OPEX. *„10 % bez headcount = budget vapor"* |
+| Skeptický VP | **0.7-1.0 FTE dedikovaný Senior PdM, €150-200k/rok**, financováno z Engineering Excellence CoE OPEX. *„10 % bez headcount = budget vapor"* |
 | Akademik | Steward jako advocate má conflict-of-interest s rolí measurer → **external/blind rater** pro acceptance měření |
 
 **Resolution v0.3:**

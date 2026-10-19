@@ -19,7 +19,7 @@ feedback loop** s rolovou agregací (jede „bolts" lineárně, ne dva sessions
 s týdenním asyncem).
 
 Druhý semi-konkurent je **BMAD-METHOD** (open source, MIT, GitHub
-bmad-code-org), který má **AI personas pro 12+ rolí včetně PM/Architect/QA/SM**
+bmad-code-org), který má **AI personas pro 12+ rolí včetně PdM/Architect/QA/SM**
 — ale je to **agent orchestration framework, ne workshop methodology**.
 Žádní lidé v místnosti, jen agenti hrající role. Komplement, ne competitor.
 
@@ -165,7 +165,7 @@ external validation pro Pflanzer thesis.
 |---|---|
 | **Methodology publikace** | Nemá. Žádný „v0 Team Methodology" whitepaper. |
 | **Team features (Feb 2026)** | Git integration, VS Code-style editor, DB connectivity, agentic workflows, Team Templates, Approval Processes, Credit Tracking |
-| **Workflow positioning** | *„non-engineers can ship frontend changes through proper Git workflows"* — fokus na **PM/Marketing → PR** workflow, ne cross-functional session |
+| **Workflow positioning** | *„non-engineers can ship frontend changes through proper Git workflows"* — fokus na **PdM/Marketing → PR** workflow, ne cross-functional session |
 | **Pricing** | Team $30/seat, Business $100/seat |
 
 **Gap vs Pflanzer:** v0 řeší *„non-tech človek šíruje vlastní změnu"*.
@@ -179,7 +179,7 @@ podpisem"*. Inverzní problém.
 | Atribut | Bolt |
 |---|---|
 | **Methodology publikace** | Nemá. Bolt v2 (Oct 2025) je *„enterprise-grade vibe coding"* slogan, ne metoda. |
-| **PM playbook** | Existuje *„The PM's Complete Guide to Bolt.new"* (Aakash Gupta, Product Growth), ale je to **tool tutorial**, ne methodology framework. |
+| **PdM playbook** | Existuje *„The PdM's Complete Guide to Bolt.new"* (Aakash Gupta, Product Growth), ale je to **tool tutorial**, ne methodology framework. |
 | **Workshop posture** | StackBlitz nepořádá team workshop training. |
 
 **Gap vs Pflanzer:** Bolt = tool. Pflanzer = proces. Tool může být builder
@@ -367,7 +367,7 @@ existing dominant framework, který bys narušoval.
 - **Reforge** — kurzy *„AI for Product Builders"*, *„AI Product Strategy"*,
   *„AI Growth"* (Brian Balfour 4-week, 2025). Cohort learning, nikoli
   workshop methodology pro klient teams.
-- **Marily Nika (Maven)** — *„AI PM Bootcamp"* certification. Education,
+- **Marily Nika (Maven)** — *„AI PdM Bootcamp"* certification. Education,
   ne in-org methodology delivery.
 - **Productside / Product School** — *„AI Product Management Certification"*
   kurzy.

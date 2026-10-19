@@ -17,7 +17,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 GUIDE_TEMPLATE = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"

@@ -33,9 +33,12 @@ deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 2. **Lidé:** Decider (jméno + mandát říct Go i Kill) · **jméno ke každému ze
    6 kroků cesty** — byznys, produkt, design, vývoj, bezpečnost & právo,
    provoz · které z nich je **jádro** (3–4 lidé, celou dobu) a které **okno**.
-3. **Rámec:** risk profile `throwaway | pilot | production` · zabookovaná okna
-   (Build 3 h, checkpoint B&P 20 min, Rozhodnutí 60–90 min, checkpoint
-   provozu 20 min).
+3. **Rámec:** risk profile `throwaway | pilot | production` · **stupeň**
+   `quick | lean | full` (default **Lean**: Build 3 h, Async 3–5 dní;
+   Quick = `/pm live`; Full = governance / regulované, audit-grade, okno
+   5–7 dní — autoritativní tabulka v `docs/methodology/00-lean-pflanzer.md`
+   § Tři stupně, ADR-0017) · zabookovaná okna (Build 3 h, checkpoint B&P
+   20 min, Rozhodnutí 60–90 min, checkpoint provozu 20 min).
 
 Pravidla (vynucuj):
 - **Krok bez jména → STOP.** Nabídni, kdo ho může zastoupit (jeden člověk
@@ -46,6 +49,10 @@ Pravidla (vynucuj):
 - Zástupce bez mandátu rozhodnout v okně není zástupce.
 - `pilot`/`production`: repo musí mít origin (`doctor`); `target_repo_url`
   se čte z `.pflanzer/project.toml`, neptej se na něj znovu.
+- `quick` nejde s audit-grade (ten je vždy Full).
+- `throwaway` (kód se po Rozhodnutí zahodí) = explicitní opt-in s důvodem:
+  discovery-only pilot · důkaz oddělený od produkce (audit) · certifikovaná
+  regulovaná produkce (ADR-0005). Jinak platí, že vítěz jde do produkce.
 - Zákaz pokračovat při datech L4 nebo AI Act „unacceptable" — zapiš
   do decision logu a zastav. Regulované projekty: `docs/governance/`.
 
@@ -59,6 +66,7 @@ Sestav spec (např. `/tmp/<slug>-kickoff.json`):
   "decider_name": "<jméno>",
   "room_role_idx": [1, 2, 6, 4, 7, 15],
   "risk_profile": "pilot",
+  "tier": "lean",
   "role_owners": {"1": "Honza", "2": "Petra"},
   "metric": "<metrika>",
   "kill_criteria": "<kdy zabalit>",
@@ -71,6 +79,9 @@ Sestav spec (např. `/tmp/<slug>-kickoff.json`):
 pflanzer quick_session bootstrap --spec /tmp/<slug>-kickoff.json
 ```
 
+Víc repozitářů (FE + BE, monorepo): místo `target_repo_url` dej
+`"target_repos"` — text `fe=https://…/web, be=https://…/api#develop` nebo
+pole `[{"role": "fe", "url": "…", "branch": "main", "workspace": "apps/web"}]`.
 Chyba „krok bez jména" nebo warning „jádro > 5" → vrať se ke Kroku 1, nic
 neobcházej. Výstup obsahuje `slug`.
 

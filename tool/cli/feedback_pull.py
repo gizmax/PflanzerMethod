@@ -24,7 +24,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import DATA_ROOT, audit, current_actor, display_path, transaction  # noqa: E402
+from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
 
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"

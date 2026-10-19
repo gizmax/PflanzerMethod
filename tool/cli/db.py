@@ -22,15 +22,20 @@ def _resolve_data_root() -> Path:
     """Resolve the single data folder (DB + charters + feedback + quick + ...).
 
     Order:
-    1. PFLANZER_DATA env var (explicit override)
-    2. ~/.pflanzer/ if it exists (installed plugin)
+    1. PFLANZER_DATA env var (explicit override of the whole data dir)
+    2. ~/.pflanzer/ if ~/.pflanzer/pflanzer.db exists (installed plugin)
     3. <repo>/data (dev mode — running from cloned source)
+
+    The decision keys on the DB *file*, not on the ~/.pflanzer/ directory:
+    `worktree.py setup` creates ~/.pflanzer/targets/ as a clone cache, which
+    must not silently move a dev-mode DB away from data/pflanzer.db.
+    (PFLANZER_DB overrides just the DB file, see `_resolve_db_path`.)
     """
     import os
     if env := os.environ.get("PFLANZER_DATA"):
         return Path(env).expanduser()
     user_dir = Path.home() / ".pflanzer"
-    if user_dir.exists():
+    if (user_dir / "pflanzer.db").is_file():
         return user_dir
     return REPO_ROOT / "data"
 

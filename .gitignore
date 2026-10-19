@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 .env
@@ -40,3 +44,6 @@ logs/
 # Local config
 .claude/settings.local.json
 website/qwen38-m5max.html
+
+# AI usage price list (tool/cli/ai_usage.py) — local, prices change
+/pflanzer.prices.json

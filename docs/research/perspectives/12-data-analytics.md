@@ -1,7 +1,7 @@
 # Perspektiva: Data / Analytics
 
 ## Kdo jsem
-Senior Data / Analytics Engineer + Product Analyst v korporátu, 10+ let. Vlastním event taxonomy (Snowplow + Segment), Amplitude/Mixpanel pro produktovou analytiku, Looker semantic layer, A/B testing platformu (interní wrapper nad Statsig). Denní bolesti: feature shipne v pátek bez instrumentace, v pondělí PM ptá „kolik lidí to použilo"; A/B test bez sufficient power → běží 6 týdnů, výsledek „inconclusive"; exec dashboard plný vanity metrik (DAU bez kontextu retentionu); a věčně dohledávám eventy, které měly vzniknout v sprintu N-3.
+Senior Data / Analytics Engineer + Product Analyst v korporátu, 10+ let. Vlastním event taxonomy (Snowplow + Segment), Amplitude/Mixpanel pro produktovou analytiku, Looker semantic layer, A/B testing platformu (interní wrapper nad Statsig). Denní bolesti: feature shipne v pátek bez instrumentace, v pondělí PdM ptá „kolik lidí to použilo"; A/B test bez sufficient power → běží 6 týdnů, výsledek „inconclusive"; exec dashboard plný vanity metrik (DAU bez kontextu retentionu); a věčně dohledávám eventy, které měly vzniknout v sprintu N-3.
 
 ## 1. Posouzení metody z mé role
 
@@ -47,7 +47,7 @@ Senior Data / Analytics Engineer + Product Analyst v korporátu, 10+ let. Vlastn
 
 1. **Low traffic feature** — flow má < 1000 users / týden, A/B test by trval měsíce. Mitigace: pre-post quasi-experiment, switchback design, nebo synthetic control. Rozhodne se v Session 1, ne později.
 2. **Multi-touch attribution mess** — fíčura ovlivňuje metriku, která je downstream několika dalších změn (concurrent A/B tests). Mitigace: koordinace s experimentation platform ownerem před session, MMM pre-read.
-3. **Vanity metric capture** — sponzor chce trackovat „engagement" (= scroll depth × session time), což nekoreluje s business outcome. Mitigace: PM + Analytics interlock — PM definuje OKR (lagging), já definuji measurable proxy (leading), oba podepíšeme.
+3. **Vanity metric capture** — sponzor chce trackovat „engagement" (= scroll depth × session time), což nekoreluje s business outcome. Mitigace: PdM + Analytics interlock — PdM definuje OKR (lagging), já definuji measurable proxy (leading), oba podepíšeme.
 4. **GDPR/consent gap** — eventy navržené v session vyžadují consent, který flow nemá. V EU = silent telemetry death. Mitigace: Legal pre-read, server-side tracking pro essential eventy, client-side jen s consent.
 5. **Schema drift mezi prototypem a produkcí** — eventy v Bolt/Lovable mockupu používají demo namespace, na produkci jiný. Mitigace: dual-environment schema, prefix `proto_` v session, mapping table do prod schema při handoffu.
 6. **Power < 80 %** — sponzor tlačí na rychlý launch, ale traffic neumožňuje detekovat realistic effect. Mitigace: explicitně v measurement plan napsat statistical power; pokud pod 80 %, není to A/B test ale shadow launch s observation.
@@ -87,8 +87,8 @@ Kalkulačka jako Miro embed; pokud runtime > 4 týdny → red flag, redesign exp
 
 **4. Instrumentation deadline = ship date minus 2 dny.** Tvrdé pravidlo. Bez merge-blokujícího schema check eventy nikdy nevzniknou včas. Implementace: pre-commit hook na schema registry diff.
 
-**5. Interlock s PM (formalizovaný):**
-| PM definuje | Já definuji |
+**5. Interlock s PdM (formalizovaný):**
+| PdM definuje | Já definuji |
 |---|---|
 | OKR / Outcome („zvýšit retention o 5 %") | Measurable proxy + event („D7 retention computed from `session_started` event, cohort = `signup_completed` users") |
 | Persona / segment | Audience definition v query layeru („`country IN (CZ,SK) AND plan = paid`") |
@@ -99,7 +99,7 @@ Kalkulačka jako Miro embed; pokud runtime > 4 týdny → red flag, redesign exp
 
 ## 6. Konflikty s ostatními rolemi
 
-- **PM (#2):** klasický „outcome vs output" konflikt. PM chce ship, já chci měřitelný ship. Řešení: měření jako součást Definition of Done, ne jako P2 ticket.
+- **PdM (#2):** klasický „outcome vs output" konflikt. PdM chce ship, já chci měřitelný ship. Řešení: měření jako součást Definition of Done, ne jako P2 ticket.
 - **Engineering / Backend (#5):** eventy = další kód, latency, schema migrations. Řešení: schema-first, generated SDK, ne hand-rolled tracking.
 - **Security / Legal (#7, #10):** PII v eventech = veto. Řešení: hashing + pseudonymizace v session designu, ne ex post.
 - **Zadavatel (#1):** chce „dashboard zítra", neuznává consent / sample size. Řešení: tvrdé pravidlo „bez measurement plan není ship", podepsáno v charteru.

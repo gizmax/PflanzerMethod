@@ -6,7 +6,8 @@ The CC side (tool/cli/*.py) writes most rows; the web hub adds variants
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlmodel import Field, SQLModel, create_engine
@@ -15,19 +16,20 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _resolve_db_path() -> Path:
-    """Same resolver as tool/cli/db.py, so the hub and the CLI share ONE database.
+    """Resolve the DB exactly like tool/cli/db.py so the hub and the CLI share one DB.
 
-    PFLANZER_DB env -> $PFLANZER_DATA/pflanzer.db -> ~/.pflanzer/pflanzer.db
-    (if ~/.pflanzer exists) -> <repo>/data/pflanzer.db.
+    Order: PFLANZER_DB env > $PFLANZER_DATA/pflanzer.db > ~/.pflanzer/pflanzer.db
+    (installed plugin, the *file* must exist — ~/.pflanzer/targets alone does not
+    count) > <repo>/data/pflanzer.db (dev mode). Kept in sync with
+    tool/cli/db.py::_resolve_db_path (covered by tests/test_db_path.py).
     """
-    import os
     if env := os.environ.get("PFLANZER_DB"):
         return Path(env).expanduser()
     if env := os.environ.get("PFLANZER_DATA"):
         return Path(env).expanduser() / "pflanzer.db"
-    user_dir = Path.home() / ".pflanzer"
-    if user_dir.exists():
-        return user_dir / "pflanzer.db"
+    user_db = Path.home() / ".pflanzer" / "pflanzer.db"
+    if user_db.is_file():
+        return user_db
     return REPO_ROOT / "data" / "pflanzer.db"
 
 
@@ -36,7 +38,7 @@ DB_PATH = _resolve_db_path()
 
 def utcnow() -> datetime:
     """Timezone-aware UTC now (sqlmodel ≥ 0.0.25 rejects naive datetimes)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Project(SQLModel, table=True):
@@ -57,6 +59,7 @@ class Project(SQLModel, table=True):
     data_class: str | None = None
     throwaway_or_evolve: str | None = None
     capacity_profile: str | None = None
+    tier: str | None = None  # quick | lean | full (ADR-0021)
     capacity_person_days: int | None = None
     xyz_hypothesis: str | None = None
     primary_lagging_metric: str | None = None
@@ -155,5 +158,7 @@ class AuditLog(SQLModel, table=True):
     retention_until: str | None = None  # ISO date string
 
 
-def get_engine() -> "object":
-    return create_engine(f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False})
+def get_engine() -> object:
+    return create_engine(
+        f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False}
+    )

@@ -3,7 +3,7 @@
 **Pflanzer Method | pflanzer.cz/method**
 
 > **Tohle čti první**, pokud chceš metodu **použít**, ne studovat.
-> Kanonický zdroj průběhu a terminologie: ADR-0021. Pro regulované
+> Kanonický zdroj průběhu a terminologie: ADR-0021; stupně a okna: ADR-0017. Pro regulované
 > prostředí (banky, DORA, AI Act High-risk) viz `docs/governance/`.
 
 ## Co Pflanzer Method je
@@ -29,15 +29,42 @@ Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 | Krok cesty | Zástupce (typicky) | Účast |
 |------------|--------------------|-------|
 | Byznys | Zadavatel / sponzor = **Decider** | okna: Kickoff 15 min + Rozhodnutí |
-| Produkt | PM (často i facilitátor) | **jádro** |
-| Design | UX / Designer | **jádro** (u interního toolu může krýt PM) |
+| Produkt | PdM (často i facilitátor) | **jádro** |
+| Design | UX / Designer | **jádro** (u interního toolu může krýt PdM) |
 | Vývoj | 1–2 vývojáři (FE / BE) = buildeři | **jádro** |
 | Bezpečnost & právo | Security nebo Legal / DPO (jeden stačí) | okno: checkpoint 20 min |
 | Provoz | DevOps / Platform nebo EM | okno: checkpoint 20 min u Ship |
 
 Jeden člověk smí krýt víc kroků (vývojář = vývoj + provoz je běžné).
 Kdo přesně může krok zastoupit, říká `02-role-catalog.md` — catalog
-je **knihovna zástupců**, ne seznam pozvánek.
+je **knihovna zástupců**, ne seznam pozvánek. Každému zástupci pošli jen
+jeho **role card** (1 strana: co do svého okna přinést, co podepisuje, kdy
+být v místnosti, na co hlasuje) — [`role-cards/README.md`](role-cards/README.md),
+pro konkrétní projekt se jmény a stupněm `pflanzer roles cards --slug <slug>`.
+
+## Tři stupně jedné metody
+
+> **Autoritativní definice** (ADR-0017). Délka Buildu, rozsah kontroly
+> bezpečnosti & práva a délka Async okna jsou definované **jen v této
+> tabulce**. README, `00-tldr.md`, `04-session-1.md`, `/pm` i `/pm live` sem
+> odkazují. Na povrchu je jedna metoda s pěti kroky; stupeň jen říká, kolik
+> rituálů se kolem nich pustí. Tool ho drží v `projects.tier`
+> (`pflanzer status`).
+
+| Stupeň | Build | Bezpečnost & právo | Async okno | Kdy použít | Command |
+|--------|-------|--------------------|------------|------------|---------|
+| **Quick** | Kickoff + Build v jednom, 60–90 min, 1 kolo × 30 min stavby → silent vote → shortlist | checkpoint odložený (před pilotem se doběhne `/pm triage`) | 3 pracovní dny | Rychlé ověření směru, první kontakt týmu s metodou; **jen risk profil `throwaway` / `pilot`** (pro `production` upgrade na Lean) | `/pm live` |
+| **Lean** (**v0.5 default**) | 3 h, jádro; stavba s průběžnými kontrolami a mid-checkpointem → diff walkthrough → silent vote | checkpoint 20 min + lehký 1-pager checklist | 3–5 pracovních dní | Default — interní tool, SaaS feature, non-regulated projekt s vývojářem v jádru | `/pm start` → `/pm build` |
+| **Full** (governance / regulované) | 5–6 h, kompletní agenda `04-session-1.md` (VoC, pre-mortem, Crazy 8s, shadow agenti, A11y quickscan) | 4 triage tracky povinné (Discovery + Security + Legal + Platform) | 5–7 pracovních dní | AI Act High-risk, DORA, public sector, rollout metody napříč organizací (viz § Kdy default NEstačí) | `/pm roles` → `/pm triage` → `/pm build` |
+
+Všechny tři stupně mají **stejné jádro**: vývojář u klávesnice od minuty 0,
+3 paralelní varianty, anti-HiPPO (silent vote, Decider hlasuje poslední)
+a Decider s mandátem — liší se jen množstvím rituálů kolem. **Rozhodnutí je
+ve všech stupních stejné** (`/pm decide`, 60–90 min; Full smí využít 3h
+rozšířenou agendu). **Po Rozhodnutí následuje Ship, ne další setkání:**
+pipeline (gates na vítěze + `SHIP.md`), kterou po Go pouští vývojáři
+(`/pm ship` + `/pm handoff`). Délku okna per stupeň a pravidla pro mlčení po
+deadline určuje [ADR-0017](../decisions/0017-mezi-session-okno-per-stupen.md).
 
 ## Průběh (~8 dní, ~6–8 PD)
 
@@ -74,18 +101,39 @@ Den ~8   SHIP           1–2 dny    vývojáři + provoz
          /pm ship  →  /pm handoff
 ```
 
+Pod povrchem platí tato pravidla (rozšířená reference v 04–07):
+
+- **Build:** před hlasováním **diff walkthrough** — vývojářský pár na
+  každé variantě ukáže `git diff --stat` a řekne reuse / nové / mock;
+  u klávesnice sedí vývojář, ne facilitátor (N10). Preview per varianta:
+  draft PR s preview URL nebo Playwright záznam (`docs/postup.md`
+  § Kde varianty fyzicky jsou).
+- **Async:** technické role (vývoj, QA, provoz) projdou PR diff a ke každému
+  souboru napíšou **keep / fix / kill**; ostatní hodnotí preview. Mlčení
+  nevetovací role po deadline = „no objection“ v decision logu, mlčení
+  vetovací role souhlas není (ADR-0017). Připomínka 48 h a 24 h před deadline.
+- **Ship:** příkazy gates bere adaptér `pflanzer.gates.yml` z base branche
+  target repa (varianta ho nepřepíše); verdikt potřebuje aspoň build
+  a testy. Commity nesou trailery `Pflanzer-Variant` / `AI-Assisted`
+  a PR labely `pflanzer` / `ai-generated` (**AI provenance**, N11); SHIP.md
+  ukazuje i **AI náklady** (tokeny per varianta a za cyklus).
+- **Retro:** po merge vítěze `/pm retro` změří % LOC vítěze v produkci
+  a days-to-prod a nastaví readouty T+7/30/60/90 — viz `docs/zacni.md`
+  § Co měřit.
 - **Iterate** = jedno další Build kolo (max 1×), pak Go nebo Kill.
   Třetí kolo = problém je špatně zadaný, vrať se ke Kickoffu.
 - „Session 1 / Session 2" ve starších dokumentech = Build / Rozhodnutí.
-  „Session 3" se nepoužívá.
+  „Session 3" = Ship (pipeline, ne setkání).
 
 ## Co tým dostane
 
 - **3 funkční varianty** (ne mockupy) na sandbox URL, každý zástupce
   je vidí ve svém prohlížeči.
-- **Winner kód** s gate score ≥ 80 (pilot) / 85 (production) jako PR do target repa.
+- **Kód vítěze** s gate score ≥ 80 (pilot) / 85 (production) jako PR do target repa.
 - **Decision log** v target repu (`.pflanzer/decisions/<slug>.md`) — kdo co
   rozhodl a proč, včetně checkpointů.
+- **Měření outcome** (`/pm retro`): kolik kódu vítěze žije v produkci a co
+  se s ním stalo za 7 / 30 / 60 / 90 dní.
 
 ## Proč malá skupina
 

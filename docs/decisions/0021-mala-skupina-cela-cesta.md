@@ -38,7 +38,7 @@ ADR-0009 (worktree v target repu), ADR-0020 (Track P default).
 |----------|-----|-------|
 | A — ponechat v0.4, jen sjednotit čísla | nejmenší změna | velká místnost zůstává; mezera v bezpečnosti zůstává |
 | B — **malé jádro + okna pro zástupce kroků cesty** | sedí na praxi i rešerši; každý krok cesty má hlas; zavírá mezeru v bezpečnosti | Decider není u stavby → riziko „rozhodnutí bez kontextu" (mitigace: demo + async klikání) |
-| C — jen jádro (PM + vývojář), ostatní async | nejrychlejší | ztrácí cross-functional alignment = hlavní důvod metody |
+| C — jen jádro (PdM + vývojář), ostatní async | nejrychlejší | ztrácí cross-functional alignment = hlavní důvod metody |
 
 ## Rozhodnutí
 
@@ -51,14 +51,14 @@ Cesta nápadu do produkce má **6 kroků**:
 | # | Krok cesty | Kdo typicky zastupuje (z role catalogu) |
 |---|------------|------------------------------------------|
 | 1 | Byznys | Zadavatel / sponzor = Decider (#1) |
-| 2 | Produkt | PM (#2) |
+| 2 | Produkt | PdM (#2) |
 | 3 | Design | UX / Designer (#6) |
 | 4 | Vývoj | FE / Vibe-coding lead (#4), BE / API lead (#5) |
 | 5 | Bezpečnost & právo | Security (#7), Legal / DPO (#10) — jeden člověk stačí |
 | 6 | Provoz | DevOps / Platform (#15), případně EM (#9) |
 
 - Jeden člověk smí zastupovat víc kroků (např. vývojář = vývoj + provoz,
-  PM = produkt + design u interního toolu).
+  PdM = produkt + design u interního toolu).
 - **Žádný krok nesmí zůstat bez jména.** Krok bez zástupce = session se
   nesvolává (nahrazuje anti-pattern „Security/Legal vynecháno").
 - Role catalog (18 pozic) zůstává jako **seznam, kdo může krok zastoupit**,
@@ -66,7 +66,7 @@ Cesta nápadu do produkce má **6 kroků**:
 
 ### 2. Jádro je malé a je tam celou dobu; ostatní přicházejí na okna
 
-- **Jádro (3–4 lidé, celou dobu):** PM (facilitátor, pokud není
+- **Jádro (3–4 lidé, celou dobu):** PdM (facilitátor, pokud není
   dedikovaný), 1–2 vývojáři jako buildeři, designér.
 - **Okna (konkrétní čas nad konkrétním artefaktem):**
 

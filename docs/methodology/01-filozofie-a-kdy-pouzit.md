@@ -2,7 +2,7 @@
 
 > **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Fit / no-fit kritéria níže platí dál; sestava a délky v textu jsou rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
 
-> Cílový čtenář: praktikant (PM, EM, Tech Lead, facilitátor), který zvažuje
+> Cílový čtenář: praktikant (PdM, EM, Tech Lead, facilitátor), který zvažuje
 > konkrétní zadání a potřebuje fit/no-fit rozhodnutí dřív, než svolá místnost.
 
 ## Filozofie
@@ -54,7 +54,7 @@ Pflanzer dává smysl, pokud **současně** platí ≥5 z následujících:
    nedokážou rozhodnout nad mockupem nebo PRD; je potřeba klikací artefakt
    pro „a-ha moment".
 3. **Discovery je hotový nebo dohledatelný.** Persona freshness ≤6 měsíců
-   (5+ rozhovorů), JTBD podepsaný PM, OST v0 existuje, success metric je
+   (5+ rozhovorů), JTBD podepsaný PdM, OST v0 existuje, success metric je
    měřitelná. Pokud chybí, předřaď 2-week Discovery Sprint [synthesis 01 — E].
 4. **Scope vejde do kapacitního footprintu.** ~8–10 person-days/cyklus,
    max 2–3 cykly per PI. Default mounting: SAFe IP iteration. Mimo SAFe:

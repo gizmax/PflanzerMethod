@@ -17,7 +17,7 @@ zejména **XYZ hypotézu**, **success threshold** a **kill criteria**.
    [metric] o [delta] během [time window]."*
 
    Když uživatel řekne "chceme přidat forecast widget", pomoz mu vyextrahovat:
-   - Persona (kdo? prodejní investor? retail trader? PM?)
+   - Persona (kdo? prodejní investor? retail trader? portfolio manažer?)
    - JTBD (jakou job-to-be-done řeší?)
    - Měřitelný outcome (DAU? engagement? conversion?)
    - Delta a time window (+15 % T+90? -20 % churn T+30?)

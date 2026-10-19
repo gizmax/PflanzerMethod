@@ -1,6 +1,6 @@
 # Adjacent Workshop & Sprint Methods — Baseline Research
 
-Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat panelu, kde je PM kompilací best practice a kde přidává novinku.
+Mapování metod, ze kterých Pflanzerova metoda (PdM) vychází. Cíl: ukázat panelu, kde je PdM kompilací best practice a kde přidává novinku.
 
 ---
 
@@ -17,7 +17,7 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 - Decider model v hierarchických firmách buď duplikuje rozhodovací řetězec, nebo tvoří politické napětí.
 - 5 testovacích uživatelů = pro B2B / regulované obory nedostatečné.
 
-**Co PM přebírá:** time-boxing, "together alone", tangible outputy místo diskuse.
+**Co PdM přebírá:** time-boxing, "together alone", tangible outputy místo diskuse.
 
 **Liší se:** místo Figma fasády vzniká funkční mockup (AI vibe-coding); security/dev jsou v místnosti od minuty 0 (řeší valley of death); rozhodnutí není binární, ale gradient závaznosti per oddělení.
 
@@ -31,9 +31,9 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** mělká hloubka (symptomy, ne strukturální problémy); HiPPO efekt přebíjí silent voting; akce po LDJ nikdo nezačne řešit, chybí závaznost.
 
-**Co PM přebírá:** silent ideation, dot voting, anti-discussion default, impact/effort thinking pro feedback.
+**Co PdM přebírá:** silent ideation, dot voting, anti-discussion default, impact/effort thinking pro feedback.
 
-**Liší se:** LDJ = 1 sezení, meta-problém. PM = 2 sezení + funkční prototyp mezi nimi, konkrétní feature.
+**Liší se:** LDJ = 1 sezení, meta-problém. PdM = 2 sezení + funkční prototyp mezi nimi, konkrétní feature.
 
 ---
 
@@ -45,9 +45,9 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** Empathize (terénní výzkum) v B2B nereálná — NDA, interní uživatelé. "Iterativní, non-linear" = žádný clear gate → frustrace sponsora. "Design theatre" — končí concept deckem bez ownerství implementace.
 
-**Co PM přebírá:** human-centered princip, prototype-as-thinking-tool.
+**Co PdM přebírá:** human-centered princip, prototype-as-thinking-tool.
 
-**Liší se:** PM je time-boxed na 2 sezení a vědomě přeskakuje Empathize tím, že stakeholdery má rovnou v místnosti. Není DT pro koncového uživatele, je alignment-driven discovery pro interní rozhodovatele.
+**Liší se:** PdM je time-boxed na 2 sezení a vědomě přeskakuje Empathize tím, že stakeholdery má rovnou v místnosti. Není DT pro koncového uživatele, je alignment-driven discovery pro interní rozhodovatele.
 
 ---
 
@@ -59,7 +59,7 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** týden non-stop = logistický blocker. MVP Canvas je dokument, ne prototyp — alignment verbální, ne vizuální (lidé říkají "ano" na features, které si představují jinak). Showcase končí v Confluence.
 
-**Co PM přebírá:** alignment cross-functional týmu, Sequencer (priorita featur), MVP-thinking.
+**Co PdM přebírá:** alignment cross-functional týmu, Sequencer (priorita featur), MVP-thinking.
 
 **Liší se:** místo Canvasu vzniká klikací mockup. "Everyone clicks the same screen" místo "everyone agrees on the doc". Feedback mezi sezeními má score závaznosti — Lean Inception nic takového nemá.
 
@@ -73,9 +73,9 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** DDD-literate facilitátor je rare; bez něj sklouzne do flowchart cvičení. Big Picture odhalí 50+ painpointů bez prioritizace. Zeď post-itů je obtížně přenositelná. Mapuje, neřeší — exec ztrácí trpělivost.
 
-**Co PM přebírá:** "stejní lidé v jedné místnosti", mapování pain points napříč rolemi.
+**Co PdM přebírá:** "stejní lidé v jedné místnosti", mapování pain points napříč rolemi.
 
-**Liší se:** ES je discovery (mapuje existující), PM je generativní (vyrábí nové). PM může ES použít jako pre-step pro komplexní domény.
+**Liší se:** ES je discovery (mapuje existující), PdM je generativní (vyrábí nové). PdM může ES použít jako pre-step pro komplexní domény.
 
 ---
 
@@ -87,9 +87,9 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** Fake Door je reputačně rizikový (compliance odmítne inzerát na neexistující produkt). Interní IT projekty nemají externí "trh". B2B sample pod 100 = statisticky neprůkazné.
 
-**Co PM přebírá:** XYZ hypotézu jako formát pro success kritéria mockupu mezi sezeními. Score závaznosti = pretotyping aplikovaný na interní stakeholdery místo trhu.
+**Co PdM přebírá:** XYZ hypotézu jako formát pro success kritéria mockupu mezi sezeními. Score závaznosti = pretotyping aplikovaný na interní stakeholdery místo trhu.
 
-**Liší se:** PM testuje interní alignment, ne externí poptávku. Komplementární.
+**Liší se:** PdM testuje interní alignment, ne externí poptávku. Komplementární.
 
 ---
 
@@ -99,9 +99,9 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** seniorní účastníci odmítají kreslit ("nejsem designér") → 2–3 nápady místo 8. Často 8 variant jednoho nápadu. Sketches jsou nečitelné po týdnu.
 
-**Co PM přebírá:** force-divergence princip, time-box, individuální před skupinovou.
+**Co PdM přebírá:** force-divergence princip, time-box, individuální před skupinovou.
 
-**Liší se:** PM nahrazuje sketching tím, že AI generuje 1–3 mockup varianty z verbálního inputu týmu. Demokratizuje vizualizaci pro non-designéry.
+**Liší se:** PdM nahrazuje sketching tím, že AI generuje 1–3 mockup varianty z verbálního inputu týmu. Demokratizuje vizualizaci pro non-designéry.
 
 ---
 
@@ -111,19 +111,19 @@ Mapování metod, ze kterých Pflanzerova metoda (PM) vychází. Cíl: ukázat p
 
 **Selhává v korporátu:** vyžaduje facilitátora schopného prosadit nezvyklé protokoly proti C-level netrpělivosti.
 
-**Co PM přebírá:** 1-2-4-All jako default protokol feedback fáze (silent first → obejde HiPPO). TRIZ jako "pre-mortem" pro security/compliance v sezení 1.
+**Co PdM přebírá:** 1-2-4-All jako default protokol feedback fáze (silent first → obejde HiPPO). TRIZ jako "pre-mortem" pro security/compliance v sezení 1.
 
 ---
 
 ## Syntéza — pozice Pflanzerovy metody
 
-PM je **kompilace** osvědčených prvků (silent ideation, time-box, prototype-as-alignment, dot voting, cross-functional in one room) **plus tři novinky:**
+PdM je **kompilace** osvědčených prvků (silent ideation, time-box, prototype-as-alignment, dot voting, cross-functional in one room) **plus tři novinky:**
 
 1. **AI co-pilot v reálném čase** — vibe-coding viditelný stakeholderům. Mockup vzniká v sezení, ne mezi sezeními.
 2. **Score závaznosti per oddělení** — přemosťuje propast mezi "líbí se mi" (LDJ, DS) a "tohle commitnu" (žádná z metod to neřeší).
 3. **AI-mediovaná syntéza feedbacku** v sezení 2 — odstraňuje politickou interpretaci "co řeklo X oddělení".
 
-**Riziko překryvu:** PM bez těchto tří prvků = Design Sprint 2.0 + Lean Inception lite. S nimi = nová kategorie "AI-augmented alignment workshop". Panel by měl tlačit na ostrost těchto diferenciátorů.
+**Riziko překryvu:** PdM bez těchto tří prvků = Design Sprint 2.0 + Lean Inception lite. S nimi = nová kategorie "AI-augmented alignment workshop". Panel by měl tlačit na ostrost těchto diferenciátorů.
 
 ---
 

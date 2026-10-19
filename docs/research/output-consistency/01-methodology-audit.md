@@ -569,7 +569,7 @@ Buyer journey simulace:
    Confluence."*
    → **Conversion lost**.
 
-2. **PM/EM čte `07-handoff-do-vyvoje.md`** (15 minut).
+2. **PdM/EM čte `07-handoff-do-vyvoje.md`** (15 minut).
    → Vidí explicit: *„Výstupem Session 2 není „kód", ale podepsaný handoff
    package, který tým vývoje může vzít a postavit z něj produkt"*.
    → Mental model: *„OK, tohle je předpřipravená specka. Velocity gain
@@ -598,7 +598,7 @@ Buyer journey simulace:
 
 **Aggregate risk:**
 - Manager: conversion loss
-- PM/EM: pricing power loss (low willingness-to-pay)
+- PdM/EM: pricing power loss (low willingness-to-pay)
 - CFO: economic model rejection
 - Developer: disengagement → low alignment
 - Security/Legal: under-rigor (assuming throw-away)

@@ -28,7 +28,7 @@ catalog] označuje jejich role jako POVINNÉ.
   categories, profiling, novel vendor, marketing claims — **lidský DPO
   povinně**, session se odkládá.
 
-**Kdo rozhoduje.** Facilitátor + PM. Facilitátor má *„právo zadavateli
+**Kdo rozhoduje.** Facilitátor + PdM. Facilitátor má *„právo zadavateli
 podržte slovo"* [perspektiva 03], stejně tak právo session zrušit, když
 není kvórum.
 
@@ -105,15 +105,15 @@ všichni jsme, přidáme i export do PDF / SSO / multi-tenant"*.
 
 1. **Parking lot okamžitě** — facilitátor zapíše návrh do viditelného
    sloupce *„Parking lot — Session 2 review"*. Žádná diskuse v Session 1.
-2. **PM vlastní parking lot review** — každý bod má owner + due date
+2. **PdM vlastní parking lot review** — každý bod má owner + due date
    + decision (in-scope / next iteration / never).
 3. Pokud se scope creep opakuje 3× v jedné session, facilitátor
    zastaví práci a explicitně připomene Charter scope. *„Tato session
    řeší X. Y a Z patří do separátní iterace"* [perspektiva 03 §
    conflict avoidance].
 
-**Kdo rozhoduje.** PM + Facilitátor. PM má tie-breaker na scope, UX
-na flow [synthesis 01 § PM × UX].
+**Kdo rozhoduje.** PdM + Facilitátor. PdM má tie-breaker na scope, UX
+na flow [synthesis 01 § PdM × UX].
 
 **Mitigace.** XYZ hypotéza v Charteru s explicit *„Out-of-scope"*
 sekcí; facilitátor *„konflikt nadojmem v 5. minutě výskytu, ne ke
@@ -159,13 +159,13 @@ Detector [synthesis 02 § Discovery] vrací skóre ≥7 z 10 (= STOP).
 1. **Facilitátor zastaví session** — žádné další divergence. *„Pflanzer
    řeší alignment, ne discovery"* [perspektiva 02].
 2. **Předřadit 2-week Discovery Sprint** [synthesis 01 osa E]: 15
-   user rozhovorů, JTBD statement podepsaný PM, OST v0, persona
+   user rozhovorů, JTBD statement podepsaný PdM, OST v0, persona
    freshness ≤6 měsíců (5+ rozhovorů).
 3. Session 1 se reschedule po Discovery Sprintu, ne dříve.
 4. Náklady na discovery (~10 person-days) jdou na účet projektu, ne
    metody.
 
-**Kdo rozhoduje.** Facilitátor (právo session zastavit) + PM (vlastní
+**Kdo rozhoduje.** Facilitátor (právo session zastavit) + PdM (vlastní
 discovery deliverable) + UX (vlastní persona research).
 
 **Mitigace.** Discovery Readiness Gate jako krok 0 [synthesis 03];
@@ -200,9 +200,14 @@ pre-flight artefakt (feature → team → typ → required by → owner)
 
 ## 8. Prototyp shipnut do prod bez review
 
-**Situace.** Sponzor vidí Bolt deploy URL, dá ji enterprise zákazníkovi,
-zákazník ji začne používat „na ostro". Throw-away kontrakt v Charteru
-ignorován [perspektivy 04, 08, 15; synthesis 01 osa A].
+**Situace.** Charter je (default) Track P + evolve — winner varianta
+*půjde* do produkce. Sponzor ale nečeká na Ship gate ani sign-off: vidí
+sandbox URL varianty po Session 1 nebo 2, dá ji enterprise zákazníkovi
+a zákazník ji začne používat „na ostro". Problém není, že by sponzor
+obešel throw-away (ten je od ADR-0005 v0.4 jen explicit opt-in), ale že
+**evolve zkrátil o Ship gate** — kód, který ještě neprošel quality gates
+≥ 80/100 ani sign-off paketem, běží s reálnými uživateli
+[perspektivy 04, 08, 15; synthesis 01 osa A; ADR-0005 v0.4].
 
 **Co dělat:**
 
@@ -212,22 +217,31 @@ ignorován [perspektivy 04, 08, 15; synthesis 01 osa A].
    neeliminují.
 2. **Blame-free retro do 48 h** [perspektiva 03] — co failnulo:
    technický enforcement (sandbox spec), sociální enforcement
-   (Charter), nebo komunikace (sponzor nečetl)?
-3. **Šance vrátit**: pokud zákazník prototyp viděl, ale ještě nepoužívá
-   v provozu, sponzor osobně volá s vysvětlením + timeline pro proper
-   delivery (paved-road template + P2P gate).
-4. **Governance update**: každý handoff přidává explicit *„Throw-away
-   kontrakt"* podpis sponzora s definicí *„nepoužívat s reálnými daty
-   ani 1 minutu"*.
+   (Charter / sign-off), nebo komunikace (sponzor nevěděl, že evolve
+   ≠ „hned do prod")?
+3. **Šance vrátit**: pokud zákazník variantu viděl, ale ještě nepoužívá
+   v provozu, sponzor osobně volá s vysvětlením + timeline. U evolve
+   je timeline krátká: stejný kód projde Ship gate (quality gates
+   ≥ 80/100) + sign-off a nasadí se proper cestou — žádná
+   re-implementace.
+4. **Governance update**: Charter explicit uvádí, že evolve = „kód jde
+   do prod **přes** Ship gate + sign-off", a sponzor podpisem potvrzuje,
+   že sandbox URL před Ship gate se externě nesdílí a nepoužívá
+   s reálnými daty. U throw-away Charteru (opt-in) platí totéž
+   absolutně — artifact do prod nejde nikdy.
 
 **Kdo rozhoduje.** Security + DevOps společně mají takedown autoritu;
-EM + sponzor řeší zákaznickou komunikaci.
+EM + sponzor řeší zákaznickou komunikaci; o urychleném průchodu Ship
+gate rozhoduje Decider s EM (gate se nesnižuje, jen priorizuje).
 
 **Mitigace.** Sandbox jako **technická pojistka, ne důvěra** [perspektiva
 15]: VPC, watermark, noindex, 24h TTL, žádný route do prod sítě.
-Throw-away je default v Charteru; evolve vyžaduje 5-podpisový balíček
-[synthesis 01 osa A]. *„Production by stealth"* je organizační bug, ne
-technický [perspektiva 04].
+Evolve je default v Charteru, ale prod deploy je podmíněn Ship gate
+(quality gates ≥ 80/100) + kompletním sign-off paketem (FE + EM +
+Security + Legal + Platform + QA) [ADR-0005 v0.4; synthesis 01 osa A].
+Throw-away zůstává explicit opt-in pro 3 use-casy s rationale
+v Charteru. *„Production by stealth"* je organizační bug, ne technický
+[perspektiva 04].
 
 ## 9. Score se stane politickým nástrojem
 
@@ -273,7 +287,7 @@ Reinforcement track (T+30/60/90) ohrožen [perspektivy 07, 13].
 3. **CoP notification** — odchod championa je signál o adopci/burnout,
    loguje se pro pattern detection.
 
-**Kdo rozhoduje.** EM (alokace buddy) + PM (re-commit od přijímajícího
+**Kdo rozhoduje.** EM (alokace buddy) + PdM (re-commit od přijímajícího
 týmu).
 
 **Mitigace.** Champion buddy povinný od začátku [methodology 07]; CoP
@@ -281,7 +295,7 @@ sleduje champion turnover jako signal o sustainability metody.
 
 ## 11. Mezi-session feedback windowless
 
-**Situace.** Mezi Session 1 a 2 je 5–7 dní, ale 3 z 8 stakeholderů jsou
+**Situace.** Mezi Session 1 a 2 je 3–7 pracovních dní (podle stupně, ADR-0017), ale 3 z 8 stakeholderů jsou
 na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
 
 **Co dělat:**
@@ -293,15 +307,18 @@ na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
    nahraje, sdílí s PTO stakeholdery, ti hlasují async.
 3. **Quorum rule**: pokud <60 % povinných rolí dosáhne deadline,
    Session 2 se posune o ≤5 dní. Pokud >60 % a missing role je
-   nevetovací → Session 2 běží, async input se započítává.
+   nevetovací → Session 2 běží, async input se započítává; mlčení nevetovací role po
+   deadline = „no objection“ zapsané do decision logu (ADR-0017).
 4. Vetovací role (Security, Legal, EM kapacita) bez async sign-offu =
    Session 2 ne-decision-making, jen review.
 
-**Kdo rozhoduje.** Facilitátor + PM. PM vlastní stakeholder kalendář.
+**Kdo rozhoduje.** Facilitátor + PdM. PdM vlastní stakeholder kalendář.
 
-**Mitigace.** Mezi-session 5–7 dní (ne 14), prototyp deployed do 48 h,
-scoring window 3 dny, syntéza 1 den [perspektiva 03]; PTO check při
-plánování Session 1 (≥10 dní předem).
+**Mitigace.** Mezi-session podle stupně (Quick 3 / Lean 3–5 / Full 5–7
+pracovních dní, ADR-0017), prototyp deployed do 48 h, připomínka 48 h
+a 24 h před deadline [perspektiva 03]; PTO check při plánování Session 1
+(≥10 dní předem). Pokud vetovací role okno nestihne, upgrade stupně nebo
+odklad Session 2, ne prodlužování okna.
 
 ## 12. Session 2 končí bez rozhodnutí
 

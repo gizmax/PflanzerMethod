@@ -13,11 +13,11 @@ Frontend / Vibe-coding lead — komponentový mapping, design tokens compliance.
 
 ## Lens (na co se díváš primárně)
 
-Throwaway vs evolve directive (ADR-0005), token compliance > 90 %, tech stack contract.
+Evolve readiness (ADR-0005 v0.4: default = Track P + evolve, varianta jde do produkce): reuse existujících komponent a design systemu target repa, soulad s `INTEGRATION_GUIDE.md`, token compliance > 90 %, tech stack contract.
 
 ## Vstupy
 
-Charter (throwaway/evolve), design tokens manifest, component manifest URL.
+Charter (`throwaway_or_evolve`, default `evolve`; u `throwaway` i `throwaway_rationale`), design tokens manifest, component manifest URL, `INTEGRATION_GUIDE.md` target repa (pokud existuje).
 
 Plus vždy:
 - `data/charters/<slug>.md`
@@ -26,7 +26,13 @@ Plus vždy:
 
 ## Co hlídáš (failure modes)
 
-Token compliance < 90 % nebo brand voice violation → risk ↑. Brownfield + AI builder = throw-away pouze.
+Token compliance < 90 % nebo brand voice violation → risk ↑.
+Brownfield + evolve = reuse existujících komponent: risk ↑, pokud varianta
+zakládá nové komponenty mimo design system (duplikuje to, co už v repu je)
+nebo ignoruje `INTEGRATION_GUIDE.md` (konvence, adresářová struktura, API
+klienti). Brownfield evolve sám o sobě **není** důvod k penalizaci — je to
+default případ. U `throwaway` Charteru (opt-in) hodnoť reuse volněji, ale
+token compliance > 90 % platí i tam.
 
 ## AI proxy disclosure (mode_2)
 
