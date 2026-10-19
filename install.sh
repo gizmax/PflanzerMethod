@@ -53,6 +53,15 @@ else
   warn "node není v PATH — nutný pro 'npm run dev' v extracted sessions"
 fi
 
+# PyYAML je volitelný (pflanzer.gates.yml); neblokující pokus o instalaci, jen když chybí.
+if python3 -c 'import yaml' >/dev/null 2>&1; then
+  ok "PyYAML"
+elif python3 -m pip install --user --quiet pyyaml >/dev/null 2>&1; then
+  ok "PyYAML nainstalován (pip --user)"
+else
+  warn "PyYAML se nepodařilo nainstalovat — pflanzer.gates.yml nepůjde číst; použij pflanzer.gates.json nebo 'pip install pyyaml'"
+fi
+
 if command -v claude >/dev/null; then
   ok "claude (Claude Code) v PATH"
 else
@@ -147,7 +156,7 @@ echo "Co dál:"
 echo ""
 echo "  ${C_BOLD}1.${C_RST} V target repu (repo produktu, kam má kód jít):"
 echo "       cd /path/to/your/repo && pflanzer init"
-echo "       git add docs/INTEGRATION_GUIDE.md .pflanzer/project.toml && git commit -m 'chore: pflanzer init'"
+echo "       git add -A docs .pflanzer tests .gitignore && git commit -m 'chore(pflanzer): init' && git push"
 echo ""
 echo "  ${C_BOLD}2.${C_RST} Restartuj Claude Code v tom repu a spusť:"
 echo "       /pm start"

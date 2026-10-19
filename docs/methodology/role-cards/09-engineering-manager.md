@@ -2,21 +2,21 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #9 — Engineering manager
 
-> Zastupuješ krok provoz: hlídáš kapacitu, závislosti a to, co s vítězem bude po nasazení — z varianty se stává závazek týmu.
+> Za 20 minut u Shipu potvrdíš, že tým unese provoz vítěze: kapacitu, závislosti a kdo bude první týden na telefonu. Podpis: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …`.
 
 **Krok cesty:** Provoz · **Kde jsi:** okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)
 
 Status v catalogu: **doporučená** · Kdy se zve: Bude scope déle než 2 sprinty / je to PI priority?
 
 ## Přines do svého okna
-- Kapacitu týmu a roadmapu (PI commit %)
-- Závislosti na platform / identity / data týmech
-- T-shirt sizing rubriku
+- Kapacitu týmu na provoz a opravy po nasazení
+- Závislosti na jiných týmech (identita, data, platforma)
+- Odhad práce po nasazení v T-shirt velikostech
+- Pro hlubší kontrolu (stupeň Full): PI commit %, dependency map, capacity buffer 25 % (veto při > 80 %), 2denní spike
 
 ## Podepisuješ
-- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)
-- Dependency Map a T-shirt odhad (+ 2denní capped spike)
-- Capacity buffer 25 % pro Pflanzer-driven features; veto, pokud je PI commit > 80 %
+- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …` (blokace: přidej `--blocked`)
+- Veto, pokud je kapacita přeplněná (PI commit > 80 %)
 
 ## Kdy jsi u toho
 - Quick (60–90 min) — **async**: kapacitu potvrdíš po Rozhodnutí
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Odhad nad 2 sprinty bez spiku
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ❌ Kapacita a roadmapa jsou citlivé — vždy člověk. Sub-agent: `.claude/agents/em-expert.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Kapacitu a roadmapu ne.** Krok Provoz smí AI jen předkontrolovat (ADR-0023); podepisuje vývojář z jádra (pilot) nebo člověk z provozu (production). Sub-agent: `.claude/agents/em-expert.md`.
 
 ---
 

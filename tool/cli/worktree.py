@@ -8,7 +8,7 @@ v cwd se do worktrees zkopírují, viz `_copy_kickoff_inputs`).
 Postup (ADR-0009) + audit 2026-09 (N8, N9, N11, N13, N14):
 1. Pro každý repo z `projects.target_repos` (FE / BE / monorepo workspace;
    fallback = jediný `target_repo_url`) cached full clone
-   v `~/.pflanzer/targets/<repo-slug>/` (override: `PFLANZER_TARGETS_DIR`).
+   v `<datová složka>/targets/<repo-slug>/` (`pflanzer data`; override: `PFLANZER_TARGETS_DIR`).
 2. Worktrees A/B/C (nebo 1× mob, max 5 lidí u monitoru, ADR-0016) per repo, branch `pflanzer/<slug>-<X>` ve
    všech repech. Primární repo: `<targets>/<slug>-<X>`, další repa:
    `<targets>/<slug>-<X>-<role>`.
@@ -43,10 +43,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402,F401
+from tool.cli.ux import CzechArgumentParser, die, emit, project_not_found_message, tips_for_project  # noqa: E402
 
-TARGETS_CACHE = Path(
-    os.environ.get("PFLANZER_TARGETS_DIR") or (Path.home() / ".pflanzer" / "targets")
-).expanduser()
+
+def default_targets_dir() -> Path:
+    """Cache klonů target repů: `PFLANZER_TARGETS_DIR`, jinak `<DATA_ROOT>/targets`.
+
+    Pod datovou složkou (izolace: jiná DATA_ROOT / PFLANZER_DATA = jiné klony), ne pod
+    pevným `~/.pflanzer`.
+    """
+    from tool.cli import db
+    env = os.environ.get("PFLANZER_TARGETS_DIR")
+    return (Path(env) if env else db.DATA_ROOT / "targets").expanduser()
+
+
+TARGETS_CACHE = default_targets_dir()
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates"
 CLAUDE_MD_TEMPLATE = TEMPLATES_DIR / "CLAUDE.md.pflanzer.template"
 INTEGRATION_GUIDE_TEMPLATE = TEMPLATES_DIR / "INTEGRATION_GUIDE.md.template"
@@ -105,6 +116,7 @@ class WorktreeSetup:
     repos: list[dict[str, Any]] = field(default_factory=list)
     guard: list[dict[str, Any]] = field(default_factory=list)
     init_missing: list[dict[str, Any]] = field(default_factory=list)
+    copied_inputs: list[str] = field(default_factory=list)  # Kickoff soubory zkopírované z cwd
 
 
 _REPO_URL_RE = re.compile(
@@ -269,7 +281,7 @@ def load_project(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         row = conn.execute("SELECT * FROM projects WHERE slug = ?", (slug,)).fetchone()
     if not row:
-        raise ValueError(f"Project '{slug}' not found.")
+        raise ValueError(project_not_found_message(slug))
     return dict(row)
 
 
@@ -803,6 +815,10 @@ def check_env_files(wt: Path, *, fix_gitignore: bool = True) -> list[dict[str, s
             new = (existing.rstrip("\n") + "\n" + GITIGNORE_BLOCK) if existing.strip() else GITIGNORE_BLOCK.lstrip("\n")
             gi.write_text(new, encoding="utf-8")
         detail += " → přidáno do .gitignore (commitni, ideálně v `init-pr`)"
+        # Doplnění .env* do .gitignore je dobrá praxe, ne varování — jen informace.
+        rows.append({"check": ".env* v .gitignore", "status": "OK", "detail": detail,
+                     "fixed": "1"})
+        return rows
     rows.append({"check": ".env* v .gitignore", "status": "WARN", "detail": detail})
     return rows
 
@@ -859,7 +875,7 @@ def guard(slug: str, *, fix_gitignore: bool = True) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     wts = _existing_worktrees(slug, repos)
     if not wts:
-        raise ValueError(f"Žádné worktrees pro '{slug}' — spusť `python tool/cli/worktree.py setup --slug {slug}`.")
+        raise ValueError(f"Žádné worktrees pro '{slug}' — spusť `pflanzer worktree setup --slug {slug}`.")
     for repo, variant, path in wts:
         for r in guard_worktree(path, fix_gitignore=fix_gitignore):
             rows.append({"repo": repo.role, "variant": variant, **r})
@@ -971,7 +987,8 @@ def detect_stack(repo: Path, workspace: str | None = None) -> dict[str, Any]:
 
 
 def render_integration_guide(repo: Path, *, workspace: str | None, repo_role: str) -> str:
-    tpl = INTEGRATION_GUIDE_TEMPLATE.read_text(encoding="utf-8")
+    from tool.cli.init import guide_template_for
+    tpl = guide_template_for(repo / workspace if workspace else repo).read_text(encoding="utf-8")
     stack = detect_stack(repo, workspace)
     lines = [f"> {BRAND_LINE}", ""]
     lines.append(tpl.split("\n", 1)[0])  # title line
@@ -1012,15 +1029,16 @@ def _init_missing(clone: Path, base_ref: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
+def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> list[str]:
     """Copy Kickoff inputs from the cwd target repo into worktrees if not yet pushed.
 
     Worktrees are cloned from origin, so a freshly generated acceptance .feature
     (or an unpushed CONSTITUTION) would otherwise be missing for the AI builder.
     """
     cwd = Path.cwd()
+    copied: list[str] = []
     if not (cwd / ".pflanzer").is_dir():
-        return
+        return copied
     for rel in (f"tests/acceptance/{slug}.feature", ".pflanzer/CONSTITUTION.md",
                 "docs/INTEGRATION_GUIDE.md"):
         src = cwd / rel
@@ -1031,8 +1049,9 @@ def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
             if not dst.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(src.read_bytes())
-                print(f"[setup] copied {rel} → {Path(wt).name} (není v originu — commitni ho)",
-                      file=sys.stderr)
+                if rel not in copied:
+                    copied.append(rel)
+    return copied
 
 
 def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
@@ -1052,7 +1071,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     repos = load_target_repos(slug, proj)
     if not repos:
         raise ValueError(
-            f"Project '{slug}' has no target_repo_url / target_repos set. "
+            f"Projekt „{slug}“ nemá nastavený target_repo_url / target_repos. "
             "Povinné pro pilot/production. Spusť `pflanzer init` v target repu "
             "(vyplní .pflanzer/project.toml) a založ projekt znovu přes `/pm start`, "
             "nebo nastav `projects.target_repos`. Stav projektů: `pflanzer status`; "
@@ -1064,15 +1083,14 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     repo_results: list[dict[str, Any]] = []
     guard_rows: list[dict[str, str]] = []
     init_missing: list[dict[str, Any]] = []
+    copied_inputs: list[str] = []
 
     for i, repo in enumerate(repos):
         primary = i == 0
-        print(f"[setup] {repo.role}: {repo.url} (base {repo.branch}"
-              f"{', workspace ' + repo.workspace if repo.workspace else ''})", file=sys.stderr)
         clone = _ensure_target_clone(repo.url, repo.branch)
         wts = _create_worktrees(clone, slug, repo.branch, mode=mode, repo=repo, primary=primary)
         if primary:
-            _copy_kickoff_inputs(slug, wts)
+            copied_inputs = _copy_kickoff_inputs(slug, wts)
         claude_md: dict[str, str] = {}
         for variant, wt in zip(variants, wts):
             builder = builders.get(variant) or (next(iter(builders.values()), None)
@@ -1122,6 +1140,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
         package_manager=primary_res["package_manager"],
         install_results=primary_res["install_results"],
         mode=mode, repos=repo_results, guard=guard_rows, init_missing=init_missing,
+        copied_inputs=copied_inputs,
     )
 
 
@@ -1162,7 +1181,7 @@ def init_pr(slug: str) -> list[dict[str, Any]]:
         if upsert_claude_md(wt / "CLAUDE.md", render_claude_md(slug=None, workspace=repo.workspace)) != "unchanged":
             changed.append("CLAUDE.md")
         env_rows = [r for r in check_env_files(wt, fix_gitignore=True) if r["check"] == ".env* v .gitignore"]
-        if env_rows and env_rows[0]["status"] != "OK":
+        if env_rows and (env_rows[0]["status"] != "OK" or env_rows[0].get("fixed")):
             changed.append(".gitignore")
 
         if changed:
@@ -1307,7 +1326,8 @@ def confirm_preview_push(slug: str, *, assume_yes: bool = False,
 
 def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
     repos = load_target_repos(slug)
-    builders = _variant_builders(int(load_project(slug)["id"]))
+    proj = load_project(slug)
+    builders = _variant_builders(int(proj["id"]))
     results = []
     for variant in _variants_for_mode(slug, repos):
         for idx, (repo, wt) in enumerate(variant_worktrees(slug, repos, variant)):
@@ -1330,7 +1350,7 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                 f"- **Builder**: {builder}\n"
                 "- **Model family**: " + ("Claude" if builder == "claude-code" else builder) + "\n"
                 f"- **Varianta**: {variant} (branch `{branch}`)\n"
-                "- **U klávesnice**: <jméno> (git author commitů)\n"
+                f"- **U klávesnice**: {_keyboard_name(proj)} (git author commitů)\n"
                 f"- **Decision log**: `data/sessions/{slug}/_summary.md`\n",
                 encoding="utf-8",
             )
@@ -1518,45 +1538,83 @@ def render_guard_table(rows: list[dict[str, str]]) -> str:
                      [[r["repo"], r["variant"], r["check"], r["status"], r["detail"]] for r in rows])
 
 
+def _keyboard_name(proj: dict[str, Any]) -> str:
+    """Zástupce kroku Vývoj z Kickoffu (ne git user); bez něj placeholder."""
+    try:
+        owners = json.loads(proj.get("path_owners_json") or "{}")
+    except (TypeError, ValueError):
+        owners = {}
+    owner = owners.get("vyvoj")
+    return owner if owner and str(owner).strip().lower() != "ai" else "<jméno>"
+
+
+def _tilde(path: str | Path) -> str:
+    home = str(Path.home())
+    p = str(path)
+    return "~" + p[len(home):] if p.startswith(home + "/") else p
+
+
+def guard_summary(rows: list[dict[str, str]], slug: str) -> str:
+    """Guard findings merged into ONE line (counts per check, not one row per variant)."""
+    bad = [r for r in rows if r["status"] != "OK"]
+    if not bad:
+        return "Data leakage guard: bez nálezů."
+    counts: dict[str, int] = {}
+    for r in bad:
+        counts[r["check"]] = counts.get(r["check"], 0) + 1
+    worst = "FAIL" if any(r["status"] == "FAIL" for r in bad) else "WARN"
+    what = "; ".join(f"{c}× {name}" for name, c in counts.items())
+    return (f"Data leakage guard: {worst} — {what}. "
+            f"Detail: `pflanzer worktree guard --slug {slug}`")
+
+
 def render_setup(s: WorktreeSetup) -> str:
-    lines = [f"{BRAND_LINE}", "", f"## Worktrees — `{s.slug}` (mode: {s.mode})", ""]
-    rows = []
+    """Compact human view of a setup (no wide tables)."""
+    from tool.cli.ux import render
+    title, lines, nxt = _setup_view(s)
+    return render(title, lines, nxt, tips_for_project(s.slug, "after_setup"), _setup_warnings(s))
+
+
+def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
+    lines = []
     for r in s.repos:
-        inst = {x["path"]: x["status"] for x in r["install_results"]}
-        for v, p in r["worktrees"].items():
-            rows.append([f"{r['role']}{' (primary)' if r['primary'] else ''}", v,
-                         f"pflanzer/{s.slug}-{v}", p, r.get("workspace") or "—",
-                         inst.get(p, "—"), r["claude_md"].get(v, "—")])
-    lines.append(_md_table(["Repo", "Varianta", "Branch", "Path", "Workspace", "Install", "CLAUDE.md"], rows))
-    lines += ["", "### Commit trailery (AI code provenance)", ""]
-    for r in s.repos:
-        h = r["hook"]
-        lines.append(f"- {r['role']}: hook `{h['status']}`" + (f" — {h['message']}" if h.get("message") else ""))
+        names = ", ".join(r["worktrees"])
+        ws = f", workspace {r['workspace']}" if r.get("workspace") else ""
+        lines.append(f"{r['role']}{' (primární)' if r['primary'] else ''}: "
+                     f"varianty {names} na větvích `pflanzer/{s.slug}-…` (base {r['branch']}{ws})")
+    first = s.repos[0]
+    first_path = next(iter(first["worktrees"].values()))
+    lines.append(f"Složky: `{_tilde(first_path)}` (ostatní varianty vedle ní)")
+    if s.copied_inputs:
+        lines.append("Do worktrees zkopírováno (v originu zatím nejsou — commitni a pushni): "
+                     + ", ".join(f"`{c}`" for c in s.copied_inputs))
+    hooks = {r["hook"]["status"] for r in s.repos}
+    lines.append("Commit trailery (původ AI kódu): "
+                 + ("nainstalovány" if hooks <= {"installed", "ok"} else ", ".join(sorted(hooks))))
     if s.guard:
-        lines += ["", "### Data leakage guard", "", render_guard_table(s.guard)]
-    lines += ["", "### Další kroky", ""]
+        lines.append(guard_summary(s.guard, s.slug))
+    failed = [x for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
+    if failed:
+        lines.append(f"Instalace závislostí selhala v {len(failed)} složce(ích) — "
+                     f"zkus `{failed[0].get('cmd')}` ručně.")
     if s.mode == "mob":
-        lines.append(f"- `cd {s.worktrees[0]} && claude` — MOB Build, max 5 lidí u 1 monitoru (ADR-0016); "
-                     "driver/navigator rotace 8 min, hard break 25 min")
+        nxt = (f"`cd {_tilde(s.worktrees[0])} && claude` — MOB Build, max 5 lidí u 1 monitoru, "
+               "rotace 8 min, pauza po 25 min")
     else:
-        primary, others = s.repos[0], s.repos[1:]
-        for v, p in primary["worktrees"].items():
-            extra = "".join(f" --add-dir {o['worktrees'][v]}" for o in others if v in o["worktrees"])
-            roles = "+".join(r["role"] for r in s.repos)
-            lines.append(f"- `cd {p} && claude{extra}`  # varianta {v} ({roles})")
-    lines.append(f"- Po Buildu: zapiš varianty do toolu a spusť `/pm feedback` "
-                 f"(stav kdykoli: `pflanzer status --slug {s.slug}`)")
-    notes = sorted({f"{r['role']}: install {x['status']} — {x['reason']}"
-                    for r in s.repos for x in r["install_results"] if x.get("reason")})
-    notes += [f"{r['role']}: install failed v {x['path']} (`{x.get('cmd')}`)"
-              for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
-    if notes:
-        lines += ["", "### Install", ""] + [f"- {n}" for n in notes]
+        extra = "".join(f" --add-dir {o['worktrees']['A']}" for o in s.repos[1:] if "A" in o["worktrees"])
+        nxt = (f"`cd {_tilde(first_path)} && claude{extra}` — varianta A; B a C stejně v sousedních "
+               "složkách (každá dvojice jedna). Prompty: `pflanzer quick_session prompts --slug "
+               f"{s.slug} --hook \"…\"`")
+    return f"Worktrees připravené — `{s.slug}`", lines, nxt
+
+
+def _setup_warnings(s: WorktreeSetup) -> list[str]:
+    out: list[str] = []
     if s.init_missing:
         miss = "; ".join(f"{m['repo']}: {', '.join(m['missing'])}" for m in s.init_missing)
-        lines += ["", f"> Připomínka (N14): target repo nemá AI-readiness soubory ({miss}). "
-                      f"Spusť `pflanzer worktree init-pr --slug {s.slug}` — první PR pilotu."]
-    return "\n".join(lines)
+        out.append(f"Target repo nemá AI-readiness soubory ({miss}). "
+                   f"Spusť `pflanzer worktree init-pr --slug {s.slug}` — první PR pilotu.")
+    return out
 
 
 def _setup_json(s: WorktreeSetup) -> dict[str, Any]:
@@ -1572,8 +1630,9 @@ def _setup_json(s: WorktreeSetup) -> dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer worktree", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
+    js = {"action": "store_true", "help": "Strojový JSON výstup místo lidského"}
 
     p_setup = sub.add_parser("setup", help="Naklonuje target repo(y), vytvoří worktrees + hook + guard")
     p_setup.add_argument("--slug", required=True)
@@ -1584,17 +1643,17 @@ def main() -> None:
                          help="Přeskočí install závislostí (rychlejší, ale brány v Ship se přeskočí)")
     p_setup.add_argument("--no-guard", action="store_true", help="Přeskočit data leakage guard")
     p_setup.add_argument("--strict", action="store_true", help="Nenulový exit při nálezu guardu")
-    p_setup.add_argument("--json", action="store_true", help="Strojový JSON výstup místo tabulek")
+    p_setup.add_argument("--json", **js)
 
     p_guard = sub.add_parser("guard", help="Data leakage guard (secrets, .env*, prod dumpy)")
     p_guard.add_argument("--slug", required=True)
     p_guard.add_argument("--strict", action="store_true", help="Nenulový exit při nálezu")
     p_guard.add_argument("--no-fix", action="store_true", help="Needitovat .gitignore")
-    p_guard.add_argument("--json", action="store_true")
+    p_guard.add_argument("--json", **js)
 
     p_init = sub.add_parser("init-pr", help="První PR pilotu: INTEGRATION_GUIDE + CLAUDE.md do target repa")
     p_init.add_argument("--slug", required=True)
-    p_init.add_argument("--json", action="store_true")
+    p_init.add_argument("--json", **js)
 
     p_prev = sub.add_parser("preview", help="Preview per varianta pro non-tech stakeholdery")
     p_prev.add_argument("--slug", required=True)
@@ -1603,49 +1662,69 @@ def main() -> None:
                         help="draft-pr: opravdu pushnout + gh pr create (default jen vytiskne příkazy)")
     p_prev.add_argument("--yes", action="store_true",
                         help="draft-pr --run: potvrdit push do remote target repa bez interaktivní otázky")
+    p_prev.add_argument("--json", **js)
 
     p_sess = sub.add_parser("set-session", help="Přepnout trailer Pflanzer-Session (1 = Build, 2 = Rozhodnutí, ship)")
     p_sess.add_argument("--slug", required=True)
     p_sess.add_argument("--session", required=True, choices=list(SESSION_VALUES))
     p_sess.add_argument("--variant", default=None, help="Jen jedna varianta (A/B/C/mob)")
+    p_sess.add_argument("--json", **js)
 
     p_url = sub.add_parser("set-url", help="Uložit preview/PR URL do variants.prototype_url")
     p_url.add_argument("--slug", required=True)
     p_url.add_argument("--variant", required=True)
     p_url.add_argument("--url", required=True)
+    p_url.add_argument("--json", **js)
 
     p_verify = sub.add_parser("verify", help="Verify cwd is in target repo")
     p_verify.add_argument("--slug", required=True)
     p_verify.add_argument("--cwd", default=".")
+    p_verify.add_argument("--json", **js)
 
     args = p.parse_args()
 
+    try:
+        _dispatch(args)
+    except ValueError as exc:
+        die(str(exc))
+
+
+def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "setup":
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode,
                   run_guard=not args.no_guard)
-        print(json.dumps(_setup_json(s), ensure_ascii=False, indent=2) if args.json else render_setup(s))
+        title, lines, nxt = _setup_view(s)
+        emit(_setup_json(s), title=title, lines=lines, next_step=nxt,
+             tips=[] if args.json else tips_for_project(args.slug, "after_setup"),
+             warnings=_setup_warnings(s), as_json=args.json)
         if args.strict and any(g["status"] != "OK" for g in s.guard):
             sys.exit(2)
     elif args.cmd == "guard":
         rows = guard(args.slug, fix_gitignore=not args.no_fix)
-        print(json.dumps(rows, ensure_ascii=False, indent=2) if args.json
-              else f"{BRAND_LINE}\n\n## Data leakage guard — `{args.slug}`\n\n" + render_guard_table(rows))
-        if args.strict and any(r["status"] != "OK" for r in rows):
+        bad = [r for r in rows if r["status"] != "OK"]
+        lines = [f"{r['repo']}/{r['variant']}: {r['check']} — {r['detail']}" for r in bad[:6]]
+        if len(bad) > 6:
+            lines.append(f"… a dalších {len(bad) - 6} nálezů (`--json` pro všechny)")
+        emit(rows, title=f"Data leakage guard — `{args.slug}`",
+             lines=lines or ["Bez nálezů — ve všech worktrees je čisto."],
+             next_step=(f"oprav nálezy a spusť `pflanzer worktree guard --slug {args.slug}` znovu"
+                        if bad else f"`pflanzer worktree setup --slug {args.slug}` / pokračuj Buildem"),
+             tips=[], as_json=args.json)
+        if args.strict and bad:
             sys.exit(2)
     elif args.cmd == "init-pr":
         res = init_pr(args.slug)
-        if args.json:
-            print(json.dumps(res, ensure_ascii=False, indent=2))
-        else:
-            print(f"{BRAND_LINE}\n\n## init-pr — `{args.slug}`\n")
-            for r in res:
-                if r["status"] == "nothing-to-do":
-                    print(f"- {r['repo']}: AI-readiness soubory už v base jsou — nic k inicializaci.")
-                    continue
-                print(f"- {r['repo']}: {r['status']} ({', '.join(r['changed']) or 'bez změn'}) "
-                      f"v `{r['worktree']}` na `{r['branch']}`")
-                for c in r["commands"]:
-                    print(f"    {c}")
+        lines = []
+        for r in res:
+            if r["status"] == "nothing-to-do":
+                lines.append(f"{r['repo']}: AI-readiness soubory už v base jsou — nic k inicializaci.")
+            else:
+                lines.append(f"{r['repo']}: {r['status']} ({', '.join(r['changed']) or 'bez změn'}) "
+                             f"na `{r['branch']}`")
+        cmds = [c for r in res if r["status"] != "nothing-to-do" for c in r.get("commands", [])]
+        emit(res, title=f"První PR pilotu — `{args.slug}`", lines=lines,
+             next_step=(f"`{cmds[0]}`" if cmds else f"`pflanzer worktree setup --slug {args.slug}`"),
+             tips=[], as_json=args.json)
     elif args.cmd == "preview":
         if args.mode == "draft-pr":
             if args.run and not confirm_preview_push(args.slug, assume_yes=args.yes):
@@ -1655,19 +1734,47 @@ def main() -> None:
             res = preview_draft_pr(args.slug, run=args.run)
         else:
             res = preview_playwright(args.slug)
-        print(json.dumps({"brand": BRAND_LINE, "slug": args.slug, "mode": args.mode, "results": res},
-                         ensure_ascii=False, indent=2))
+        data = {"brand": BRAND_LINE, "slug": args.slug, "mode": args.mode, "results": res}
+        lines = []
+        for r in res:
+            who = r.get("variant", "?")
+            extra = r.get("pr_url") or r.get("report") or "; ".join(r.get("missing", [])) or ""
+            lines.append(f"Varianta {who}: {r.get('status', '?')}" + (f" — {extra}" if extra else ""))
+        hint = next((r["how_to_store"] for r in res if r.get("how_to_store")), None)
+        nxt = (hint or (f"`pflanzer worktree preview --slug {args.slug} --run`"
+                        if args.mode == "draft-pr" and not args.run
+                        else f"pošli zástupcům odkazy a spusť `/pm feedback {args.slug}`"))
+        emit(data, title=f"Preview — `{args.slug}`", lines=lines or ["Žádné worktrees k náhledu."],
+             next_step=nxt,
+             tips=[] if args.json else tips_for_project(args.slug, "async", limit=2),
+             as_json=args.json)
     elif args.cmd == "set-session":
-        print(json.dumps(set_session(args.slug, args.session, args.variant), ensure_ascii=False, indent=2))
+        res = set_session(args.slug, args.session, args.variant)
+        emit(res, title="Session v trailerech přepnutá",
+             lines=[f"Varianta {r['variant']}: {r['status']}" for r in res],
+             next_step=f"`pflanzer status --slug {args.slug}`", tips=[], as_json=args.json)
     elif args.cmd == "set-url":
         ok = set_prototype_url(args.slug, args.variant, args.url)
-        print(json.dumps({"ok": ok, "message": "uloženo" if ok else
-                          f"varianta {args.variant} v DB neexistuje — nejdřív voting (quick_session.py vote)"},
-                         ensure_ascii=False))
+        data = {"ok": ok, "message": "uloženo" if ok else
+                f"varianta {args.variant} v DB neexistuje — nejdřív voting (quick_session.py vote)"}
+        if args.json:
+            print(json.dumps(data, ensure_ascii=False))
+        elif ok:
+            emit(data, title=f"Preview URL varianty {args.variant} uložena",
+                 lines=[args.url], next_step=f"`/pm feedback {args.slug}`", tips=[])
+        else:
+            die(data["message"])
         sys.exit(0 if ok else 1)
     else:
         ok, msg = verify_cwd_in_target(args.slug, Path(args.cwd).resolve())
-        print(json.dumps({"ok": ok, "message": msg}))
+        if args.json:
+            print(json.dumps({"ok": ok, "message": msg}))
+        else:
+            emit({"ok": ok, "message": msg},
+                 title="Jsi v target repu" if ok else "Jsi v jiném repu",
+                 lines=[msg], next_step=("pokračuj Buildem" if ok else
+                                         f"`cd` do target repa (`pflanzer worktree setup --slug {args.slug}`)"),
+                 tips=[])
         sys.exit(0 if ok else 1)
 
 

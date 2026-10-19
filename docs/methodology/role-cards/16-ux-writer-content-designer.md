@@ -2,16 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #16 — UX writer / Content designer
 
-> Píšeš texty, které uživatel čte — chyby, prázdné stavy a claimy srozumitelně a v souladu s pravidly.
+> Za 20 minut nad preview projdeš texty: chyby, prázdné stavy a tvrzení, aby byly srozumitelné a doložitelné.
 
 **Krok cesty:** Design (texty) · **Kde jsi:** okno — Async okno nad preview
 
 Status v catalogu: **volitelná (trigger)** · Kdy se zve: User-facing copy / marketing claims / error microcopy / B1-B2 plain language?
 
 ## Přines do svého okna
-- Brand guidelines a voice & tone
-- Pravidla plain language B1 / B2
-- ePrivacy / UCPD pravidla pro marketing claims
+- Pravidla tónu a značky (brand voice)
+- Seznam stavů, na které se často zapomíná (chyba, prázdno, načítání)
+- Pro hlubší kontrolu (stupeň Full): plain language B1 / B2, pravidla ePrivacy / UCPD pro marketingová tvrzení
 
 ## Podepisuješ
 - Microcopy per stav (success / error / empty / loading / blocked)
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Žargon místo plain language
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Compliance sub-agent připraví draft, ty reviewuješ. Sub-agent: `.claude/agents/ux-writer-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI připraví návrh textů, kontrolu děláš ty. Sub-agent: `.claude/agents/ux-writer-expert.md`.
 
 ---
 

@@ -2,16 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #14 — End-user proxy / User research
 
-> Hájíš skutečného uživatele proti názorům v místnosti — tvrzení bez evidence označíš.
+> Za 20 minut v Asyncu potvrdíš, že varianty vycházejí z toho, co uživatelé skutečně dělají, ne z názorů v místnosti.
 
 **Krok cesty:** Produkt (evidence od uživatelů) · **Kde jsi:** okno — Async okno a Rozhodnutí (evidence)
 
 Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing flow nebo nový segment?
 
 ## Přines do svého okna
-- Personu ne starší než 6 měsíců (≥ 5 rozhovorů)
-- JTBD kartu a OST v0
-- Evidence: shadowing, ticket review nebo analýzu sales callů
+- Popis uživatele z aspoň 5 rozhovorů (ne starší než 6 měsíců)
+- Co o problému víme z pozorování, ticketů nebo hovorů
+- Pro hlubší kontrolu (stupeň Full): JTBD karta, OST v0, Discovery Debt skóre 0–10, expirace persony (B2C 6 / B2B 9 / interní 12 měsíců)
 
 ## Podepisuješ
 - Discovery Debt Detector skóre 0–10
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Varianta bez JTBD / OST node
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ AI je vstup do session, ne výstup: archetype check ano, novel insight ne. Sub-agent: `.claude/agents/user-research-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI feedback má váhu max 0,5 a nové poznatky nevymyslí. Sub-agent: `.claude/agents/user-research-expert.md`.
 
 ---
 

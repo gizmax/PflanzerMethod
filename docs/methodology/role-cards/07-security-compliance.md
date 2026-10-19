@@ -2,22 +2,22 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #7 — Security / Compliance
 
-> Zastupuješ krok bezpečnost & právo a máš veto na varianty s kritickým rizikem — veto je veto, ne hlas mezi hlasy.
+> Za 20 minut potvrdíš tři věci: (1) jaká data AI vidí, (2) kam smí síť, (3) kolik smí AI stát. Podpis: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …`.
 
 **Krok cesty:** Bezpečnost & právo · **Kde jsi:** okno — checkpoint 20 min v posledních 30 min Buildu (stačí Security nebo Legal / DPO)
 
 Status v catalogu: **povinná při triggeru** · Kdy se zve: Pracujeme s daty uživatelů, auth, integracemi nebo platbami?
 
 ## Přines do svého okna
-- Data classification L1–L4 pro projekt
-- STRIDE one-pager (threat model lite): datový tok, egress limit, riziko prompt injection
-- Strop tokenů / nákladů a Approved AI Tool list se sandbox spec (24h TTL)
-- SSO + MFA pravidla a DORA 3rd-party checklist, pokud se týká
+- Jaká data AI vidí: žádná produkční data a osobní údaje v preview, promptech ani repu
+- Kam smí síť: co smí agent a preview volat ven (default nic mimo povolený seznam)
+- Kolik smí AI stát: strop tokenů / nákladů a kdo ho hlídá
+- Pro hlubší kontrolu (stupeň Full): STRIDE one-pager, třídy dat L1–L4, Approved AI Tool list a sandbox spec, SSO + MFA, DORA 3rd-party checklist
 
 ## Podepisuješ
-- Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)
-- Veto registr — veto na varianty se STRIDE Critical
-- SBOM + CVE scan a secret scan před Shipem
+- Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …` (blokace: přidej `--blocked`)
+- Veto na variantu s kritickým rizikem (zapíše se do veto registru)
+- Pro hlubší kontrolu (stupeň Full): SBOM + CVE scan a secret scan před Shipem
 
 ## Kdy jsi u toho
 - Quick (60–90 min) — **async**: checkpoint se odkládá — před pilotem ho doběhneš (`/pm triage`) a podepíšeš
@@ -35,7 +35,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Secret nebo credential v kódu varianty
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ❌ Veto podepisuje člověk; AI připraví STRIDE draft a SBOM / CVE scan. Sub-agent: `.claude/agents/security-expert.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `pflanzer checkpoint … --ai --agent security-expert` zapíše návrh. U throwaway stačí, u pilotu a produkce podepíše člověk do 48 h, jinak Ship blokuje. Veto je vždy člověk. Sub-agent: `.claude/agents/security-expert.md`.
 
 ---
 

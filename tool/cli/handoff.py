@@ -23,7 +23,6 @@ Jinja2 se nepoužívá — string šablony v Pythonu jsou čitelnější a bez z
 """
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -33,9 +32,11 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, clean_text, table_has_col, tilde  # noqa: E402
 from tool.cli.session_2 import get_winner  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit  # noqa: E402
 
 HANDOFF_DIR = DATA_ROOT / "handoffs"
 METRICS_PATH = DATA_ROOT / "method-metrics.json"
@@ -58,7 +59,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ProjectNotFound(slug)
         if proj[3] != "handoff":
             raise ValueError(
                 f"Project status='{proj[3]}'. Handoff vyžaduje status='handoff' "
@@ -948,15 +949,28 @@ def generate(slug: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer handoff", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
+    p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
     try:
         out = generate(args.slug)
     except ValueError as e:
-        print(json.dumps({"error": str(e)}, ensure_ascii=False, indent=2), file=sys.stderr)
-        sys.exit(2)
-    print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+        exit_if_project_missing(e)
+        die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff --slug moje-appka")
+    m = out["metrics"]
+    lines = [f"Hlavní dokument: {out['out_dir']}/SHIP.md (PR příkaz a měření na jedné stránce)",
+             f"Doplňkové podklady pro role: "
+             f"{count(len(out['files']) - 1, 'soubor', 'soubory', 'souborů')} v {out['out_dir']}"]
+    days = m.get("time_to_handoff_days")
+    if days is not None:
+        lines.append(f"Od Kickoffu k předání: {count(int(days), 'den', 'dny', 'dní')}")
+    if m.get("feedback_critical"):
+        lines.append(f"Kritických připomínek v Asyncu bylo {m['feedback_critical']}.")
+    emit(out, title=f"Předání hotové: {args.slug}", lines=lines,
+         next_step=("otevři `SHIP.md`, branch owner spustí `gh pr create` z jeho konce; "
+                    "kontrolní seznamy před nasazením jsou v `qa.md` a `platform.md`"),
+         tips=tips(args.slug, "handoff", {}), as_json=args.json)
 
 
 if __name__ == "__main__":

@@ -18,7 +18,6 @@ writes a prefilled `pflanzer.gates.yml` from
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import subprocess
@@ -29,12 +28,31 @@ from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
+PYTHON_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
 CONSTITUTION_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "CONSTITUTION.md.template"
 GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.template"
 GATES_FILENAME = "pflanzer.gates.yml"
 
 sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
+
+
+def guide_template_for(path: Path) -> Path:
+    """INTEGRATION_GUIDE šablona podle stacku repa: Python varianta, jinak (Node) stávající."""
+    try:
+        python = detect_stack(path) == "python"
+    except OSError:
+        python = False
+    return PYTHON_TEMPLATE_PATH if python and PYTHON_TEMPLATE_PATH.is_file() else TEMPLATE_PATH
+
+
+def git_add_command(target_repo: Path) -> str:
+    """`git add` jen pro soubory, které existují (.gitignore nemusí v repu být)."""
+    paths = ["docs", ".pflanzer", "tests"]
+    if (target_repo / ".gitignore").exists():
+        paths.append(".gitignore")
+    return f"git add -A {' '.join(paths)}"
 
 
 def _git_origin(cwd: Path) -> str | None:
@@ -106,8 +124,8 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "#build": {"cmd": "python -m build"},
             "types": {"cmd": "mypy ."},
             "lint": {"cmd": "ruff check ."},
-            "tests": {"cmd": "pytest -q"},
-            "#coverage": {"cmd": "pytest -q --cov --cov-branch --cov-report=term",
+            "tests": {"cmd": "python3 -m pytest -q"},
+            "#coverage": {"cmd": "python3 -m pytest -q --cov --cov-branch --cov-report=term",
                           "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
                           **COVERAGE_THRESHOLDS},
             **security,
@@ -236,9 +254,10 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
     if guide.exists() and not force:
         actions.append("docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
     else:
-        if not TEMPLATE_PATH.exists():
-            return {"ok": False, "reason": f"Template missing: {TEMPLATE_PATH}"}
-        guide.write_text(TEMPLATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        template = guide_template_for(target_repo)
+        if not template.exists():
+            return {"ok": False, "reason": f"Template missing: {template}"}
+        guide.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
         actions.append("napsáno: docs/INTEGRATION_GUIDE.md (vyplň ručně podle realit svého repa)")
 
     # 1b. .pflanzer/CONSTITUTION.md
@@ -288,13 +307,39 @@ shadow_pm = "<jméno PdM>"
 
     # 4. .gitignore — pridej extracted/ pokud chybí
     gitignore = target_repo / ".gitignore"
-    if gitignore.exists():
-        text = gitignore.read_text(encoding="utf-8")
+    if True:  # create when missing: specs for /pm must never be committed
+        text = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
         additions = []
         if "extracted/" not in text:
             additions.append("\n# Pflanzer Method runtime (clones from vibe-coding sessions)\nextracted/\n")
         if ".pflanzer/local/" not in text:
             additions.append(".pflanzer/local/\n")
+        if ".pflanzer/specs/" not in text:
+            additions.append(".pflanzer/specs/\n")
+        lines_present = {ln.strip() for ln in text.splitlines()}
+
+        def _missing(*entries: str) -> list[str]:
+            return [e for e in entries if e not in lines_present
+                    and e.rstrip("/") not in lines_present]
+
+        stack_now = detect_stack(target_repo)
+        if stack_now == "node" or (target_repo / "package.json").is_file():
+            extra = _missing("node_modules/")
+            try:
+                pkg = json.loads((target_repo / "package.json").read_text(encoding="utf-8"))
+                has_build = isinstance((pkg.get("scripts") or {}).get("build"), str)
+            except (OSError, ValueError, AttributeError):
+                has_build = False
+            if has_build:
+                extra += _missing("dist/")
+            if extra:
+                additions.append("\n# Node (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
+        if stack_now == "python":
+            extra = _missing(".venv/", "__pycache__/")
+            if extra:
+                additions.append("\n# Python (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
+        if additions and text and not text.endswith("\n"):
+            text += "\n"
         if additions:
             gitignore.write_text(text + "".join(additions), encoding="utf-8")
             actions.append(f"updated: .gitignore (+{len(additions)} entries)")
@@ -322,17 +367,23 @@ shadow_pm = "<jméno PdM>"
             "2. Zkontroluj `.pflanzer/project.toml` (target_branch_owner = GitHub handle).",
             "3. Ověř připravenost: `pflanzer doctor`",
             "4. Commit + PUSH (worktrees se klonují z originu, nepushnuté soubory v nich nebudou): "
-            "`git add docs/INTEGRATION_GUIDE.md .pflanzer/ tests/acceptance .gitignore "
-            "&& git commit -m 'chore(pflanzer): init' && git push`",
+            f"`{git_add_command(target_repo)} "
+            "&& git commit -m \"chore(pflanzer): init\" && git push`",
             "5. Restartuj Claude Code v tomto repu a spusť: `/pm start`",
         ] + gates_hint,
     }
 
 
+def _short_action(action: str) -> str:
+    """One short human line per action ("napsáno: docs/X (vyplň…)" → "napsáno: docs/X")."""
+    return re.sub(r"\s*\(.*$", "", action).strip()
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer init", description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Target repo path (default: cwd)")
     p.add_argument("--force", action="store_true", help="Přepíše existující soubory")
+    p.add_argument("--json", action="store_true", help="Strojový výstup")
     sub = p.add_subparsers(dest="command")
     gt = sub.add_parser(
         "gates-template",
@@ -340,16 +391,37 @@ def main() -> None:
     )
     gt.add_argument("--path", default=".", help="Target repo path (default: cwd)")
     gt.add_argument("--force", action="store_true", help="Overwrite existing pflanzer.gates.yml")
+    gt.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args()
 
     if args.command == "gates-template":
         out = write_gates_template(Path(args.path), force=args.force)
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-        sys.exit(0 if out.get("ok") else 1)
+        if not out.get("ok"):
+            if args.json:
+                print(json.dumps(out, ensure_ascii=False, indent=2))
+                sys.exit(1)
+            die(out["reason"])
+        emit(out, title="Gate adaptér vytvořen",
+             lines=[f"Soubor `{out['path']}` (stack: {out['stack']}).",
+                    f"Aktivní kontroly: {', '.join(out['active_gates']) or '—'}.",
+                    "Nepodporované kontroly (zatím): " + (", ".join(out["unsupported_gates"]) or "žádné")],
+             next_step="projdi soubor, odkomentuj, co tým umí měřit, a commitni ho do main",
+             tips=[], as_json=args.json)
+        return
 
     out = init(Path(args.target), force=args.force)
-    print(json.dumps(out, ensure_ascii=False, indent=2))
-    sys.exit(0 if out.get("ok") else 1)
+    if not out.get("ok"):
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+            sys.exit(2)
+        die(out["reason"])
+    emit(out, title="Repo je připravené na Pflanzer Method",
+         lines=[_short_action(a) for a in out["actions"][:6]],
+         next_step="vyplň `docs/INTEGRATION_GUIDE.md` a `.pflanzer/CONSTITUTION.md` "
+                   "(30 minut), pak `pflanzer doctor` — a commit + push",
+         tips=tips_for("init"),
+         warnings=[n for n in out["next_steps"] if "gates-template" in n],
+         as_json=args.json)
 
 
 if __name__ == "__main__":

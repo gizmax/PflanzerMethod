@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #1 — Zadavatel / Business owner
 
-> Vlastníš nápad i budget a jsi Decider — bez tebe projekt nestartuje a výsledek nemá kdo převzít.
+> Za 15 minut na Kickoffu potvrdíš zadání a že smíš říct Go i Kill; za 60–90 minut na Rozhodnutí rozhodneš nad běžícími variantami. Vlastníš nápad i budget a jsi Decider.
 
 **Krok cesty:** Byznys · **Kde jsi:** okno — Decider: Kickoff 15 min + Rozhodnutí 60–90 min
 
 Status v catalogu: **povinná** · Kdy se zve: vždy (core role)
 
 ## Přines do svého okna
-- Zadání na 1 stránku do Kickoffu: problém v jedné větě, metrika úspěchu, kill kritérium
+- Zadání na 1 stránku: problém v jedné větě, jedno číslo úspěchu, kdy to zabalíme
 - Písemný mandát, že smíš říct Go / Iterate / Kill
 - Jméno zástupce za každý z 6 kroků cesty a zabookovaná okna
-- Kapacitu týmu na Async okno (kdo komentuje a zapracovává)
+- Kdo v týmu má kapacitu komentovat a zapracovávat v Asyncu
 
 ## Podepisuješ
 - Zadání z Kickoffu (`/pm start`)
@@ -35,7 +35,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Scope creep „když už tu jsme…“ — patří do parking lotu
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ❌ Nelze nahradit AI. Bez tebe se Kickoff ani Rozhodnutí nekoná. Sub-agent: `.claude/agents/zadavatel-expert.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Ne, nikdy** (ADR-0023). Bez Decidera se Kickoff ani Rozhodnutí nekoná. Sub-agent: `.claude/agents/zadavatel-expert.md`.
 
 ---
 

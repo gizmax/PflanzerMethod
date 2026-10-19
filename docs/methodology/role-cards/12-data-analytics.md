@@ -2,17 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #12 — Data / Analytics
 
-> Zajišťuješ, že winner jde změřit — bez measurement planu nevíme, jestli fíčura funguje.
+> Za 20 minut v Asyncu potvrdíš, že jde změřit metriku z Kickoffu: co se bude sbírat, odkud a jaké je dnešní číslo.
 
 **Krok cesty:** Produkt (měření) · **Kde jsi:** okno — Async a Ship (measurement plan)
 
 Status v catalogu: **doporučená** · Kdy se zve: Release intent (= ship plánován) nebo nové metriky / A/B test?
 
 ## Přines do svého okna
-- Event taxonomy a naming convention
-- Baseline metriky a KPI strom
-- Power analysis pro případný A/B test
-- Privacy klasifikaci eventů
+- Dnešní hodnotu metriky z Kickoffu
+- Události, které se musí sbírat, a zda obsahují osobní údaje
+- Pro hlubší kontrolu (stupeň Full): event taxonomy, KPI strom, power analysis pro A/B test, instrumentation deadline = ship-date − 2 dny
 
 ## Podepisuješ
 - Measurement plan v1 (lagging + 2–3 leading + guardrail)
@@ -35,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Ship bez instrumentace
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ✅ AI navrhne event schema, ⚠️ measurement plan schvaluješ ty. Sub-agent: `.claude/agents/data-analytics-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI navrhne schéma událostí, plán měření schvaluješ ty. Sub-agent: `.claude/agents/data-analytics-expert.md`.
 
 ---
 

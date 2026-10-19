@@ -14,6 +14,9 @@ a vítěz jde rovnou do produkce. Žádné sériové předávání zadavatel →
 produkt → vývoj → security → provoz; každý krok cesty je u toho, ale jen
 tak dlouho, jak je potřeba.
 
+Šéfovi stačí [`../pro-decidera.md`](../pro-decidera.md), kolik to stojí je
+v [`../zacni.md`](../zacni.md#kolik-to-stojí).
+
 Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 
 1. **Celá cesta je zastoupena.** Každý ze 6 kroků cesty má jednoho
@@ -36,6 +39,13 @@ Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 | Provoz | DevOps / Platform nebo EM | okno: checkpoint 20 min u Ship |
 
 Jeden člověk smí krýt víc kroků (vývojář = vývoj + provoz je běžné).
+Chybí-li člověk, smí některé kroky v omezené míře zastoupit AI (design,
+předkontrola bezpečnosti & práva a provozu) — podepisuje ale vždy člověk
+(design PdM přes `checkpoint … design`; bezpečnost v pořadí: člověk
+s mandátem z firmy → Decider vědomě přebírá riziko přes `--override-triage`
+→ autor kódu jen jako poslední možnost u pilotu bez osobních dat),
+Decidera a vývoj AI nenahradí nikdy (ADR-0023,
+[`02-role-catalog.md` § AI náhrada](02-role-catalog.md#ai-náhrada-chybějícího-zástupce)).
 Kdo přesně může krok zastoupit, říká `02-role-catalog.md` — catalog
 je **knihovna zástupců**, ne seznam pozvánek. Každému zástupci pošli jen
 jeho **role card** (1 strana: co do svého okna přinést, co podepisuje, kdy
@@ -178,3 +188,5 @@ produktu) je nouzová cesta, viz `docs/governance/`.
   konfliktů, agendy pro větší/regulované projekty). Kde se liší od
   tohoto 1-pageru, platí tento 1-pager a ADR-0021.
 - `docs/governance/` — audit-grade vrstva.
+
+**Online:** Build jde i na dálku — vývojář sdílí jednu obrazovku, jádro (max 5 lidí) naviguje hlasem, hlasuje se tiše najednou; detail v [`04-session-1.md`](04-session-1.md) § Build online.

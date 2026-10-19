@@ -11,6 +11,9 @@ description: Build (/pm build, 3 h, jádro) — 3 varianty paralelně v 3 worktr
 
 Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
 
+Výstup toolu je lidský (co se stalo → jeden další krok → Doporučení); ukaž ho
+a předej Doporučení. Worktree = oddělená kopie repa pro každou variantu.
+
 Kdo: **jádro** (PdM, 1–2 vývojáři, designér), u jedné obrazovky. Decider u
 stavby není (anti-HiPPO). Max 5 lidí. Bezpečnost & právo přijde na
 20min checkpoint v posledních 30 min.
@@ -28,7 +31,18 @@ Předpoklad: Kickoff proběhl (`pflanzer status --slug $ARGUMENTS`). Jinak
 > **Full** = governance / regulované (5–6 h agenda a 4 triage tracky v
 > `docs/methodology/04-session-1.md`, přizvi i `/pm roles` a `/pm triage`).
 
+## Krok 0 — Výhrady z doctoru
+
+Spusť `pflanzer doctor` a jednou větou pojmenuj otevřené ⚠ **s vlastníkem
+a termínem** (jména z kroků cesty v `pflanzer status`): preview chybí →
+zástupce provozu, chybí lockfile / testy → vývojář; termín „dnes, před
+pushem“. Bez preview Async nemá na co klikat — řekni to nahlas. Nic dalšího
+neopakuj.
+
 ## Krok 1 — Worktrees a prompty
+
+**„Hook“** vysvětli lidsky při prvním použití: je to jednověté zadání
+z Kickoffu (co má varianta uživateli slíbit), ze kterého vznikají tři úhly.
 
 ```bash
 pflanzer worktree setup --slug $ARGUMENTS
@@ -80,31 +94,71 @@ se skórují až po walkthrough, ne z pocitu z UI.
 
 ## Krok 3 — Checkpoint bezpečnost & právo (20 min, posledních 30 min Buildu)
 
-Zástupce kroku Bezpečnost & právo (jeden člověk) projde nad běžícími
-variantami a diffem:
+**Pošli zástupci předem 3 věty** (kolem 5 min práce, checkpoint pak trvá
+20 min, ne hodinu): co aplikace čte, kam píše, jestli vidí reálná data.
 
-- [ ] **Datový tok** — odkud kam data tečou, co opouští firmu
-- [ ] **Data classification** — L1–L4; žádná produkční data v preview
-- [ ] **Egress limit** — co smí agent a preview volat ven (default: nic mimo
-  allowlist)
-- [ ] **Strop tokenů / nákladů** — limit na session a na den, kdo ho hlídá
-- [ ] **Riziko prompt injection** — agent čte cizí text (issues, weby,
-  uživatelský vstup)? Co se stane, když v něm bude instrukce?
-- [ ] **Worktree není bezpečnostní izolace** — sdílí soubory, secrets
-  i síť stroje; secrets mimo worktree, agent s minimem práv
-- [ ] Právo: osobní údaje, licence závislostí, tvrzení v UI
+Zástupce kroku Bezpečnost & právo (jeden člověk) potvrdí nad běžícími
+variantami a diffem **tři věci**:
 
-Výsledek podepiš (podepsané okno = triage pro Ship gate, bez něj Ship
-pilotu neprojde):
+1. **Jaká data AI vidí** — žádná produkční data a osobní údaje v preview,
+   v promptech ani v repu.
+2. **Kam smí síť** — co smí agent a preview volat ven (default: nic mimo
+   povolený seznam).
+3. **Kolik smí AI stát** — strop tokenů / nákladů na session a na den, kdo ho hlídá.
+
+K tomu rychle: riziko podstrčené instrukce (agent čte cizí text — issues,
+weby, vstup uživatelů), secrets mimo repo, osobní údaje, licence závislostí,
+tvrzení v UI. Oddělená kopie repa (worktree) **není bezpečnostní izolace**
+(sdílí soubory, secrets i síť stroje). Odborný rozbor (STRIDE, třídy dat
+L1–L4, SBOM) patří do stupně Full.
+
+Podepiš (podepsané okno = vstup pro Ship, bez něj Ship pilotu neprojde):
 
 ```bash
 pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno z Kickoffu>" \
   --note "<co ověřeno / podmínky>"            # veto: přidej --blocked
 ```
 
+### Když je krok Bezpečnost & právo zastoupen AI
+
+(`path_owners.bezpecnost` je `AI` / `AI:security-expert`; ADR-0023.)
+
+1. Spusť sub-agenta **`security-expert`** (a u osobních údajů
+   `legal-gdpr-expert`) nad běžícími variantami a diffem; zadání: tři otázky
+   výše + prompt injection + secrets. Výsledek ukaž týmu.
+2. Zapiš ho jako **návrh**, ne podpis:
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS bezpecnost --ai --agent security-expert \
+  --note "<shrnutí předkontroly: data, síť, strop nákladů, nálezy>"
+```
+
+**Kdo podepíše, když security není** — pořadí (nikdy default autor kódu):
+(a) někdo z firmy s mandátem (DPO, IT security, compliance, 20 min);
+(b) Decider vědomě převezme riziko — `pflanzer session_3 --slug
+$ARGUMENTS --override-triage --rationale "…"` (jeho jméno v decision logu;
+u pilotu bez osobních dat); (c) autor kódu jen jako poslední možnost
+u interního nástroje bez osobních dat — nástroj varuje, právo tím pokryté
+není.
+
+3. **`throwaway`** — stačí AI. **`pilot` / `production`** — okno zůstane
+   „čeká na podpis člověka“. Řekni nahlas, kdo to podepíše (jméno z
+   Kickoffu) a že do **48 hodin**, jinak Ship zablokuje; podpis pak:
+   `pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno>" --note "…"`.
+
+### Když je krok Design zastoupen AI
+
+Spusť **`ux-expert`** (a `a11y-expert` na kontrolu přístupnosti) nad
+variantami; výstup je vstup do diff walkthrough, ne hlas (`is_ai_only: true`,
+váha max 0,5). Podepisuje PdM — potvrzení zapiš:
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS design --by "<jméno PdM>" \
+  --note "<co ověřeno>"
+```
+
 Výsledek (OK / podmínky / veto) zapiš i do zápisu Buildu. Veto = varianta
 nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
-`doctor` a gates jen doplňují, nenahrazují.
 
 ## Krok 4 — Push a preview
 
@@ -112,38 +166,73 @@ nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
 git push origin pflanzer/$ARGUMENTS-A pflanzer/$ARGUMENTS-B pflanzer/$ARGUMENTS-C
 ```
 
+**Připomeň: bez pushe nejsou preview URL a Async nemá na co klikat.**
 Preview URL = to, co firma už má (Vercel/Netlify preview, review apps,
 preview namespace). Bez produkčních dat. Na každém preview viditelný štítek
-**„Varianta X — k rozhodnutí, ne produkt"** + 1 věta, jaký problém řeší.
-Odkazy pošli všem zástupcům. Nemá-li firma preview deploy, jde varianty
-zpřístupnit i jinak: `pflanzer worktree preview --slug $ARGUMENTS` založí
-**draft PR per varianta** (preview URL z Vercel/Netlify v PR checks; push do
+**„Varianta X — k rozhodnutí, ne produkt“** + 1 věta, jaký problém řeší.
+Chybí-li preview deploy, navrhni konkrétního člověka (zástupce provozu
+z projektu) a termín, ne „domluvte s provozem“.
+Odkazy (tabulka varianta / URL) pošli všem zástupcům. Nemá-li firma preview
+deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
+$ARGUMENTS` založí **draft PR per varianta** (preview URL z PR checks; push do
 remote vyžaduje potvrzení), `--mode playwright` nahraje průchod
-acceptance scénáři jako video + trace (podrobně `docs/postup.md`
+acceptance scénáři jako video + trace (`docs/postup.md`
 § Kde varianty fyzicky jsou).
 
-## Krok 5 — Zápis Buildu
+## Krok 5 — Zápis Buildu (hlasování)
 
-Silent dot voting (až po diff walkthrough) jen pro přítomné (Decider hlasuje vždy poslední, na
-Rozhodnutí; nepřítomní přes Async). Sestav spec a zapiš:
+**Rady pro silent voting:** hlasuje jen přítomné jádro, každý napíše skóre
+sám a najednou; hlasujte za to, co uvidí uživatel, ne za kód; důvod jednou
+větou; Decider hlasuje vždy poslední (na Rozhodnutí), nepřítomní přes Async.
+Skóre až po diff walkthrough.
 
-```bash
-pflanzer quick_session vote --spec /tmp/<slug>-vote.json
-# alternativa pro plný zápis s experty:
-pflanzer session --spec /tmp/<slug>-build.json
+Zapiš spec nástrojem **Write** do `.pflanzer/specs/<slug>-vote.json`
+(necommituje se) a spusť `pflanzer quick_session vote --spec
+.pflanzer/specs/<slug>-vote.json`. Heredoc `--spec - <<'EOF'` je jen záloha
+(v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe).
+**Přesný formát** (`record_voting` → `session.persist`), obsah souboru:
+
+```json
+{
+  "slug": "<slug>",
+  "facilitator": "<jméno>",
+  "votes": [
+    {
+      "variant": "A",
+      "name": "A",
+      "builder": "claude-code",
+      "description": "<1 věta, jaký problém varianta řeší>",
+      "diff_summary": {"stat": "<git diff --stat>", "reuse": "…", "new": "…", "mock": "…", "acceptance_pass": "3/4"},
+      "role_preferences": [
+        {"role_idx": 2, "user_value": 0.8, "effort": 0.3, "risk": 0.2,
+         "strategic_fit": 0.9, "commitment_level": 3,
+         "rationale": "POVINNÉ — 1–2 věty proč", "is_ai_only": false}
+      ]
+    }
+  ],
+  "decider_call": {"shortlist": ["A", "B"], "rationale": "…", "veto_register": [], "parking_lot": []},
+  "real_urls": {"A": "https://…", "B": "https://…", "C": "https://…"}
+}
 ```
 
-Spec: varianty (branch, preview URL), `role_preferences` (hlas, rationale
-1 věta, commitment 0–3), výsledek checkpointu B&P, veto registr, parking lot.
+Pravidla: `role_idx` = číslo role v catalogu (1 zadavatel, 2 PdM, 4 FE, 6 UX,
+7 security, 15 DevOps…), hodnoty 0–1, `rationale` povinný u každého řádku,
+AI hlas má `is_ai_only: true`. `real_urls` jsou skutečné preview URL
+(bez nich zůstane placeholder). Alternativa pro plný zápis s experty:
+`pflanzer session --spec .pflanzer/specs/<slug>-session.json` (soubor zapsaný Write).
 
 ## Krok 6 — Výstup a další krok
 
-Ukaž tabulku varianta / branch / preview URL / stav kontrol / checkpoint B&P.
-Na konci **jeden** další krok:
+Ukaž lidský výstup toolu + tabulku varianta / branch / preview URL / stav
+kontrol / checkpoint B&P (a které kroky zastoupila AI) a předej
+**Doporučení** z výstupu. Na konci **jeden** další krok:
 
 > Další krok: `/pm feedback <slug>` — zástupci klikají na preview po dobu
 > okna (Lean 3–5 dní, Quick 3, Full 5–7 pracovních dní; ADR-0017); kdo
 > feedback nevyplnil, zapíše ho offline přes `pflanzer feedback add`.
+
+Skonči **jednou výzvou** (např. „Pošlete zástupcům odkaz na hub — chcete
+text pozvánky?“), ne seznamem možností.
 
 ## Co NEDĚLAT
 

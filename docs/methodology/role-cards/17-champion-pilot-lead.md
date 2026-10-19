@@ -2,16 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #17 — Champion / Pilot lead
 
-> Přenášíš zkušenost z předchozích pilotů a vlastníš, jak se metoda v BU učí.
+> Za 20 minut po Rozhodnutí předáš týmu zkušenost z předchozích pilotů a po Shipu pohlídáš, co se změří (7 / 30 / 90 dní).
 
 **Krok cesty:** Byznys (metoda) · **Kde jsi:** okno — Kickoff a závěr; mimo hlasování o variantách
 
 Status v catalogu: **volitelná (trigger)** · Kdy se zve: Druhý+ pilot v BU, nebo scaling Pflanzeru ve společnosti?
 
 ## Přines do svého okna
-- Retra předchozích pilotů
-- Coaching Kata: target / obstacle / next krok
-- Kontakt na security buddyho
+- Poznatky z předchozích pilotů (co fungovalo, co ne)
+- Kontakt na bezpečnostního parťáka
+- Pro hlubší kontrolu (stupeň Full): Coaching Kata (cíl / překážka / další krok), návrhy změn do role catalogu
 
 ## Podepisuješ
 - Retrospektivu pilotu a T+30 / 60 / 90 reporting
@@ -31,7 +31,7 @@ O variantách nehlasuješ — jsi tu kvůli metodě, ne kvůli produktu. Sleduje
 - Tým vynechává rituál, který předchozí retro označilo za kritický
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ❌ Social capital v BU nelze nahradit AI. Sub-agent: `.claude/agents/champion-expert.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Ne** (ADR-0023). Zkušenost a vliv v byznys jednotce AI nenahradí. Sub-agent: `.claude/agents/champion-expert.md`.
 
 ---
 

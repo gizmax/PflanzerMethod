@@ -2,16 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #11 — Accessibility expert
 
-> Hlídáš WCAG 2.2 AA — Critical / Serious nález blokuje finální rozhodnutí jako Security veto.
+> Za 20 minut nad preview potvrdíš, že varianty jdou ovládat klávesnicí, mají čitelný kontrast a popisky formulářů. Nález Kritický / Vysoký blokuje finální rozhodnutí.
 
 **Krok cesty:** Design (přístupnost) · **Kde jsi:** okno — Async a Ship (quickscan nad preview)
 
 Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing nebo B2B nad 250 zaměstnanců?
 
 ## Přines do svého okna
-- WCAG 2.2 AA filtr na komponenty
-- Persona disability set (low vision, motor, cognitive)
-- Tooling: axe DevTools / Pa11y CI / Lighthouse
+- Rychlou kontrolu přístupnosti každé varianty (8–10 bodů)
+- Seznam nálezů se závažností
+- Pro hlubší kontrolu (stupeň Full): WCAG 2.2 AA filtr, persona se zdravotním omezením, axe DevTools / Pa11y CI / Lighthouse
 
 ## Podepisuješ
 - A11y quickscan (8–10 položek) per varianta
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Opt-out z role bez podepsané justifikace
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ AI zvládne static audit, axe-core a kontrast; pre-launch review je nedelegovatelný. Sub-agent: `.claude/agents/a11y-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Částečně** (ADR-0023): automatické kontroly přístupnosti dělá AI jako součást náhrady za Design (podepisuje PdM); kontrola se čtečkou obrazovky před spuštěním je člověk. Sub-agent: `.claude/agents/a11y-expert.md`.
 
 ---
 

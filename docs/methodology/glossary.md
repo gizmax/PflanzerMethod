@@ -193,6 +193,40 @@ připravený k mergi (`/pm ship` + `/pm handoff`). Starší název „Ship gate�
 `/pm retro` — měření outcome po Shipu: % LOC vítěze v produkci, days-to-prod
 a readouty T+7/30/60/90. Pod povrchem, mimo pět kroků hlavní cesty.
 
+### AI náhrada
+
+Krok cesty, u kterého místo jména stojí `AI` (nebo `AI:<agent>`). AI **připraví**
+(perspektivu, předkontrolu, návrh checkpointu), **podepisuje člověk**. Nikdy
+u kroků byznys a vývoj; u produktu jen ve stupni Quick / throwaway; u designu
+ano; u bezpečnosti & práva a provozu jen jako předkontrola. Viz ADR-0023
+a `02-role-catalog.md` § AI náhrada chybějícího zástupce. Design potvrzuje
+PdM (`pflanzer checkpoint --slug S design --by <PdM>`). Podpis bezpečnosti
+autorem kódu je jen varování (pilot bez osobních dat), právo tím pokryté
+není.
+
+### Override triage
+
+Vědomé převzetí rizika Deciderem, když bezpečnost & právo nikdo nepodepsal:
+`pflanzer session_3 --slug S --override-triage --rationale "…"`. Do decision
+logu se zapíše jeho jméno; u pilotu bez osobních dat.
+
+### Checkpoint
+
+20minutové okno nad konkrétním artefaktem (bezpečnost & právo u Buildu,
+provoz u Shipu), které končí podpisem: `pflanzer checkpoint --slug <slug>
+bezpecnost|provoz --by <jméno> --note …`. Checkpoint zapsaný AI (`--ai`) je
+jen návrh, dokud ho nepodepíše člověk.
+
+### Quality gate
+
+Automatická kontrola (lint, typy, testy, bezpečnost, přístupnost, build)
+puštěná jen na vítěze. Výsledkem je skóre X/100; práh pilot 80 / production 85.
+
+### Worktree
+
+Oddělená kopie repa pro každou variantu (větve `pflanzer/<slug>-A|B|C`).
+Není to bezpečnostní izolace — sdílí soubory a síť stroje.
+
 ## Zkratky
 
 ### PdM

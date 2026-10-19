@@ -40,7 +40,7 @@ pflanzer session_2 prep --slug <slug>
 pflanzer session_2 decide --slug <slug> go --winner A --rationale "…"
 pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "…"
 pflanzer session_2 decide --slug <slug> kill --rationale "…"
-pflanzer session_2 resolve --slug <slug> --feedback-id <id> --note "<jak>"
+pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<jméno>" --note "<jak>"
 ```
 
 ## Pravidla rozhodnutí

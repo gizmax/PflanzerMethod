@@ -2,22 +2,21 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #15 — DevOps / Platform
 
-> Zastupuješ krok provoz: sandbox, cestu do produkce, deploy footprint, SLO a observability.
+> Za 20 minut potvrdíš tři věci: (1) jak se vrátíme zpět (rollback), (2) kdo je první týden na telefonu, (3) co sledujeme první hodinu po nasazení. Podpis: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …`.
 
 **Krok cesty:** Provoz · **Kde jsi:** okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)
 
 Status v catalogu: **doporučená** · Kdy se zve: Změny v infra / deploy / runtime / sandbox? (téměř vždy)
 
 ## Přines do svého okna
-- Sandbox spec (Terraform modul, 24h TTL)
-- Approved runtime list a secret policy (Vault + OIDC)
-- Šablonu footprint estimate
-- Observability contract (OTel, structured logs, tracing)
+- Rollback: jak a za jak dlouho se vrátíme (vypnutí flagu, revert)
+- On-call: kdo má první týden telefon a jak ho zastihnout
+- První hodina: co se sleduje (chyby, latence, metrika z Kickoffu) a kdo se dívá
+- Pro hlubší kontrolu (stupeň Full): sandbox spec, approved runtime list, SLO baseline, observability contract (OTel), deploy footprint
 
 ## Podepisuješ
-- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)
-- SLO baseline a Promote-to-prod gate checklist
-- Deploy footprint TCO vítězné varianty
+- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …` (blokace: přidej `--blocked`)
+- Promote-to-prod checklist: monitoring, strop nákladů, feature flag
 
 ## Kdy jsi u toho
 - Quick (60–90 min) — **async**: triage se odkládá; sandbox a worktrees připravíš předem
@@ -35,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Chybí observability — výpadek v produkci nepoznáme
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Jen pro typické vzory; custom infra řeší člověk. Sub-agent: `.claude/agents/devops-platform-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `--ai --agent devops-platform-expert` zapíše návrh. Throwaway stačí AI, pilot podepíše vývojář z jádra, production člověk z provozu. Sub-agent: `.claude/agents/devops-platform-expert.md`.
 
 ---
 

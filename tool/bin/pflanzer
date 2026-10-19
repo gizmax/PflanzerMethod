@@ -10,8 +10,21 @@ else
   ROOT="$(cd "$(dirname "$SELF")/../.." && pwd)"
 fi
 
-SUB="${1:-help}"
-shift || true
+if [ "$#" -eq 0 ]; then
+  echo "Pflanzer Method | pflanzer.cz/method"
+  echo ""
+  echo "Nejčastější příkazy:"
+  echo "  pflanzer status      # kde projekt stojí a co je další krok"
+  echo "  pflanzer doctor      # je target repo připravené ke Kickoffu?"
+  echo "  pflanzer checkpoint  # podpis okna (bezpecnost | provoz | design)"
+  echo "  pflanzer feedback    # feedback zástupců (Async)"
+  echo "  pflanzer hub         # web hub pro feedback"
+  echo ""
+  echo "Vše: pflanzer help"
+  exit 0
+fi
+SUB="$1"
+shift
 
 case "$SUB" in
   root)
@@ -37,12 +50,23 @@ case "$SUB" in
     echo "  pflanzer update    # git pull + migrace + update pluginu"
     echo "  pflanzer hub       # web hub pro feedback (http://localhost:8000/method/)"
     echo "  pflanzer checkpoint --slug S bezpecnost|provoz --by JMÉNO --note …  # podpis okna"
-    ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^__' -e '^db$' | sed 's/^/  pflanzer /' ;;
+    echo "  pflanzer checkpoint --slug S bezpecnost --ai --note …               # AI draft (ADR-0023), podepíše člověk"
+    echo ""
+    echo "Všechny příkazy mají lidský výstup; --json dá strojový. --spec - čte JSON ze stdin."
+    ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | sed 's/^/  pflanzer /' ;;
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"
     if [ ! -f "$SCRIPT" ]; then
-      echo "Neznámý příkaz: $SUB (viz: pflanzer help)" >&2
-      exit 1
+      CMDS="root db data update help $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
+      # shellcheck disable=SC2086
+      NEAR="$(python3 -c 'import difflib,sys; m=difflib.get_close_matches(sys.argv[1], sys.argv[2:], n=1, cutoff=0.6); print(m[0] if m else "")' "$SUB" $CMDS)"
+      echo "Pflanzer Method | pflanzer.cz/method" >&2
+      echo "" >&2
+      MSG="CHYBA: Neznámý příkaz ‚${SUB}‘."
+      if [ -n "$NEAR" ]; then MSG="$MSG Myslel jste ‚${NEAR}‘?"; fi
+      echo "$MSG" >&2
+      echo "Přehled: pflanzer help" >&2
+      exit 2
     fi
     PYTHONPATH="$ROOT" exec python3 "$SCRIPT" "$@" ;;
 esac

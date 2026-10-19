@@ -51,6 +51,10 @@ export type Variant = {
   description_md: string | null;
   preference_score: number | null;
   created_at: string;
+  /** počet feedbacků k variantě (API hubu) */
+  feedback_count?: number;
+  /** už jsem k variantě feedback odeslal(a)? */
+  my_feedback?: boolean;
 };
 
 export type Feedback = {
@@ -60,7 +64,7 @@ export type Feedback = {
   severity: "critical" | "high" | "medium" | "low";
   department: string;
   category: string;
-  score: number;
+  score?: number | null;
   rationale: string;
   ai_act_dimension: string | null;
   wcag_level: "A" | "AA" | "AAA" | "N/A" | null;
@@ -73,4 +77,12 @@ export type ProjectDetail = {
   project: Project;
   roles: Role[];
   triage: Triage[];
+  /** klíč kroku cesty -> jméno zástupce (starší DB: prázdné) */
+  path_owners?: Record<string, string | null>;
+  decider_name?: string | null;
+  /** jméno PdM (zástupce kroku Produkt), pokud je to člověk */
+  pm_name?: string | null;
+  core?: string[];
+  shortlist?: string[];
+  async_deadline?: string | null;
 };

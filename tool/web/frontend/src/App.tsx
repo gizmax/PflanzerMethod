@@ -3,29 +3,32 @@ import ProjectsList from "./pages/ProjectsList";
 import ProjectPage from "./pages/ProjectPage";
 import CompareVariants from "./pages/CompareVariants";
 import FeedbackForm from "./pages/FeedbackForm";
+import { StateScreen } from "./components/StateScreen";
 
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-brand-50 bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="font-semibold text-brand-900 hover:text-brand-700">
-            Pflanzer · Method Hub
+      <header className="border-b border-line bg-card">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex items-center">
+          <Link to="/" className="inline-flex min-h-[44px] items-center font-semibold text-ink">
+            Pflanzer Method <span className="mx-2 text-muted" aria-hidden="true">|</span>
+            <span className="font-normal text-muted">pflanzer.cz/method</span>
           </Link>
-          <span className="text-xs text-brand-500 font-mono">v0.1 · noindex</span>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         <Routes>
           <Route path="/" element={<ProjectsList />} />
           <Route path=":slug" element={<ProjectPage />} />
           <Route path=":slug/compare" element={<CompareVariants />} />
           <Route path=":slug/feedback/:variantId" element={<FeedbackForm />} />
+          <Route path="*" element={
+            <StateScreen title="Stránka nenalezena">Zkontrolujte odkaz, který jste dostali.</StateScreen>} />
         </Routes>
       </main>
-      <footer className="border-t border-brand-50 bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-3 text-xs text-brand-500 font-mono">
-          Hybrid form-factor (ADR-0008) · Sandbox watermark · 24h TTL prototypes · noindex.
+      <footer className="border-t border-line bg-card">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 text-sm text-muted">
+          Náhledy jsou zkušební verze, ne ostrý provoz.
         </div>
       </footer>
     </div>

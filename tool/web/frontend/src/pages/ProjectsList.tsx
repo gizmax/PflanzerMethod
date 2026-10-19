@@ -2,49 +2,45 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Project } from "../lib/types";
+import { ErrorScreen, Loading, StateScreen } from "../components/StateScreen";
+import { phaseLabel, stripMd } from "../lib/text";
+import { usePageTitle } from "../lib/hooks";
 
 export default function ProjectsList() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  usePageTitle("Projekty");
+  const [projects, setProjects] = useState<Project[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    api.listProjects().then(setProjects).catch((e) => setError(String(e)));
+    api.listProjects().then(setProjects).catch(setError);
   }, []);
 
-  if (error) return <div className="pf-card text-severity-critical">Chyba: {error}</div>;
+  if (error) return <ErrorScreen error={error} />;
+  if (!projects) return <Loading />;
   if (!projects.length) {
     return (
-      <div className="pf-card">
-        <h1>Pflanzer projekty</h1>
-        <p className="mt-2 text-brand-500">
-          Žádné projekty zatím nejsou. Spusť v Claude Code:{" "}
-          <code className="font-mono bg-brand-50 px-1.5 py-0.5 rounded">
-            /pm start &lt;slug&gt;
-          </code>
-        </p>
-      </div>
+      <StateScreen title="Zatím tu není žádný projekt" backLabel="Obnovit">
+        <p>Projekt zakládá facilitátor na Kickoffu. Až bude hotový, dostanete na něj odkaz.</p>
+      </StateScreen>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h1>Pflanzer projekty ({projects.length})</h1>
-      <div className="grid gap-3 md:grid-cols-2">
+      <h1>Projekty ({projects.length})</h1>
+      <ul className="grid gap-3 md:grid-cols-2">
         {projects.map((p) => (
-          <Link key={p.id} to={`/${p.slug}`} className="pf-card hover:border-brand-700 block">
-            <div className="flex items-start justify-between mb-2">
-              <h2 className="text-base">{p.name}</h2>
-              <span className="text-xs font-mono px-2 py-0.5 bg-brand-50 rounded">
-                {p.status}
-              </span>
-            </div>
-            <p className="text-xs font-mono text-brand-500 mb-2">{p.slug}</p>
-            {p.xyz_hypothesis && (
-              <p className="text-sm text-brand-700 line-clamp-3">{p.xyz_hypothesis}</p>
-            )}
-          </Link>
+          <li key={p.id}>
+            <Link to={`/${p.slug}`} className="pf-card block h-full hover:border-accent">
+              <h2 className="text-lg">{p.name}</h2>
+              <p className="pf-pill mt-2">{phaseLabel(p.status)}</p>
+              {p.xyz_hypothesis && (
+                <p className="mt-2 text-sm text-muted line-clamp-3">{stripMd(p.xyz_hypothesis)}</p>
+              )}
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

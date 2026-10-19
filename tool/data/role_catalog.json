@@ -10,12 +10,12 @@
       "trigger": "always",
       "expert_agent": "zadavatel-expert",
       "card": {
-        "why": "Vlastníš nápad i budget a jsi Decider — bez tebe projekt nestartuje a výsledek nemá kdo převzít.",
+        "why": "Za 15 minut na Kickoffu potvrdíš zadání a že smíš říct Go i Kill; za 60–90 minut na Rozhodnutí rozhodneš nad běžícími variantami. Vlastníš nápad i budget a jsi Decider.",
         "bring": [
-          "Zadání na 1 stránku do Kickoffu: problém v jedné větě, metrika úspěchu, kill kritérium",
+          "Zadání na 1 stránku: problém v jedné větě, jedno číslo úspěchu, kdy to zabalíme",
           "Písemný mandát, že smíš říct Go / Iterate / Kill",
           "Jméno zástupce za každý z 6 kroků cesty a zabookovaná okna",
-          "Kapacitu týmu na Async okno (kdo komentuje a zapracovává)"
+          "Kdo v týmu má kapacitu komentovat a zapracovávat v Asyncu"
         ],
         "sign_off": [
           "Zadání z Kickoffu (`/pm start`)",
@@ -54,7 +54,7 @@
           "Kdokoli (i ty) prozradí preferovanou variantu před silent vote",
           "Scope creep „když už tu jsme…“ — patří do parking lotu"
         ],
-        "ai_proxy": "❌ Nelze nahradit AI. Bez tebe se Kickoff ani Rozhodnutí nekoná.",
+        "ai_proxy": "Může tě nahradit AI? **Ne, nikdy** (ADR-0023). Bez Decidera se Kickoff ani Rozhodnutí nekoná.",
         "step": "Byznys",
         "place": "okno — Decider: Kickoff 15 min + Rozhodnutí 60–90 min"
       }
@@ -67,12 +67,12 @@
       "trigger": "always",
       "expert_agent": "pm-expert",
       "card": {
-        "why": "Jako PdM překládáš business do produktových požadavků a držíš JTBD, prioritu a OKR alignment.",
+        "why": "Za celý Build potvrdíš, že varianty řeší správný problém a míří na metriku z Kickoffu. Překládáš business do požadavků a držíš prioritu.",
         "bring": [
-          "JTBD kartu a personu ne starší než 6 měsíců",
-          "OST v0 vyplněný aspoň na 60 %",
-          "Metriku úspěchu: lagging + leading, s baseline",
-          "Zadání z Kickoffu rozepsané do kritérií, podle kterých se varianty posoudí"
+          "Popis uživatele a úkolu, který řeší (JTBD karta, ne starší než 6 měsíců)",
+          "Metriku úspěchu s dnešním výchozím číslem",
+          "Zadání z Kickoffu rozepsané do kritérií, podle kterých se varianty posoudí",
+          "Pro hlubší kontrolu (stupeň Full): OST v0 vyplněný aspoň na 60 %, podpis JTBD v Discovery Readiness Gate"
         ],
         "sign_off": [
           "JTBD podpis v Discovery Readiness Gate — bez něj se Build odkládá",
@@ -111,7 +111,7 @@
           "Varianta řeší jiný JTBD než ten zamčený",
           "Metrika úspěchu nejde změřit (chybí baseline)"
         ],
-        "ai_proxy": "⚠️ Krátkodobě s předem připraveným briefem; finální slovo máš ty.",
+        "ai_proxy": "Může tě nahradit AI? **Jen ve stupni Quick / u throwaway** (ADR-0023); zadání pak podepisuje Decider. Jinak člověk, finální slovo máš ty.",
         "step": "Produkt",
         "place": "jádro — celý Build, Async a Rozhodnutí"
       }
@@ -124,12 +124,12 @@
       "trigger": "always",
       "expert_agent": "facilitator",
       "card": {
-        "why": "Vedeš Kickoff, Build a Rozhodnutí: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.",
+        "why": "Za 15 minut před Buildem připravíš agendu a časy; pak vedeš Kickoff, Build i Rozhodnutí a hlídáš pořadí hlasování.",
         "bring": [
           "Plán energie podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)",
           "Zadání z Kickoffu, jména zástupců a agendu s časovými boxy",
-          "Šablonu parking lotu a decision logu s lidskou atribucí",
-          "Potvrzený dev pár u klávesnice pro každou variantu"
+          "Potvrzený vývojářský pár u klávesnice pro každou variantu",
+          "Pro hlubší kontrolu (stupeň Full): šablonu parking lotu a decision logu s lidskou atribucí"
         ],
         "sign_off": [
           "Decision log a conflict log (AI píše, ty podepisuješ)",
@@ -159,7 +159,7 @@
           "U klávesnice sedí facilitátor nebo AI proxy místo dev páru",
           "Víc než 10 lidí v místnosti nebo chybí senior delegát vetovací role"
         ],
-        "ai_proxy": "❌ Lidský facilitátor nutný — AI konflikt mezi rolemi nevyřeší; AI co-pilota orchestruješ ty.",
+        "ai_proxy": "Může tě nahradit AI? **Ne.** Facilitátor je součást kroku Produkt (ADR-0023 ho nenahrazuje); AI konflikt mezi lidmi nevyřeší, jen píše zápis.",
         "step": "Produkt (vedení Buildu)",
         "place": "jádro — celý Build, Async a Rozhodnutí"
       }
@@ -173,12 +173,12 @@
       "trigger_question": "Mění se UI nebo přidává se nový view?",
       "expert_agent": "fe-vibe-coding-expert",
       "card": {
-        "why": "Jsi builder: u klávesnice stavíš varianty s Claude Code přímo v target repu, takže vítěz jde do produkce bez re-implementace.",
+        "why": "Za 15 minut před Buildem potvrdíš, že v repu jde pustit build a testy; pak sedíš u klávesnice a stavíš varianty, které půjdou rovnou do produkce.",
         "bring": [
-          "Design tokens a component manifest (Storybook URL)",
-          "Tech stack contract: framework, ESLint / Prettier, a11y baseline",
-          "Přístup do target repa a funkční lokální build",
-          "Anti-pattern list komponent"
+          "Přístup do repa produktu a funkční lokální build i testy",
+          "Design tokeny a existující komponenty, které mají varianty použít",
+          "Diff walkthrough své varianty: co je znovupoužité, nové a mock",
+          "Pro hlubší kontrolu (stupeň Full): tech stack contract (ESLint / Prettier, a11y baseline), component manifest (Storybook), anti-pattern list"
         ],
         "sign_off": [
           "PR-ready commit vítězné varianty (token compliance > 90 %)",
@@ -216,7 +216,7 @@
           "Mock / stub vypadá jako hotová funkce — řekni to v diff walkthrough",
           "V target repu nejde build nebo testy — winner by nešel do produkce"
         ],
-        "ai_proxy": "⚠️ Pro greenfield části jde, brownfield vyžaduje tvůj review.",
+        "ai_proxy": "Může tě nahradit AI? **Ne, nikdy** (ADR-0023). U klávesnice sedí vývojář; AI je jeho asistent, ne zástupce.",
         "step": "Vývoj",
         "place": "jádro — celý Build a Ship"
       }
@@ -230,12 +230,12 @@
       "trigger_question": "Mění se data nebo API?",
       "expert_agent": "be-api-expert",
       "card": {
-        "why": "Držíš data a API — bez tebe varianty stojí na mockovaném backendu, který v produkci neexistuje.",
+        "why": "Za 15 minut před Buildem potvrdíš, co varianty smí měnit na API a datech, aby nestály na mocku, který v produkci neexistuje.",
         "bring": [
-          "Backend Context Pack: OpenAPI stávajícího API, ERD, NFR baseline",
-          "Event taxonomy a RFC 7807 konvence chyb",
-          "ADR archiv za posledních 12 měsíců",
-          "Seznam consumer ownerů pro breaking-change check"
+          "Popis stávajícího API a datového modelu (OpenAPI, schéma)",
+          "Seznam týmů, kterým by změna API rozbila klienta",
+          "Plán migrace dat, pokud varianta mění model",
+          "Pro hlubší kontrolu (stupeň Full): ERD, NFR baseline, event taxonomy, RFC 7807 konvence chyb, ADR archiv za 12 měsíců"
         ],
         "sign_off": [
           "OpenAPI 3.1 final + procházející contract test (Pact / Schemathesis)",
@@ -273,7 +273,7 @@
           "Změna datového modelu bez migration planu",
           "Reálná osobní data v promptu nebo v sandboxu"
         ],
-        "ai_proxy": "⚠️ Jen pro velmi greenfield části; brownfield vyžaduje lidského BE leada.",
+        "ai_proxy": "Může tě nahradit AI? **Ne, nikdy** (ADR-0023). Vývoj podepisuje člověk; AI jen pomáhá s částmi bez napojení na stávající systém.",
         "step": "Vývoj (backend)",
         "place": "jádro — Build (backendová část) a Ship"
       }
@@ -287,11 +287,12 @@
       "trigger_question": "Vzniká nový user flow nebo přepracování core experience?",
       "expert_agent": "ux-expert",
       "card": {
-        "why": "Držíš user flow a design system — varianty musí sedět na JTBD a personu, ne jen hezky vypadat.",
+        "why": "Za Build a Async potvrdíš, že varianty sedí na uživatele a úkol, který řeší, ne jen hezky vypadají. Držíš flow a design system.",
         "bring": [
-          "Personu, JTBD kartu a a11y potřeby",
-          "Journey map současného flow",
-          "Design tokens, component inventory a brand voice & tone"
+          "Popis uživatele, jeho úkolu a potřeb přístupnosti",
+          "Dnešní průchod uživatele (kde to bolí)",
+          "Design tokeny a existující komponenty",
+          "Pro hlubší kontrolu (stupeň Full): journey map, component inventory, brand voice & tone, seznam odchylek od design systému s ownerem"
         ],
         "sign_off": [
           "JTBD a persona lock (spolu s PdM)",
@@ -328,7 +329,7 @@
           "Odchylka od design systému bez ownera",
           "Persona drift — tým navrhuje pro sebe, ne pro uživatele"
         ],
-        "ai_proxy": "✅ Pro design system audit, ⚠️ pro flow integrity (tvůj sign-off).",
+        "ai_proxy": "Může tě nahradit AI? **Ano** (ADR-0023): UX expert + kontroly přístupnosti, nahrazení podepisuje PdM; u zákaznického produktu v produkci potvrdí design člověk.",
         "step": "Design",
         "place": "jádro — Build a Async (u interního toolu může krýt PdM)"
       }
@@ -343,17 +344,17 @@
       "mandatory_if_triggered": true,
       "expert_agent": "security-expert",
       "card": {
-        "why": "Zastupuješ krok bezpečnost & právo a máš veto na varianty s kritickým rizikem — veto je veto, ne hlas mezi hlasy.",
+        "why": "Za 20 minut potvrdíš tři věci: (1) jaká data AI vidí, (2) kam smí síť, (3) kolik smí AI stát. Podpis: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …`.",
         "bring": [
-          "Data classification L1–L4 pro projekt",
-          "STRIDE one-pager (threat model lite): datový tok, egress limit, riziko prompt injection",
-          "Strop tokenů / nákladů a Approved AI Tool list se sandbox spec (24h TTL)",
-          "SSO + MFA pravidla a DORA 3rd-party checklist, pokud se týká"
+          "Jaká data AI vidí: žádná produkční data a osobní údaje v preview, promptech ani repu",
+          "Kam smí síť: co smí agent a preview volat ven (default nic mimo povolený seznam)",
+          "Kolik smí AI stát: strop tokenů / nákladů a kdo ho hlídá",
+          "Pro hlubší kontrolu (stupeň Full): STRIDE one-pager, třídy dat L1–L4, Approved AI Tool list a sandbox spec, SSO + MFA, DORA 3rd-party checklist"
         ],
         "sign_off": [
-          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)",
-          "Veto registr — veto na varianty se STRIDE Critical",
-          "SBOM + CVE scan a secret scan před Shipem"
+          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …` (blokace: přidej `--blocked`)",
+          "Veto na variantu s kritickým rizikem (zapíše se do veto registru)",
+          "Pro hlubší kontrolu (stupeň Full): SBOM + CVE scan a secret scan před Shipem"
         ],
         "when_in_room": {
           "quick": {
@@ -386,7 +387,7 @@
           "Nástroj mimo Approved AI Tool list",
           "Secret nebo credential v kódu varianty"
         ],
-        "ai_proxy": "❌ Veto podepisuje člověk; AI připraví STRIDE draft a SBOM / CVE scan.",
+        "ai_proxy": "Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `pflanzer checkpoint … --ai --agent security-expert` zapíše návrh. U throwaway stačí, u pilotu a produkce podepíše člověk do 48 h, jinak Ship blokuje. Veto je vždy člověk.",
         "step": "Bezpečnost & právo",
         "place": "okno — checkpoint 20 min v posledních 30 min Buildu (stačí Security nebo Legal / DPO)"
       }
@@ -401,12 +402,12 @@
       "mandatory_if_triggered": true,
       "expert_agent": "qa-expert",
       "card": {
-        "why": "Jakmile padne „produkce“ nebo „pilot“, hlídáš, že varianty mají testovatelné chování, ne jen UI.",
+        "why": "Za 20 minut v Asyncu potvrdíš, že varianty mají testovatelné chování, ne jen UI, a které scénáře se nesmí rozbít.",
         "bring": [
-          "Test strategy a regression inventory",
-          "Kritické flows, které se nesmí rozbít",
-          "Contract test framework (Pact) a automation framework",
-          "Seed akceptačních scénářů `tests/acceptance/<slug>.feature`"
+          "Kritické průchody, které se nesmí rozbít",
+          "3–5 akceptačních scénářů s aspoň jednou chybovou cestou na variantu",
+          "Lidskou kontrolu každého scénáře, který napsala AI",
+          "Pro hlubší kontrolu (stupeň Full): test strategy a regression inventory, contract test (Pact), P2P checklist o 9 položkách"
         ],
         "sign_off": [
           "3–5 BDD / Gherkin scénářů s ≥ 1 negative path per varianta",
@@ -445,7 +446,7 @@
           "Acceptance scénáře v diff walkthrough neprojely, a přesto se hlasuje",
           "AI testuje implementaci místo chování"
         ],
-        "ai_proxy": "⚠️ AI generuje testy, každý scénář ale před CI reviewuje člověk.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); perspektivu dodá QA expert jako vstup a každý scénář zkontroluje člověk před CI.",
         "step": "Vývoj (kvalita)",
         "place": "jádro nebo okno — Build (scénáře) a Ship (gates)"
       }
@@ -459,16 +460,16 @@
       "trigger_question": "Bude scope déle než 2 sprinty / je to PI priority?",
       "expert_agent": "em-expert",
       "card": {
-        "why": "Zastupuješ krok provoz: hlídáš kapacitu, závislosti a to, co s vítězem bude po nasazení — z varianty se stává závazek týmu.",
+        "why": "Za 20 minut u Shipu potvrdíš, že tým unese provoz vítěze: kapacitu, závislosti a kdo bude první týden na telefonu. Podpis: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …`.",
         "bring": [
-          "Kapacitu týmu a roadmapu (PI commit %)",
-          "Závislosti na platform / identity / data týmech",
-          "T-shirt sizing rubriku"
+          "Kapacitu týmu na provoz a opravy po nasazení",
+          "Závislosti na jiných týmech (identita, data, platforma)",
+          "Odhad práce po nasazení v T-shirt velikostech",
+          "Pro hlubší kontrolu (stupeň Full): PI commit %, dependency map, capacity buffer 25 % (veto při > 80 %), 2denní spike"
         ],
         "sign_off": [
-          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)",
-          "Dependency Map a T-shirt odhad (+ 2denní capped spike)",
-          "Capacity buffer 25 % pro Pflanzer-driven features; veto, pokud je PI commit > 80 %"
+          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …` (blokace: přidej `--blocked`)",
+          "Veto, pokud je kapacita přeplněná (PI commit > 80 %)"
         ],
         "when_in_room": {
           "quick": {
@@ -502,7 +503,7 @@
           "Varianta závisí na týmu, který o tom neví",
           "Odhad nad 2 sprinty bez spiku"
         ],
-        "ai_proxy": "❌ Kapacita a roadmapa jsou citlivé — vždy člověk.",
+        "ai_proxy": "Může tě nahradit AI? **Kapacitu a roadmapu ne.** Krok Provoz smí AI jen předkontrolovat (ADR-0023); podepisuje vývojář z jádra (pilot) nebo člověk z provozu (production).",
         "step": "Provoz",
         "place": "okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)"
       }
@@ -516,17 +517,17 @@
       "trigger_question": "Osobní data, marketing, novel AI use case (≥ Limited risk-tier), nebo regulovaný produkt (PSD2/MiFID)?",
       "expert_agent": "legal-gdpr-expert",
       "card": {
-        "why": "Zastupuješ krok bezpečnost & právo z právní strany: osobní data, marketing claims a AI Act risk-tier.",
+        "why": "Za 20 minut potvrdíš, že varianty nezpracují osobní údaje bez právního důvodu a že tvrzení v UI jdou doložit. Podpis: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …`.",
         "bring": [
-          "RoPA a DPIA trigger checklist (GDPR čl. 35/3)",
-          "AI Act risk-tier klasifikaci use casu",
-          "DPA + SCC per vendor (včetně AI builderu)",
-          "Marketing compliance brief, pokud jsou ve hře claims"
+          "Jaké osobní údaje varianty zpracují a na jakém základě",
+          "Zda je ve hře AI Act vyššího rizika nebo zvláštní kategorie dat",
+          "Tvrzení v UI (marketing), která musí jít doložit",
+          "Pro hlubší kontrolu (stupeň Full): RoPA, DPIA trigger checklist (GDPR čl. 35), DPA + SCC per dodavatel, AI Act risk-tier"
         ],
         "sign_off": [
-          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)",
-          "Legal & privacy triage (≥ 2 DPIA triggery = Build odložen)",
-          "DPIA podepsaná DPO a legal basis per feature; veto při high-risk AI Act nebo special category datech"
+          "Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …` (blokace: přidej `--blocked`)",
+          "Veto při vysokém riziku AI Act nebo zvláštních kategoriích dat",
+          "Pro hlubší kontrolu (stupeň Full): DPIA podepsaná DPO a právní základ per funkce"
         ],
         "when_in_room": {
           "quick": {
@@ -559,7 +560,7 @@
           "Marketing claim, který nejde doložit",
           "AI use case ≥ High risk-tier v Quick / Lean stupni"
         ],
-        "ai_proxy": "⚠️ AI zvládne L1/L2 data a minimal / limited risk; high-risk AI Act, special categories a profiling podepisuje lidský DPO.",
+        "ai_proxy": "Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `--ai --agent legal-gdpr-expert` zapíše návrh; u pilotu a produkce podepíše člověk do 48 h. Vysoké riziko AI Act a zvláštní kategorie vždy člověk.",
         "step": "Bezpečnost & právo",
         "place": "okno — checkpoint 20 min v posledních 30 min Buildu (stačí Legal / DPO nebo Security)"
       }
@@ -575,11 +576,11 @@
       "opt_out_only": "pure internal admin tool < 250 zaměstnanců, žádný WCAG závazek",
       "expert_agent": "a11y-expert",
       "card": {
-        "why": "Hlídáš WCAG 2.2 AA — Critical / Serious nález blokuje finální rozhodnutí jako Security veto.",
+        "why": "Za 20 minut nad preview potvrdíš, že varianty jdou ovládat klávesnicí, mají čitelný kontrast a popisky formulářů. Nález Kritický / Vysoký blokuje finální rozhodnutí.",
         "bring": [
-          "WCAG 2.2 AA filtr na komponenty",
-          "Persona disability set (low vision, motor, cognitive)",
-          "Tooling: axe DevTools / Pa11y CI / Lighthouse"
+          "Rychlou kontrolu přístupnosti každé varianty (8–10 bodů)",
+          "Seznam nálezů se závažností",
+          "Pro hlubší kontrolu (stupeň Full): WCAG 2.2 AA filtr, persona se zdravotním omezením, axe DevTools / Pa11y CI / Lighthouse"
         ],
         "sign_off": [
           "A11y quickscan (8–10 položek) per varianta",
@@ -618,7 +619,7 @@
           "Nízký kontrast nebo chybějící labely formulářů",
           "Opt-out z role bez podepsané justifikace"
         ],
-        "ai_proxy": "⚠️ AI zvládne static audit, axe-core a kontrast; pre-launch review je nedelegovatelný.",
+        "ai_proxy": "Může tě nahradit AI? **Částečně** (ADR-0023): automatické kontroly přístupnosti dělá AI jako součást náhrady za Design (podepisuje PdM); kontrola se čtečkou obrazovky před spuštěním je člověk.",
         "step": "Design (přístupnost)",
         "place": "okno — Async a Ship (quickscan nad preview)"
       }
@@ -632,12 +633,11 @@
       "trigger_question": "Release intent (= ship plánován) nebo nové metriky / A/B test?",
       "expert_agent": "data-analytics-expert",
       "card": {
-        "why": "Zajišťuješ, že winner jde změřit — bez measurement planu nevíme, jestli fíčura funguje.",
+        "why": "Za 20 minut v Asyncu potvrdíš, že jde změřit metriku z Kickoffu: co se bude sbírat, odkud a jaké je dnešní číslo.",
         "bring": [
-          "Event taxonomy a naming convention",
-          "Baseline metriky a KPI strom",
-          "Power analysis pro případný A/B test",
-          "Privacy klasifikaci eventů"
+          "Dnešní hodnotu metriky z Kickoffu",
+          "Události, které se musí sbírat, a zda obsahují osobní údaje",
+          "Pro hlubší kontrolu (stupeň Full): event taxonomy, KPI strom, power analysis pro A/B test, instrumentation deadline = ship-date − 2 dny"
         ],
         "sign_off": [
           "Measurement plan v1 (lagging + 2–3 leading + guardrail)",
@@ -675,7 +675,7 @@
           "Event bez privacy klasifikace",
           "Ship bez instrumentace"
         ],
-        "ai_proxy": "✅ AI navrhne event schema, ⚠️ measurement plan schvaluješ ty.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI navrhne schéma událostí, plán měření schvaluješ ty.",
         "step": "Produkt (měření)",
         "place": "okno — Async a Ship (measurement plan)"
       }
@@ -689,12 +689,12 @@
       "trigger_question": "Customer base > 1000 active users + user-facing change?",
       "expert_agent": "cs-proxy-expert",
       "card": {
-        "why": "Přinášíš hlas zákazníka z ticketů — co dnes bolí a kolik ticketů varianta přidá nebo ubere.",
+        "why": "Za 20 minut v Asyncu odhadneš, kolik dotazů na podporu varianty přidají nebo ubere, a co zákazníci řeknou.",
         "bring": [
-          "Top-10 ticket kategorií za 90 dní",
-          "20 verbatim citací zákazníků",
-          "Frikční místa současného flow a churn radar",
-          "KB článek baseline"
+          "10 nejčastějších důvodů ticketů za 90 dní",
+          "Pár doslovných citací zákazníků k dotčenému flow",
+          "Článek v nápovědě, který se změní",
+          "Pro hlubší kontrolu (stupeň Full): churn radar, ticket prediction worksheet, termíny D-7 KB / D-2 makra / D+30 retro"
         ],
         "sign_off": [
           "Ticket prediction worksheet per varianta",
@@ -732,7 +732,7 @@
           "Chybí error nebo empty state = nové tickety",
           "Launch bez KB článku a maker"
         ],
-        "ai_proxy": "⚠️ Jen pokud má AI přístup k ticket history; jinak člověk.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI pomůže jen s přístupem k historii ticketů, odhad podepisuješ ty.",
         "step": "Provoz (podpora)",
         "place": "okno — Async okno nad preview a příprava Shipu"
       }
@@ -748,11 +748,11 @@
       "opt_out_only": "fresh persona ≤ 3 měsíce + JTBD signed by PdM (zdokumentovaný důvod)",
       "expert_agent": "user-research-expert",
       "card": {
-        "why": "Hájíš skutečného uživatele proti názorům v místnosti — tvrzení bez evidence označíš.",
+        "why": "Za 20 minut v Asyncu potvrdíš, že varianty vycházejí z toho, co uživatelé skutečně dělají, ne z názorů v místnosti.",
         "bring": [
-          "Personu ne starší než 6 měsíců (≥ 5 rozhovorů)",
-          "JTBD kartu a OST v0",
-          "Evidence: shadowing, ticket review nebo analýzu sales callů"
+          "Popis uživatele z aspoň 5 rozhovorů (ne starší než 6 měsíců)",
+          "Co o problému víme z pozorování, ticketů nebo hovorů",
+          "Pro hlubší kontrolu (stupeň Full): JTBD karta, OST v0, Discovery Debt skóre 0–10, expirace persony (B2C 6 / B2B 9 / interní 12 měsíců)"
         ],
         "sign_off": [
           "Discovery Debt Detector skóre 0–10",
@@ -790,7 +790,7 @@
           "„Uživatelé chtějí…“ bez evidence",
           "Varianta bez JTBD / OST node"
         ],
-        "ai_proxy": "⚠️ AI je vstup do session, ne výstup: archetype check ano, novel insight ne.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI feedback má váhu max 0,5 a nové poznatky nevymyslí.",
         "step": "Produkt (evidence od uživatelů)",
         "place": "okno — Async okno a Rozhodnutí (evidence)"
       }
@@ -804,17 +804,16 @@
       "trigger_question": "Změny v infra / deploy / runtime / sandbox? (téměř vždy)",
       "expert_agent": "devops-platform-expert",
       "card": {
-        "why": "Zastupuješ krok provoz: sandbox, cestu do produkce, deploy footprint, SLO a observability.",
+        "why": "Za 20 minut potvrdíš tři věci: (1) jak se vrátíme zpět (rollback), (2) kdo je první týden na telefonu, (3) co sledujeme první hodinu po nasazení. Podpis: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …`.",
         "bring": [
-          "Sandbox spec (Terraform modul, 24h TTL)",
-          "Approved runtime list a secret policy (Vault + OIDC)",
-          "Šablonu footprint estimate",
-          "Observability contract (OTel, structured logs, tracing)"
+          "Rollback: jak a za jak dlouho se vrátíme (vypnutí flagu, revert)",
+          "On-call: kdo má první týden telefon a jak ho zastihnout",
+          "První hodina: co se sleduje (chyby, latence, metrika z Kickoffu) a kdo se dívá",
+          "Pro hlubší kontrolu (stupeň Full): sandbox spec, approved runtime list, SLO baseline, observability contract (OTel), deploy footprint"
         ],
         "sign_off": [
-          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)",
-          "SLO baseline a Promote-to-prod gate checklist",
-          "Deploy footprint TCO vítězné varianty"
+          "Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by <jméno> --note …` (blokace: přidej `--blocked`)",
+          "Promote-to-prod checklist: monitoring, strop nákladů, feature flag"
         ],
         "when_in_room": {
           "quick": {
@@ -848,7 +847,7 @@
           "Secret v kódu nebo v promptu",
           "Chybí observability — výpadek v produkci nepoznáme"
         ],
-        "ai_proxy": "⚠️ Jen pro typické vzory; custom infra řeší člověk.",
+        "ai_proxy": "Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `--ai --agent devops-platform-expert` zapíše návrh. Throwaway stačí AI, pilot podepíše vývojář z jádra, production člověk z provozu.",
         "step": "Provoz",
         "place": "okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)"
       }
@@ -862,11 +861,11 @@
       "trigger_question": "User-facing copy / marketing claims / error microcopy / B1-B2 plain language?",
       "expert_agent": "ux-writer-expert",
       "card": {
-        "why": "Píšeš texty, které uživatel čte — chyby, prázdné stavy a claimy srozumitelně a v souladu s pravidly.",
+        "why": "Za 20 minut nad preview projdeš texty: chyby, prázdné stavy a tvrzení, aby byly srozumitelné a doložitelné.",
         "bring": [
-          "Brand guidelines a voice & tone",
-          "Pravidla plain language B1 / B2",
-          "ePrivacy / UCPD pravidla pro marketing claims"
+          "Pravidla tónu a značky (brand voice)",
+          "Seznam stavů, na které se často zapomíná (chyba, prázdno, načítání)",
+          "Pro hlubší kontrolu (stupeň Full): plain language B1 / B2, pravidla ePrivacy / UCPD pro marketingová tvrzení"
         ],
         "sign_off": [
           "Microcopy per stav (success / error / empty / loading / blocked)",
@@ -904,7 +903,7 @@
           "Marketing claim bez doložení",
           "Žargon místo plain language"
         ],
-        "ai_proxy": "⚠️ Compliance sub-agent připraví draft, ty reviewuješ.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI připraví návrh textů, kontrolu děláš ty.",
         "step": "Design (texty)",
         "place": "okno — Async okno nad preview"
       }
@@ -919,11 +918,11 @@
       "bootstrap_if_first_pilot": true,
       "expert_agent": "champion-expert",
       "card": {
-        "why": "Přenášíš zkušenost z předchozích pilotů a vlastníš, jak se metoda v BU učí.",
+        "why": "Za 20 minut po Rozhodnutí předáš týmu zkušenost z předchozích pilotů a po Shipu pohlídáš, co se změří (7 / 30 / 90 dní).",
         "bring": [
-          "Retra předchozích pilotů",
-          "Coaching Kata: target / obstacle / next krok",
-          "Kontakt na security buddyho"
+          "Poznatky z předchozích pilotů (co fungovalo, co ne)",
+          "Kontakt na bezpečnostního parťáka",
+          "Pro hlubší kontrolu (stupeň Full): Coaching Kata (cíl / překážka / další krok), návrhy změn do role catalogu"
         ],
         "sign_off": [
           "Retrospektivu pilotu a T+30 / 60 / 90 reporting",
@@ -953,7 +952,7 @@
           "Chybí security buddy",
           "Tým vynechává rituál, který předchozí retro označilo za kritický"
         ],
-        "ai_proxy": "❌ Social capital v BU nelze nahradit AI.",
+        "ai_proxy": "Může tě nahradit AI? **Ne** (ADR-0023). Zkušenost a vliv v byznys jednotce AI nenahradí.",
         "step": "Byznys (metoda)",
         "place": "okno — Kickoff a závěr; mimo hlasování o variantách"
       }
@@ -967,11 +966,11 @@
       "trigger_question": "Multi-team scope (≥ 3 týmy) nebo komplexní doména (vyžaduje Event Storming) nebo regulovaný SDLC?",
       "expert_agent": "solution-architect-expert",
       "card": {
-        "why": "Hlídáš hranice domén a dopady napříč týmy, když scope přesahuje jeden tým.",
+        "why": "Za 20 minut nad diffem potvrdíš, že varianty nesahají do cizích domén a nerozbijí jiný tým.",
         "bring": [
-          "Bounded contexts a domain model",
-          "Integration map napříč týmy",
-          "ADR archiv"
+          "Hranice domén, kterých se varianty dotýkají",
+          "Seznam týmů, které změna ovlivní",
+          "Pro hlubší kontrolu (stupeň Full): bounded contexts a domain model, integration map, ADR archiv, breaking-change registr"
         ],
         "sign_off": [
           "Breaking-change registr",
@@ -1010,7 +1009,7 @@
           "Víc než 3 týmy ve scope bez federovaného modelu",
           "Breaking change bez záznamu v registru"
         ],
-        "ai_proxy": "⚠️ Jen typické vzory; doménový úsudek je tvůj.",
+        "ai_proxy": "Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI pomůže u typických vzorů, doménový úsudek je tvůj.",
         "step": "Vývoj (architektura)",
         "place": "okno — Async okno nad PR diffem"
       }

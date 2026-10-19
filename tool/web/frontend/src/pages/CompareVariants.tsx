@@ -2,82 +2,111 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Variant } from "../lib/types";
+import { ErrorScreen, Loading, StateScreen } from "../components/StateScreen";
+import { Md } from "../lib/text";
+import { useIsDesktop, usePageTitle } from "../lib/hooks";
 
 export default function CompareVariants() {
   const { slug } = useParams<{ slug: string }>();
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [variants, setVariants] = useState<Variant[] | null>(null);
+  const [shortlist, setShortlist] = useState<string[]>([]);
+  const [title, setTitle] = useState("");
+  const [decided, setDecided] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const desktop = useIsDesktop();
+  usePageTitle("Varianty");
 
   useEffect(() => {
     if (!slug) return;
-    api.listVariants(slug).then(setVariants).catch((e) => setError(String(e)));
+    Promise.all([api.getProject(slug), api.listVariants(slug)])
+      .then(([d, vs]) => {
+        setTitle(d.project.name);
+        setDecided(["session_2", "handoff", "killed"].includes(d.project.status));
+        setShortlist(d.shortlist ?? []);
+        setVariants(vs);
+      })
+      .catch(setError);
   }, [slug]);
 
-  if (error) return <div className="pf-card text-severity-critical">Chyba: {error}</div>;
+  const back = `/${slug}`;
+  if (error) return <ErrorScreen error={error} backTo={back} backLabel="Zpět na projekt" />;
+  if (!variants) return <Loading />;
+  if (variants.length === 0) {
+    return (
+      <StateScreen title="Varianty zatím nejsou" backTo={back} backLabel="Zpět na projekt">
+        <p>Tým je ještě nepublikoval. Zkuste to později, nebo napište facilitátorovi.</p>
+      </StateScreen>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1>Variants — {slug}</h1>
-        <Link to={`/${slug}`} className="pf-button-secondary">← Zpět na projekt</Link>
+      <div className="space-y-2">
+        <Link to={back} className="inline-flex min-h-[44px] items-center text-accent underline">← {title || "Zpět na projekt"}</Link>
+        <h1>Varianty k posouzení</h1>
+        <p className="pf-help">
+          Každou variantu otevřete, vyzkoušejte hlavní tok a napište, co vás zastaví.
+        </p>
       </div>
 
-      {variants.length === 0 ? (
-        <div className="pf-card">
-          <p className="text-brand-500">
-            Žádné variants zatím nebyly publikovány. V Claude Code:{" "}
-            <code className="font-mono bg-brand-50 px-1.5 py-0.5 rounded">
-              /pm build {slug}
-            </code>
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {variants.map((v) => (
-            <article key={v.id} className="pf-card flex flex-col">
-              <div className="flex items-start justify-between mb-2">
-                <h2>Varianta {v.name}</h2>
-                <span className="text-xs font-mono bg-brand-50 px-2 py-0.5 rounded">
-                  {v.builder}
-                </span>
-              </div>
-              {v.description_md && (
-                <p className="text-sm text-brand-700 mb-3 line-clamp-4">{v.description_md}</p>
-              )}
-              {v.preference_score !== null && (
-                <div className="text-xs text-brand-500 mb-3">
-                  Preference score: <strong>{(v.preference_score ?? 0).toFixed(2)}</strong>
+      <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {variants.map((v) => {
+          const short = decided && shortlist.includes(v.name);
+          const hasPreview = !!v.prototype_url;
+          return (
+            <li key={v.id}>
+              <article className={`pf-card flex h-full flex-col gap-3 ${short ? "border-2 border-accent" : ""}`}
+                aria-labelledby={`v-${v.id}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id={`v-${v.id}`}>Varianta {v.name}</h2>
+                  {short && decided && <span className="pf-pill">V užším výběru</span>}
                 </div>
-              )}
-              <div className="aspect-video bg-brand-50 rounded mb-3 overflow-hidden">
-                <iframe
-                  src={v.prototype_url}
-                  title={`Variant ${v.name}`}
-                  className="w-full h-full"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                  loading="lazy"
-                />
-              </div>
-              <div className="mt-auto flex gap-2">
-                <a
-                  href={v.prototype_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="pf-button-secondary flex-1 text-center"
-                >
-                  Otevřít v novém okně
-                </a>
-                <Link
-                  to={`/${slug}/feedback/${v.id}`}
-                  className="pf-button flex-1 text-center"
-                >
-                  Dát feedback
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+                <p className="text-sm text-muted">Varianta k rozhodnutí — není hotový produkt.</p>
+                {v.description_md && <p className="text-sm"><Md text={v.description_md} /></p>}
+
+                {desktop && hasPreview && (
+                  <div>
+                    <div className="aspect-video overflow-hidden rounded border border-line bg-soft">
+                      <iframe src={v.prototype_url} title={`Náhled varianty ${v.name}`} className="h-full w-full"
+                        sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy" />
+                    </div>
+                    <p className="mt-1 text-sm text-muted">
+                      Náhled nejde vložit? <a className="underline text-accent" href={v.prototype_url}
+                        target="_blank" rel="noopener noreferrer">Otevřete ho v novém okně</a>.
+                    </p>
+                  </div>
+                )}
+                {!hasPreview && <p className="rounded border border-dashed border-line p-3 text-sm text-muted">Náhled zatím není.</p>}
+
+                <p className="text-sm" aria-live="polite">
+                  {v.my_feedback
+                    ? <strong className="text-sev-low">Váš feedback: odeslán ✓</strong>
+                    : <span className="text-muted">Váš feedback: zatím neodeslán</span>}
+                  <span className="text-muted"> · feedbacků celkem: {v.feedback_count ?? 0}</span>
+                </p>
+
+                <div className="mt-auto flex flex-col gap-2">
+                  <Link to={`/${slug}/feedback/${v.id}`} className="pf-button w-full">
+                    {v.my_feedback ? "Dát další feedback" : "Dát feedback"}
+                  </Link>
+                  {hasPreview && (
+                    <a href={v.prototype_url} target="_blank" rel="noopener noreferrer"
+                      className="pf-button-secondary w-full">
+                      Otevřít náhled<span className="sr-only"> varianty {v.name} v novém okně</span>
+                    </a>
+                  )}
+                </div>
+
+                <details className="text-sm text-muted">
+                  <summary className="pf-summary !font-normal">Technické údaje</summary>
+                  <p>Postaveno: {v.builder}</p>
+                  {v.preference_score !== null && <p>Skóre preferencí: {v.preference_score.toFixed(2)}</p>}
+                </details>
+              </article>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

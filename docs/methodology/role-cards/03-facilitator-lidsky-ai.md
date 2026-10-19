@@ -2,7 +2,7 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #3 — Facilitátor (lidský + AI)
 
-> Vedeš Kickoff, Build a Rozhodnutí: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.
+> Za 15 minut před Buildem připravíš agendu a časy; pak vedeš Kickoff, Build i Rozhodnutí a hlídáš pořadí hlasování.
 
 **Krok cesty:** Produkt (vedení Buildu) · **Kde jsi:** jádro — celý Build, Async a Rozhodnutí
 
@@ -11,8 +11,8 @@ Status v catalogu: **povinná** · Kdy se zve: vždy (core role)
 ## Přines do svého okna
 - Plán energie podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)
 - Zadání z Kickoffu, jména zástupců a agendu s časovými boxy
-- Šablonu parking lotu a decision logu s lidskou atribucí
-- Potvrzený dev pár u klávesnice pro každou variantu
+- Potvrzený vývojářský pár u klávesnice pro každou variantu
+- Pro hlubší kontrolu (stupeň Full): šablonu parking lotu a decision logu s lidskou atribucí
 
 ## Podepisuješ
 - Decision log a conflict log (AI píše, ty podepisuješ)
@@ -32,7 +32,7 @@ Nehlasuješ o variantách — vedeš silent vote (1-2-4-All), skóre zveřejní�
 - Víc než 10 lidí v místnosti nebo chybí senior delegát vetovací role
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ❌ Lidský facilitátor nutný — AI konflikt mezi rolemi nevyřeší; AI co-pilota orchestruješ ty. Sub-agent: `.claude/agents/facilitator.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Ne.** Facilitátor je součást kroku Produkt (ADR-0023 ho nenahrazuje); AI konflikt mezi lidmi nevyřeší, jen píše zápis. Sub-agent: `.claude/agents/facilitator.md`.
 
 ---
 

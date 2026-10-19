@@ -32,6 +32,9 @@ pflanzer session_3 --slug $ARGUMENTS
 pflanzer session_3 --slug $ARGUMENTS --variants A    # výslovně vítěz
 ```
 
+Jiná varianta než vítěz Rozhodnutí jen s `--rationale "…"` (zapíše se do
+decision logu). Ukaž lidský výstup a předej jeho **Doporučení**.
+
 Poražené varianty se nehodnotí ani nehardenují. Tool pustí gates (lint,
 typy, testy, security, a11y, build, observability) v branchi vítěze
 a vrátí **skóre X/100**.
@@ -66,11 +69,21 @@ Pod povrchem:
 - Ship pod prahem (jen Decider, skóre < práh; triage ani minimum bran se tím
   neobchází): `pflanzer session_3 --slug <slug> --override-threshold --rationale "…"`
   → verdikt „pod prahem — Ship na odpovědnost Decidera", draft PR, sekce „Výjimka z prahu" v SHIP.md i PR.
+  **Výjimka vždy s termínem opravy:** do rationale napiš, co se doopraví,
+  kdo to udělá a do kdy (např. „a11y a testy do 14 dní, Jan“); jinak se z
+  výjimky stane trvalý stav.
 
 ## Krok 3 — Checkpoint provozu (20 min)
 
-Zástupce kroku Provoz potvrdí: deploy plán, monitoring, kdo drží on-call,
-rollback, strop nákladů. Podepiš (zapíše se i do decision logu v target repu):
+Zástupce kroku Provoz (20 min) potvrdí **checklist**:
+
+- [ ] **Rollback** — jak se vrátíme a za jak dlouho (jedním příkazem / vypnutím flagu)
+- [ ] **On-call** — kdo to má první týden na telefonu
+- [ ] **První hodina po nasazení** — co se sleduje (chyby, latence, metrika z Kickoffu) a kdo se dívá
+- [ ] **Feature flag** — dá se zapnout jen pro malou skupinu a vypnout bez deploye
+- [ ] Monitoring, strop nákladů AI a deploy plán
+
+Podepiš (zapíše se i do decision logu v target repu):
 
 ```bash
 pflanzer checkpoint --slug $ARGUMENTS provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
@@ -79,6 +92,20 @@ pflanzer checkpoint --slug $ARGUMENTS --list    # stav všech oken
 
 Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
 (zadání podepisuje Kickoff sám). Plný triage (`/pm triage`) jen regulované.
+
+**Když je krok Provoz zastoupen AI** (`AI:devops-platform-expert`): spusť
+sub-agenta **`devops-platform-expert`** nad deploy plánem a checklistem výše
+a zapiš návrh:
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS provoz --ai --agent devops-platform-expert \
+  --note "<předkontrola: rollback, on-call, první hodina, flag>"
+```
+
+`throwaway` — stačí AI. `pilot` — podepíše vývojář z jádra (`--by`).
+`production` — člověk z provozu. Do podpisu Ship blokuje (nebo Decider
+vědomě `--override-triage --rationale`). Totéž platí pro čekající draft
+bezpečnosti & práva z Buildu.
 
 ## Krok 4 — PR a další krok
 

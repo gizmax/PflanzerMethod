@@ -7,6 +7,7 @@ ADR-0017).
 """
 from __future__ import annotations
 
+import difflib
 from typing import Any
 
 TIERS: tuple[str, ...] = ("quick", "lean", "full")
@@ -15,11 +16,27 @@ TIER_LABELS = {"quick": "Quick", "lean": "Lean", "full": "Full"}
 WINDOW_DAYS = {"quick": "3", "lean": "3–5", "full": "5–7"}
 
 
+RISK_PROFILE_NAMES: tuple[str, ...] = ("throwaway", "pilot", "production")
+
+
+def window_label(tier: str) -> str:
+    """Czech days wording of the between-session window: "3 dny" / "3–5 dní" / "5–7 dní"."""
+    days = WINDOW_DAYS[tier]
+    return f"{days} dny" if days == "3" else f"{days} dní"
+
+
 def validate_tier(tier: str, capacity_profile: str | None = None) -> str:
-    """Return the normalised tier or raise ValueError."""
+    """Return the normalised tier or raise ValueError (Czech, human sentence)."""
     t = (tier or "").strip().lower()
     if t not in TIERS:
-        raise ValueError(f"tier must be one of {TIERS}, got '{tier}'.")
+        if t in RISK_PROFILE_NAMES:
+            raise ValueError(
+                f"‚{t}‘ je risk profil (throwaway|pilot|production), ne stupeň. "
+                "Stupeň: quick|lean|full (pilot má výchozí lean).")
+        near = difflib.get_close_matches(t, TIERS, n=1, cutoff=0.6)
+        hint = f" Myslel jste ‚{near[0]}‘?" if near else ""
+        raise ValueError(f"Neznámý stupeň ‚{tier}‘.{hint} Stupeň: quick|lean|full "
+                         "(risk profil throwaway|pilot|production se zadává zvlášť).")
     if t == "quick" and capacity_profile == "audit-grade":
         raise ValueError(
             "tier='quick' nejde s capacity_profile='audit-grade' — audit-grade "
@@ -53,3 +70,29 @@ def infer_tier(conn: Any, project_id: int, capacity_profile: str | None) -> str:
     # Legacy quick bootstrap stored `production` as capacity_profile='regulated'.
     risk = "production" if capacity_profile == "regulated" else None
     return default_tier(capacity_profile, quick_bootstrap=bool(quick), risk_profile=risk)
+
+
+TIER_MEANING = {
+    "quick": "rychlé ověření směru, Kickoff + Build v jednom (60–90 min), `/pm live`; "
+             "bezpečnost se dohání před pilotem",
+    "lean": "výchozí: Build 3 h, checkpoint bezpečnosti 20 min, `/pm start` → `/pm build`",
+    "full": "regulované / governance: Build 5–6 h, 4 triage tracky povinné, "
+            "`/pm roles` → `/pm triage` → `/pm build`",
+}
+
+
+def overview() -> str:
+    """Human overview of the three tiers (what `pflanzer tier` prints)."""
+    rows = [f"- {TIER_LABELS[t]} (`{t}`) — okno {window_label(t)} mezi Buildem a Rozhodnutím; "
+            f"{TIER_MEANING[t]}" for t in TIERS]
+    return ("**Pflanzer Method | pflanzer.cz/method**\n\nStupně metody:\n\n" + "\n".join(rows)
+            + "\n\nStupeň se volí při Kickoffu (`--tier quick|lean|full`); "
+              "aktuální stupeň projektu ukáže `pflanzer status --slug <slug>`.")
+
+
+def main() -> None:
+    print(overview())
+
+
+if __name__ == "__main__":
+    main()

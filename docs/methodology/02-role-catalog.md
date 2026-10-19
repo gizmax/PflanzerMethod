@@ -184,3 +184,31 @@ Cross-cutting:
   (AI Act čl. 14, GDPR čl. 22).
 - **AI nikdy není podpis**: pre-launch review přístupnosti a veto
   bezpečnosti jsou nedelegovatelné.
+
+## AI náhrada chybějícího zástupce
+
+> ADR-0023. Krok cesty smí mít místo jména `AI` (v zadání `AI` nebo
+> `AI:<agent>`, např. `AI:ux-expert`) — ale jen podle tabulky. AI **připraví**,
+> **člověk podepisuje**. Tří režimy výše se to týká takto:
+
+| Krok cesty | Režim | AI náhrada | Kdo podepíše |
+|------------|-------|-----------|--------------|
+| Byznys (Decider) | 1 | **nikdy** | bez Decidera se Kickoff nesvolává |
+| Vývoj | 1 | **nikdy** | u klávesnice sedí vývojář |
+| Produkt | 1→2 | jen stupeň Quick / throwaway | Decider (zadání) |
+| Design | 2 | ano (UX expert + kontroly přístupnosti) | PdM; u zákaznického produktu v produkci člověk |
+| Bezpečnost & právo | 1 | jen **předkontrola** (`pflanzer checkpoint … --ai --agent security-expert`) | throwaway: stačí AI; pilot/production: člověk do 48 h, jinak Ship blokuje |
+| Provoz | 1 | jen **předkontrola** (`--ai --agent devops-platform-expert`) | throwaway: AI; pilot: vývojář z jádra; production: člověk z provozu |
+
+Pravidla (zkráceně):
+
+1. AI náhrada je **vidět**: v zadání, `pflanzer status`, decision logu a `SHIP.md`.
+2. AI checkpoint je **draft**. Pro pilot/production zůstává „čeká na podpis
+   člověka" (`--by <jméno>`), dokud ho někdo nepotvrdí; Ship do té doby
+   blokuje, nebo Decider vědomě přebije (`--override-triage --rationale`).
+3. AI feedback má váhu max 0,5 a AI nikdy nehlasuje.
+4. AI náhrada je **na chvíli** (pilot). Pro další projekt téhož týmu `status`
+   připomene sehnat člověka; retro měří podíl kroků s AI náhradou.
+
+Ostatní role katalogu (QA, přístupnost, data, support, uživatelé…) nejsou kroky
+cesty: jejich perspektivu dodávají AI expert sub-agenti jako vstup bez hlasu.

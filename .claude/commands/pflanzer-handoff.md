@@ -13,6 +13,8 @@ Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
 
 Předpoklad: Rozhodnutí = Go a proběhl `/pm ship`. Jinak řekni, který krok chybí.
 
+Ukaž lidský výstup toolu a předej jeho **Doporučení**; `--json` jen pro čtení polí.
+
 ## Krok 1 — Generování
 
 ```bash

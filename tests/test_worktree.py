@@ -96,7 +96,8 @@ def test_set_session_ship(setup_done: dict[str, Any], tmp_targets: Path,
                           monkeypatch: pytest.MonkeyPatch,
                           capsys: pytest.CaptureFixture[str]) -> None:
     slug = setup_done["slug"]
-    assert _cli(monkeypatch, "set-session", "--slug", slug, "--session", "ship") == 0
+    assert _cli(monkeypatch, "set-session", "--slug", slug, "--session", "ship",
+                "--json") == 0
     res = json.loads(capsys.readouterr().out)
     assert {r["variant"] for r in res} == {"A", "B", "C"}
     assert all(r["status"] == "ok" for r in res)

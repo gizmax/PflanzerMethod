@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #4 — Frontend / Vibe-coding lead
 
-> Jsi builder: u klávesnice stavíš varianty s Claude Code přímo v target repu, takže vítěz jde do produkce bez re-implementace.
+> Za 15 minut před Buildem potvrdíš, že v repu jde pustit build a testy; pak sedíš u klávesnice a stavíš varianty, které půjdou rovnou do produkce.
 
 **Krok cesty:** Vývoj · **Kde jsi:** jádro — celý Build a Ship
 
 Status v catalogu: **doporučená** · Kdy se zve: Mění se UI nebo přidává se nový view?
 
 ## Přines do svého okna
-- Design tokens a component manifest (Storybook URL)
-- Tech stack contract: framework, ESLint / Prettier, a11y baseline
-- Přístup do target repa a funkční lokální build
-- Anti-pattern list komponent
+- Přístup do repa produktu a funkční lokální build i testy
+- Design tokeny a existující komponenty, které mají varianty použít
+- Diff walkthrough své varianty: co je znovupoužité, nové a mock
+- Pro hlubší kontrolu (stupeň Full): tech stack contract (ESLint / Prettier, a11y baseline), component manifest (Storybook), anti-pattern list
 
 ## Podepisuješ
 - PR-ready commit vítězné varianty (token compliance > 90 %)
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - V target repu nejde build nebo testy — winner by nešel do produkce
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Pro greenfield části jde, brownfield vyžaduje tvůj review. Sub-agent: `.claude/agents/fe-vibe-coding-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Ne, nikdy** (ADR-0023). U klávesnice sedí vývojář; AI je jeho asistent, ne zástupce. Sub-agent: `.claude/agents/fe-vibe-coding-expert.md`.
 
 ---
 
