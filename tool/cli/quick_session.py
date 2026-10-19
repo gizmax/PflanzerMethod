@@ -411,7 +411,7 @@ def bootstrap(
     # 1. Charter
     name = short_name(hook)
     xyz = (
-        f"Problém k vyřešení: **{hook}**. Ověříme ho na třech funkčních "
+        f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na třech funkčních "
         f"variantách, mezi kterými se rozhodne nad běžícím kódem. {profile['label']}."
     )
     charter = CharterInput(
