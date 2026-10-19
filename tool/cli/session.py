@@ -161,6 +161,23 @@ SPEC_EXAMPLE = """  {
   }"""
 
 
+def rp_range_errors(rp: dict[str, Any]) -> list[str]:
+    """Česká chyba pro `commitment_level` (celé 0–3), `role_idx` (celé 1–18), `is_ai_only`."""
+    errs: list[str] = []
+    cl = rp.get("commitment_level")
+    if cl is not None:
+        whole = isinstance(cl, int) and not isinstance(cl, bool) or (
+            isinstance(cl, float) and cl.is_integer())
+        if not whole or not 0 <= cl <= 3:
+            errs.append(f"„commitment_level“ je celé číslo 0–3 (0 = neúčastnit se mezi sessions, "
+                        f"3 = co-creation), dostal jsem {cl!r}.")
+    ri = rp.get("role_idx")
+    if ri is not None and (isinstance(ri, bool) or not isinstance(ri, int)
+                           or not 1 <= ri <= 18):
+        errs.append(f"„role_idx“ je číslo role z katalogu 1–18, dostal jsem {ri!r}.")
+    return errs
+
+
 def _validate_spec(spec: dict[str, Any]) -> None:
     if "slug" not in spec:
         raise ValueError("Ve specu chybí `slug` (jméno projektu z Kickoffu).")
@@ -186,6 +203,8 @@ def _validate_spec(spec: dict[str, Any]) -> None:
                     f"{label}: u hlasu role {rp.get('role_idx', '?')} chybí `rationale` "
                     "(1–2 věty, proč to zástupce vidí tak, jak hlasoval)."
                 )
+            for msg in rp_range_errors(rp):
+                raise ValueError(f"{label}: hlas role {rp.get('role_idx', '?')}: {msg}")
             for dim in PREFERENCE_DIMS:
                 val = rp.get(dim)
                 if val is None:

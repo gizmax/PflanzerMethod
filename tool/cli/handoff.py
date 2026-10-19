@@ -35,7 +35,15 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, transaction  # noqa: E402
-from tool.cli.extract import BRAND, DATA_ROOT, clean_text, table_has_col, tilde  # noqa: E402
+from tool.cli.extract import (  # noqa: E402
+    BRAND,
+    DATA_ROOT,
+    clean_text,
+    repo_blocks,
+    table_has_col,
+    tilde,
+)
+from tool.cli.quality_gates import load_repo_gates  # noqa: E402
 from tool.cli.session_2 import get_winner  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit  # noqa: E402
 
@@ -175,7 +183,11 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             "FROM projects WHERE id = ?", (project_id,),
         ).fetchone()
 
+    top_name = winner_name or (variants[0][0] if variants else None)
+    repos = repo_blocks(slug, top_name) if top_name else []
+    repo_gates = load_repo_gates(slug, top_name) if repos and top_name else []
     return {
+        "repos": repos, "repo_gates": repo_gates,
         "project": dict(proj) if hasattr(proj, "keys") else None,
         "project_tuple": proj,
         "project_id": project_id,
@@ -248,6 +260,23 @@ Tým by tyto body měl projít a založit konkrétní ADR soubory v `docs/decisi
 """
 
 
+def _repo_stat_lines(ctx: dict[str, Any]) -> list[str]:
+    """Statistika per repo (větev, base, rozsah diffu, gate skóre); [] pro jednorepo."""
+    repos = ctx.get("repos") or []
+    if len(repos) < 2:
+        return []
+    out = []
+    for b in repos:
+        g = next((x for x in ctx.get("repo_gates") or [] if x["role"] == b["role"]), None)
+        size = (f"+{b['added']}" + (f" / -{b['removed']}" if b.get("removed") is not None else "")
+                + f" řádků v {b['files']} souborech") if b.get("added") is not None else "rozsah neznámý"
+        out.append(f"- **{b['role']}** (`{b['ref']}`): větev `{b['branch']}`"
+                   + (f" @ `{b['head_sha'][:10]}`" if b.get("head_sha") else "")
+                   + f", base `{b['base']}`, {size}"
+                   + (f", gate skóre {g['gate_score']}/100" if g else ""))
+    return out
+
+
 def render_be(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top_variant = ctx["variants"][0] if ctx["variants"] else None
@@ -272,6 +301,18 @@ def render_be(ctx: dict[str, Any]) -> str:
                 f"BE kód hledej typicky v `server/` nebo `api/` dané větve. "
                 f"Pokud chybí, backend se píše v páru, FE už je hotové.\n"
             )
+            stat = _repo_stat_lines(ctx)
+            if stat:
+                be_repos = [b for b in ctx["repos"] if b["backend"] and not b["primary"]]
+                where = (f"BE kód je v samostatném repu `{be_repos[0]['role']}` "
+                         f"(`{be_repos[0]['ref']}`), ne v podsložce FE repa: PR do něj má vlastní "
+                         "větev a base."
+                         if be_repos else
+                         "Projekt má víc repozitářů; každý má vlastní větev, base a PR.")
+                extracted_block = (
+                    "\n### Kód vítěze (per repo)\n\n" + "\n".join(stat) + "\n"
+                    f"- Gate skóre celkem: **{ctx['gate_score']}/100 "
+                    f"(práh {ctx['production_readiness_target']})**\n\n{where}\n")
 
     return f"""# Backend handoff — {p[1]}
 
@@ -334,6 +375,8 @@ def render_fe(ctx: dict[str, Any]) -> str:
     top = ctx["variants"][0] if ctx["variants"] else None
     ext = ctx["extracted_by_variant"].get(top["name"]) if top else None
     extracted_section = ""
+    stat = _repo_stat_lines(ctx)
+    repo_md = ("\n### Repa\n\n" + "\n".join(stat) + "\n") if stat else ""
     if ext:
         extracted_section = f"""
 
@@ -345,6 +388,7 @@ def render_fe(ctx: dict[str, Any]) -> str:
 - **Gate skóre**: **{ctx['gate_score']}/100 (práh {ctx['production_readiness_target']})**
   ({'splňuje práh' if ctx['gate_score'] >= ctx['production_readiness_target'] else 'pod prahem'})
 
+{repo_md}
 ### Co s tím dál
 
 ```bash

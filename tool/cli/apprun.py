@@ -45,8 +45,10 @@ class RunSpec:
 PREVIEW_ENV = {"PFLANZER_PREVIEW": "1", "FEATURE_FLAGS": "all"}
 
 
-def read_preview_config(wt: Path) -> dict[str, Any]:
-    """Sekce `[preview]` z `.pflanzer/project.toml` (prázdná, když chybí / nejde přečíst)."""
+def read_preview_config(wt: Path, role: str | None = None) -> dict[str, Any]:
+    """Sekce `[preview]` z `.pflanzer/project.toml` (prázdná, když chybí / nejde přečíst).
+
+    S `role` vrací per-repo blok `[preview.<role>]` (multi-repo projekt)."""
     path = Path(wt) / ".pflanzer" / "project.toml"
     if not path.is_file():
         return {}
@@ -56,7 +58,12 @@ def read_preview_config(wt: Path) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 — chybný TOML nesmí shodit preview, jen se ignoruje
         return {}
     sec = data.get("preview")
-    return sec if isinstance(sec, dict) else {}
+    if not isinstance(sec, dict):
+        return {}
+    if role:
+        sub = sec.get(role)
+        return sub if isinstance(sub, dict) else {}
+    return sec
 
 
 def python_for(wt: Path) -> str:
@@ -133,13 +140,26 @@ def _detect_python(wt: Path, port: int) -> RunSpec | None:
     return None
 
 
-def detect_run(wt: Path, port: int) -> RunSpec | None:
-    """Příkaz ke spuštění aplikace ve worktree na daném portu; None = nenašel se."""
+def detect_run(wt: Path, port: int, role: str | None = None,
+               config_wt: Path | None = None) -> RunSpec | None:
+    """Příkaz ke spuštění aplikace ve worktree na daném portu; None = nenašel se.
+
+    `role` (multi-repo, sekundární repo): hledá se `[preview.<role>] command` v project.toml
+    primárního repa (`config_wt`) a pak v samotném repu (`[preview.<role>]`, `[preview]`);
+    jinak autodetekce podle obsahu repa (Node / Python)."""
     wt = Path(wt)
-    cmd = read_preview_config(wt).get("command")
-    if isinstance(cmd, str) and cmd.strip():
-        full = cmd.replace("{port}", str(port))
-        return RunSpec(full, full, {"PORT": str(port)}, wt, ".pflanzer/project.toml [preview]")
+    cands: list[tuple[dict[str, Any], str]] = []
+    if role:
+        if config_wt is not None:
+            cands.append((read_preview_config(config_wt, role),
+                          f".pflanzer/project.toml [preview.{role}]"))
+        cands.append((read_preview_config(wt, role), f".pflanzer/project.toml [preview.{role}]"))
+    cands.append((read_preview_config(wt), ".pflanzer/project.toml [preview]"))
+    for cfg, src in cands:
+        cmd = cfg.get("command")
+        if isinstance(cmd, str) and cmd.strip():
+            full = cmd.replace("{port}", str(port))
+            return RunSpec(full, full, {"PORT": str(port)}, wt, src)
     return _detect_node(wt, port) or _detect_python(wt, port)
 
 

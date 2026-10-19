@@ -231,6 +231,21 @@ def focus_variants(conn: Any, project_id: int) -> list[str]:
     return [top[0]] if top else []
 
 
+def recommended_winner(conn: Any, project_id: int) -> str:
+    """Doporučený `--winner`: vedoucí varianta podle hlasů jádra.
+
+    Varianty bez otevřeného critical mají přednost; při shodě skóre vyhrává ta ze shortlistu
+    (potom abecedně). Nikdy natvrdo „B“ — bez variant padá zpět na první z focus / „A“."""
+    focus = focus_variants(conn, project_id)
+    crit = {c["variant"] for c in open_criticals(conn, project_id)}
+    ranked = sorted(_votes_summary(conn, project_id),
+                    key=lambda v: (v["variant"] in crit, -v["score"],
+                                   v["variant"] not in focus, v["variant"]))
+    if ranked:
+        return str(ranked[0]["variant"])
+    return (focus or ["A"])[0]
+
+
 def split_criticals(criticals: list[dict[str, Any]], focus: list[str]
                     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """(na vítězi / shortlistu, ostatní)."""
@@ -297,6 +312,7 @@ def prep(slug: str) -> dict[str, Any]:
         votes = _votes_summary(conn, project_id)
         shortlist = get_shortlist(conn, project_id)
         focus = focus_variants(conn, project_id)
+        recommended = recommended_winner(conn, project_id)
 
     commitment_index = (
         sum(commitments) / (3 * len(commitments)) if commitments else 0.0
@@ -325,6 +341,7 @@ def prep(slug: str) -> dict[str, Any]:
         },
         "open_critical": criticals,
         "focus_variants": focus,
+        "recommended_winner": recommended,
         "winner": agg["winner"],
         "critical_on_all_variants": agg["critical_on_all_variants"],
         "conflicts": conflicts["top_conflicts"][:3],  # top 3
@@ -386,10 +403,12 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
               target_id=pid, payload={"slug": slug, "resolved": done, "by": by, "note": note})
         remaining = open_criticals(conn, pid)
         focus = focus_variants(conn, pid)
+        recommended = recommended_winner(conn, pid)
     on_win, other = split_criticals(remaining, focus)
     return {"slug": slug, "resolved": done, "not_found": [], "by": by, "note": note,
             "open_critical_left": len(remaining), "open_critical": remaining,
-            "focus_variants": focus, "open_critical_on_winner": on_win,
+            "focus_variants": focus, "recommended_winner": recommended,
+            "open_critical_on_winner": on_win,
             "open_critical_other": other}
 
 
@@ -718,7 +737,8 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                "--severity major --text \"…\"`")
     else:
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
-               f"--winner {(focus or ['A'])[0]} --rationale \"proč\"`")
+               f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
+               "--rationale \"proč\"`")
     return (f"Příprava Rozhodnutí: {slug}", lines[:8], [], nxt,
             {"open_critical": bool(on_win)})
 
@@ -811,7 +831,8 @@ def main() -> None:
                              + (f"; {len(other)} ostatní na poražených variantách Go neblokuje."
                                 if other else "."))
                 nxt = (f"`pflanzer session_2 decide --slug {args.slug} go "
-                       f"--winner {(focus or ['A'])[0]} --rationale \"proč\"`")
+                       f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
+               "--rationale \"proč\"`")
                 phase = "after_resolve"
             emit(out, title=f"Vyřešeno: {ids}",
                  lines=[f"Vyřešeno: {ids} ({who})", left_line],

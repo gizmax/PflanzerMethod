@@ -186,7 +186,9 @@ dá před každou heslo (uživatel `pflanzer`) a štítek „Varianta X k rozhod
 přes `cloudflared` (je-li v PATH) i veřejnou URL, zapíše URL k variantám a
 vypíše hotovou zprávu k přeposlání zástupcům (`--deadline "pátek 17:00"`).
 Počítač musí zůstat zapnutý po dobu Asyncu; konec: `pflanzer preview down
---slug <slug>`. Tunel = provoz jde přes Cloudflare — zmiň to na checkpointu
+--slug <slug>`. Projekt s víc repy (web + api): spustí se všechna repa varianty a
+primární najde ostatní v `<ROLE>_URL` (např. `API_URL`); příkaz sekundárního repa je
+`[preview.<role>] command` v `.pflanzer/project.toml`. Tunel = provoz jde přes Cloudflare — zmiň to na checkpointu
 bezpečnosti. Nemá-li firma preview deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
 <slug>` založí **draft PR per varianta** (preview URL z PR checks; push do
 remote vyžaduje potvrzení), `--mode playwright` nahraje průchod
@@ -230,9 +232,13 @@ Zapiš spec nástrojem **Write** do `.pflanzer/specs/<slug>-vote.json`
 ```
 
 Pravidla: `role_idx` = číslo role v catalogu (1 zadavatel, 2 PdM, 4 FE, 6 UX,
-7 security, 15 DevOps…), hodnoty 0–1, `rationale` povinný u každého řádku,
+7 security, 15 DevOps…; celé číslo 1–18), `user_value`/`effort`/`risk`/
+`strategic_fit` jsou čísla 0–1, `commitment_level` je celé číslo 0–3 (0 =
+neúčastnit se mezi sessions, 3 = co-creation); mimo rozsah tool vrátí českou
+chybu a nic nezapíše. `rationale` povinný u každého řádku,
 AI hlas má `is_ai_only: true`. `real_urls` jsou skutečné preview URL
-(bez nich zůstane placeholder). Alternativa pro plný zápis s experty:
+(bez nich zůstane placeholder; localhost adresa, která neodpovídá, vyvolá
+varování — spusťte `pflanzer preview up`). Alternativa pro plný zápis s experty:
 `pflanzer session --spec .pflanzer/specs/<slug>-session.json` (soubor zapsaný Write).
 
 ## Krok 6 — Výstup a další krok

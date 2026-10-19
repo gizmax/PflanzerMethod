@@ -54,6 +54,7 @@ from tool.cli.db import (  # noqa: E402
 )
 from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
+from tool.cli.session import rp_range_errors  # noqa: E402
 from tool.cli.tier import TIER_LABELS, validate_tier  # noqa: E402
 from tool.cli.ux import (  # noqa: E402
     CzechArgumentParser,
@@ -353,6 +354,14 @@ def _split_shorthand_owners(raw: dict[str, str] | None) -> tuple[Any, dict[str, 
 _CONSTITUTION_NO_DATA_RE = re.compile(
     r"(?i)(nesm[ií]\s+sb[ií]rat|nesb[ií]r|bez\s+osobn|žádn[ée]\s+osobn|zadn[ée]\s+osobn"
     r"|žádn[ée]\s+formul[aá]ř|zadn[ée]\s+formul[aá]r|\bL1\b(?!\s*[–-]\s*L4)|no\s+personal)")
+# Pravidlo o datech jen pro VÝVOJ („ve vývoji jen syntetická data“, L1 pro dev) není rozpor
+# s produkčním sběrem — rozpor je, jen když se zakazuje sběr / ukládání v produkci / aplikaci.
+_CONSTITUTION_DEV_SCOPE_RE = re.compile(
+    r"(?i)(vývoj|vyvoj|development|\bdev\b|testov|\btest\b|syntetick|synthetic|mock|fixtur|seed"
+    r"|lokáln|lokaln|staging)")
+_CONSTITUTION_PROD_SCOPE_RE = re.compile(
+    r"(?i)(produkc|production|\bprod\b|aplikac|uživatel|uzivatel|zákazn|zakazn|návštěv|navstev"
+    r"|\bweb|formul)")
 _BRIEF_PERSONAL_RE = re.compile(
     r"(?i)(telefon|jm[eé]n[oa]|e-?mail|objedn[aá]v|rezervac|rezervov|formul[aá]ř|formular"
     r"|kontakt|adres[ay])")
@@ -371,7 +380,9 @@ def constitution_conflicts(hook: str, metric: str | None = None,
         return []
     rules = [ln.strip() for ln in text.splitlines()
              if _CONSTITUTION_NO_DATA_RE.search(ln) and not ln.lstrip().startswith("#")
-             and "<doplň>" not in ln]
+             and "<doplň>" not in ln
+             and not (_CONSTITUTION_DEV_SCOPE_RE.search(ln)
+                      and not _CONSTITUTION_PROD_SCOPE_RE.search(ln))]
     brief = " ".join(x for x in (hook, metric, criteria) if x)
     wanted = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)})
     if not rules or not wanted:
@@ -902,7 +913,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     constraints.append("Žádné credentials v kódu, žádné .env."
                        + (" Pokud má varianta uživatelské rozhraní: WCAG 2.2 AA."
                           if stack.js_frontend or not stack.stack else ""))
-    has_feature = _feature_exists(slug)
+    has_feature = _feature_exists(slug, repos)
+    feature_repo = _feature_repo(slug, repos)
 
     angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
 
@@ -950,6 +962,12 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "keyboard": keyboard,
         "stack": stack.stack, "check_commands": stack.commands or [],
         "acceptance_feature": f"tests/acceptance/{slug}.feature" if has_feature else None,
+        "acceptance_feature_repo": (
+            feature_repo if feature_repo != "."
+            else (repos[0].role if repos else None)),
+        "check_commands_by_repo": {
+            r.role: stack_profile(pth / r.workspace if r.workspace else pth).commands or []
+            for r, pth in (variant_worktrees(slug, repos, "A") if repos else [])},
         "push_hint": (
             f"Commitni a pushni tests/acceptance/{slug}.feature — worktrees se klonují z originu "
             "a jinak ho neuvidí."
@@ -997,9 +1015,23 @@ def _feature_in_origin(slug: str, branch: str) -> bool:
     return res.returncode == 0 and rel in res.stdout.splitlines()
 
 
-def _feature_exists(slug: str) -> bool:
-    """Acceptance .feature je v prompt jen pokud skutečně existuje (cwd = target repo)."""
-    return (Path.cwd() / "tests" / "acceptance" / f"{slug}.feature").is_file()
+def _feature_repo(slug: str, repos: list[TargetRepo] | None = None) -> str | None:
+    """Kde leží acceptance .feature: "." = cwd, jinak role repa (primární první).
+
+    None = nikde. Multi-repo: hledá i ve worktrees varianty A každého repa."""
+    rel = Path("tests") / "acceptance" / f"{slug}.feature"
+    if (Path.cwd() / rel).is_file():
+        return "."
+    for repo, path in (variant_worktrees(slug, repos, "A") if repos else []):
+        for base in ([path / repo.workspace] if repo.workspace else []) + [path]:
+            if (base / rel).is_file():
+                return repo.role
+    return None
+
+
+def _feature_exists(slug: str, repos: list[TargetRepo] | None = None) -> bool:
+    """Acceptance .feature je v prompt jen pokud skutečně existuje (cwd nebo kterékoli repo)."""
+    return _feature_repo(slug, repos) is not None
 
 
 @dataclass
@@ -1100,7 +1132,8 @@ def _detect_stack_for(slug: str, repos: list[TargetRepo]) -> StackProfile:
 
 
 def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
-                   *, mob: bool = False, stack: StackProfile | None = None) -> str:
+                   *, mob: bool = False, stack: StackProfile | None = None,
+                   multi_repo: bool = False) -> str:
     """Společná pravidla pro AI buildera (v0.5): constitution, kontroly v Buildu, štítek."""
     stack = stack or StackProfile()
     acc_file = ("tests/acceptance/test_*.py" if stack.stack == "python"
@@ -1113,6 +1146,9 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
     )
     n = 4 if has_feature else 3
     label = f"Varianta {variant} k rozhodnutí — není to hotový produkt"
+    checks = (f"kontroly repa, ve kterém jsi měnil kód (příkazy jsou u každého repa v seznamu "
+              f"repozitářů výše; primární repo: {stack.check_text})" if multi_repo
+              else stack.check_text)
     return f"""POVINNÝ POSTUP (NEKÓDUJ, DOKUD KROKY 1–{n} NEJSOU HOTOVÉ):
 1. Přečti `.pflanzer/CONSTITUTION.md` a drž se jí (nepřekročitelná pravidla).
 2. Přečti `docs/INTEGRATION_GUIDE.md` a drž se jeho konvencí (auth, API klient,
@@ -1120,7 +1156,7 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
 {feature_line}{n}. Přečti 3–5 existujících souborů podobného typu (glob) a použij stejné patterns.
 
 PAK kóduj:
-{n + 1}. Po KAŽDÉM logickém kroku spusť {stack.check_text} a commitni JEN zelené.
+{n + 1}. Po KAŽDÉM logickém kroku spusť {checks} a commitni JEN zelené.
    Červené oprav před commitem — kontroly běží během Buildu, ne až v Ship.
 {n + 2}. Žádné nové závislosti bez důvodu v commit message.
 {n + 3}. Na první obrazovku (a do README varianty) dej viditelný štítek:
@@ -1146,17 +1182,53 @@ def _tilde(path: Path) -> str:
     return "~" + p[len(home):] if p.startswith(home + "/") else p
 
 
+def _has_openapi(path: Path) -> bool:
+    """Obsahuje repo OpenAPI kontrakt (`openapi.*`, do hloubky 3, bez node_modules/.venv)?"""
+    skip = {"node_modules", ".git", ".venv", "venv", "__pycache__", "dist", "build"}
+    try:
+        stack = [(path, 0)]
+        while stack:
+            cur, depth = stack.pop()
+            for ch in cur.iterdir():
+                if ch.is_file() and ch.name.lower().startswith("openapi."):
+                    return True
+                if ch.is_dir() and depth < 3 and ch.name not in skip:
+                    stack.append((ch, depth + 1))
+    except OSError:
+        return False
+    return False
+
+
 def _repo_lines(slug: str, variant: str, repos: list[TargetRepo]) -> list[str]:
-    """One line per repo worktree of a variant (N8): path, workspace, BE angle."""
+    """One line per repo worktree of a variant (N8): path, workspace, BE angle, checks.
+
+    Příkazy kontrol jdou per repo (Node npm vs Python make/.venv); CONTRACT-FIRST jen u
+    backendu, který OpenAPI kontrakt opravdu má (worktree ještě není = nelze ověřit, platí
+    pro backend)."""
     lines = []
     for idx, (repo, path) in enumerate(variant_worktrees(slug, repos, variant)):
         line = f"- `{repo.role}`{' (primární)' if idx == 0 else ''}: `{_tilde(path)}`"
+        base = path / repo.workspace if repo.workspace else path
         if repo.workspace:
             line += f" — pracuj v `{repo.workspace}/`"
-        if repo.is_backend:
+        prof = stack_profile(base)
+        if len(repos) > 1 and prof.commands:
+            line += " — kontroly: " + " a ".join(f"`{c}`" for c in prof.commands)
+        if repo.is_backend and (not path.is_dir() or _has_openapi(base)):
             line += f" — {BE_CONTRACT_FIRST}"
         lines.append(line)
     return lines
+
+
+def _multi_repo_rules(slug: str, variant: str, repos: list[TargetRepo]) -> str:
+    """Kde je které repo a co se smí měnit (multi-repo projekt)."""
+    wts = variant_worktrees(slug, repos, variant)
+    names = ", ".join(f"`{r.role}`" for r, _ in wts)
+    return (f"Měnit smíš jen repa varianty {variant}: {names} (cesty výše; sekundární jsou "
+            "připojená přes `--add-dir`). Všude jinde jen čti. Změny dělej v tom repu, kam "
+            "patří (UI v primárním, API v jeho repu), commituj per repo na branch "
+            f"`pflanzer/{slug}-{variant}`. Preview spustí všechna repa; primární najde ostatní "
+            "v env `<ROLE>_URL` (např. `API_URL`) — adresy nehardcoduj.")
 
 
 def _primary_path(slug: str, variant: str, repos: list[TargetRepo]) -> str:
@@ -1202,6 +1274,8 @@ def _render_mob_iteration_prompt(
     if len(repos) > 1 or any(r.workspace for r in repos):
         repo_block = ("\nRepozitáře (všechny na branchi pflanzer/" + slug + "-mob):\n"
                       + "\n".join(_repo_lines(slug, "mob", repos)) + "\n")
+        if len(repos) > 1:
+            repo_block += "\n" + _multi_repo_rules(slug, "mob", repos) + "\n"
 
     if iteration_idx == 0:
         facilitator = f"""**SETUP (facilitátor, 1× per Build):**
@@ -1258,7 +1332,8 @@ jděte rovnou na zápis do toolu a Rozhodnutí. Facilitátor se zeptá týmu:
 
     ai = f"""{ai_head}
 {repo_block}
-{_builder_rules(slug, hook, 'mob', has_feature, mob=True, stack=stack)}
+{_builder_rules(slug, hook, 'mob', has_feature, mob=True, stack=stack,
+                multi_repo=len(repos) > 1)}
 
 Constraints:
 {constraint_lines}
@@ -1298,15 +1373,18 @@ def _render_builder_prompt_parts(
     constraint_lines = "\n".join(f"- {c}" for c in constraints)
     slug = slug or "<slug>"
     variant = variant or "X"
-    rules = _builder_rules(slug, hook, variant, has_feature, stack=stack)
     repos = repos or []
     multi = len(repos) > 1 or bool(repos and repos[0].workspace)
+    rules = _builder_rules(slug, hook, variant, has_feature, stack=stack,
+                           multi_repo=len(repos) > 1)
     repo_block = ""
     add_dirs = "".join(f" --add-dir {_tilde(pth)}"
                        for _, pth in variant_worktrees(slug, repos, variant)[1:]) if repos else ""
     if multi:
         repo_block = (f"\nRepozitáře varianty {variant} (všechny na branchi pflanzer/{slug}-{variant}):\n"
                       + "\n".join(_repo_lines(slug, variant, repos)) + "\n")
+        if len(repos) > 1:
+            repo_block += "\n" + _multi_repo_rules(slug, variant, repos) + "\n"
 
     # In-repo CLI builders (Claude Code, Codex CLI) → git worktree protocol
     if builder in ("claude-code", "codex-cli"):
@@ -1420,6 +1498,8 @@ def _validate_votes(slug: str, facilitator: str, votes: Any, decider_call: Any) 
                 if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 1:
                     raise bad(f"Hodnocení č. {j} u varianty {label}: „{dim}“ musí být číslo "
                               f"od 0 do 1 (dostal jsem {val!r}). 0 = nejhorší, 1 = nejlepší.")
+            for msg in rp_range_errors(rp):
+                raise bad(f"Hodnocení č. {j} u varianty {label}: {msg}")
     if not isinstance(decider_call, dict) or not decider_call:
         raise bad("Ve specu chybí „decider_call“ (shortlist, rationale).")
 
@@ -1427,6 +1507,24 @@ def _validate_votes(slug: str, facilitator: str, votes: Any, decider_call: Any) 
 def _is_no_url(url: str | None) -> bool:
     """Prázdný řetězec (nový zápis) i starý placeholder `sandbox.invalid` = „bez URL“."""
     return not url or "sandbox.invalid" in url
+
+
+def _dead_local_url_warning(url: str, slug: str) -> str | None:
+    """⚠ když URL míří na localhost / 127.0.0.1 a nikdo tam neodpovídá (preview neběží)."""
+    if not url:
+        return None
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname or ""
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or host not in ("localhost", "127.0.0.1", "0.0.0.0"):
+        return None
+    from tool.cli import apprun
+    if apprun.http_get(url, timeout=2.0) is not None:
+        return None
+    return f"URL {url} neodpovídá — preview neběží? `pflanzer preview up --slug {slug}`"
 
 
 def record_voting(
@@ -1484,6 +1582,10 @@ def record_voting(
             "role_preferences": v["role_preferences"],
         })
 
+    for sv in spec_variants:
+        w = _dead_local_url_warning(sv["prototype_url"], slug)
+        if w:
+            warnings.append(w)
     if len(missing_urls) == 1:
         warnings.append(f"varianta {missing_urls[0]} nemá preview URL — zástupci v Asyncu ji "
                         f"neuvidí (spusťte `pflanzer preview up --slug {slug}`: odkazy + heslo)")
