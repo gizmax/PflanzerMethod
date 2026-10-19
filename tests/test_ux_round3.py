@@ -163,7 +163,8 @@ def test_acceptance_without_playwright_is_unverified_not_skip(tmp_path: Path) ->
     assert res["acceptance"].status == "skipped"
     assert res["acceptance"].details.startswith("NEOVĚŘENO: chybí @playwright/test")
     assert res["types"].details.startswith("SKIP:")  # typy bez TS = nedává smysl
-    assert res["a11y"].details.startswith("SKIP:")  # a11y bez UI = nedává smysl
+    # a11y bez UI souborů a bez možnosti spustit app = NEOVĚŘENO (ne SKIP)
+    assert res["a11y"].details.startswith("NEOVĚŘENO:")
 
 
 def _ship_ctx(target: int) -> dict[str, Any]:

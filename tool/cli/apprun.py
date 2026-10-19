@@ -195,6 +195,28 @@ def http_get(url: str, *, auth: tuple[str, str] | None = None,
         return None
 
 
+def http_fetch(url: str, *, timeout: float = 10.0, max_bytes: int = 1_000_000,
+               ) -> tuple[int | None, str, str]:
+    """GET bez následování redirectů: (status, tělo jako text, content-type); None = nic."""
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a: Any, **k: Any) -> None:  # noqa: D401
+            return None
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(urllib.request.Request(url), timeout=timeout) as r:
+            return int(r.status), r.read(max_bytes).decode("utf-8", "replace"), \
+                r.headers.get("Content-Type", "")
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read(max_bytes).decode("utf-8", "replace")
+        except OSError:
+            body = ""
+        return int(e.code), body, e.headers.get("Content-Type", "") if e.headers else ""
+    except (urllib.error.URLError, OSError, ValueError):
+        return None, "", ""
+
+
 def wait_http(url: str, *, timeout: float, proc: subprocess.Popen | None = None,
               auth: tuple[str, str] | None = None, ok: Any = lambda s: s < 500,
               ) -> tuple[bool, int | None]:

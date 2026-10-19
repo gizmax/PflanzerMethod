@@ -64,7 +64,11 @@ deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 | bezpečnost & právo | jen předkontrola (`AI:security-expert`) | throwaway: stačí AI; pilot/production: člověk do 48 h, jinak Ship blokuje (pořadí podpisu viz níže) |
 | provoz | jen předkontrola (`AI:devops-platform-expert`) | throwaway: AI; pilot: vývojář z jádra; production: člověk z provozu |
 
-U kroku s AI náhradou se zeptej **hned i na člověka, který to podepíše**,
+**Throwaway:** AI předkontrola bezpečnosti/provozu stačí — na podepisujícího se
+**neptej** a nehlas to jako otevřený bod (ADR-0023). Jen ji po Buildu zapiš:
+`pflanzer checkpoint --slug <slug> bezpecnost --ai --agent security-expert --note "…"`.
+
+U pilotu/production se u kroku s AI náhradou zeptej **hned i na člověka, který to podepíše**,
 a řekni, že AI náhrada platí jen pro tento projekt (příště sehnat člověka).
 **Když tým podepisujícího určí, MUSÍŠ ho předat ve specu v `ai_signers`**
 (`{"bezpecnost": "Pavel Šnek"}`) — jinak `pflanzer status` dál hlásí „čeká na

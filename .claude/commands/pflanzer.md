@@ -36,7 +36,8 @@ zvlášť (jiný den, Decider si vezme okno).
    Po Kickoffu rovnou napiš texty pozvánek pro okna (podle role cards) a jako další krok uveď právě jednu chybějící věc (jméno podepisujícího, zabookovaná okna, preview URL), jinak Build.
 2. **Build** — přečti `.claude/commands/pflanzer-session-1.md` a proveď ho
    celý (`worktree setup` → `prompts` → 3× Claude Code → průběžné kontroly
-   → checkpoint bezpečnost & právo (u AI náhrady `security-expert` +
+   → checkpoint bezpečnost & právo (u throwaway stačí AI předkontrola bez lidského
+   podpisu — na podepisujícího se neptej; u AI náhrady `security-expert` +
    `pflanzer checkpoint … --ai --agent …`; u AI designu potvrdí PdM `pflanzer checkpoint --slug S design --by <PdM>`) → push → preview → zápis).
 3. **Hlasování a zápis** — viz Build Krok 5; Decider ve `live` režimu
    nehlasuje (Rozhodnutí je samostatné okno).
