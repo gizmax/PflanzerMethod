@@ -929,6 +929,23 @@ def _ics_fold(line: str) -> str:
     return "\r\n ".join(parts)
 
 
+_HORIZON_RE = re.compile(
+    r"(?i)\bdo\s+(\d{1,3})\s*(dn[ůu]|dn[íi]|dny|den|t[ýy]dn\w*|t\.)")
+
+
+def metric_horizon_days(project: dict[str, Any]) -> tuple[int, str] | None:
+    """Horizont metriky z Kickoffu („do 14 dnů“, „do 2 týdnů“) -> (dny, text metriky)."""
+    for key in ("primary_lagging_metric", "leading_metric"):
+        text = str(project.get(key) or "").strip()
+        m = _HORIZON_RE.search(text)
+        if m:
+            n = int(m.group(1))
+            days = n * 7 if m.group(2).lower().startswith(("t", "týd")) else n
+            if 0 < days <= 365:
+                return days, text
+    return None
+
+
 def _reminder_items(
     slug: str, from_date: str | None,
 ) -> tuple[dict[str, Any], date, str, list[dict[str, Any]]]:
@@ -961,6 +978,24 @@ def _reminder_items(
                            f"--milestone {m} --metric {first_metric} --value <N> "
                            f"--evidence <URL>"),
         })
+    hz = metric_horizon_days(project)
+    if hz and hz[0] not in MILESTONE_DAYS.values():
+        days, mtext = hz
+        nearest = next((m for m in MILESTONES if MILESTONE_DAYS[m] >= days), MILESTONES[-1])
+        metrics = list(RECOMMENDED_METRICS[nearest])
+        items.append({
+            "milestone": f"t{days}",
+            "label": f"T+{days}",
+            "due": start + timedelta(days=days),
+            "owner": owners[nearest][0],
+            "owner_source": "horizont metriky z Kickoffu",
+            "deliverable": f"Změřit metriku z Kickoffu (horizont {days} dní): {mtext}",
+            "metrics": metrics,
+            "record_cmd": (f"pflanzer retro record --slug {slug} "
+                           f"--milestone {nearest} --metric {metrics[0]} --value <N> "
+                           f"--evidence <URL>"),
+        })
+        items.sort(key=lambda it: it["due"])
     return project, start, start_source, items
 
 

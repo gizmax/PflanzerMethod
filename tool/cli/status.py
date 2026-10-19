@@ -32,6 +32,7 @@ po handoffu / SHIP.md `/pm retro <slug>` (T+7). „Ship hotový“ se pozná pod
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -57,6 +58,17 @@ PATH_STEPS = [
 ]
 
 
+_DEADLINE_RE = re.compile(
+    r"(?i)\bdo\s+((?:\d{1,2}\.\s?\d{1,2}\.(?:\s?\d{2,4})?)|(?:\d{4}-\d{2}-\d{2})"
+    r"|(?:konce\s+\w+(?:\s+\w+)?)|(?:\d+\s+(?:dn[ůí]|týdn\w+|měsíc\w*)))")
+
+
+def _override_deadline(reason: str) -> str | None:
+    """Termín z důvodu přebití („do 15. 11.“, „do konce týdne“); None, když tam není."""
+    m = _DEADLINE_RE.search(reason or "")
+    return m.group(1).strip(" ,;") if m else None
+
+
 def _phase(status: str, ship: str, feedback_count: int, critical: int,
            build_running: bool = False) -> tuple[str, str]:
     """Return (phase in words, next step). `ship` = none | failed | done | handed_off."""
@@ -68,7 +80,7 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
         if feedback_count == 0:
             return "Build hotový — čeká se na Async", "/pm feedback"
         if critical:
-            return f"Async — {critical}× critical otevřené", "/pm feedback"
+            return f"Async — {critical}× kritické otevřené", "/pm feedback"
         return "Async — feedback je", "/pm decide"
     if status == "session_2":
         return "Rozhodnutí: Iterate — další Build kolo", "/pm build"
@@ -292,15 +304,15 @@ def project_detail(slug: str) -> dict[str, Any]:
                             + (f": {c['note']}" if c.get("note") else "")
                             + f" — odblokuje {signer or 'PdM'}."})
             elif c["state"] == "pending":
-                text = (f"Design: {c['owner']} — potvrdí {signer or 'PdM'} "
-                        f"(`pflanzer checkpoint … design`)")
+                text = (f"Design: {c['owner']} — potvrďte před Rozhodnutím, potvrdí "
+                        f"{signer or 'PdM'} (`pflanzer checkpoint … design`)")
                 if risk == "production" and late:
                     blockers.append({
                         "kind": "missing_signature", "window": "design", "command": cmd,
                         "text": text + " — u production blokuje Ship."})
                 else:
-                    info.append(text + (f" — u {'throwaway' if risk == 'throwaway' else 'pilotu'} "
-                                        "Ship neblokuje." if risk != "production" else ""))
+                    info.append(text + ("; u pilotu Ship neblokuje, u production ano."
+                                        if risk != "production" else ""))
             continue
         if c["state"] == "blocked":
             reason = f": {c['note']}" if c.get("note") else ""
@@ -328,13 +340,19 @@ def project_detail(slug: str) -> dict[str, Any]:
         uniq = ", ".join(dict.fromkeys(whos))
         blockers.append({
             "kind": "critical", "variant": variant, "command": f"/pm feedback {slug}",
-            "text": f"{len(whos)}× {severity_label('critical').lower()} (critical) na variantě "
+            "text": f"{len(whos)}× {severity_label('critical').lower()} na variantě "
                     f"{variant} (nahlásil: {uniq}) — oprav, nebo Decider vědomě přebije."})
     for variant, whos in critical_info.items():
         uniq = ", ".join(dict.fromkeys(whos))
+        if after_go and winner and variant == winner and override_reason:
+            due = _override_deadline(override_reason)
+            info.append(f"Kritické na vítězi {variant} přebil Decider (důvod: "
+                        f"{_short(str(override_reason), 80)}; {len(whos)}×, nahlásil: {uniq})"
+                        + (f" — dořešte do {due}." if due else " — dořešte po nasazení."))
+            continue
         where = (f"poražené variantě {variant}" if after_go
                  else f"variantě {variant}, která po Iterate skončila")
-        info.append(f"Critical na {where} ({len(whos)}×, nahlásil: {uniq}) "
+        info.append(f"Kritické na {where} ({len(whos)}×, nahlásil: {uniq}) "
                     "neblokuje — zapište do parking lotu nebo vědomě zavřete.")
 
     def _pending_sig() -> dict[str, str] | None:
@@ -456,7 +474,7 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
         else:
             lines.append("Poučení: " + ("zapsáno" if d.get("lesson_recorded") else "zatím nezapsáno"))
         return lines
-    lines.append(f"Feedback: {fb['total']} (critical otevřené: {fb['critical']}){dec}{win}")
+    lines.append(f"Feedback: {fb['total']} (kritické otevřené: {fb['critical']}){dec}{win}")
     cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
     lines.append("Podpisy: " + " · ".join(f"{c['label']} — {c['state_text']}" for c in cps))
     lines += d.get("info", [])

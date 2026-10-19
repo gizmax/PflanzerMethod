@@ -308,6 +308,23 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                     f"{who} je autor kódu — u pilotu dovoleno, zapíšu jako „potvrdil autor "
                     "kódu“; právní kontrolu (GDPR, smlouvy) tím nepokrývá — doporučeno nechat "
                     "přečíst Deciderem nebo DPO.")
+        if window in ("bezpecnost", "pravo") and not blocked:
+            from tool.cli.session_2 import open_criticals, overridden_criticals
+            sec_re = re.compile(r"(?i)bezpe|secur|pr[aá]v|legal|gdpr|compliance")
+            risky = [c for c in overridden_criticals(conn, pid)
+                     if sec_re.search(str(c.get("department") or ""))
+                     and not _critical_resolved(conn, c["id"])]
+            for c in risky:
+                warnings.append(
+                    f"⚠ Na vítězi je přebitý critical od {c.get('submitted_by') or 'neznámého autora'}: "
+                    f"{_clip(c.get('rationale'))} — podepisujete i s ním? "
+                    f"(Decider ho přebil: {_clip(c['reason'], 80)})")
+            known = {c["id"] for c in risky}
+            for c in open_criticals(conn, pid):
+                if sec_re.search(str(c.get("department") or "")) and c["id"] not in known:
+                    warnings.append(
+                        f"⚠ Otevřený critical od {c.get('submitted_by') or 'neznámého autora'} "
+                        f"({c['department']}): {_clip(c.get('rationale'))} — podepisujete i s ním?")
         artefact = f"**Checkpoint {label}** — {head} · {who} · {now}\n\n{note.strip()}\n"
         artefact += f"\n_signed_by_role: {kind}_" + (f" · _ai_agent: {agent_name}_" if agent_name else "") + "\n"
         if countersigned:
@@ -351,6 +368,19 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             "ai_draft": status == "pending", "ai": ai,
             "countersigned_ai_draft": countersigned,
             "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
+
+
+def _clip(text: str | None, n: int = 120) -> str:
+    t = " ".join((text or "").split())
+    return t if len(t) <= n else t[: n - 1].rsplit(" ", 1)[0] + "…"
+
+
+def _critical_resolved(conn: Any, fid: int) -> bool:
+    try:
+        r = conn.execute("SELECT resolved_at FROM feedback WHERE id = ?", (fid,)).fetchone()
+    except Exception:  # noqa: BLE001 — starší schéma bez resolved_at
+        return False
+    return bool(r and r[0])
 
 
 def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: str,

@@ -241,6 +241,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
 
     slug = spec["slug"]
     warnings: list[str] = []
+    no_url_variants: list[str] = []
     facilitator = spec.get("facilitator") or current_actor()
     decider_call = spec.get("decider_call", {})
 
@@ -353,10 +354,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 if _is_placeholder_url(given_url) else given_url
             )
             if _is_placeholder_url(proto_url):
-                warnings.append(
-                    f"Varianta {v['name']} nemá preview URL — zástupci v Asyncu nemají na co klikat. "
-                    f"Doplň: `pflanzer worktree set-url --slug {slug} --variant {v['name']} "
-                    f"--url https://…`")
+                no_url_variants.append(v["name"])
                 proto_url = proto_url or ""  # sandbox.invalid zůstává (NOT NULL), None -> ""
             if v["name"] in existing_variants:
                 variant_id = existing_variants[v["name"]]
@@ -462,6 +460,16 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
     summary_path = project_dir / "_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")
 
+    if len(no_url_variants) == 1:
+        warnings.append(
+            f"Varianta {no_url_variants[0]} nemá preview URL — zástupci v Asyncu nemají na co "
+            f"klikat. Doplň: `pflanzer worktree set-url --slug {slug} --variant "
+            f"{no_url_variants[0]} --url https://…`")
+    elif no_url_variants:
+        warnings.append(
+            f"Varianty {', '.join(no_url_variants)} zatím nemají preview URL — zástupci v Asyncu "
+            f"nemají na co klikat. Spusťte `pflanzer preview up --slug {slug}` (nebo "
+            f"`pflanzer worktree set-url --slug {slug} --variant X --url https://…`).")
     return {
         "project_id": project_id,
         "session_id": session_id,

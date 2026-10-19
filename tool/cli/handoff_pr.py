@@ -83,7 +83,10 @@ from tool.cli.session_2 import (  # noqa: E402
     describe_critical,
     get_winner,
     open_criticals,
+    overridden_critical_md,
+    overridden_criticals,
     resolved_criticals,
+    strip_reason,
 )
 from tool.cli.session_3 import decider_genitive, gates_sufficiency  # noqa: E402
 from tool.cli.triage import (  # noqa: E402
@@ -434,6 +437,8 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
                 conn, project_id, score=_score, target=int(proj[15]))
         criticals = open_criticals(conn, project_id)
         resolved = resolved_criticals(conn, project_id)
+        overridden = [c for c in overridden_criticals(conn, project_id)
+                      if winner and c["variant"] == winner[0]]
         owners = path_owners(conn, project_id)
         dev_owners = [
             r[0] for r in conn.execute(
@@ -448,7 +453,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "threshold_override": threshold_override,
             "variant_names": variant_names, "dev_owners": dev_owners,
             "winner_basis": winner_basis, "open_critical": criticals,
-            "resolved_critical": resolved,
+            "resolved_critical": resolved, "overridden_critical": overridden,
             "path_owners": owners}
 
 
@@ -468,7 +473,7 @@ def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
     if triage["override"]:
         o = triage["override"]
         note += (f"\n\n**Výjimku schválil:** {o.get('decider') or 'Decider'} (Decider; "
-                 f"rozhodnutí #{o['decision_id']}, {o['at']}): {o['rationale']}")
+                 f"rozhodnutí #{o['decision_id']}, {o['at']}): {strip_reason(o['rationale'])}")
     section = f"""## Triage stav
 
 {note}
@@ -567,7 +572,9 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
         blocked_by.append("gates:acceptance-neověřeno")
     # Výjimka z prahu (Decider, `session_3 --override-threshold`): jen pod prahem a bez jiné blokace.
     override = ctx.get("threshold_override")
-    if not (gates and target > 0 and score < target and not blocked_by):
+    hard = [g[0] for g in gates if g[1] == "fail" and g[0] in ("build", "tests", "smoke")]
+    below = score < target or bool(hard)
+    if not (gates and target > 0 and below and not blocked_by):
         override = None
     if ctx["triage"]["blocked_by"]:
         verdict = "BLOKOVÁNO (triage)"
@@ -577,13 +584,16 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
     elif blocked_by:
         verdict = "BLOKOVÁNO (nedostatek gates)"
     elif override:
-        verdict = f"pod prahem — Ship na odpovědnost Decidera ({override['decider']})"
+        verdict = (("neprošlo brány" if hard and score >= target else "pod prahem")
+                   + f" — Ship na odpovědnost Decidera ({override['decider']})")
+    elif hard and target > 0 and score >= target:
+        verdict = f"neprošlo — padá brána {', '.join(hard)} (skóre {score}/100 to nezachrání)"
     else:
         verdict = _verdict(score, target, unverified)
     return {"score": score, "target": target, "blocked_by": blocked_by, "verdict": verdict,
             "suff": suff, "unverified": unverified, "threshold_override": override,
             "ready": bool(gates) and target > 0 and not blocked_by
-            and (score >= target or override is not None)}
+            and ((score >= target and not hard) or override is not None)}
 
 
 def _render_threshold_override(override: dict[str, Any], score: int, target: int) -> str:
@@ -594,7 +604,7 @@ def _render_threshold_override(override: dict[str, Any], score: int, target: int
         "PR je proto draft.\n\n"
         f"**Výjimka schválil:** {override['decider']} (Decider), "
         f"rozhodnutí #{override['decision_id']}\n\n"
-        f"**Důvod:** {override['rationale']}\n"
+        f"**Důvod:** {strip_reason(override['rationale'])}\n"
     )
 
 
@@ -754,6 +764,9 @@ def build_pr(slug: str) -> dict[str, Any]:
     if resolved_on_win:
         body_lines += ["## Vyřešené kritické připomínky (vítěz)"] + [
             _resolved_line(c) for c in resolved_on_win] + [""]
+    ov_md = overridden_critical_md(ctx.get("overridden_critical") or [])
+    if ov_md:
+        body_lines += ov_md.rstrip("\n").splitlines() + [""]
     if decider_line:
         body_lines += ["## Decider", decider_line, ""]
     if kill:
@@ -911,8 +924,10 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
                       + (f"> - …a další ({len(who) - 3})\n" if len(who) > 3 else "")
                       + f"> Decider může přebít: `pflanzer session_3 --slug {slug} "
                         "--override-triage --rationale \"…\"`\n")
-    threshold_md = (_render_threshold_override(state["threshold_override"], score, target) + "\n"
-                    if state["threshold_override"] else "")
+    ovc_md = overridden_critical_md(parts["ctx"].get("overridden_critical") or [])
+    threshold_md = (ovc_md + "\n" if ovc_md else "") + (
+        _render_threshold_override(state["threshold_override"], score, target) + "\n"
+        if state["threshold_override"] else "")
     ov = triage.get("override")
     sec_gap = ov and any(b.startswith(("triage:security", "triage:legal"))
                          for b in ov.get("blocked_by", []))

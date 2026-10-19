@@ -159,7 +159,8 @@ def test_design_window_for_ai_design(tmp_db: Path, bare_repo: Path) -> None:
     gate = checkpoint.design_gate("dsg")
     assert gate["applies"] and not gate["blocks_ship"]              # pilot neblokuje
     d = status.project_detail("dsg")
-    assert any(i.startswith("Design: AI (ux-expert) — potvrdí Petr") for i in d["info"])
+    assert any(i.startswith("Design: AI (ux-expert) — potvrďte před Rozhodnutím, potvrdí Petr")
+               for i in d["info"])
     res = checkpoint.sign("dsg", "design", by="Petr", note="hlavní tok i kontrasty")
     assert res["status"] == "ok" and res["signed_by_role"] == "zástupce"
     assert checkpoint.design_gate("dsg")["state"] == "ok"

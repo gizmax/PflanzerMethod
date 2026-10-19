@@ -49,6 +49,7 @@ from tool.cli.ux import (  # noqa: E402
     did_you_mean,
     die,
     emit,
+    plural,
     severity_label,
 )
 
@@ -91,6 +92,77 @@ def resolved_criticals(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "ORDER BY f.id", (project_id,)).fetchall()
     return [{"id": r[0], "variant": r[1], "department": r[2], "rationale": r[3],
              "submitted_by": r[4], "resolved_note": r[5]} for r in rows]
+
+
+_REASON_PREFIX = re.compile(r"^\s*(?:důvod|duvod|reason)\s*[:\-–—]\s*", re.IGNORECASE)
+_DEADLINE_RE = re.compile(
+    r"(?i)\b(?:do|until|by)\s+("
+    r"\d{1,2}\.\s?\d{1,2}\.(?:\s?\d{2,4})?|\d{4}-\d{2}-\d{2}"
+    r"|konce\s+\w+(?:\s+\d{4})?|příštího\s+\w+|\w+\s+\d{4}"
+    r"|\d+\s+(?:dnů|dní|dny|den|týdn\w*|měsíc\w*)|\d+\s+days?|\d+\s+weeks?)")
+
+
+def strip_reason(text: str | None) -> str:
+    """Odstraní zdvojený prefix „Důvod:“ (štítek přidává až výstup)."""
+    t = (text or "").strip()
+    prev = None
+    while prev != t:
+        prev = t
+        t = _REASON_PREFIX.sub("", t).strip()
+    return t
+
+
+def reason_deadline(text: str | None) -> str | None:
+    """Termín z důvodu přebití („do 15. 11.“, „do konce Q4“), jinak None."""
+    m = _DEADLINE_RE.search(text or "")
+    return m.group(0).strip() if m else None
+
+
+def overridden_criticals(conn: Any, project_id: int) -> list[dict[str, Any]]:
+    """Critical na vítězi přebité Deciderem (`--override-critical`): autor nálezu, důvod, termín."""
+    rows = conn.execute(
+        "SELECT payload_json, ts, actor FROM audit_log WHERE action = 'session_2.decision' "
+        "AND target_id = ? ORDER BY id DESC", (project_id,)).fetchall()
+    for payload_json, ts, actor in rows:
+        try:
+            pl = json.loads(payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        reason = strip_reason(pl.get("override_critical"))
+        ids = [int(x) for x in pl.get("overridden_criticals") or []]
+        if not reason or not ids:
+            continue
+        out: list[dict[str, Any]] = []
+        for fid in ids:
+            r = conn.execute(
+                "SELECT f.id, v.name, f.department, f.rationale, f.submitted_by "
+                "FROM feedback f JOIN variants v ON v.id = f.variant_id WHERE f.id = ?",
+                (fid,)).fetchone()
+            if r:
+                out.append({"id": r[0], "variant": r[1], "department": r[2], "rationale": r[3],
+                            "submitted_by": r[4], "reason": reason,
+                            "deadline": reason_deadline(reason),
+                            "decider": pl.get("decider") or actor, "at": str(ts or "")[:10]})
+        return out
+    return []
+
+
+def overridden_critical_md(items: list[dict[str, Any]]) -> str:
+    """Sekce „Vědomě přebité riziko“ pro SHIP.md i tělo PR (prázdný řetězec, když není co)."""
+    if not items:
+        return ""
+    lines = ["## Vědomě přebité riziko", ""]
+    for c in items:
+        lines.append(f"- {describe_critical(c)}")
+    first = items[0]
+    lines += ["",
+              f"**Přebil:** {first.get('decider') or 'Decider'} (Decider)"
+              + (f", {first['at']}" if first.get("at") else ""),
+              f"**Důvod:** {first['reason']}",
+              f"**Termín:** {first['deadline'] or 'v důvodu neuveden'}",
+              "**Autor nálezu:** "
+              + ", ".join(sorted({c.get('submitted_by') or 'neznámý autor' for c in items}))]
+    return "\n".join(lines) + "\n"
 
 
 def describe_critical(c: dict[str, Any], slug: str | None = None) -> str:
@@ -346,7 +418,8 @@ def record_decision(
     winner = winner.strip().upper() if winner else None
     if winner and winner not in VALID_VARIANTS:
         raise ValueError(f"--winner musí být jedna z {', '.join(VALID_VARIANTS)}, ne '{winner}'.")
-    override_critical = (override_critical or "").strip() or None
+    override_critical = strip_reason(override_critical) or None
+    rationale = strip_reason(rationale) or rationale
     checkpoints = [c.strip() for c in (checkpoints or []) if c and c.strip()]
     if decision == "go" and not winner:
         raise ValueError(
@@ -538,7 +611,7 @@ def render_decision_md(
             lines.append(f"| {v['variant']}{mark} | {v['score']:.2f} | {v['votes']} | {ac} |")
         lines.append("")
     if override_critical:
-        lines += ["### Override critical", "", f"Důvod: {override_critical}", ""]
+        lines += ["### Override critical", "", f"Důvod: {strip_reason(override_critical)}", ""]
         for c in criticals or []:
             lines.append(f"- {describe_critical(c)}")
         lines.append("")
@@ -657,8 +730,9 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
     if out.get("winner"):
         lines.append(f"Vítěz: {out['winner']}")
     if out.get("override_critical"):
-        lines.append(f"Decider přebil {out['open_critical_overridden']} kritických: "
-                     f"{out['override_critical']}")
+        lines.append("Decider přebil "
+                     + plural(out["open_critical_overridden"], "kritický", "kritické", "kritických")
+                     + f": {out['override_critical']}")
     lines.append("Zapsáno do decision logu"
                  + (f" ({out['decision_log_repo']}) — commitni ho." if out.get("decision_log_repo")
                     else "; z target repa se zapíše i do `.pflanzer/decisions/`."))

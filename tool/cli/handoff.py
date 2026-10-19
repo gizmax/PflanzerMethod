@@ -24,6 +24,7 @@ Jinja2 se nepoužívá — string šablony v Pythonu jsou čitelnější a bez z
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -155,6 +156,19 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             } for row in extracted_rows
         }
 
+        path_owners: dict[str, str] = {}
+        try:
+            orow = conn.execute("SELECT path_owners_json FROM projects WHERE id = ?",
+                                (project_id,)).fetchone()
+            path_owners = json.loads(orow[0]) if orow and orow[0] else {}
+        except Exception:  # noqa: BLE001 — starší DB bez sloupce
+            path_owners = {}
+        try:
+            from tool.cli.triage import load_risk_profile
+            risk_profile = load_risk_profile(conn, project_id)
+        except Exception:  # noqa: BLE001
+            risk_profile = None
+
         # Latest gate score
         gate_score = conn.execute(
             "SELECT gate_score_latest, production_readiness_target "
@@ -188,6 +202,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
         "handoff_decision_ts": handoff_decision[0] if handoff_decision else None,
         "extracted_by_variant": extracted_by_variant,
         "winner": winner_name,
+        "path_owners": path_owners, "risk_profile": risk_profile,
         "gate_score": int(gate_score[0]) if gate_score and gate_score[0] is not None else 0,
         "production_readiness_target": int(gate_score[1]) if gate_score and gate_score[1] else 80,
     }
@@ -643,6 +658,25 @@ def render_compliance(ctx: dict[str, Any]) -> str:
     legal_triage = next((t for t in ctx["triage"] if t["track"] == "legal"), None)
     sec_triage = next((t for t in ctx["triage"] if t["track"] == "security"), None)
     audit_count_text = "doplnit (query audit_log)"
+    slug = p[2]
+    owners = ctx.get("path_owners") or {}
+    step_names = {"byznys": "Byznys", "produkt": "Produkt", "design": "Design", "vyvoj": "Vývoj",
+                  "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
+    steps = "; ".join(f"{step_names[k]}: {owners[k]}" for k in step_names if owners.get(k))
+    try:
+        from tool.cli._compat import ai_stand_in_line
+        ai_line = ai_stand_in_line(slug)
+    except Exception:  # noqa: BLE001
+        ai_line = None
+    hook_text = " ".join(str(x or "") for x in (p[5], p[4]))
+    pii_hit = re.search(
+        r"(?i)osobn\w*\s+(?:údaj|udaj|dat)\w*|e-?mail|telefon|jméno|jmeno|adres\w+|"
+        r"přihlášk\w*|formulář\w*|registrac\w*|zákazn\w+|objednáv\w+|personal data|gdpr", hook_text)
+    pii = (f"ano, podle zadání (zmínka: „{pii_hit.group(0)}“) — upřesnit kategorie"
+           if pii_hit else "v zadání se osobní údaje nezmiňují — potvrdit")
+    risk = ctx.get("risk_profile")
+    legal_basis = ("doplnit (z Legal triage)" if legal_triage and legal_triage["artefact_md"]
+                   else "doplnit; Legal triage zatím neběžela")
 
     decision_attrib = []
     for d in ctx["decisions"]:
@@ -666,9 +700,14 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 ## RoPA update (Records of Processing Activities)
 
 - Processing activity name: {p[1]}
-- Data class: **{p[9]}**
+- Data class: **{p[9] or 'neuvedeno'}**
 - AI Act tier: **{p[8]}**
-- Lawful basis: doplnit (z Legal triage)
+- Risk profil projektu: {risk or 'neuvedeno'}
+- Decider: {p[6] or 'doplnit'} · Sponzor: {p[7] or 'doplnit'}
+- Kroky cesty a zástupci: {steps or 'doplnit'}
+- Kroky s AI náhradou: {ai_line or 'žádné'}
+- Osobní údaje: {pii}
+- Lawful basis: {legal_basis}
 - Data subjects: doplnit
 - Categories of data: doplnit (per Security triage Data Classification)
 - Retention: per `data.md` § Privacy classification

@@ -87,7 +87,8 @@ c. autor kódu až jako poslední možnost, u interního nástroje bez osobních
 
 **Design s AI náhradou:** potvrzuje ho PdM (jméno vezmi z projektu) příkazem
 `pflanzer checkpoint --slug S design --by <PdM> --note "…"` při Buildu —
-řekni to hned při Kickoffu.
+řekni to hned při Kickoffu: potvrďte před Rozhodnutím; u pilotu Ship neblokuje,
+u production ano.
 
 Pravidla (vynucuj):
 - **Krok bez jména a bez povolené AI náhrady → STOP.** Nabídni, kdo ho může
@@ -120,6 +121,7 @@ v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe):
 ```json
 {
   "slug": "<krátký-slug>",
+  "title": "<krátký název projektu, ≤ 50 znaků>",
   "hook": "<problém v 1 větě>",
   "decider_name": "<jméno>",
   "room_role_idx": [1, 2, 6, 4, 7, 15],
@@ -133,6 +135,10 @@ v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe):
   "core": ["Petra", "Jan", "Eva"]
 }
 ```
+
+`title` (≤ 50 znaků): zeptej se Decidera na krátký název projektu, nebo ho
+navrhni sám (např. „Online objednávka“) a nech potvrdit. Bez něj se odvodí z
+hooku (první věta/klauzule). Používá ho status, reporty a PR title.
 
 `path_owners`: jméno, `AI` nebo `AI:<agent>` (jen kde to tabulka dovolí).
 `ai_signers` (nepovinné): krok s AI náhradou (`bezpecnost|provoz|design|produkt`) →

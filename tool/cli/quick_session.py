@@ -158,6 +158,18 @@ def slugify(s: str, max_len: int = 40, max_words: int = SLUG_MAX_WORDS) -> str:
     return s or f"session-{date.today().isoformat()}"
 
 
+TITLE_MAX = 50
+
+
+def short_title(hook: str, max_len: int = TITLE_MAX) -> str:
+    """Krátký název projektu z hooku: první věta/klauzule (před čárkou, pomlčkou, dvojtečkou)."""
+    hook = " ".join(hook.split())
+    clause = re.split(r"\s[-–—]\s|[,;:.!?](?:\s|$)|\s\(", hook, maxsplit=1)[0].strip()
+    if len(clause) < 8:        # příliš krátký úlomek = nic neříká, vezmi celý hook
+        clause = hook
+    return short_name(clause, max_len)
+
+
 def short_name(hook: str, max_len: int = 80) -> str:
     """Project name from the hook: whole sentence, else whole words up to `max_len`.
 
@@ -281,7 +293,7 @@ def _write_acceptance_feature(
     lines = [
         "# language: cs",
         "# Pflanzer Method | pflanzer.cz/method",
-        "# Vygenerováno při Kickoffu — doplň konkrétní kroky; Builder se jimi řídí.",
+        "# Kostra — builder doplní konkrétní scénáře své varianty.",
         f"Požadavek: {hook}",
         "",
     ]
@@ -337,6 +349,39 @@ def _split_shorthand_owners(raw: dict[str, str] | None) -> tuple[Any, dict[str, 
     return clean, signers
 
 
+_CONSTITUTION_NO_DATA_RE = re.compile(
+    r"(?i)(nesm[ií]\s+sb[ií]rat|nesb[ií]r|bez\s+osobn|žádn[ée]\s+osobn|zadn[ée]\s+osobn"
+    r"|žádn[ée]\s+formul[aá]ř|zadn[ée]\s+formul[aá]r|\bL1\b(?!\s*[–-]\s*L4)|no\s+personal)")
+_BRIEF_PERSONAL_RE = re.compile(
+    r"(?i)(telefon|jm[eé]n[oa]|e-?mail|objedn[aá]v|rezervac|rezervov|formul[aá]ř|formular"
+    r"|kontakt|adres[ay])")
+
+
+def constitution_conflicts(hook: str, metric: str | None = None,
+                           criteria: str | None = None,
+                           cwd: Path | None = None) -> list[str]:
+    """⚠ když CONSTITUTION zakazuje sběr osobních údajů / formulářů a zadání je chce."""
+    path = (cwd or Path.cwd()) / ".pflanzer" / "CONSTITUTION.md"
+    if not path.is_file():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    rules = [ln.strip() for ln in text.splitlines()
+             if _CONSTITUTION_NO_DATA_RE.search(ln) and not ln.lstrip().startswith("#")
+             and "<doplň>" not in ln]
+    brief = " ".join(x for x in (hook, metric, criteria) if x)
+    wanted = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)})
+    if not rules or not wanted:
+        return []
+    return [
+        "CONSTITUTION (.pflanzer/CONSTITUTION.md) zřejmě odporuje zadání: pravidlo „"
+        + rules[0][:90] + "“, ale zadání zmiňuje " + ", ".join(wanted[:4]) + ". "
+        "Builderi se řídí zadáním z Kickoffu, ale upravte CONSTITUTION (výjimka pro tuto funkci, "
+        "třída dat) a commitněte ji před Buildem, ať se s ní nehádají."]
+
+
 def bootstrap(
     *, hook: str, decider_name: str, risk_profile: str,
     room_role_idx: list[int] | None = None, slug: str | None = None,
@@ -356,6 +401,7 @@ def bootstrap(
     tier: str | None = None,
     leading_metric: str | None = None,
     guardrail_metric: str | None = None,
+    title: str | None = None,
 ) -> dict[str, Any]:
     """Založí projekt: Charter + role + jména kroků cesty + odložený triage.
 
@@ -379,6 +425,8 @@ def bootstrap(
             (bezpecnost | provoz | design | produkt). Zkráceně přímo v path_owners:
             `"AI:security-expert / Pavel Šnek"` (oddělovač ` / ` nebo `|`).
         core: jména jádra (3–4 lidé; > 5 unikátních = warning).
+        title: krátký název projektu (≤ 50 znaků) pro status, reporty a PR title;
+            bez něj se odvodí z hooku (první věta/klauzule).
         leading_metric / guardrail_metric: nepovinné; když chybí, uloží se None
             (do PR/SHIP se nic nedosazuje).
         target_repos: volitelně více repozitářů (audit N8) — list
@@ -449,8 +497,15 @@ def bootstrap(
         warnings.append(signer_guidance("bezpecnost", owners_by_step, risk_profile))
     warnings += people_check(core, owners_by_step)
 
+    warnings += constitution_conflicts(hook, metric, acceptance_criteria_md)
+
     # 1. Charter
-    name = short_name(hook)
+    if title is not None and not title.strip():
+        title = None
+    if title and len(title.strip()) > TITLE_MAX:
+        raise ValueError(f"title je moc dlouhý ({len(title.strip())} znaků, max {TITLE_MAX}). "
+                         "Krátký název projektu, např. „Online objednávka“.")
+    name = title.strip() if title else short_title(hook)
     xyz = (
         f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na třech funkčních "
         f"variantách, mezi kterými se rozhodne nad běžícím kódem. {profile['label']}."
@@ -697,7 +752,7 @@ BUILDER_LANDINGS = {
 VARIANT_ANGLES = [
     ("A", "happy-path minimum", "Postav nejjednodušší možný flow — 1 obrazovka, 1 CTA, žádné optional pole"),
     ("B", "guided multi-step", "Postav guided flow s progress barem, 2-3 kroky, validace per krok"),
-    ("C", "smart defaults", "Postav variantu, která hádá inputy z kontextu (recent activity / role) a uživatel jen potvrdí"),
+    ("C", "smart defaults", "Postav variantu s chytrými výchozími hodnotami z kontextu, který aplikace opravdu má (předvyplnění, nejčastější volba) — uživatel jen potvrdí"),
 ]
 
 # Mob mode (per ADR-0016): sequential iterations, ne paralelní angles.
@@ -818,7 +873,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     if proj:
         if proj[0] == "L3":
             constraints.append("⚠ NESMÍŠ použít reálná data — jen synthetic / pseudonymized")
-        if proj[1] in ("limited", "high"):
+        if proj[1] in ("limited", "high") and re.search(
+                r"(?i)\b(ai|llm|chat\w*|gener\w+|asistent\w*|umělá|umela)\b", hook):
             constraints.append("⚠ Pokud používáš AI v UI (chat / generation), přidej watermark + human-in-the-loop")
         if proj[2] == "throwaway":
             constraints.append("Throw-away prototyp — nepřemýšlej o testech / produkčním kódu")
@@ -1040,7 +1096,11 @@ PAK kóduj:
 {n + 3}. Na první obrazovku (a do README varianty) dej viditelný štítek:
    „{label}“ + problem statement: „{hook}“. (Bez obrazovky: totéž do README a výpisu příkazu.)
 {n + 4}. Commit v Conventional Commits: `feat({slug}): {'mob ' if mob else 'variant '}{variant} — <jednou větou co se mění>`
-   Trailery Pflanzer-* doplní git hook; NIKDY nepřidávej `Co-Authored-By` za AI."""
+   Trailery Pflanzer-* doplní git hook; NIKDY nepřidávej `Co-Authored-By` za AI.
+{n + 5}. Nová funkce musí být dosažitelná odkazem z `/` a zapnutá v preview
+   (preview běží s `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; flag nesmí být default OFF).
+{n + 6}. Při rozporu má přednost zadání z Kickoffu (Charter, .feature) před
+   CONSTITUTION / INTEGRATION_GUIDE; rozpor napiš do commit message a nezastavuj se."""
 
 
 BE_CONTRACT_FIRST = (
@@ -1080,7 +1140,7 @@ def _output_block(slug: str, branch: str, stack: StackProfile, has_feature: bool
     """Output sekce promptu — jen příkazy, které dávají smysl pro stack target repa."""
     lines = [f"- Branch: {branch} (v target repu{', sdílený, sekvenční commity' if mob else ''})",
              f"- Náhled / spuštění: {stack.run_text}"
-             + (" (na velký TV pro tým)" if mob else " v target worktree (sdílíme přes port-forward na TV)"),
+             + (" (na velký TV pro tým)" if mob else " v target worktree"),
              "- České texty pro uživatele, EN identifikátory v kódu, komentáře EN"]
     if has_feature or mob:
         lines.append("- Acceptance scénáře z .feature souboru (pokud existuje) pass rate ≥ 80 %")
@@ -1269,7 +1329,7 @@ Constraints:
 {constraint_lines}
 
 Output:
-- Funkční preview URL (sdílíme na velkém TV)
+- Funkční preview URL (sdílíme s týmem)
 - 1 obrazovka stačí
 - České texty v UI, EN identifikátory v kódu
 - Po dokončení: **Push to GitHub** → vlož repo URL do Ship (production hardening)"""
@@ -1394,9 +1454,13 @@ def record_voting(
             "role_preferences": v["role_preferences"],
         })
 
-    for name in missing_urls:
-        warnings.append(f"varianta {name} nemá preview URL — zástupci v Asyncu ji neuvidí "
-                        f"(spusťte `pflanzer preview up --slug {slug}`: odkazy + heslo)")
+    if len(missing_urls) == 1:
+        warnings.append(f"varianta {missing_urls[0]} nemá preview URL — zástupci v Asyncu ji "
+                        f"neuvidí (spusťte `pflanzer preview up --slug {slug}`: odkazy + heslo)")
+    elif missing_urls:
+        warnings.append(f"varianty {', '.join(missing_urls)} zatím nemají preview URL — "
+                        f"zástupci v Asyncu je neuvidí (spusťte `pflanzer preview up --slug "
+                        f"{slug}`: odkazy + heslo)")
     spec = {
         "slug": slug,
         "facilitator": facilitator,
@@ -1605,7 +1669,7 @@ EOF"""
 
 BOOTSTRAP_EPILOG = """Pole specu (JSON):
   povinné:   hook, decider_name, risk_profile (throwaway | pilot | production)
-  nepovinné: slug, metric, kill_criteria, tier (quick | lean | full), core [jména],
+  nepovinné: slug, title (krátký název ≤ 50 znaků), metric, kill_criteria, tier (quick | lean | full), core [jména],
              path_owners {byznys, produkt, design, vyvoj, bezpecnost, provoz}
              (hodnota = jméno, nebo AI / AI:agent; ne u byznys a vývoj),
              ai_signers {bezpecnost|provoz|design|produkt: "jméno člověka, který AI draft

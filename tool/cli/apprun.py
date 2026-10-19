@@ -42,6 +42,9 @@ class RunSpec:
         return isinstance(self.argv, str)
 
 
+PREVIEW_ENV = {"PFLANZER_PREVIEW": "1", "FEATURE_FLAGS": "all"}
+
+
 def read_preview_config(wt: Path) -> dict[str, Any]:
     """Sekce `[preview]` z `.pflanzer/project.toml` (prázdná, když chybí / nejde přečíst)."""
     path = Path(wt) / ".pflanzer" / "project.toml"
@@ -164,7 +167,9 @@ def free_port() -> int:
 def start_app(spec: RunSpec, log_path: Path) -> subprocess.Popen:
     """Spustí aplikaci na pozadí (vlastní process group, výstup do logu)."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, **spec.env}
+    # Vlajky jsou v preview / Buildu vždy zapnuté (viz INTEGRATION_GUIDE), jinak varianta
+    # ukáže stránku bez nové funkce. spec.env (např. PORT) má přednost.
+    env = {**os.environ, **PREVIEW_ENV, **spec.env}
     with open(log_path, "ab") as log:
         return subprocess.Popen(
             spec.argv, shell=spec.shell, cwd=str(spec.cwd), env=env,

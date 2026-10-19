@@ -396,7 +396,7 @@ def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
     if rc == 0:
         return GateResult(gate, "pass", f"{label}: `{shown}` OK", duration_s=duration)
     return GateResult(gate, "fail",
-                      f"{label}: `{shown}` exit {rc}\n{(out + err)[-500:]}",
+                      f"{label}: `{shown}` exit {rc}\n{_tail(out + err, 500)}",
                       duration_s=duration)
 
 def _python_cmd(path: Path | None = None) -> str:
@@ -453,7 +453,7 @@ def _python_build(ctx: Ctx) -> GateResult:
         dur = round(time.monotonic() - started, 2)
         if rc == 0:
             return GateResult("build", "pass", "`make build` OK", duration_s=dur)
-        return GateResult("build", "fail", f"`make build` exit {rc}\n{(out + err)[-500:]}",
+        return GateResult("build", "fail", f"`make build` exit {rc}\n{_tail(out + err, 500)}",
                           duration_s=dur)
     py = _python_cmd(ctx.path)
     if not _has(py):
@@ -464,7 +464,7 @@ def _python_build(ctx: Ctx) -> GateResult:
         return GateResult("build", "pass",
                           "Python bez Makefile cíle build: `compileall` (syntaxe) OK",
                           duration_s=dur)
-    return GateResult("build", "fail", f"`compileall` exit {rc}\n{(out + err)[-500:]}",
+    return GateResult("build", "fail", f"`compileall` exit {rc}\n{_tail(out + err, 500)}",
                       duration_s=dur)
 
 
@@ -488,7 +488,7 @@ def gate_build(ctx: Ctx) -> GateResult:
                     size_kb = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file()) // 1024
                     break
             return GateResult("build", "pass", f"Build OK, výstup {size_kb} KB", metric=size_kb)
-        return GateResult("build", "fail", (out + err)[-500:])
+        return GateResult("build", "fail", _tail(out + err, 500))
     if st.python:
         return _python_build(ctx)
     return _skip("build", "neznámý stack (bez package.json / pyproject.toml)")
@@ -512,7 +512,7 @@ def gate_types(ctx: Ctx) -> GateResult:
         if rc == 0:
             return GateResult("types", "pass", "tsc --noEmit bez chyb", metric=0)
         errors = out.count("error TS")
-        return GateResult("types", "fail", f"{errors} TS chyb\n{out[-500:]}", metric=errors)
+        return GateResult("types", "fail", f"{errors} TS chyb\n{_tail(out, 500)}", metric=errors)
     if st.python:
         configured = (ctx.path / "mypy.ini").exists() or any(
             "mypy" in (ctx.path / f).read_text(encoding="utf-8", errors="ignore")
@@ -522,7 +522,7 @@ def gate_types(ctx: Ctx) -> GateResult:
         if not _has("mypy"):
             return _unverified("types", "chybí mypy", "mypy je nakonfigurované, ale není na PATH")
         rc, out, _ = _run(["mypy", "."], ctx.path)
-        return GateResult("types", "pass" if rc == 0 else "fail", out[-500:] or "OK")
+        return GateResult("types", "pass" if rc == 0 else "fail", _tail(out, 500) or "OK")
     return _skip("types", "neznámý stack")
 
 
@@ -540,7 +540,7 @@ def gate_lint(ctx: Ctx) -> GateResult:
             return GateResult("lint", "pass", "lint bez nálezů", metric=0)
         problems = len(re.findall(r"^\s+\d+:\d+", out, re.MULTILINE))
         return GateResult("lint", "fail",
-                          f"lint hlásí chybu ({problems} nálezů)\n{(out + err)[-500:]}",
+                          f"lint hlásí chybu ({problems} nálezů)\n{_tail(out + err, 500)}",
                           metric=problems)
     if st.python:
         started = time.monotonic()
@@ -549,7 +549,7 @@ def gate_lint(ctx: Ctx) -> GateResult:
             dur = round(time.monotonic() - started, 2)
             if rc == 0:
                 return GateResult("lint", "pass", "`make lint` OK", duration_s=dur)
-            return GateResult("lint", "fail", f"`make lint` exit {rc}\n{(out + err)[-500:]}",
+            return GateResult("lint", "fail", f"`make lint` exit {rc}\n{_tail(out + err, 500)}",
                               duration_s=dur)
         py = _python_cmd(ctx.path)
         if Path(py).is_absolute() and _has(py):  # venv projektu / PFLANZER_PYTHON: jeho ruff
@@ -565,7 +565,7 @@ def gate_lint(ctx: Ctx) -> GateResult:
         if rc != 0 and _NO_MODULE_RE.search(text):
             return _skip("lint", "ruff není nainstalovaný (`pip install ruff` do .venv projektu); "
                                  "nástroj chybí, kód se nehodnotil")
-        return GateResult("lint", "pass" if rc == 0 else "fail", text[-500:] or "OK")
+        return GateResult("lint", "pass" if rc == 0 else "fail", _tail(text, 500) or "OK")
     return _skip("lint", "neznámý stack")
 
 
@@ -725,7 +725,7 @@ def summarize_test_failures(output: str, root: Path | None = None) -> str:
             output = output.replace(r + os.sep, "")
     found = parse_test_failures(output)
     if not found:
-        return output[-500:]
+        return _tail(output, 500)
     rows = [f"✗ {name}" + (f" — {detail}" if detail else "") for name, detail in found[:6]]
     if len(found) > 6:
         rows.append(f"…a dalších {len(found) - 6} testů")
@@ -922,10 +922,14 @@ def gate_coverage(ctx: Ctx) -> GateResult:
     if not has_tool:
         if st.python and not st.node:
             return _unverified("coverage", "chybí příkaz pro coverage",
-                               "coverage se pro Python nespouští automaticky "
-                               "(definuj příkaz v pflanzer.gates.json)")
+                               "coverage se pro Python nespouští automaticky — doporučeno "
+                               "`pytest --cov` (pytest-cov); příkaz definuj v pflanzer.gates.json")
+        if st.node and "vitest" in st.deps:
+            return _unverified("coverage", "chybí coverage nástroj",
+                               "k vitestu chybí `@vitest/coverage-v8`")
         return _unverified("coverage", "chybí coverage nástroj",
-                           "není nakonfigurovaný coverage nástroj (vitest + coverage-v8)")
+                           "doporučeno `node --test --experimental-test-coverage` nebo `c8` "
+                           "(příkaz definuj v pflanzer.gates.json)")
     if (s := _needs_deps(ctx, "coverage")):
         return s
     rc, out, err = _run(["npx", "--no-install", "vitest", "run", "--coverage", "--reporter=verbose"],
@@ -942,6 +946,20 @@ def gate_coverage(ctx: Ctx) -> GateResult:
                           f"Branch coverage {branch_pct:.1f} % < cíl {COVERAGE_TARGET} %", metric=branch_pct)
     return GateResult("coverage", "fail",
                       f"Branch coverage {branch_pct:.1f} % je kriticky nízká (< 30 %)", metric=branch_pct)
+
+
+def _tail(text: str, n: int) -> str:
+    """Posledních ~n znaků výstupu, začíná na celém řádku (ne uprostřed slova)."""
+    text = text.strip()
+    if len(text) <= n:
+        return text
+    cut = text[-n:]
+    nl = cut.find("\n")
+    return cut[nl + 1:].strip() if 0 <= nl < len(cut) - 1 else cut.lstrip()
+
+
+def _tests_fail_phrase(n: int) -> str:
+    return f"{n} test padá" if n == 1 else f"{n} testy padají" if 2 <= n <= 4 else f"{n} testů padá"
 
 
 def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
@@ -975,10 +993,15 @@ def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
     label = f"{passed}/{total} akceptačních testů ({rate} %, {len(files)} soubor/ů)"
     if rate >= 80 and rc == 0:
         return GateResult("acceptance", "pass", label, metric=rate)
+    if rate >= 80:  # poměr stačí, ale běh skončil chybou: nelhat o „< cíl 80 %“
+        n_bad = failed if failed else 1
+        return GateResult("acceptance", "warn",
+                          f"{label} — {_tests_fail_phrase(n_bad)}\n" + _tail(out + err, 400),
+                          metric=rate)
     if rate >= 50:
         return GateResult("acceptance", "warn", f"{label} < cíl 80 %", metric=rate)
     return GateResult("acceptance", "fail", f"{label} — varianta neplní zadání\n"
-                      + (out + err)[-400:], metric=rate)
+                      + _tail(out + err, 400), metric=rate)
 
 
 def gate_acceptance(ctx: Ctx) -> GateResult:
@@ -1029,7 +1052,7 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
     except (json.JSONDecodeError, ValueError, KeyError) as e:
         if rc == 0:
             return GateResult("acceptance", "warn", f"Playwright prošel, ale výstup nešel přečíst: {e}")
-        return GateResult("acceptance", "fail", (out + err)[-500:])
+        return GateResult("acceptance", "fail", _tail(out + err, 500))
 
 
 def gate_observability(ctx: Ctx) -> GateResult:
@@ -1272,7 +1295,7 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
     started = time.monotonic()
     rc, out, err = _run(cmd, cwd, timeout=timeout)
     duration = round(time.monotonic() - started, 2)
-    tail = (out + err)[-500:]
+    tail = _tail(out + err, 500)
     shown = f"`{cmd}`"
     if rc == 127:  # shell: command not found -> same rule as a missing binary
         return GateResult(gate, "unsupported", f"{shown}: příkaz nenalezen\n{tail}",

@@ -475,6 +475,10 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                 failures.append(_fail_text(name, v, why))
         if failures:
             raise RuntimeError("\n\n".join(failures))
+        for name, path, _spec, app_port in plan:
+            w = check_reachable(name, path, app_port)
+            if w:
+                warnings.append(w)
         if use_tunnel:
             for name, *_ in plan:
                 v = state["variants"][name]
@@ -524,6 +528,83 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                                                    "proxy_port", "command", "source", "log")}
                          for n, v in state["variants"].items()},
             "prototype_url_stored": stored}
+
+
+_ROUTE_RES = (
+    re.compile(r"""\b(?:app|router|server|api)\.(?:get|post|put|all|use)\(\s*['"`](/[^'"`:*?]*)['"`]"""),
+    re.compile(r"""@\w+\.(?:get|post|route|api_route)\(\s*['"](/[^'"{<:]*)['"]"""),
+    re.compile(r"""\bpath\(\s*r?['"]([\w\-/]+)['"]"""),
+)
+_SKIP_PARTS = ("test", "spec", "docs/", "node_modules", ".pflanzer", "fixtures", "__tests__")
+
+
+def _added_routes(wt: Path) -> list[str]:
+    """Statické cesty, které varianta přidala proti mainu (z diffu: route definice + nové soubory)."""
+    base = None
+    for ref in ("origin/main", "origin/master", "main", "master"):
+        rc = subprocess.run(["git", "rev-parse", "--verify", "-q", ref], cwd=wt,
+                            capture_output=True, text=True)
+        if rc.returncode == 0:
+            base = ref
+            break
+    if not base:
+        return []
+    diff = subprocess.run(["git", "diff", "--unified=0", f"{base}...HEAD"], cwd=wt,
+                          capture_output=True, text=True, timeout=30).stdout
+    routes: list[str] = []
+    for ln in diff.splitlines():
+        if not ln.startswith("+") or ln.startswith("+++"):
+            continue
+        for rx in _ROUTE_RES:
+            for m in rx.finditer(ln):
+                r = m.group(1)
+                if not r.startswith("/"):
+                    r = "/" + r
+                r = r.rstrip("/") or "/"
+                if r != "/" and r not in routes:
+                    routes.append(r)
+    names = subprocess.run(["git", "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD"],
+                           cwd=wt, capture_output=True, text=True, timeout=30).stdout.split()
+    for n in names:
+        low = n.lower()
+        if any(p in low for p in _SKIP_PARTS) or not low.endswith(
+                (".html", ".ejs", ".pug", ".hbs", ".njk", ".jinja", ".jinja2", ".tsx", ".jsx",
+                 ".vue", ".svelte")):
+            continue
+        stem = Path(n).stem.lower()
+        if stem not in ("index", "layout", "base", "app", "main", "_app", "page"):
+            r = "/" + stem
+            if r not in routes and not any(x.strip("/").endswith(stem) for x in routes):
+                routes.append(r)
+    return routes
+
+
+def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
+    """⚠ text, když varianta přidala novou cestu, ale na `/` na ni nevede žádný odkaz.
+
+    Heuristika: nové cesty z diffu proti mainu vs. href / action na `/` běžící varianty.
+    Nic nenajde-li / nejde-li to zjistit, mlčí (None).
+    """
+    try:
+        routes = _added_routes(wt)
+        if not routes:
+            return None
+        st, body, _ct = apprun.http_fetch(f"http://127.0.0.1:{app_port}/", timeout=5.0)
+        if st is None or st >= 400 or not body:
+            return None
+        hrefs = [h.split("#")[0].split("?")[0].rstrip("/") or "/"
+                 for h in re.findall(r"""(?:href|action)\s*=\s*['"]([^'"]+)['"]""", body, re.I)]
+        hrefs = [re.sub(r"^https?://[^/]+", "", h) for h in hrefs]
+        linked = [r for r in routes
+                  if any(h == r or h.endswith(r) or h == r.lstrip("/") for h in hrefs)]
+        if linked:
+            return None
+        shown = ", ".join(routes[:3])
+        return (f"varianta {name} na / nenabízí nic nového — je funkce za vypnutým přepínačem? "
+                f"(přidala cestu {shown}, ale z / na ni nevede odkaz; builder má odkaz přidat "
+                "a flag musí být v preview zapnutý).")
+    except Exception:  # noqa: BLE001 — advisory only, nikdy neshodí preview
+        return None
 
 
 def hub_running() -> bool:
