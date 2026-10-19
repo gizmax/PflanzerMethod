@@ -13,6 +13,11 @@ pushnutí kódu mimo firmu.
 
 Příkaz aplikace: `.pflanzer/project.toml` `[preview] command = "… {port}"`, jinak
 autodetekce (viz `tool/cli/apprun.py`). Port aplikace = base-port + i*10, proxy = +1.
+Multi-repo projekt (`target_repos` s rolemi): pro každou variantu se spustí všechna repa;
+sekundární běží na portu app+1000+idx (idx = pořadí repa, primární = 0) a primární dostane
+env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (např. `API_URL=http://127.0.0.1:9601`). Příkaz
+sekundárního repa: `[preview.<role>] command = "… {port} …"`, jinak autodetekce. Proxy je jen
+před primárním; `down` ukončí vše.
 Stav (PID, porty, heslo) je v `<datová složka>/preview/<slug>.json`, logy vedle.
 
 Jen stdlib. Procesy běží na pozadí (vlastní process group) i po skončení příkazu.
@@ -303,6 +308,9 @@ def _pids(v: dict[str, Any]) -> dict[str, tuple[int, str]]:
         pid = v.get(f"{key}_pid")
         if pid:
             out[key] = (int(pid), v.get(f"{key}_started", ""))
+    for role, e in (v.get("extra") or {}).items():  # sekundární repa (multi-repo)
+        if e.get("app_pid"):
+            out[role] = (int(e["app_pid"]), e.get("app_started", ""))
     return out
 
 
@@ -383,9 +391,36 @@ def _primary_dirs(slug: str) -> dict[str, Path]:
     return out
 
 
+def role_env_name(role: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "_", role.upper()).strip("_") or "REPO"
+
+
+def _secondary_dirs(slug: str) -> dict[str, dict[str, Path]]:
+    """Sekundární repa multi-repo projektu: role -> {varianta: worktree}. Jedno repo = {}."""
+    try:
+        from tool.cli import worktree as wt
+        repos = wt.load_target_repos(slug)
+    except Exception:  # noqa: BLE001 — bez DB / projektu zůstane jen primární repo
+        return {}
+    out: dict[str, dict[str, Path]] = {}
+    for repo in repos[1:]:
+        per: dict[str, Path] = {}
+        for variant in wt.PARALLEL_VARIANTS + wt.MOB_VARIANTS:
+            path = wt.worktree_dir(slug, variant, repo, False)
+            if path.is_dir():
+                if repo.workspace and (path / repo.workspace).is_dir():
+                    path = path / repo.workspace
+                per[variant] = path
+        if per:
+            out[repo.role] = per
+    return out
+
+
 def _stop_variant(v: dict[str, Any]) -> None:
-    for key in ("tunnel", "proxy", "app"):
-        pid_started = _pids(v).get(key)
+    pids = _pids(v)
+    order = ["tunnel", "proxy", "app"] + [k for k in pids if k not in ("tunnel", "proxy", "app")]
+    for key in order:
+        pid_started = pids.get(key)
         if pid_started and _alive(*pid_started):
             apprun.kill_group(pid_started[0])
 
@@ -422,7 +457,12 @@ def status(slug: str, *, probe: bool = True) -> dict[str, Any]:
         if probe and alive.get("proxy") and alive.get("app", True):
             http_status = apprun.http_get(f"http://127.0.0.1:{v['proxy_port']}/",
                                           auth=(USER, state["password"]), timeout=3)
-        out[name] = {"url": v["url"], "local_url": v["local_url"],
+        repos = {"primary": {"alive": alive.get("app"), "port": v["app_port"]}} \
+            if v.get("extra") else {}
+        for role, e in (v.get("extra") or {}).items():
+            repos[role] = {"alive": alive.get(role), "port": e["app_port"],
+                           "url": e.get("url"), "command": e.get("command")}
+        out[name] = {"url": v["url"], "local_url": v["local_url"], "repos": repos,
                      "tunnel_url": v.get("tunnel_url"), "alive": alive,
                      "ok": bool(alive) and all(alive.values()) and http_status is not None
                      and http_status < 500,
@@ -466,6 +506,8 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                          "`brew install cloudflared`), nebo použijte --tunnel none.")
     use_tunnel = tunnel == "cloudflared" or (tunnel == "auto" and have_cf)
 
+    secondary = _secondary_dirs(slug)
+    skipped_repos: list[str] = []
     plan = []
     for i, (name, path) in enumerate(dirs.items()):
         app_port = base_port + i * 10
@@ -481,7 +523,22 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                     port == app_port + 1 and not apprun.port_free(port, host)):
                 raise ValueError(f"Port {port} je obsazený. Zvolte jiný základ: "
                                  f"`--base-port {base_port + 100}`.")
-        plan.append((name, path, spec, app_port))
+        extras: list[tuple[str, Path, apprun.RunSpec, int]] = []
+        for idx, (role, per) in enumerate(secondary.items(), start=1):
+            if name not in per:
+                continue
+            port = app_port + 1000 + idx
+            sspec = apprun.detect_run(per[name], port, role=role, config_wt=path)
+            if sspec is None:
+                skipped_repos.append(
+                    f"Repo {role} (varianta {name}) se nespouští — nevím jak. Doplňte do "
+                    f".pflanzer/project.toml:\n  [preview.{role}]\n  command = \"…{{port}}…\"")
+                continue
+            if not apprun.port_free(port, "127.0.0.1"):
+                raise ValueError(f"Port {port} (repo {role}) je obsazený. Zvolte jiný základ: "
+                                 f"`--base-port {base_port + 100}`.")
+            extras.append((role, per[name], sspec, port))
+        plan.append((name, path, spec, app_port, extras))
 
     password = password or _gen_password()
     d = preview_dir()
@@ -498,7 +555,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
     failures: list[str] = []
     procs: dict[str, subprocess.Popen] = {}
     try:
-        for name, path, spec, app_port in plan:
+        for name, path, spec, app_port, extras in plan:
             proxy_port = app_port + 1
             log = d / f"{slug}-{name}.log"
             log.write_bytes(b"")
@@ -508,6 +565,29 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                 "local_url": f"http://{ip}:{proxy_port}/",
             }
             state["variants"][name] = v
+            # Sekundární repa jedou první; primární dostane jejich URL v env.
+            urls = {role: f"http://127.0.0.1:{port}" for role, _w, _s, port in extras}
+
+            def _links(roles: Any) -> dict[str, str]:
+                out: dict[str, str] = {}
+                for r in roles:
+                    out[f"{role_env_name(r)}_URL"] = urls[r]
+                    out[f"PFLANZER_{role_env_name(r)}_URL"] = urls[r]
+                return out
+
+            link_env = _links(urls)
+            for role, swt, sspec, port in extras:
+                elog = d / f"{slug}-{name}-{role}.log"
+                elog.write_bytes(b"")
+                sspec.env = {**_links(r for r in urls if r != role), **sspec.env}
+                eproc = apprun.start_app(sspec, elog)
+                procs[f"{name}:{role}"] = eproc
+                v.setdefault("extra", {})[role] = {
+                    "worktree": str(swt), "command": sspec.command, "source": sspec.source,
+                    "app_port": port, "url": urls[role], "log": str(elog),
+                    "app_pid": eproc.pid, "app_started": apprun.proc_started(eproc.pid)}
+            spec.env = {**link_env, **spec.env}
+            save_state(slug, state)
             app = apprun.start_app(spec, log)
             procs[name] = app
             v["app_pid"], v["app_started"] = app.pid, apprun.proc_started(app.pid)
@@ -522,8 +602,15 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                     start_new_session=True)
             v["proxy_pid"], v["proxy_started"] = proxy.pid, apprun.proc_started(proxy.pid)
             save_state(slug, state)
-        for name, _path, _spec, _port in plan:
+        for name, _path, _spec, _port, _extras in plan:
             v = state["variants"][name]
+            for role, e in (v.get("extra") or {}).items():
+                eok, est = apprun.wait_http(f"http://127.0.0.1:{e['app_port']}/", timeout=timeout,
+                                            proc=procs[f"{name}:{role}"], ok=lambda s: True)
+                if not eok:
+                    why = ("aplikace skončila" if not _alive(e["app_pid"], e["app_started"])
+                           else f"do {int(timeout)} s neodpověděla")
+                    failures.append(_fail_text(f"{name} (repo {role})", e, why))
             ok, st = apprun.wait_http(f"http://127.0.0.1:{v['proxy_port']}/", timeout=timeout,
                                       proc=procs[name], auth=(USER, password))
             if not ok:
@@ -534,7 +621,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                 failures.append(_fail_text(name, v, why))
         if failures:
             raise RuntimeError("\n\n".join(failures))
-        for name, path, _spec, app_port in plan:
+        for name, path, _spec, app_port, _extras in plan:
             w = check_reachable(name, path, app_port)
             if w:
                 warnings.append(w)
@@ -575,6 +662,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                         + ", ".join(n for n, ok in stored.items() if not ok)
                         + " (Build ještě není zapsaný) — předejte je v `real_urls` při zápisu "
                           "Buildu.")
+    warnings.extend(skipped_repos)
     if host == "0.0.0.0":
         warnings.append("Preview je dostupné v celé síti přes HTTP bez šifrování; chrání ho jen "
                         "heslo. Pro vzdálené zástupce použijte tunel.")
@@ -588,6 +676,9 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             "tunnel": state["tunnel"], "deadline": deadline, "warnings": warnings, "notes": notes,
             "variants": {n: {k: v.get(k) for k in ("url", "local_url", "tunnel_url", "app_port",
                                                    "proxy_port", "command", "source", "log")}
+                            | {"repos": {r: {"port": e["app_port"], "url": e["url"],
+                                             "command": e["command"]}
+                                         for r, e in (v.get("extra") or {}).items()}}
                          for n, v in state["variants"].items()},
             "prototype_url_stored": stored}
 
@@ -700,8 +791,22 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
         return None
 
 
+HUB_HEALTH_URL = "http://localhost:8000/api/health"
+FEEDBACK_FALLBACK = ("Feedback: `pflanzer feedback add` nebo spusťte `pflanzer hub` "
+                     "a zapište ho tam.")
+
+
 def hub_running() -> bool:
-    return apprun.http_get(HUB_URL, timeout=0.5) is not None
+    """Běží na :8000 opravdu Pflanzer hub? (/api/health = {"status": "ok"} a /method/ odpovídá)"""
+    st, body, _ct = apprun.http_fetch(HUB_HEALTH_URL, timeout=1.0, max_bytes=2000)
+    if st != 200:
+        return False
+    try:
+        if json.loads(body).get("status") != "ok":
+            return False
+    except (ValueError, AttributeError):
+        return False
+    return apprun.http_get(HUB_URL, timeout=1.0) in (200, 401)
 
 
 def share_message(res: dict[str, Any], hub: str | None) -> str:
@@ -716,12 +821,18 @@ def share_message(res: dict[str, Any], hub: str | None) -> str:
            f"Do kdy: {until}.")
     if hub:
         msg += f"\nZpětnou vazbu zapište sem: {hub}"
+    else:
+        msg += f"\n{FEEDBACK_FALLBACK}"
     return msg
 
 
 def _up_view(res: dict[str, Any]) -> tuple[list[str], str, str]:
     slug = res["slug"]
-    lines = [f"Varianta {n}: {v['url']}" for n, v in res["variants"].items()]
+    lines = []
+    for n, v in res["variants"].items():
+        lines.append(f"Varianta {n}: {v['url']}")
+        for role, r in (v.get("repos") or {}).items():
+            lines.append(f"  + repo {role}: {r['url']} (interně, bez hesla)")
     lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
     lines.extend(f"Info: {n}" for n in res.get("notes") or [])
     hub = HUB_URL if hub_running() else None
@@ -806,6 +917,9 @@ def _dispatch(args: argparse.Namespace) -> None:
             else:
                 state = f"neodpovídá (status {v['http_status']})"
             lines.append(f"Varianta {n}: {state} — {v['url']}")
+            for role, r in (v.get("repos") or {}).items():
+                lines.append(f"  repo {role}: {'běží' if r['alive'] else 'NEBĚŽÍ'} "
+                             f"(port {r['port']})")
         lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
         emit(res, title="Stav preview", lines=lines,
              next_step=(f"`pflanzer preview down --slug {slug}`" if res["running"]

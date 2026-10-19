@@ -108,6 +108,8 @@ def public_repo_ref(url: str | None) -> str:
     """URL repa do textu; lokální cesta (file/bare origin) se zkrátí na název složky."""
     if not url:
         return "(target_repo_url nezadán v Kickoffu)"
+    if url.startswith("file://"):
+        return Path(url[len("file://"):]).name
     return Path(url).name if url.startswith("/") else url
 
 
@@ -714,6 +716,39 @@ def find_worktree(slug: str, variant: str, target_repo_url: str | None = None) -
         if candidate.is_dir():
             return candidate
     return None
+
+
+def repo_blocks(slug: str, variant: str) -> list[dict[str, Any]]:
+    """Per-repo podklady vítěze (multi-repo): role, base, větev, SHA, cesta, rozsah diffu.
+
+    Primární repo je první (`<slug>-<X>`), další `<slug>-<X>-<role>`. Prázdný seznam =
+    projekt nemá víc než jeden target repo (volající drží původní jednorepo chování).
+    Chybějící worktree se vrací s `path=None`, volající rozhodne (Ship selže nahlas).
+    """
+    try:
+        from tool.cli.worktree import load_target_repos, variant_worktrees
+        repos = load_target_repos(slug)
+    except Exception:  # noqa: BLE001 — bez DB / projektu nic nehádáme
+        return []
+    if len(repos) < 2:
+        return []
+    out: list[dict[str, Any]] = []
+    for i, (repo, wt) in enumerate(variant_worktrees(slug, repos, variant)):
+        block: dict[str, Any] = {
+            "role": repo.role, "primary": i == 0, "backend": repo.is_backend,
+            "base": repo.branch, "url": repo.url, "ref": public_repo_ref(repo.url),
+            "path": wt if (wt / ".git").exists() else None, "expected_path": wt,
+            "branch": f"pflanzer/{slug}-{variant}", "head_sha": None,
+            "added": None, "removed": None, "files": None,
+        }
+        if block["path"] is not None:
+            gi = git_info(wt)
+            block["branch"] = gi["branch"] or block["branch"]
+            block["head_sha"] = gi["head_sha"]
+            d = diff_stats(wt, repo.branch)
+            block.update(added=d["added"], removed=d["removed"], files=d["files"])
+        out.append(block)
+    return out
 
 
 def _setup_hint(slug: str) -> str:

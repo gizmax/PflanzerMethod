@@ -65,6 +65,7 @@ from tool.cli.extract import (  # noqa: E402
     code_without_tests,
     find_worktree,
     public_repo_ref,
+    repo_blocks,
     table_has_col,
     tilde,
 )
@@ -72,10 +73,15 @@ from tool.cli.quality_gates import (  # noqa: E402
     GATE_TYPES,
     PRODUCTION_TARGET,
     UNVERIFIED_PREFIX,
+    a11y_reasons,
     acceptance_unverified,
+    aggregate_repos,
     aggregate_score,
     gates_summary_line,
+    load_repo_gates,
     parse_test_failures,
+    repo_key,
+    repos_summary_line,
     skip_reasons,
     unverified_gates,
 )
@@ -139,6 +145,10 @@ def failure_lines(details: str, limit: int = 3, root: Path | None = None) -> lis
         for r in {str(root), str(root.resolve())}:
             details = (details or "").replace(r + "/", "")
     found = parse_test_failures(details)
+    if not found and (details or "").lstrip().startswith("a11y:"):
+        reasons = a11y_reasons(details, limit=limit)
+        if reasons:
+            return reasons
     if not found:
         return [failure_line(details)]
     out = [trim_words(f"{name} — {detail}" if detail else name, 160) for name, detail in found[:limit]]
@@ -448,7 +458,10 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             ).fetchall()
         ]
 
+    repo_gates = load_repo_gates(slug, winner[0]) if winner else []
+    repos = repo_blocks(slug, winner[0]) if winner else []
     return {"project": proj, "winner": winner, "decided": decided, "extracted": ext,
+            "repo_gates": repo_gates, "repos": repos,
             "gates": gate_rows, "decision": decision, "triage": triage_gate,
             "threshold_override": threshold_override,
             "variant_names": variant_names, "dev_owners": dev_owners,
@@ -549,7 +562,10 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
     """Skóre vítěze (X/100), práh a blokace (triage, nedostatek bran)."""
     p, gates = ctx["project"], ctx["gates"]
     target = int(p[15]) if p[15] is not None else 80
-    if gates:
+    rg = ctx.get("repo_gates") or []
+    if gates and rg:
+        score = aggregate_repos(rg)["gate_score"]
+    elif gates:
         score = aggregate_score(
             [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gates]  # type: ignore[misc]
         )["gate_score"]
@@ -563,16 +579,27 @@ def _ship_state(ctx: dict[str, Any]) -> dict[str, Any]:
     except Exception:  # noqa: BLE001
         pass
     suff = gates_sufficiency({"results": [{"gate": g[0], "status": g[1]} for g in gates]})
+    if gates and rg:
+        agg = aggregate_repos(rg)
+        suff = dict(suff, sufficient=agg["sufficient"], blocker=agg["blocker"])
     if gates and target > 0 and not suff["sufficient"]:
         blocked_by.append(suff["blocker"])
-    unverified = unverified_gates([{"gate": g[0], "status": g[1], "details": g[3] or ""}
-                                   for g in gates])
+    if gates and rg:
+        unverified = [dict(u, reason=f"{e['role']}: {u['reason']}")
+                      for e in rg for u in unverified_gates(e["results"])]
+    else:
+        unverified = unverified_gates([{"gate": g[0], "status": g[1], "details": g[3] or ""}
+                                       for g in gates])
     unv_blocks = bool(gates and target >= PRODUCTION_TARGET and acceptance_unverified(unverified))
     if unv_blocks:
         blocked_by.append("gates:acceptance-neověřeno")
     # Výjimka z prahu (Decider, `session_3 --override-threshold`): jen pod prahem a bez jiné blokace.
     override = ctx.get("threshold_override")
-    hard = [g[0] for g in gates if g[1] == "fail" and g[0] in ("build", "tests", "smoke")]
+    if gates and rg:
+        hard = [repo_key(e["role"], r["gate"]) for e in rg for r in e["results"]
+                if r["status"] == "fail" and r["gate"] in ("build", "tests", "smoke")]
+    else:
+        hard = [g[0] for g in gates if g[1] == "fail" and g[0] in ("build", "tests", "smoke")]
     below = score < target or bool(hard)
     if not (gates and target > 0 and below and not blocked_by):
         override = None
@@ -620,8 +647,13 @@ def _winner_basis_md(basis: dict[str, Any]) -> str:
     return "—"
 
 
-def _gate_summary(gates: list) -> str:
-    """„78/100 z 5/9 bran; neběžely: types (důvod)“ ze zapsaných quality_gates."""
+def _gate_summary(gates: list, repo_gates: list[dict[str, Any]] | None = None) -> str:
+    """„78/100 z 5/9 bran; neběžely: types (důvod)“ ze zapsaných quality_gates.
+
+    Ve vícerepu „web: 89/100 · api: 100/100 (celkem 94/100)“.
+    """
+    if repo_gates:
+        return repos_summary_line(repo_gates, aggregate_repos(repo_gates)["gate_score"])
     rows = [{"gate": g[0], "status": g[1], "details": g[3] or ""} for g in gates]
     score = aggregate_score(
         [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gates]  # type: ignore[misc]
@@ -668,16 +700,61 @@ def _resolved_line(c: dict[str, Any]) -> str:
             + (f" — vyřešeno: {c['resolved_note']}" if c.get("resolved_note") else " — vyřešeno"))
 
 
-def build_pr(slug: str) -> dict[str, Any]:
-    """Sestaví titulek, tělo PR (bez absolutních cest) a metadata."""
+def _related_md(repos: list[dict[str, Any]], rg: list[dict[str, Any]], current: str,
+                related: dict[str, str] | None) -> list[str]:
+    """Sekce „Repa a související PR“: u každého jiného repa řádek „Související PR v <role> repu“."""
+    lines = ["## Repa a související PR", "",
+             "Změna zasahuje víc repozitářů a PR se mergují společně:"]
+    for b in repos:
+        e = next((x for x in rg if x["role"] == b["role"]), None)
+        score = f", brány {e['gate_score']}/100" if e else ""
+        head = f" @ `{b['head_sha'][:10]}`" if b.get("head_sha") else ""
+        where = f"větev `{b['branch']}`{head}, base `{b['base']}`{score}"
+        if b["role"] == current:
+            lines.append(f"- **{b['role']}** (tento PR): {where}")
+        else:
+            url = (related or {}).get(b["role"])
+            lines.append(f"- Související PR v {b['role']} repu: "
+                         f"{url or 'odkaz se doplní po otevření (viz SHIP.md)'} — {where}")
+    return lines + [""]
+
+
+def _repo_size(b: dict[str, Any]) -> str | None:
+    if b.get("added") is None:
+        return None
+    text = f"+{b['added']}" + (f" / -{b['removed']}" if b.get("removed") is not None else "")
+    return text + " řádků" + (f" v {b['files']} souborech" if b.get("files") is not None else "")
+
+
+def build_pr(slug: str, repo: str | None = None,
+             related: dict[str, str] | None = None) -> dict[str, Any]:
+    """Sestaví titulek, tělo PR (bez absolutních cest) a metadata.
+
+    Vícerepo: `repo` = role repa, pro které se skládá tělo (default primární); `related`
+    = {role: url PR} už otevřených PR v jiných repech (odkaz „související PR“).
+    """
     ctx = _fetch_ship_context(slug)
     p, w, e, gates = ctx["project"], ctx["winner"], ctx["extracted"], ctx["gates"]
+    rg: list[dict[str, Any]] = ctx.get("repo_gates") or []
+    repos: list[dict[str, Any]] = ctx.get("repos") or []
+    multi = len(repos) > 1
+    if repo and (not multi or repo not in [b["role"] for b in repos]):
+        raise ValueError(f"Repo „{repo}“ v projektu není"
+                         + (f" (jsou: {', '.join(b['role'] for b in repos)})." if multi
+                            else " (projekt má jeden target repo)."))
+    cur_role = repo or (repos[0]["role"] if multi else None)
     name, decider = p[1], p[5]
     state = _ship_state(ctx)
     metric_primary, metric_leading, metric_guardrail = real(p[17]), real(p[18]), real(p[19])
     gate_score, target = state["score"], state["target"]
     kill = real(p[10])
     badges, applicable, total = _render_gate_badges(gates)
+    if rg:
+        per = [(x["role"], *_render_gate_badges(
+            [(r["gate"], r["status"], r.get("metric"), r.get("details")) for r in x["results"]]))
+            for x in rg]
+        badges = "\n".join(f"- **{role}**: {line}" for role, line, _a, _t in per)
+        applicable, total = sum(a for _r, _l, a, _t in per), sum(t for _r, _l, _a, t in per)
     dec_user = ctx["decision"][1] if ctx["decision"] else None
     dec_ts = str(ctx["decision"][2])[:10] if ctx["decision"] else None
 
@@ -701,6 +778,10 @@ def build_pr(slug: str) -> dict[str, Any]:
         size_line = f"+{loc_added}" + (f" / -{loc_removed}" if loc_removed is not None else "") + " řádků"
         if diff_files is not None:
             size_line += f" v {diff_files} souborech"
+    if multi:  # statistika per repo; loc_added = součet přes repa
+        sized = [(b["role"], _repo_size(b), b["added"]) for b in repos if b.get("added") is not None]
+        size_line = "; ".join(f"{role}: {txt}" for role, txt, _a in sized)
+        loc_added = sum(a for _r, _t, a in sized) if sized else loc_added
 
     wt = _winner_worktree(slug, w[0], e) if (w and e) else None
     prov = check_provenance(
@@ -720,6 +801,12 @@ def build_pr(slug: str) -> dict[str, Any]:
         warnings.append(
             f"Nový kód bez testů: {notests['new_source_files']} nových zdrojových souborů, "
             "žádný nový ani změněný test.")
+    for b in repos[1:]:
+        nt = code_without_tests(b["path"], b["base"]) if b.get("path") else None
+        if nt and nt["missing_tests"]:
+            warnings.append(
+                f"Repo {b['role']}: nový kód bez testů ({nt['new_source_files']} nových "
+                "zdrojových souborů, žádný nový ani změněný test).")
     if loc_added is not None and loc_added > 20000:
         warnings.append(
             "⚠ Rozsah vypadá nesmyslně — nejsou v commitu node_modules/ nebo build výstup?")
@@ -729,6 +816,12 @@ def build_pr(slug: str) -> dict[str, Any]:
             + " — skóre o tom nic neříká.")
     failures = [(g[0], line) for g in gates if g[1] == "fail"
                 for line in failure_lines(g[3] or "", root=wt)]
+    if rg:
+        failures = [(repo_key(x["role"], r["gate"]), line)
+                    for x in rg for r in x["results"] if r["status"] == "fail"
+                    for line in failure_lines(
+                        r.get("details") or "",
+                        root=Path(x["path"]) if x.get("path") and Path(x["path"]).is_dir() else None)]
     crit_lines = _criticals_md(ctx, w[0] if w else None)
     model = MODEL_FAMILY.get(builder)
 
@@ -737,7 +830,10 @@ def build_pr(slug: str) -> dict[str, Any]:
     # Název PR = první celá část popisu (před ; — :), ať se neuseká uprostřed věty.
     desc_title = re.split(r"\s*[;—]\s*|\s+-\s+", desc_title)[0].strip()
     pr_title = f"feat({slug}): {trim_words(desc_title or name, 60)}"
-    summary = _gate_summary(gates) if gates else None
+    pr_title_base = pr_title
+    if cur_role:
+        pr_title += f" ({cur_role})"
+    summary = _gate_summary(gates, rg) if gates else None
     ai_line = ai_stand_in_line(slug)
     sign_line = signatures_line(slug)
     resolved_on_win = [c for c in ctx.get("resolved_critical", [])
@@ -754,6 +850,8 @@ def build_pr(slug: str) -> dict[str, Any]:
         body_lines.append(f"- Acceptance: {acceptance}")
     if size_line:
         body_lines.append(f"- Rozsah: {size_line}")
+    if multi:
+        body_lines += [""] + _related_md(repos, rg, cur_role or "", related)[:-1]
     body_lines += ["", f"## Automatické kontroly ({applicable} z {total} aplikovatelných)", badges, ""]
     if failures:
         body_lines += ["## Co selhalo"] + [f"- {g}: {line}" for g, line in failures] + [""]
@@ -793,7 +891,42 @@ def build_pr(slug: str) -> dict[str, Any]:
         at = body_lines.index("## Decider") if "## Decider" in body_lines else len(body_lines) - 3
         body_lines[at:at] = _render_threshold_override(
             state["threshold_override"], gate_score, target).splitlines() + [""]
+    if multi and repo and repo != repos[0]["role"]:
+        b = next(x for x in repos if x["role"] == repo)
+        x = next((y for y in rg if y["role"] == repo), None)
+        head = f" @ `{b['head_sha'][:10]}`" if b.get("head_sha") else ""
+        own_fail = [(g, ln) for g, ln in failures if g.startswith(f"{repo}:")]
+        sec = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary),
+               f"Tento PR obsahuje část v repu {repo}.", "",
+               "## Výstup Pflanzer Method",
+               f"- Varianta: `{w[0] if w else '—'}` ({builder}), větev `{b['branch']}`{head}, "
+               f"base `{b['base']}`",
+               f"- Brány repa {repo}: "
+               + (gates_summary_line(x["gate_score"], x["results"]) if x else "neběžely")
+               + f"; celkem {gate_score}/100 (práh {target}) - {state['verdict']}"]
+        if _repo_size(b):
+            sec.append(f"- Rozsah: {_repo_size(b)}")
+        if x:
+            sec += ["", f"## Automatické kontroly ({repo})",
+                    _render_gate_badges([(r["gate"], r["status"], r.get("metric"), r.get("details"))
+                                         for r in x["results"]])[0], ""]
+        else:
+            sec.append("")
+        if own_fail:
+            sec += ["## Co selhalo"] + [f"- {g}: {ln}" for g, ln in own_fail] + [""]
+        sec += _related_md(repos, rg, repo, related)
+        if decider_line:
+            sec += ["## Decider", decider_line, ""]
+        if kill:
+            sec += ["## Kill kritéria", kill, ""]
+        sec += ["---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*"]
+        if state["threshold_override"]:
+            sec[-2:-2] = _render_threshold_override(
+                state["threshold_override"], gate_score, target).splitlines() + [""]
+        body_lines = sec
     return {
+        "repos": repos, "repo_gates": rg, "size_line": size_line, "repo_role": cur_role,
+        "title_base": pr_title_base,
         "ctx": ctx, "state": state, "title": pr_title, "body": "\n".join(body_lines),
         "branch": branch, "head_sha": head_sha, "loc_added": loc_added,
         "gate_score": gate_score, "target": target, "badges": badges,
@@ -838,7 +971,14 @@ def _ship_parts(slug: str) -> dict[str, Any]:
     labels = ["pflanzer", f"pflanzer:{slug}"]
     if builder != "manual":
         labels.insert(1, "ai-generated")
+    repos = pr.get("repos") or []
+    other_prov: list[tuple[str, dict[str, Any]]] = []
+    for b in repos[1:]:
+        other_prov.append((b["role"], check_provenance(
+            slug=slug, variant=w[0], builder=builder, target_branch=b["base"],
+            worktree=b.get("path"))))
     parts["winner_block"] = {
+        "other_prov": other_prov,
         "builder": builder, "wt": wt, "prov": prov, "adapter_warnings": adapter_warnings,
         "feat_branch": feat_branch, "trailers": trailers, "labels": labels,
         "work_dir": tilde(wt) if wt else e[1],
@@ -855,9 +995,72 @@ def _winner_description(w: Any) -> str | None:
     return trim_words(" ".join(first.lstrip("# ").split()), 300)
 
 
+def _pr_command_multi_md(slug: str, parts: dict[str, Any]) -> str:
+    """Vícerepo: per repo blok (commit, push větve, PR do base toho repa), PR se vzájemně odkazují."""
+    wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
+    repos = pr["repos"]
+    label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
+    label_create = "\n".join(
+        f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
+        for lbl in wb["labels"])
+    draft_flag = " \\\n    --draft" if (state["blocked_by"] or state["threshold_override"]) else ""
+    commit_msg = "\n".join(wb["trailers"])
+    blocks: list[str] = []
+    prev: list[tuple[str, str]] = []  # (role, proměnná s URL už otevřeného PR)
+    for i, b in enumerate(repos, 1):
+        role = b["role"]
+        var = f"PR_{re.sub(r'[^A-Za-z0-9]', '_', role).upper()}"
+        wd = tilde(b["path"]) if b.get("path") else f"(worktree repa {role} chybí: `pflanzer worktree setup --slug {slug}`)"
+        title = f"{pr['title_base']} ({role})"
+        related = "".join(f' --related "{r}=${v}"' for r, v in prev)
+        blocks.append(f"""### {i}. Repo `{role}` (base `{b['base']}`, větev `{b['branch']}`)
+
+```bash
+cd {wd}
+git add -A
+git diff --cached --quiet || git commit -F - <<'COMMITMSG'
+{title}
+
+{commit_msg}
+COMMITMSG
+git push -u origin {b['branch']}
+{label_create}
+{var}=$(pflanzer handoff_pr --slug {slug} --pr-body --repo {role}{related} | gh pr create \\
+    --title {shlex.quote(title)} --body-file - \\
+    --base {b['base']} \\
+    {label_flags}{draft_flag})
+```
+""")
+        prev.append((role, var))
+    first = repos[0]["role"]
+    back = "\n".join(
+        f'pflanzer handoff_pr --slug {slug} --pr-body --repo {b["role"]}'
+        + "".join(f' --related "{r}=${v}"' for r, v in prev if r != b["role"])
+        + f' | gh pr edit "${prev[i][1]}" --body-file -'
+        for i, b in enumerate(repos[:-1]))
+    return f"""## Otevři PR (každé repo zvlášť)
+
+Projekt má {len(repos)} repa ({', '.join(b['role'] for b in repos)}); PR se otevírají v každém repu
+a v těle se odkazují jako „Související PR v <repo> repu“. Autor commitu = dev u klávesnice;
+AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně
+(`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl. Mergujte společně.
+
+{chr(10).join(blocks)}
+### {len(repos) + 1}. Provázání
+
+Do dřív otevřených PR doplň odkazy na pozdější (repo `{first}` ještě nevědělo o ostatních):
+
+```bash
+{back}
+```
+"""
+
+
 def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     """Krátký copy-paste blok: commit s trailery, push, labely, `gh pr create` (tělo z --pr-body)."""
     wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
+    if len(pr.get("repos") or []) > 1:
+        return _pr_command_multi_md(slug, parts)
     # Review dělá někdo, kdo u Buildu nebyl — ne branch owner/builder.
     reviewer = None
     label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
@@ -949,7 +1152,9 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
 
     score_line = (pr["gates_summary"] or f"{score}/100") + f" (práh {target}) — {verdict}"
-    if pr["loc_added"] is not None:
+    if len(pr.get("repos") or []) > 1 and pr.get("size_line"):
+        score_line += f". Rozsah: {pr['size_line']}"
+    elif pr["loc_added"] is not None:
         score_line += f". Rozsah: +{pr['loc_added']} řádků"
     owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
                   ("Shadow PdM (hlídá Async)", parts["shadow_pm"])]
@@ -1008,6 +1213,22 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
         ai_md = (f"- **Kroky s AI náhradou (ADR-0023)**: {pr['ai_stand_in']}\n"
                  if pr["ai_stand_in"] else "")
         extra_parts: list[str] = []
+        if len(pr.get("repos") or []) > 1:
+            rows = []
+            for b in pr["repos"]:
+                x = next((y for y in pr["repo_gates"] if y["role"] == b["role"]), None)
+                rows.append(
+                    f"| {b['role']} | `{b['branch']}` | `{b['base']}` | "
+                    + (f"**{x['gate_score']}/100**" if x else "—") + " | "
+                    + (_repo_size(b) or "—") + " |")
+            prov_others = "".join(
+                f"- repo {role}: " + ("; ".join(pv["warnings"]) or
+                                      f"{pv['commits']} commit(ů), trailery v pořádku") + "\n"
+                for role, pv in wb.get("other_prov", []))
+            extra_parts.append(
+                "\n### Repa\n\n| Repo | Větev | Base | Gate skóre | Rozsah |\n"
+                "|------|-------|------|------------|--------|\n" + "\n".join(rows) + "\n"
+                + ("\nKontrola commitů v dalších repech:\n\n" + prov_others if prov_others else ""))
         if pr["failures"]:
             extra_parts.append("\n### Co selhalo\n\n" + "\n".join(
                 f"- {g}: {line}" for g, line in pr["failures"]) + "\n")
@@ -1124,8 +1345,11 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     warnings = list(pr["warnings"])
     if state["blocked_by"] and not human:
         warnings.append("PR půjde jako draft: " + ", ".join(state["blocked_by"]))
+    multi = len(pr.get("repos") or []) > 1
     nxt = ("Ukaž SHIP.md týmu a " + (f"{owner} (branch owner) " if owner else "branch owner ")
-           + "spustí `gh pr create` z konce SHIP.md (z worktree vítěze).")
+           + "spustí `gh pr create` z konce SHIP.md ("
+           + ("z worktree vítěze v každém repu: " + ", ".join(b["role"] for b in pr["repos"])
+              if multi else "z worktree vítěze") + ").")
     return {"lines": lines[:6], "warnings": warnings, "next_step": nxt,
             "ctx": {"open_critical": bool(pr["critical_lines"]),
                     "below_threshold": state["score"] < state["target"]}}
@@ -1138,12 +1362,23 @@ def main() -> None:
                    help="Vypiš SHIP.md na stdout (default: zapiš do výstupní složky)")
     p.add_argument("--pr-body", action="store_true",
                    help="Vypiš jen tělo PR (pro `gh pr create --body-file -`)")
+    p.add_argument("--repo", default=None,
+                   help="Vícerepo: role repa, pro které se skládá tělo PR (default primární)")
+    p.add_argument("--related", action="append", default=[], metavar="ROLE=URL",
+                   help="Vícerepo: už otevřený PR v jiném repu (odkaz „související PR“); opakovatelné")
     p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
 
     try:
+        related: dict[str, str] = {}
+        for item in args.related:
+            role, sep, url = item.partition("=")
+            if not sep or not role.strip() or not url.strip():
+                die(f"--related čeká ROLE=URL, dostal jsem „{item}“.",
+                    "--related web=https://github.com/firma/web/pull/12")
+            related[role.strip()] = url.strip()
         if args.pr_body:
-            print(build_pr(args.slug)["body"])
+            print(build_pr(args.slug, repo=args.repo, related=related)["body"])
         elif args.print:
             print(render_ship_md(args.slug))
         else:

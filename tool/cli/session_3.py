@@ -52,6 +52,7 @@ from tool.cli.extract import (  # noqa: E402
     code_without_tests,
     extract,
     plan_extraction,
+    repo_blocks,
     tilde,
 )
 from tool.cli.quality_gates import (  # noqa: E402
@@ -60,9 +61,15 @@ from tool.cli.quality_gates import (  # noqa: E402
     PRODUCTION_TARGET,
     RAN_STATUSES,
     REQUIRED_GATES,
+    a11y_reasons,
     acceptance_unverified,
+    aggregate_repos,
     gates_summary_line,
     parse_test_failures,
+    repo_key,
+    repos_summary_line,
+    run_repo_gates,
+    save_repo_gates,
     skip_reason,
     spa_line,
     unverified_gates,
@@ -148,6 +155,74 @@ def _clip_words(text: str, limit: int) -> str:
         return text
     cut = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-–—(")
     return cut + " …"
+
+
+def _multi_repo_gates(
+    slug: str, variant: str, ext: dict[str, Any], gates: dict[str, Any], target_branch: str,
+) -> list[dict[str, Any]] | None:
+    """Multi-repo projekt (`target_repos`): brány vítěze v KAŽDÉM repu, ne jen v primárním.
+
+    None = jednorepo (původní chování). Chybějící worktree jiného repa je chyba (Ship nesmí
+    tiše ověřit půlku kódu): `pflanzer worktree setup --slug …` ho vytvoří.
+    """
+    blocks = repo_blocks(slug, variant)
+    if not blocks:
+        return None
+    primary = blocks[0]
+    entries: list[dict[str, Any]] = [{
+        "role": primary["role"], "path": ext["absolute_path"], "base": target_branch,
+        "branch": ext.get("branch"), "head_sha": ext.get("head_sha"),
+        "stack": gates.get("stack"), "gate_score": gates["gate_score"],
+        "applicable_gates": gates["applicable_gates"], "total_gates": gates["total_gates"],
+        "gates_run": gates["gates_run"], "sufficient": gates["sufficient"],
+        "sufficiency_blocker": gates.get("sufficiency_blocker"),
+        "adapter_warnings": [],
+        "diff": {"added": ext.get("diff_loc_added"), "removed": ext.get("diff_loc_removed"),
+                 "files": ext.get("diff_files")},
+        "results": gates["results"],
+    }]
+    for b in blocks[1:]:
+        if b["path"] is None:
+            raise ValueError(
+                f"Chybí worktree repa {b['role']} varianty {variant} ({tilde(b['expected_path'])}); "
+                f"bez něj Ship neověří celý kód. Spusť `pflanzer worktree setup --slug {slug}`.")
+        entries.append(run_repo_gates(b["path"], b["role"], b["base"]))
+    return entries
+
+
+def _compose_repo_gates(gates: dict[str, Any], entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Jeden výsledek bran za variantu: agregované skóre, výsledky označené `repo`."""
+    agg = aggregate_repos(entries)
+    out = dict(gates)
+    out.update(
+        gate_score=agg["gate_score"], applicable_gates=agg["applicable_gates"],
+        total_gates=agg["total_gates"], sufficient=agg["sufficient"],
+        sufficiency_blocker=agg["blocker"], low_confidence=not agg["sufficient"],
+        stack="; ".join(f"{e['role']}: {e['stack']}" for e in entries),
+        results=[dict(r, repo=e["role"]) for e in entries for r in e["results"]],
+        repos=entries,
+        summary_line=repos_summary_line(entries, agg["gate_score"]),
+    )
+    return out
+
+
+def _repo_sufficiency(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    bad = next((e for e in entries if not e["sufficient"]), None)
+    return {
+        "gates_run": min(e["gates_run"] for e in entries), "missing": [],
+        "sufficient": bad is None,
+        "blocker": None if bad is None else
+        f"gates:insufficient ({bad['role']}: {str(bad.get('sufficiency_blocker') or '').split('(', 1)[-1].rstrip(')')})",
+    }
+
+
+def _unverified_all(winner: dict[str, Any]) -> list[dict[str, str]]:
+    """Neověřené brány; ve vícerepu s rolí repa v důvodu („api: chybí @playwright/test“)."""
+    repos = winner["gates"].get("repos")
+    if not repos:
+        return unverified_gates(winner["gates"]["results"])
+    return [dict(u, reason=f"{e['role']}: {u['reason']}")
+            for e in repos for u in unverified_gates(e["results"])]
 
 
 def _select_variants(
@@ -281,6 +356,11 @@ def hardening_run(
             finally:
                 if adapter.get("tmp_dir"):
                     shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
+            repo_entries = (_multi_repo_gates(slug, v_name, ext, gates, target_branch)
+                            if ext["method"] in WORKTREE_METHODS else None)
+            if repo_entries:
+                gates = _compose_repo_gates(gates, repo_entries)
+                save_repo_gates(slug, v_name, repo_entries)
         except (ValueError, RuntimeError, NotImplementedError) as e:
             errors.append({"variant": v_name, "error": str(e)})
             continue
@@ -289,12 +369,16 @@ def hardening_run(
             tests_note = code_without_tests(Path(ext["absolute_path"]), target_branch)
         per_variant.append({
             "variant": v_name, "builder": builder, "preference_score": pref,
-            "extraction": ext, "gates": gates, "sufficiency": gates_sufficiency(gates),
+            "extraction": ext, "gates": gates,
+            "sufficiency": (_repo_sufficiency(repo_entries) if repo_entries
+                            else gates_sufficiency(gates)),
             "new_code_check": tests_note,
             "adapter": {
                 "source": (f"{adapter.get('base_ref')}:{adapter.get('name')}"
                            if adapter.get("adapter_path") else "autodetect"),
-                "warnings": adapter["warnings"],
+                "warnings": adapter["warnings"] + [
+                    f"{e['role']}: {w}" for e in (repo_entries or [])[1:]
+                    for w in e.get("adapter_warnings", [])],
             },
         })
 
@@ -314,7 +398,7 @@ def hardening_run(
     blocked_by = list(triage_gate["blocked_by"])
     if target > 0 and low_conf:
         blocked_by.append(suff["blocker"])
-    unverified = unverified_gates(winner["gates"]["results"])
+    unverified = _unverified_all(winner)
     unverified_blocks = bool(target >= PRODUCTION_TARGET and acceptance_unverified(unverified))
     if unverified_blocks:
         blocked_by.append("gates:acceptance-neověřeno")
@@ -333,9 +417,17 @@ def hardening_run(
         warnings_pre = []
     if informational:
         blocked_by.append(f"ship:neni-vitez (Rozhodnutí = {decided})")
-    summary_line = gates_summary_line(w_score, winner["gates"]["results"])
+    w_repos: list[dict[str, Any]] = winner["gates"].get("repos") or []
+    summary_line = (winner["gates"]["summary_line"] if w_repos
+                    else gates_summary_line(w_score, winner["gates"]["results"]))
     spa_note = spa_line(winner["gates"]["results"])
     warnings: list[str] = list(warnings_pre)
+    if target > 0:
+        for e in w_repos:
+            if e["gate_score"] < target <= w_score:
+                warnings.append(
+                    f"Repo {e['role']}: {e['gate_score']}/100 je pod prahem {target}; "
+                    f"celkové skóre {w_score}/100 to zakrývá průměrem přes repa.")
     if unverified and target > 0:
         what = ", ".join(f"{u['gate']} ({u['reason']})" for u in unverified)
         warnings.append(
@@ -425,6 +517,8 @@ def hardening_run(
                 "gates_run": {r["variant"]: r["sufficiency"]["gates_run"] for r in per_variant},
                 "adapter": {r["variant"]: r["adapter"] for r in per_variant},
                 "errors": errors, "checkpoints": checkpoints,
+                "repos": [{"role": e["role"], "gate_score": e["gate_score"],
+                           "branch": e.get("branch")} for e in w_repos] or None,
             },
         )
 
@@ -486,6 +580,14 @@ def hardening_run(
             "blocked_by": blocked_by,
             "stack": winner["gates"].get("stack"),
             "failures": _gate_failures(winner["gates"]["results"]),
+            "repos": [{
+                "role": e["role"], "branch": e.get("branch"), "base": e.get("base"),
+                "head_sha": e.get("head_sha"), "gate_score": e["gate_score"],
+                "summary_line": gates_summary_line(e["gate_score"], e["results"]),
+                "stack": e.get("stack"), "applicable_gates": e["applicable_gates"],
+                "sufficient": e["sufficient"], "diff": e.get("diff"),
+                "failures": _gate_failures(e["results"]),
+            } for e in w_repos],
             "applicable_gates": winner["gates"].get("applicable_gates"),
             "total_gates": winner["gates"].get("total_gates"),
             "local_path": winner["extraction"]["local_path"],
@@ -567,33 +669,35 @@ HARD_FAIL_GATES = ("build", "tests", "smoke")
 
 def _hard_failed(winner: dict[str, Any]) -> list[str]:
     """Brány build / tests / smoke se statusem fail: Ship neprojde bez ohledu na skóre."""
-    return [g["gate"] for g in winner["gates"]["results"]
+    return [repo_key(g.get("repo"), g["gate"]) for g in winner["gates"]["results"]
             if g["status"] == "fail" and g["gate"] in HARD_FAIL_GATES]
 
 
 def _hard_fail_message(winner: dict[str, Any], hard: list[str]) -> str:
     parts: list[str] = []
     for g in winner["gates"]["results"]:
-        if g["gate"] not in hard or g["status"] != "fail":
+        if repo_key(g.get("repo"), g["gate"]) not in hard or g["status"] != "fail":
             continue
+        where = f" v repu {g['repo']}" if g.get("repo") else ""
         if g["gate"] == "tests":
             names = [n for n, _d in parse_test_failures(g.get("details") or "")]
             if names:
-                parts.append("padají testy: " + "; ".join(names[:5])
+                parts.append(f"padají testy{where}: " + "; ".join(names[:5])
                              + (f" (+{len(names) - 5} dalších)" if len(names) > 5 else ""))
             else:
-                parts.append("padají testy")
+                parts.append(f"padají testy{where}")
         else:
             first = next((x.strip() for x in (g.get("details") or "").splitlines()
                           if x.strip()), "")
-            parts.append(f"brána {g['gate']} neprošla" + (f": {_clip_words(first, 110)}" if first else ""))
+            parts.append(f"brána {g['gate']}{where} neprošla"
+                         + (f": {_clip_words(first, 110)}" if first else ""))
     return "; ".join(parts)
 
 
 def _failing(winner: dict[str, Any]) -> tuple[list[str], list[str]]:
     res = winner["gates"]["results"]
-    return ([g["gate"] for g in res if g["status"] == "fail"],
-            [g["gate"] for g in res if g["status"] == "warn"])
+    return ([repo_key(g.get("repo"), g["gate"]) for g in res if g["status"] == "fail"],
+            [repo_key(g.get("repo"), g["gate"]) for g in res if g["status"] == "warn"])
 
 
 def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
@@ -652,6 +756,7 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
                         informational: bool = False) -> str:
     ext = winner["extraction"]
     role = "Ověřená varianta (jen porovnání, NE vítěz z Rozhodnutí)" if informational else "Vítěz"
+    w_repos: list[dict[str, Any]] = winner["gates"].get("repos") or []
     lines = [
         "## Ship — quality gates",
         "",
@@ -662,6 +767,9 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
         f"- **Brány**: {winner['gates'].get('applicable_gates')} z {winner['gates'].get('total_gates')} "
         f"aplikovatelných, stack `{winner['gates'].get('stack')}`",
     ]
+    for e in w_repos:
+        lines.append(f"- **Repo {e['role']}**: {e['gate_score']}/100, větev `{e.get('branch') or '—'}` "
+                     f"@ `{(e.get('head_sha') or '—')[:10]}`, stack `{e.get('stack')}`")
     if threshold_override:
         lines += ["", "### Výjimka z prahu", "",
                   f"- Verdikt: pod prahem — Ship na odpovědnost Decidera "
@@ -723,18 +831,40 @@ def _render_report(
             return skip_reason(g) or "neběžela"
         return _clip_words(" ".join(g["details"].split()), 200)
 
-    unv_w = unverified_gates(w["gates"]["results"])
-    unv_gates = {u["gate"] for u in unv_w}
+    unv_w = _unverified_all(w)
+    w_repos: list[dict[str, Any]] = w["gates"].get("repos") or []
 
-    def _badge(g: dict[str, Any]) -> str:
+    def _badge(g: dict[str, Any], unv_gates: set[str]) -> str:
         if g["gate"] in unv_gates:
             return "NEOVĚŘENO"
         return {"skipped": "SKIP", "unsupported": "SKIP"}.get(g["status"], g["status"].upper())
 
-    gate_lines = "\n".join(
-        f"- `{_badge(g)}` **{g['gate']}**: {_gate_detail(g)}"
-        for g in w["gates"]["results"]
-    )
+    def _gate_block(results: list[dict[str, Any]]) -> str:
+        unv = {u["gate"] for u in unverified_gates(results)}
+        return "\n".join(f"- `{_badge(g, unv)}` **{g['gate']}**: {_gate_detail(g)}"
+                         for g in results)
+
+    if w_repos:
+        gate_lines = "\n\n".join(
+            f"### Repo {e['role']} — {e['gate_score']}/100 "
+            f"(`{e.get('branch') or '—'}`, stack `{e.get('stack')}`, "
+            f"{e['applicable_gates']} z {e['total_gates']} aplikovatelných)\n\n"
+            + _gate_block(e["results"])
+            for e in w_repos)
+        repo_table = (
+            "\n## Repa\n\n| Repo | Větev | Base | Gate skóre | Stack | Rozsah |\n"
+            "|------|-------|------|------------|-------|--------|\n"
+            + "\n".join(
+                f"| {e['role']} | `{e.get('branch') or '—'}` | `{e.get('base')}` | "
+                f"**{e['gate_score']}/100** | `{e.get('stack')}` | "
+                + (f"+{e['diff']['added']} / -{e['diff']['removed']} v {e['diff']['files']} souborech"
+                   if (e.get("diff") or {}).get("added") is not None else "—") + " |"
+                for e in w_repos)
+            + f"\n\nCelkem **{w_score}/100** = průměr skóre repo vážený počtem aplikovatelných "
+              "bran; FAIL build / tests / smoke v kterémkoli repu = neprošlo.\n")
+    else:
+        gate_lines = _gate_block(w["gates"]["results"])
+        repo_table = ''
     fails, warns = _failing(w)
     if threshold_override and not blocked_by:
         verdict_block = (
@@ -847,7 +977,7 @@ def _render_report(
 | Varianta | Builder | Skóre z Buildu | Gate skóre | Stav | Spuštěné brány | Metoda | Větev | Adaptér |
 |----------|---------|----------------|------------|------|----------------|--------|-------|---------|
 {var_table}
-
+{repo_table}
 {verdict_block}
 ## Brány {'varianty' if decided else 'vítěze'} ({w['variant']}, stack `{w['gates'].get('stack')}`, {w['gates'].get('applicable_gates')} z {w['gates'].get('total_gates')} aplikovatelných)
 
@@ -883,8 +1013,11 @@ def _gate_failures(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         details = g.get("details") or ""
         first = next((x.strip() for x in details.splitlines() if x.strip()), "")
-        out.append({"gate": g["gate"], "tests": [n for n, _d in parse_test_failures(details)],
-                    "detail": _clip_words(first, 110)})
+        detail = _clip_words(first, 110)
+        if g["gate"] == "a11y":  # první řádek je jen „N stránek zkontrolováno“ - chci důvody
+            detail = _clip_words("; ".join(a11y_reasons(details)), 160) or detail
+        out.append({"gate": g["gate"], "repo": g.get("repo"),
+                    "tests": [n for n, _d in parse_test_failures(details)], "detail": detail})
     return out
 
 
@@ -896,11 +1029,13 @@ def _failed_gate_lines(failures: list[dict[str, Any]]) -> list[str]:
         if names:
             more = len(names) - 3
             tail = f" (+{more} dalších)" if more > 0 else ""
+            where = f" v repu {f['repo']}" if f.get("repo") else ""
             lines.append(f"{'Selhaly' if len(names) > 1 else 'Selhal'} "
-                         f"{count(len(names), 'test', 'testy', 'testů')}: "
+                         f"{count(len(names), 'test', 'testy', 'testů')}{where}: "
                          f"{'; '.join(names[:3])}{tail}")
         else:
-            lines.append(f"Selhala brána {f['gate']}: {f['detail']}")
+            where = f" (repo {f['repo']})" if f.get("repo") else ""
+            lines.append(f"Selhala brána {f['gate']}{where}: {f['detail']}")
     return lines
 
 

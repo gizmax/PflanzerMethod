@@ -79,6 +79,37 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
 ```
 
 
+## Projekt přes víc repozitářů (target_repos)
+
+`target_repos` je seznam `{role, url, branch, workspace?}` (wizard text:
+`web=<url>#main,api=<url>`). Primární repo (to, co vidí uživatel; jinak podle
+`target_repo_url`) je první a drží cesty `<slug>-<X>`; ostatní jsou
+`<slug>-<X>-<role>`. Role `be` / `backend` / `api` je backend.
+
+- **Build:** `worktree setup` založí worktrees A/B/C v každém repu na branchi
+  `pflanzer/<slug>-<X>`. Prompt (`quick_session prompts`) vypíše repa varianty,
+  kontroly **per repo** (npm u Node, make / `.venv` u Pythonu), pravidlo „měň jen
+  tato repa“ a příkaz `claude --add-dir <sekundární repa>`. „CONTRACT-FIRST“
+  (OpenAPI) se uvede jen u backendu, který má `openapi.*`. `acceptance_feature`
+  v `--json` je nastaven, když `.feature` existuje v kterémkoli repu.
+- **Preview:** `preview up` spustí pro každou variantu všechna repa. Sekundární
+  běží na portu `app + 1000 + idx` (idx = pořadí repa, primární 0); primární dostane
+  env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (`API_URL=http://127.0.0.1:<port>`).
+  Proxy s heslem je jen před primárním. Příkaz sekundárního repa:
+
+  ```toml
+  [preview]            # primární repo
+  command = "npm run dev -- --port {port}"
+  [preview.api]        # sekundární repo s rolí api
+  command = ".venv/bin/python -m uvicorn app.main:app --port {port}"
+  ```
+
+  Bez `[preview.<role>]` se příkaz autodetekuje (Node / Python); repo bez příkazu
+  se přeskočí s varováním. `preview status` ukáže stav po repech, `preview down`
+  ukončí vše.
+- **Ship / PR:** gates jedou na vítěze, `handoff_pr` commitne a pushne větev a
+  otevře PR do base toho repa **per repo**; PR se odkazují navzájem.
+
 ## Install — co si tým musí stáhnout
 
 ### Pro tebe (one-time, ~30 sekund)

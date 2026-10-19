@@ -278,6 +278,22 @@ směrují. Provoz u pilotu pak podepisuje jiný člověk než ten, kdo staví.
 Pilot bez ní nejde — varianty staví Claude Code. Požádejte o jednu licenci
 pro vývojáře; ostatní v týmu ji nepotřebují.
 
+### Projekt přes víc repozitářů
+
+Typicky web + API. Při `/pm start` uveďte repa i s rolemi:
+`web=<url>,api=<url>` (první je primární — to, co uživatel vidí). Nic dalšího
+nenastavujete:
+
+- **Build:** `pflanzer worktree setup` vyrobí worktrees A/B/C pro **každé** repo
+  a prompt ukáže, kde je které repo a že sekundární je připojené přes `--add-dir`.
+  Měnit se smí jen repa projektu.
+- **Preview:** `pflanzer preview up` spustí u každé varianty všechna repa. Web
+  najde API v proměnné `API_URL` (obecně `<ROLE>_URL`). Heslo je jen před webem.
+  Neumí-li se repo spustit samo, doplňte do `.pflanzer/project.toml`
+  `[preview.api]` s `command = "… {port} …"`.
+- **Ship:** quality gates jedou na vítěze, PR vznikne **v každém repu** a PR
+  se navzájem odkazují.
+
 ### Co přesně smí zastoupit AI
 
 | Krok cesty | AI náhrada? | Kdo podepíše |

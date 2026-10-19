@@ -78,6 +78,7 @@ from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 GATES_DIR = DATA_ROOT / "handoffs"
+RESULT_DETAIL_LIMIT = 700  # a11y důvody a názvy selhaných testů se vejdou celé
 # Pořadí = fail-fast (levné → drahé).
 GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "smoke", "acceptance",
               "security", "a11y", "observability")
@@ -1145,9 +1146,13 @@ class AppRun:
     bundles: list[tuple[str, int | None]] = field(default_factory=list)  # (url skriptu, status)
     render: "render.RenderResult | None" = None  # None = nerenderováno (bez Playwrightu)
     render_why: str = ""             # proč se renderovat nepovedlo / nešlo
+    api_root_404: bool = False       # JSON API bez `/` a bez health: server odpověděl, smoke_paths chybí
 
 
 A11Y_MAX_PAGES = 5
+
+
+API_HEALTH_PATHS = ("/health", "/healthz", "/api/health", "/status", "/api")
 
 
 def _app_run(ctx: Ctx) -> AppRun:
@@ -1186,6 +1191,15 @@ def _do_app_run(ctx: Ctx) -> AppRun:
                 return AppRun("down", spec.command, why, apprun.tail(log, 8), smoke_paths=paths,
                               duration_s=round(time.monotonic() - started, 2))
             pages = [(p, *apprun.http_fetch(base + p)) for p in paths]
+            if not cfg.get("smoke_paths") and pages[0][1] == 404:
+                # API repo without a `/` route: a health endpoint proves the app is up.
+                for hp in API_HEALTH_PATHS:
+                    hit = (hp, *apprun.http_fetch(base + hp))
+                    if hit[1] is not None and hit[1] < 400:
+                        paths, pages = [hp], [hit]
+                        break
+            api_root_404 = (not cfg.get("smoke_paths") and pages[0][1] == 404
+                            and "json" in (pages[0][3] or "").lower())
             first = next((pg for pg in pages if pg[1] is not None and pg[1] < 400 and pg[2]), None)
             spa = first is not None and render.is_spa(first[2])
             bundles: list[tuple[str, int | None]] = []
@@ -1210,7 +1224,7 @@ def _do_app_run(ctx: Ctx) -> AppRun:
             apprun.kill_group(proc.pid)
     return AppRun("ok", spec.command, smoke_paths=paths, pages=pages,
                   duration_s=round(time.monotonic() - started, 2), spa=spa, bundles=bundles,
-                  render=rendered, render_why=render_why)
+                  render=rendered, render_why=render_why, api_root_404=api_root_404)
 
 
 def gate_smoke(ctx: Ctx) -> GateResult:
@@ -1228,6 +1242,10 @@ def gate_smoke(ctx: Ctx) -> GateResult:
     seen = [(p, st) for p, st, _b, _c in run.pages if p in run.smoke_paths]
     bad = [(p, st) for p, st in seen if st is None or st >= 400]
     text = ", ".join(f"{p} odpovídá {st if st is not None else 'nic'}" for p, st in seen)
+    if bad and run.api_root_404:
+        return GateResult("smoke", "pass", "smoke: API běží (`/` vrací JSON 404) — pro "
+                          "přesnou kontrolu doplňte `smoke_paths = [\"/vas-endpoint\"]` do "
+                          "[preview] v .pflanzer/project.toml", metric=0, duration_s=run.duration_s)
     if bad:
         return GateResult("smoke", "fail", f"smoke: {text}", metric=len(bad),
                           duration_s=run.duration_s)
@@ -1653,7 +1671,7 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
         "summary_line": gates_summary_line(score, results),
         "results": [
             {"gate": r.gate_type, "status": r.status,
-             "metric": r.metric, "details": r.details[:200]}
+             "metric": r.metric, "details": r.details[:RESULT_DETAIL_LIMIT]}
             for r in results
         ],
     }
@@ -1777,6 +1795,128 @@ def skip_reasons(results: list[Any]) -> list[str]:
     return out
 
 
+def a11y_reasons(details: str, limit: int = 3) -> list[str]:
+    """První konkrétní důvody z a11y detailu („chybí <html lang>“, „chybí <title>“ …).
+
+    Detail má tvar `a11y: N stránek zkontrolováno staticky\nzávažné · /cesta: důvod…`.
+    Důvody se slučují (stejný text na víc stránkách = „(2 stránky)“), závažné jdou první.
+    """
+    seen: dict[str, int] = {}
+    for line in (details or "").splitlines()[1:]:
+        text = line.strip()
+        if text.startswith("…"):
+            continue
+        m = re.match(r"^(?:závažné|doporučení)\s*·\s*(?:\S+?):\s*(.+)$", text)
+        msg = (m.group(1) if m else text).strip()
+        if msg:
+            seen[msg] = seen.get(msg, 0) + 1
+    out = []
+    for msg, n in list(seen.items())[:limit]:
+        out.append(msg if n < 2 else f"{msg} ({n} {'stránky' if n < 5 else 'stránek'})")
+    return out
+
+
+# --------------------------------------------------------------------------
+# Multi-repo Ship (target_repos web + api …): brány v KAŽDÉM repu vítěze
+# --------------------------------------------------------------------------
+
+
+def repo_key(role: str | None, gate: str) -> str:
+    """„lint“ v jednorepu, „api:lint“ ve vícerepu (role repa před bránou)."""
+    return f"{role}:{gate}" if role else gate
+
+
+def run_repo_gates(path: Path, role: str, base_branch: str) -> dict[str, Any]:
+    """Pusť brány v jednom (ne primárním) repu vítěze; adaptér z base branche toho repa.
+
+    Vrací záznam repa (stejný tvar, jaký Ship ukládá pro primární repo).
+    """
+    from tool.cli.extract import base_gates_adapter, diff_stats, git_info
+
+    path = Path(path).resolve()
+    adapter = base_gates_adapter(path, base_branch)
+    try:
+        stack, results, info, deps = evaluate_path(path, adapter.get("adapter_path"))
+    finally:
+        if adapter.get("tmp_dir"):
+            shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
+    if not deps[0]:
+        print(f"[gates] {role}: {deps[1]}; gates závislé na instalaci jsou SKIP", file=sys.stderr)
+    gi = git_info(path)
+    d = diff_stats(path, base_branch)
+    suff = gates_sufficiency(results)
+    return {
+        "role": role, "path": str(path), "base": base_branch,
+        "branch": gi["branch"], "head_sha": gi["head_sha"],
+        "stack": stack.label, "gate_score": info["gate_score"],
+        "applicable_gates": info["applicable_gates"], "total_gates": info["total_gates"],
+        "gates_run": info["gates_run"], "sufficient": suff["sufficient"],
+        "sufficiency_blocker": suff["blocker"],
+        "adapter_warnings": list(adapter.get("warnings") or []),
+        "diff": {"added": d["added"], "removed": d["removed"], "files": d["files"]},
+        "results": [{"gate": r.gate_type, "status": r.status, "metric": r.metric,
+                     "details": r.details[:RESULT_DETAIL_LIMIT]} for r in results],
+    }
+
+
+def aggregate_repos(repos: list[dict[str, Any]]) -> dict[str, Any]:
+    """Agregované skóre přes repa: průměr vážený počtem aplikovatelných bran.
+
+    Proč vážený průměr a ne minimum: repo s 9 aplikovatelnými branami nese víc důkazů než
+    malé API se 4; minimum by trestalo i drobnou warn v jinak zdravém repu. Slabé místo
+    váženého průměru (dobré repo „zachrání“ špatné) pokrývají tvrdá pravidla Shipu:
+    FAIL build / tests / smoke v KTERÉMKOLI repu = neprošlo bez ohledu na skóre,
+    nedostatek bran se posuzuje per repo a repo pod prahem dostane varování.
+    """
+    weight = sum(int(r.get("applicable_gates") or 0) for r in repos)
+    if weight:
+        score = round(sum(int(r["gate_score"]) * int(r.get("applicable_gates") or 0)
+                          for r in repos) / weight)
+    else:
+        score = min((int(r["gate_score"]) for r in repos), default=0)
+    insufficient = [r for r in repos if not r.get("sufficient", True)]
+    return {
+        "gate_score": max(0, min(100, score)),
+        "applicable_gates": sum(int(r.get("applicable_gates") or 0) for r in repos),
+        "total_gates": sum(int(r.get("total_gates") or 0) for r in repos),
+        "sufficient": not insufficient,
+        "blocker": (f"gates:insufficient ({insufficient[0]['role']}: "
+                    + str(insufficient[0].get("sufficiency_blocker") or "").split("(", 1)[-1].rstrip(")")
+                    + ")") if insufficient else None,
+    }
+
+
+def repos_summary_line(repos: list[dict[str, Any]], total: int | None = None) -> str:
+    """„web: 89/100 · api: 100/100 (celkem 94/100)“; detaily (SKIP, neověřeno) jsou v reportu."""
+    parts = [f"{r['role']}: {int(r['gate_score'])}/100" for r in repos]
+    line = " · ".join(parts)
+    return f"{line} (celkem {total}/100)" if total is not None else line
+
+
+def _repos_file(slug: str, variant: str) -> Path:
+    return GATES_DIR / slug / f"repos-{variant}.json"
+
+
+def save_repo_gates(slug: str, variant: str, repos: list[dict[str, Any]]) -> Path:
+    """Ulož výsledky bran per repo (handoff_pr z nich skládá skóre a PR per repo)."""
+    path = _repos_file(slug, variant)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"variant": variant, "repos": repos}, ensure_ascii=False,
+                               indent=2), encoding="utf-8")
+    return path
+
+
+def load_repo_gates(slug: str, variant: str) -> list[dict[str, Any]]:
+    """Záznamy repo z posledního Shipu varianty; [] když neexistují (jednorepo / starý Ship)."""
+    path = _repos_file(slug, variant)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    repos = data.get("repos") if isinstance(data, dict) else None
+    return repos if isinstance(repos, list) and len(repos) > 1 else []
+
+
 def verdict_label(score: int, target: int, low_confidence: bool = False,
                   unverified: list[dict[str, str]] | None = None) -> str:
     unv = unverified or []
@@ -1859,7 +1999,11 @@ def human_gate_lines(summary_line: str, results: list[dict[str, Any]], limit: in
     problems = [r for r in results if r["status"] == "fail"] + \
                [r for r in results if r["status"] == "warn"]
     for r in problems[: limit - 1]:
-        lines.append(f"{_STATUS_CS[r['status']]}: {r['gate']} — {_first_line(r.get('details', ''))}")
+        why = ""
+        if r["gate"] == "a11y":
+            why = "; ".join(a11y_reasons(r.get("details", "")))
+        lines.append(f"{_STATUS_CS[r['status']]}: {r['gate']} — "
+                     f"{why or _first_line(r.get('details', ''))}")
     return lines
 
 

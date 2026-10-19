@@ -1650,6 +1650,15 @@ def verify_cwd_in_target(slug: str, cwd: Path) -> tuple[bool, str]:
     )
 
 
+def _verify_next_step(slug: str) -> str:
+    """Další krok podle skutečného stavu projektu (po Shipu ne „pokračuj Buildem“)."""
+    try:
+        from tool.cli.status import project_detail
+        return f"{project_detail(slug)['next_step']}"
+    except Exception:  # noqa: BLE001 — advisory only
+        return f"`/pm status {slug}` — ukáže další krok"
+
+
 # --------------------------------------------------------------------------
 # Rendering
 # --------------------------------------------------------------------------
@@ -1918,7 +1927,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         else:
             emit({"ok": ok, "message": msg},
                  title="Jsi v target repu" if ok else "Jsi v jiném repu",
-                 lines=[msg], next_step=("pokračuj Buildem" if ok else
+                 lines=[msg], next_step=(_verify_next_step(args.slug) if ok else
                                          f"`cd` do target repa (`pflanzer worktree setup --slug {args.slug}`)"),
                  tips=[])
         sys.exit(0 if ok else 1)
