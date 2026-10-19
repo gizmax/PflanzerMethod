@@ -9,7 +9,10 @@ description: Async (/pm feedback, 3–5 dní) — sběr a agregace feedbacku zá
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Kdo: všichni zástupci 6 kroků, ~15 min denně na preview URL variant.
 Builder zapracovává připomínky.
@@ -31,9 +34,9 @@ Zástupci tam u každé varianty kliknou na preview a zapíšou feedback.
 zapíše ho přímo (ty to můžeš udělat za něj podle jeho slov):
 
 ```bash
-pflanzer feedback add --slug $ARGUMENTS --variant A --role <krok/role> \
+pflanzer feedback add --slug <slug> --variant A --role <krok/role> \
   --severity critical|major|minor --text "<co a proč>"
-pflanzer feedback list --slug $ARGUMENTS
+pflanzer feedback list --slug <slug>
 ```
 
 Závažnost: `critical` (zobrazí se jako Kritické) · `major` (Vysoké) · `minor`
@@ -48,7 +51,7 @@ bezpečnosti ne.
 ## Krok 2 — Agregace
 
 ```bash
-pflanzer feedback_pull --slug $ARGUMENTS
+pflanzer feedback_pull --slug <slug>
 ```
 
 Vrací `summary_path`, `feedback_count`, `critical_flags`. Při

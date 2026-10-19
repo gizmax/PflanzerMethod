@@ -129,6 +129,10 @@ def _signer_kind(window: str, who: str, owner: str | None, owners: dict[str, str
         return "AI draft"
     if window == "bezpecnost" and _is_code_author(who, owners, core):
         return "autor kódu"
+    if window == "design" and owner and is_ai_owner(owner):
+        pdm = owners.get("produkt")
+        if pdm and not is_ai_owner(pdm) and _same_person(who, pdm):
+            return "zástupce"  # AI design potvrzuje PdM (ADR-0023)
     if owner and not is_ai_owner(owner) and _same_person(who, owner):
         return "zástupce"
     return "zástup"

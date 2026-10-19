@@ -368,7 +368,7 @@ shadow_pm = "<jméno PdM>"
             "3. Ověř připravenost: `pflanzer doctor`",
             "4. Commit + PUSH (worktrees se klonují z originu, nepushnuté soubory v nich nebudou): "
             f"`{git_add_command(target_repo)} "
-            "&& git commit -m \"chore(pflanzer): init\" && git push`",
+            "&& git commit -m \"chore(pflanzer): init\" && git push -u origin HEAD`",
             "5. Restartuj Claude Code v tomto repu a spusť: `/pm start`",
         ] + gates_hint,
     }

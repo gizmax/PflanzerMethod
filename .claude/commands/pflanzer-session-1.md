@@ -9,7 +9,10 @@ description: Build (/pm build, 3 h, jádro) — 3 varianty paralelně v 3 worktr
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Výstup toolu je lidský (co se stalo → jeden další krok → Doporučení); ukaž ho
 a předej Doporučení. Worktree = oddělená kopie repa pro každou variantu.
@@ -18,7 +21,7 @@ Kdo: **jádro** (PdM, 1–2 vývojáři, designér), u jedné obrazovky. Decider
 stavby není (anti-HiPPO). Max 5 lidí. Bezpečnost & právo přijde na
 20min checkpoint v posledních 30 min.
 
-Předpoklad: Kickoff proběhl (`pflanzer status --slug $ARGUMENTS`). Jinak
+Předpoklad: Kickoff proběhl (`pflanzer status --slug <slug>`). Jinak
 řekni `/pm start`.
 
 > **U klávesnice sedí vývojář.** Facilitátor ani Claude jako „AI proxy" za
@@ -45,8 +48,8 @@ neopakuj.
 z Kickoffu (co má varianta uživateli slíbit), ze kterého vznikají tři úhly.
 
 ```bash
-pflanzer worktree setup --slug $ARGUMENTS
-pflanzer quick_session prompts --slug $ARGUMENTS --hook "<hook ze zadání>" --n 3
+pflanzer worktree setup --slug <slug>
+pflanzer quick_session prompts --slug <slug> --hook "<hook ze zadání>" --n 3
 ```
 
 - Worktrees vznikají v **target repu zákazníka** (ADR-0009), větve
@@ -59,7 +62,7 @@ pflanzer quick_session prompts --slug $ARGUMENTS --hook "<hook ze zadání>" --n
   N11 — autor commitu je vývojář, nikdy AI), zapíše „Pflanzer session
   rules" do `CLAUDE.md` a pustí **data leakage guard**. `FAIL` v guardu
   (secret, trackované `.env*`, prod dump) = stop před klávesnicí; oprav
-  a `pflanzer worktree guard --slug $ARGUMENTS`. První PR pilotu
+  a `pflanzer worktree guard --slug <slug>`. První PR pilotu
   (`docs/INTEGRATION_GUIDE.md` + `CLAUDE.md`) založí `worktree init-pr`.
 - Prompty A/B/C mají různý úhel (A minimum, B vedený multi-step, C chytré
   defaulty). AI v nich čte `.pflanzer/CONSTITUTION.md` a
@@ -115,7 +118,7 @@ L1–L4, SBOM) patří do stupně Full.
 Podepiš (podepsané okno = vstup pro Ship, bez něj Ship pilotu neprojde):
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno z Kickoffu>" \
+pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno z Kickoffu>" \
   --note "<co ověřeno / podmínky>"            # veto: přidej --blocked
 ```
 
@@ -129,14 +132,14 @@ pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno z Kickoffu>" \
 2. Zapiš ho jako **návrh**, ne podpis:
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS bezpecnost --ai --agent security-expert \
+pflanzer checkpoint --slug <slug> bezpecnost --ai --agent security-expert \
   --note "<shrnutí předkontroly: data, síť, strop nákladů, nálezy>"
 ```
 
 **Kdo podepíše, když security není** — pořadí (nikdy default autor kódu):
 (a) někdo z firmy s mandátem (DPO, IT security, compliance, 20 min);
 (b) Decider vědomě převezme riziko — `pflanzer session_3 --slug
-$ARGUMENTS --override-triage --rationale "…"` (jeho jméno v decision logu;
+<slug> --override-triage --rationale "…"` (jeho jméno v decision logu;
 u pilotu bez osobních dat); (c) autor kódu jen jako poslední možnost
 u interního nástroje bez osobních dat — nástroj varuje, právo tím pokryté
 není.
@@ -144,7 +147,7 @@ není.
 3. **`throwaway`** — stačí AI. **`pilot` / `production`** — okno zůstane
    „čeká na podpis člověka“. Řekni nahlas, kdo to podepíše (jméno z
    Kickoffu) a že do **48 hodin**, jinak Ship zablokuje; podpis pak:
-   `pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno>" --note "…"`.
+   `pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno>" --note "…"`.
 
 ### Když je krok Design zastoupen AI
 
@@ -153,7 +156,7 @@ variantami; výstup je vstup do diff walkthrough, ne hlas (`is_ai_only: true`,
 váha max 0,5). Podepisuje PdM — potvrzení zapiš:
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS design --by "<jméno PdM>" \
+pflanzer checkpoint --slug <slug> design --by "<jméno PdM>" \
   --note "<co ověřeno>"
 ```
 
@@ -163,7 +166,7 @@ nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
 ## Krok 4 — Push a preview
 
 ```bash
-git push origin pflanzer/$ARGUMENTS-A pflanzer/$ARGUMENTS-B pflanzer/$ARGUMENTS-C
+git push origin pflanzer/<slug>-A pflanzer/<slug>-B pflanzer/<slug>-C
 ```
 
 **Připomeň: bez pushe nejsou preview URL a Async nemá na co klikat.**
@@ -174,7 +177,7 @@ Chybí-li preview deploy, navrhni konkrétního člověka (zástupce provozu
 z projektu) a termín, ne „domluvte s provozem“.
 Odkazy (tabulka varianta / URL) pošli všem zástupcům. Nemá-li firma preview
 deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
-$ARGUMENTS` založí **draft PR per varianta** (preview URL z PR checks; push do
+<slug>` založí **draft PR per varianta** (preview URL z PR checks; push do
 remote vyžaduje potvrzení), `--mode playwright` nahraje průchod
 acceptance scénáři jako video + trace (`docs/postup.md`
 § Kde varianty fyzicky jsou).

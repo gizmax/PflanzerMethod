@@ -809,12 +809,16 @@ def check_env_files(wt: Path, *, fix_gitignore: bool = True) -> list[dict[str, s
         return rows
     detail = f"{', '.join(not_ignored)} nejsou v .gitignore"
     if fix_gitignore:
-        gi = wt / ".gitignore"
-        existing = gi.read_text(encoding="utf-8") if gi.exists() else ""
+        # Lokálně do .git/info/exclude (sdílí všechny worktrees, nic necommituje) —
+        # builder pak nemá v pracovním stromu cizí necommitnutou změnu .gitignore.
+        common = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=wt,
+                                capture_output=True, text=True).stdout.strip()
+        exclude = (Path(common) if Path(common).is_absolute() else wt / common) / "info" / "exclude"
+        existing = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
         if "Pflanzer session guard" not in existing:
-            new = (existing.rstrip("\n") + "\n" + GITIGNORE_BLOCK) if existing.strip() else GITIGNORE_BLOCK.lstrip("\n")
-            gi.write_text(new, encoding="utf-8")
-        detail += " → přidáno do .gitignore (commitni, ideálně v `init-pr`)"
+            exclude.parent.mkdir(parents=True, exist_ok=True)
+            exclude.write_text(existing.rstrip("\n") + "\n" + GITIGNORE_BLOCK, encoding="utf-8")
+        detail += " → přidáno do .git/info/exclude (lokálně; do .gitignore ho dejte v `init-pr`)"
         # Doplnění .env* do .gitignore je dobrá praxe, ne varování — jen informace.
         rows.append({"check": ".env* v .gitignore", "status": "OK", "detail": detail,
                      "fixed": "1"})

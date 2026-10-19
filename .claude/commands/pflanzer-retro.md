@@ -9,6 +9,10 @@ description: Retro (/pm retro) — měření outcome po Ship: % LOC vítěze v p
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 Výstup toolu je lidský (co se stalo → jeden další krok → Doporučení); ukaž ho
 a předej Doporučení. `--json` jen pro čtení polí.
 

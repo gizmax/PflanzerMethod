@@ -9,7 +9,10 @@ description: Ship (/pm ship) — quality gates jen na vítěze, skóre X/100 (pr
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Ship není session, je to práce vývojářů s automatickými branami + 20min
 checkpoint provozu. Předpoklad: Rozhodnutí skončilo **Go** s vítězem.
@@ -28,8 +31,8 @@ projektů (`--repo-urls`); skeleton pro `pilot` / `production` nikdy.
 ## Krok 1 — Gates jen na vítěze
 
 ```bash
-pflanzer session_3 --slug $ARGUMENTS
-pflanzer session_3 --slug $ARGUMENTS --variants A    # výslovně vítěz
+pflanzer session_3 --slug <slug>
+pflanzer session_3 --slug <slug> --variants A    # výslovně vítěz
 ```
 
 Jiná varianta než vítěz Rozhodnutí jen s `--rationale "…"` (zapíše se do
@@ -86,8 +89,8 @@ Zástupce kroku Provoz (20 min) potvrdí **checklist**:
 Podepiš (zapíše se i do decision logu v target repu):
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
-pflanzer checkpoint --slug $ARGUMENTS --list    # stav všech oken
+pflanzer checkpoint --slug <slug> provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
+pflanzer checkpoint --slug <slug> --list    # stav všech oken
 ```
 
 Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
@@ -98,7 +101,7 @@ sub-agenta **`devops-platform-expert`** nad deploy plánem a checklistem výše
 a zapiš návrh:
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS provoz --ai --agent devops-platform-expert \
+pflanzer checkpoint --slug <slug> provoz --ai --agent devops-platform-expert \
   --note "<předkontrola: rollback, on-call, první hodina, flag>"
 ```
 

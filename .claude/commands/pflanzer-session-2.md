@@ -9,7 +9,10 @@ description: Rozhodnutí (/pm decide, 60–90 min, Decider + jádro) — demo, t
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Kdo: **Decider + jádro**, max 5 lidí. Decider u stavby nebyl — začni
 10min demem běžících variant na preview. Decider hlasuje **poslední**.
@@ -18,7 +21,7 @@ Zástupce bezpečnosti/provozu přizvi jen při otevřeném critical v jeho krok
 ## Krok 1 — Příprava
 
 ```bash
-pflanzer session_2 prep --slug $ARGUMENTS
+pflanzer session_2 prep --slug <slug>
 ```
 
 Ukaž na TV: commitment index, top 3 spory (osa, hlasy per krok cesty,
@@ -53,14 +56,14 @@ splní metodu bez změny API; nechceme zatím B-ův report; riziko ceny hlídá
 Petra přes týdenní dashboard.“
 
 ```bash
-pflanzer session_2 decide --slug $ARGUMENTS go --winner A --rationale "<1–2 věty>"
-pflanzer session_2 decide --slug $ARGUMENTS go --winner A --rationale "…" --override-critical "<důvod>"
-pflanzer session_2 decide --slug $ARGUMENTS iterate --rationale "…" --iterate-focus "<co změnit>"   # max 1×
-pflanzer session_2 decide --slug $ARGUMENTS kill --rationale "…"
+pflanzer session_2 decide --slug <slug> go --winner A --rationale "<1–2 věty>"
+pflanzer session_2 decide --slug <slug> go --winner A --rationale "…" --override-critical "<důvod>"
+pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "<co změnit>"   # max 1×
+pflanzer session_2 decide --slug <slug> kill --rationale "…"
 # critical vyřešen jinak než overridem (--by a --note jsou povinné):
-pflanzer session_2 resolve --slug $ARGUMENTS --feedback-id <id> --by "<kdo>" --note "<jak>"
+pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note "<jak>"
 # druhé rozhodnutí po Go jen výslovně:
-pflanzer session_2 decide --slug $ARGUMENTS go --winner B --rationale "…" --force
+pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
 ```
 
 - **Iterate** = jedno další Build kolo (max 1×). Druhý Iterate tool
