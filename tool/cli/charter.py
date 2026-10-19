@@ -1,10 +1,13 @@
-"""Slice 1 — Charter wizard logic.
+"""Charter (zadání na 1 stránku) — logika Kickoffu.
 
-Generates a Pflanzer Business Charter (per ADR-0004 template) and persists
-the project record. Called from `.claude/commands/pflanzer-charter.md`.
+Generuje Pflanzer Charter (ADR-0004, v0.5 terminologie) a ukládá projekt
+do DB. Jediná doporučená vstupní cesta je `quick_session.bootstrap`
+(`/pm start`, `/pm live`); tento modul zůstává kvůli zpětné kompatibilitě
+jako CLI (`pflanzer charter --spec spec.json`) a jako knihovna.
 
-Input: dict of charter fields collected interactively by Claude Code.
-Output: charter markdown file + projects DB row + audit log.
+Input: dict polí Charteru. Pokud chybí `target_repo_url`, doplní se z
+`.pflanzer/project.toml` v cwd (vytvořeno `pflanzer init`).
+Output: charter markdown (DATA_ROOT/charters) + řádek v projects + audit log.
 """
 from __future__ import annotations
 
@@ -19,9 +22,21 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import REPO_ROOT as DB_REPO_ROOT, audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import DATA_ROOT, audit, current_actor, load_project_toml, transaction  # noqa: E402
 
-CHARTER_DIR = DB_REPO_ROOT / "data" / "charters"
+CHARTER_DIR = DATA_ROOT / "charters"
+
+BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
+
+# Kroky cesty nápadu do produkce (ADR-0021) — každý musí mít jméno.
+PATH_STEPS: dict[str, str] = {
+    "byznys": "Byznys",
+    "produkt": "Produkt",
+    "design": "Design",
+    "vyvoj": "Vývoj",
+    "bezpecnost": "Bezpečnost & právo",
+    "provoz": "Provoz",
+}
 
 
 @dataclass
@@ -51,6 +66,10 @@ class CharterInput:
     reinforcement_budget_pd: float
     backup_decider: str | None = None
     evolve_conditions_met: list[str] = field(default_factory=list)
+    # v0.5 (ADR-0021)
+    target_repo_url: str | None = None
+    path_owners: dict[str, str] | None = None  # krok cesty -> jméno
+    core: list[str] | None = None              # jádro (3–4 lidé, max 5 naráz)
 
 
 def render_charter_md(c: CharterInput) -> str:
@@ -62,10 +81,34 @@ def render_charter_md(c: CharterInput) -> str:
         cond = "\n".join(f"  - [x] {it}" for it in c.evolve_conditions_met)
         evolve_block = f"\n### Evolve podmínky splněné (ADR-0005)\n{cond}\n"
 
-    return f"""# Pflanzer Charter — {c.name}
+    path_block = ""
+    if c.path_owners:
+        rows = "\n".join(
+            f"| {label} | {c.path_owners.get(key) or '**— BEZ JMÉNA —**'} |"
+            for key, label in PATH_STEPS.items()
+        )
+        path_block = f"""
+## Kroky cesty a jejich jména (ADR-0021)
+Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc kroků.
+
+| Krok cesty | Zástupce |
+|------------|----------|
+{rows}
+"""
+    core_block = ""
+    if c.core:
+        core_block = (
+            f"\n## Jádro (celou dobu, max 5 lidí naráz)\n"
+            + "\n".join(f"- {n}" for n in c.core) + "\n"
+        )
+    repo_line = f"\n- **Target repo**: {c.target_repo_url}" if c.target_repo_url else ""
+
+    return f"""{BRAND_LINE}
+
+# Pflanzer Charter — {c.name}
 
 > Slug: `{c.slug}` · Vytvořeno: {today} · Autor: {current_actor()}
-> Per ADR-0004 (Business Charter) + ADR-0001 (Decider escalation).
+> Per ADR-0004 (Business Charter) + ADR-0001 (Decider) + ADR-0021 (malá skupina, celá cesta).
 
 ## XYZ hypotéza
 {c.xyz_hypothesis}
@@ -78,45 +121,37 @@ def render_charter_md(c: CharterInput) -> str:
 - **Eskalační protokol**: aplikuje se kanonický Decider eskalační protokol
   z `docs/decisions/0001-decider-model.md` (Scenario A/B/C). Charter ho
   neduplikuje, jen odkazuje.
-
-## Success threshold
+{path_block}{core_block}
+## Metrika úspěchu
 - **Primary lagging metric**: {c.primary_lagging_metric}
 - **Leading metric**: {c.leading_metric}
 - **Guardrail metric**: {c.guardrail_metric}
 
-## Kill criteria
+## Kill kritéria
 {c.kill_criteria}
 
 ## Kapacitní commit
-- **Profil**: `{c.capacity_profile}` (default ~10 PD / regulated ~14 PD /
-  audit-grade ~18–22 PD per ADR-0008 + devil's advocate Útok 1)
-- **Person-days commit**: **{c.capacity_person_days}**
+- **Profil**: `{c.capacity_profile}` (default v0.5 ≈ 6–8 PD; regulated a
+  audit-grade přidávají okna a brány, viz ADR-0021 + ADR-0008)
+- **Person-days commit**: **{c.capacity_person_days}**{repo_line}
 
 ## Risk profile
-- **AI Act risk-tier**: `{c.ai_act_tier}` *(provisional, re-assessed v Session 2 —
-  devil's advocate Útok 4)*
+- **AI Act risk-tier**: `{c.ai_act_tier}` *(předběžný, přehodnotí se při Rozhodnutí)*
 - **Data classification**: `{c.data_class}`
 - **Throw-away vs evolve** (ADR-0005): **`{c.throwaway_or_evolve}`**
 {evolve_block}
-## Reinforcement track (ADR-0004 + devil's advocate Útok 11)
+## Reinforcement track (ADR-0004)
 - **T+7**: {c.reinforcement_t7}
 - **T+30**: {c.reinforcement_t30}
 - **T+60**: {c.reinforcement_t60}
 - **T+90**: {c.reinforcement_t90}
 - **Reinforcement budget commit**: **{c.reinforcement_budget_pd} PD**
 
-## Champion provisioning (ADR-0006)
-*(vyplní Slice 2 / Roles wizard. Zatím placeholder.)*
-- Režim: TBD (Bootstrap forma 1/2/3 nebo Organic)
-- Champion: TBD
-- Champion buddy: TBD
-
 ## Sign-off
-- Decider podpis (datum + jméno): _PENDING — povinné před Session 1_
+- Decider podpis (datum + jméno): _PENDING — povinné před Buildem_
 - Sponsor podpis: _PENDING_
-- Security pre-read (48 h): _PENDING_
-- Legal pre-read (48 h): _PENDING_
-- EM kapacitní sign-off: _PENDING_
+- Checkpoint Bezpečnost & právo (do 48 h po Buildu): _PENDING_
+- Checkpoint Provoz (před Ship): _PENDING_
 """
 
 
@@ -188,6 +223,19 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
         )
 
         conn.execute(
+            "UPDATE projects SET "
+            "target_repo_url = COALESCE(?, target_repo_url), "
+            "path_owners_json = COALESCE(?, path_owners_json), "
+            "core_json = COALESCE(?, core_json) WHERE id = ?",
+            (
+                c.target_repo_url,
+                json.dumps(c.path_owners, ensure_ascii=False) if c.path_owners else None,
+                json.dumps(c.core, ensure_ascii=False) if c.core else None,
+                project_id,
+            ),
+        )
+
+        conn.execute(
             """
             INSERT INTO decisions (project_id, type, body_md, atribuce_user, atribuce_ts)
             VALUES (?, 'charter', ?, ?, CURRENT_TIMESTAMP)
@@ -209,6 +257,8 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
 def run_from_json(path: Path) -> dict[str, Any]:
     """Run charter generation from a JSON spec file (used by slash command)."""
     spec = json.loads(path.read_text(encoding="utf-8"))
+    if not spec.get("target_repo_url"):
+        spec["target_repo_url"] = load_project_toml().get("target_repo_url")
     inp = CharterInput(**spec)
     md = render_charter_md(inp)
     pid = persist_charter(inp, md)
@@ -218,7 +268,9 @@ def run_from_json(path: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--spec", type=Path, required=True, help="JSON spec file with charter inputs")
+    parser.add_argument("--spec", type=Path, required=True,
+                        help="JSON se vstupy Charteru (target_repo_url se doplní z .pflanzer/project.toml). "
+                             "Doporučená cesta je /pm start (quick_session bootstrap).")
     args = parser.parse_args()
     result = run_from_json(args.spec)
     print(json.dumps(result, ensure_ascii=False, indent=2))

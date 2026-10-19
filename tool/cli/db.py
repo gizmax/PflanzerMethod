@@ -18,24 +18,56 @@ SCHEMA_PATH = REPO_ROOT / "tool" / "db" / "schema.sql"
 DORA_RETENTION = timedelta(days=365 * 7 + 2)  # 7 years + leap days buffer
 
 
-def _resolve_db_path() -> Path:
-    """Resolve DB location.
+def _resolve_data_root() -> Path:
+    """Resolve the single data folder (DB + charters + feedback + quick + ...).
 
     Order:
-    1. PFLANZER_DB env var (explicit override)
-    2. ~/.pflanzer/pflanzer.db if ~/.pflanzer/ exists (installed plugin path)
-    3. <repo>/data/pflanzer.db (dev mode — running from cloned source)
+    1. PFLANZER_DATA env var (explicit override)
+    2. ~/.pflanzer/ if it exists (installed plugin)
+    3. <repo>/data (dev mode — running from cloned source)
     """
     import os
-    if env := os.environ.get("PFLANZER_DB"):
+    if env := os.environ.get("PFLANZER_DATA"):
         return Path(env).expanduser()
     user_dir = Path.home() / ".pflanzer"
     if user_dir.exists():
-        return user_dir / "pflanzer.db"
-    return REPO_ROOT / "data" / "pflanzer.db"
+        return user_dir
+    return REPO_ROOT / "data"
 
 
+def _resolve_db_path() -> Path:
+    """Resolve DB location: PFLANZER_DB env override, else DATA_ROOT/pflanzer.db."""
+    import os
+    if env := os.environ.get("PFLANZER_DB"):
+        return Path(env).expanduser()
+    return _resolve_data_root() / "pflanzer.db"
+
+
+DATA_ROOT = _resolve_data_root()
 DB_PATH = _resolve_db_path()
+
+
+def load_project_toml(start: Path | None = None) -> dict[str, str]:
+    """Read `[project]` defaults from `.pflanzer/project.toml` (written by `pflanzer init`).
+
+    Looks in `start` (default cwd = the target repo). Placeholder values
+    like `<@github-handle>` are skipped.
+    """
+    path = (start or Path.cwd()) / ".pflanzer" / "project.toml"
+    if not path.is_file():
+        return {}
+    out: dict[str, str] = {}
+    in_project = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line.startswith("["):
+            in_project = line == "[project]"
+        elif in_project and "=" in line:
+            key, val = (x.strip() for x in line.split("=", 1))
+            val = val.strip('"')
+            if val and not val.startswith("<"):
+                out[key] = val
+    return out
 
 
 def display_path(path: Path) -> str:

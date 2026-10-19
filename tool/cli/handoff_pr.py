@@ -1,25 +1,22 @@
-"""Sprint 3 — SHIP.md + auto `gh pr create` command.
+"""Handoff — SHIP.md + podklady pro `gh pr create` (v0.5).
 
-Per autoresearch synthesis ADR-0010 + perspektiva 02 vibe-product:
-> "Handoff package: 8 files → 1-page SHIP.md + auto-rendered `gh pr create`
->  command within 30s of Session 3. The 8 per-role MDs are compliance theater
->  nobody reads."
+SHIP.md je primární handoff artefakt: 1 stránka s tím, co se mění, kdo to merguje,
+skóre quality gates vítěze ("X/100, práh Y"), kill kritériem, měřením a copy-paste
+příkazem pro PR. Osm souborů per role (`handoff.py`) je doplněk pro audit.
 
-Tento modul:
-1. Render `data/handoffs/<slug>/SHIP.md` — 1 stránka markdown s:
-   - Co se mění (variant, branch, files touched)
-   - Kdo to merguje (target_branch_owner z Charteru)
-   - Quality gate score badges
-   - Acceptance criteria pass rate
-   - Kill criteria + rollback plán
-   - Copy-paste `gh pr create` command (s pre-filled title + body)
-2. Output je primary handoff artefakt; 8 per-role files (handoff.py)
-   degraduje na supplementary.
+Pravidla výstupu:
+- první řádek je brand line,
+- žádné absolutní lokální cesty v textu určeném do PR (jen větev, SHA, název),
+- výstupy do `<DATA_ROOT>/handoffs/<slug>/`.
+
+Rozhraní:
+    pflanzer handoff_pr --slug S [--print]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,9 +25,37 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
+from tool.cli.db import audit, display_path, transaction  # noqa: E402
+from tool.cli.extract import (  # noqa: E402
+    BRAND, DATA_ROOT, clean_text, public_repo_ref, table_has_col, tilde,
+)
+from tool.cli.session_2 import get_winner  # noqa: E402
 
-SHIP_DIR = REPO_ROOT / "data" / "handoffs"
+SHIP_DIR = DATA_ROOT / "handoffs"
+TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
+
+_FALLBACK_MEASURE_30D = """## Změř po 30 dnech
+
+Termín: 30 dní po merge. Změř: (1) kolik kódu vítěze (`{branch}` @ `{head_sha_short}`)
+přežilo v `main`, (2) incidenty způsobené změnou, (3) metriku úspěchu vs. cíl
+({metric_primary}). Kill kritérium: {kill}
+"""
+
+
+def load_template(name: str, fallback: str = "") -> str:
+    path = TEMPLATES_DIR / name
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return fallback
+
+
+def render_measure_30d(values: dict[str, Any]) -> str:
+    tpl = load_template("measure-30d.md.template", _FALLBACK_MEASURE_30D)
+    safe = {k: ("—" if v in (None, "") else v) for k, v in values.items()}
+    for key, val in safe.items():
+        tpl = tpl.replace("{" + key + "}", str(val))
+    return tpl
 
 
 def _fetch_ship_context(slug: str) -> dict[str, Any]:
@@ -48,238 +73,249 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
         ).fetchone()
         if not proj:
             raise ValueError(f"Project '{slug}' not found.")
+        project_id = int(proj[0])
 
-        # Winner = variant s gate_score blízko aktuálnímu projects.gate_score_latest.
-        # Pokud žádná extracted/gates row (Session 3 ještě neběžela), fallback
-        # na preference_score winner.
         sess1 = conn.execute(
-            "SELECT id FROM sessions WHERE project_id = ? AND type = 1",
-            (proj[0],),
+            "SELECT id FROM sessions WHERE project_id = ? AND type = 1", (project_id,),
         ).fetchone()
         winner = None
+        decided = get_winner(conn, project_id)
         if sess1:
-            # First try: variant with extracted code AND highest gate score
-            row = conn.execute(
-                """
-                SELECT v.name, v.builder, v.prototype_url, v.preference_score,
-                       v.description_md, v.id,
-                       COALESCE(MAX(qg.metric_value), 0) AS avg_gate
-                FROM variants v
-                LEFT JOIN extracted_code e ON e.variant_id = v.id
-                LEFT JOIN quality_gates qg ON qg.extracted_id = e.id
-                WHERE v.session_id = ? AND e.id IS NOT NULL
-                GROUP BY v.id
-                ORDER BY v.preference_score DESC, avg_gate DESC LIMIT 1
-                """, (sess1[0],),
-            ).fetchone()
-            if row:
-                winner = row
-            else:
-                # Fallback: highest preference, no extracted code yet
+            has_branch = table_has_col(conn, "variants", "head_sha")
+            cols = ("v.name, v.builder, v.prototype_url, v.preference_score, v.description_md, v.id"
+                    + (", v.branch, v.head_sha" if has_branch else ", NULL, NULL"))
+            if decided:
                 winner = conn.execute(
-                    """
-                    SELECT v.name, v.builder, v.prototype_url, v.preference_score,
-                           v.description_md, v.id
-                    FROM variants v
-                    WHERE v.session_id = ?
-                    ORDER BY v.preference_score DESC LIMIT 1
-                    """, (sess1[0],),
+                    f"SELECT {cols} FROM variants v WHERE v.session_id = ? AND v.name = ?",
+                    (sess1[0], decided),
+                ).fetchone()
+            if winner is None:
+                winner = conn.execute(
+                    f"SELECT {cols} FROM variants v JOIN extracted_code e ON e.variant_id = v.id "
+                    "WHERE v.session_id = ? ORDER BY e.id DESC LIMIT 1", (sess1[0],),
+                ).fetchone() or conn.execute(
+                    f"SELECT {cols} FROM variants v WHERE v.session_id = ? "
+                    "ORDER BY v.preference_score DESC LIMIT 1", (sess1[0],),
                 ).fetchone()
 
-        # Extracted code path + gate scores per variant
-        ext_rows = []
+        ext = None
+        gate_rows: list = []
         if winner:
-            ext_rows = list(conn.execute(
-                """
-                SELECT e.id, e.local_path, e.extraction_method, e.files_count,
-                       e.total_loc
-                FROM extracted_code e
-                WHERE e.variant_id = ?
-                ORDER BY e.id DESC LIMIT 1
-                """, (winner[5],),
-            ).fetchall())
+            has_diff = table_has_col(conn, "extracted_code", "diff_loc_added")
+            ext = conn.execute(
+                "SELECT e.id, e.local_path, e.extraction_method, e.files_count, e.total_loc"
+                + (", e.diff_loc_added, e.diff_loc_removed, e.diff_files" if has_diff
+                   else ", NULL, NULL, NULL")
+                + " FROM extracted_code e WHERE e.variant_id = ? ORDER BY e.id DESC LIMIT 1",
+                (winner[5],),
+            ).fetchone()
+            if ext:
+                gate_rows = list(conn.execute(
+                    "SELECT gate_type, status, metric_value, details_md "
+                    "FROM quality_gates WHERE extracted_id = ? ORDER BY id", (ext[0],),
+                ).fetchall())
 
-        # Per-gate detail
-        gate_rows = []
-        if ext_rows:
-            gate_rows = list(conn.execute(
-                "SELECT gate_type, status, metric_value, details_md "
-                "FROM quality_gates WHERE extracted_id = ? ORDER BY id",
-                (ext_rows[0][0],),
-            ).fetchall())
-
-        # Decision rationale
         decision = conn.execute(
-            "SELECT body_md, atribuce_user FROM decisions "
-            "WHERE project_id = ? AND type = 'handoff' "
-            "ORDER BY id DESC LIMIT 1", (proj[0],),
+            "SELECT body_md, atribuce_user, atribuce_ts FROM decisions "
+            "WHERE project_id = ? AND type = 'handoff' ORDER BY id DESC LIMIT 1", (project_id,),
         ).fetchone()
 
+    return {"project": proj, "winner": winner, "decided": decided, "extracted": ext,
+            "gates": gate_rows, "decision": decision}
+
+
+def _render_gate_badges(gates: list) -> tuple[str, int, int]:
+    """Řádek `PASS build · WARN a11y · SKIP types …` + (aplikovatelné, celkem)."""
+    if not gates:
+        return "(quality gates ještě neběžely - `/pm ship`)", 0, 0
+    label = {"pass": "PASS", "warn": "WARN", "fail": "FAIL", "skipped": "SKIP", "unsupported": "SKIP"}
+    line = " · ".join(f"{label.get(g[1], '?')} {g[0]}" for g in gates)
+    applicable = sum(1 for g in gates if g[1] in ("pass", "warn", "fail"))
+    return line, applicable, len(gates)
+
+
+def _verdict(score: int, target: int) -> str:
+    if target <= 0:
+        return "informativně (throwaway)"
+    return "splňuje práh" if score >= target else "pod prahem"
+
+
+def build_pr(slug: str) -> dict[str, Any]:
+    """Sestaví titulek, tělo PR (bez absolutních cest) a metadata."""
+    ctx = _fetch_ship_context(slug)
+    p, w, e, gates = ctx["project"], ctx["winner"], ctx["extracted"], ctx["gates"]
+    name, decider = p[1], p[5]
+    metric_primary = clean_text(p[17], "doplnit při Rozhodnutí")
+    metric_leading = clean_text(p[18], "doplnit při Rozhodnutí")
+    metric_guardrail = clean_text(p[19], "doplnit při Rozhodnutí")
+    gate_score = int(p[14] or 0)
+    target = int(p[15]) if p[15] is not None else 80
+    kill = p[10] or "(nezadáno v Kickoffu)"
+    badges, applicable, total = _render_gate_badges(gates)
+    dec_user = ctx["decision"][1] if ctx["decision"] else None
+    dec_ts = str(ctx["decision"][2])[:10] if ctx["decision"] else None
+
+    branch = w[6] if w and w[6] else (f"pflanzer/{slug}-{w[0]}" if w else None)
+    head_sha = w[7] if w else None
+    loc_added = e[5] if e else None
+    loc_removed = e[6] if e else None
+    diff_files = e[7] if e else None
+    acceptance = next((f"{int(g[2])} %" for g in gates
+                       if g[0] == "acceptance" and g[1] != "skipped" and g[2] is not None), "N/A")
+
+    decider_line = decider or dec_user or "(Decider nezadán)"
+    if dec_user and decider and dec_user.strip() != decider.strip():
+        decider_line += f" (zapsal {dec_user})"
+    if dec_ts:
+        decider_line += f", rozhodnutí Go {dec_ts}"
+
+    size_line = ""
+    if loc_added is not None:
+        size_line = f"+{loc_added}" + (f" / -{loc_removed}" if loc_removed is not None else "") + " řádků"
+        if diff_files is not None:
+            size_line += f" v {diff_files} souborech"
+
+    pr_title = f"feat({slug}): {name[:60]}"
+    body_lines = [
+        BRAND, "",
+        "## Co se mění", p[4] or name, "",
+        "## Výstup Pflanzer Method",
+        f"- Varianta: `{w[0] if w else '—'}` (`{w[1] if w else '—'}`), větev `{branch or '—'}`"
+        + (f" @ `{head_sha[:10]}`" if head_sha else ""),
+        f"- Skóre z Buildu: {float(w[3] or 0):.2f}" if w else "- Skóre z Buildu: —",
+        f"- Gate skóre: **{gate_score}/100 (práh {target})** - {_verdict(gate_score, target)}",
+        f"- Acceptance: {acceptance}",
+        f"- Rozsah: {size_line or '—'}", "",
+        f"## Quality gates ({applicable} z {total} aplikovatelných)", badges, "",
+        "## Decider", decider_line, "",
+        "## Kill kritéria", kill, "",
+        "## Měření",
+        f"- Primary (lagging): {metric_primary}",
+        f"- Leading: {metric_leading}",
+        f"- Guardrail: {metric_guardrail}", "",
+        "---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*",
+    ]
     return {
-        "project": proj,
-        "winner": winner,
-        "extracted": ext_rows[0] if ext_rows else None,
-        "gates": gate_rows,
-        "decision": decision,
+        "ctx": ctx, "title": pr_title, "body": "\n".join(body_lines),
+        "branch": branch, "head_sha": head_sha, "loc_added": loc_added,
+        "gate_score": gate_score, "target": target, "badges": badges,
+        "metrics": (metric_primary, metric_leading, metric_guardrail),
+        "applicable": applicable, "total": total, "kill": kill,
     }
 
 
-def _render_gate_badges(gates: list) -> str:
-    icons = {"pass": "✅", "warn": "⚠️", "fail": "❌",
-             "skipped": "⏭️", "unsupported": "—"}
-    return " ".join(f"{icons.get(g[1], '?')} {g[0]}" for g in gates) or "(no gates run yet)"
-
-
 def render_ship_md(slug: str) -> str:
-    ctx = _fetch_ship_context(slug)
-    p = ctx["project"]
-    w = ctx["winner"]
-    e = ctx["extracted"]
-    gates = ctx["gates"]
-
+    pr = build_pr(slug)
+    ctx = pr["ctx"]
+    p, w, e = ctx["project"], ctx["winner"], ctx["extracted"]
     name, decider = p[1], p[5]
-    target_repo = p[6] or "(target_repo_url unset — set in Charter)"
+    target_repo = public_repo_ref(p[6])
     target_branch = p[7] or "main"
-    branch_owner = p[8] or "(target_branch_owner unset)"
-    shadow_pm = p[9] or "(shadow_pm unset — per perspektiva 02 needed)"
-    kill = p[10] or "TBD"
-    gate_score = int(p[14] or 0)
-    target = int(p[15] or 80)
-    throwaway = p[11]
-
+    branch_owner = p[8] or "(target_branch_owner nezadán)"
+    shadow_pm = p[9] or "(shadow_pm nezadán)"
+    score, target = pr["gate_score"], pr["target"]
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    ready = gate_score >= target
-    verdict = "🚀 **PRODUCTION-READY**" if ready else "⚠ **PILOT-ONLY**"
+    verdict = _verdict(score, target)
 
-    winner_info = ""
-    pr_command = ""
+    winner_info = pr_command = ""
     if w and e:
-        feat_branch = f"pflanzer/{slug}-{w[0]}"
-        pr_title = f"feat({slug}): {name[:60]}"
-        pr_body_lines = [
-            f"## Co se mění",
-            f"{p[4]}",  # xyz_hypothesis
-            "",
-            f"## Pflanzer session output",
-            f"- **Variant**: `{w[0]}` (`{w[1]}`)",
-            f"- **Preference score**: {w[3]:.2f}",
-            f"- **Gate score**: **{gate_score}/{target}** ({verdict})",
-            f"- **Acceptance pass rate**: " +
-            next((f"{int(g[2])} %" for g in gates if g[0] == "acceptance" and g[2] is not None), "N/A"),
-            f"- **Files**: {e[3]} ({e[4]} LOC)",
-            f"- **Local path**: `{e[1]}`",
-            "",
-            f"## Quality gates",
-            f"{_render_gate_badges(gates)}",
-            "",
-            f"## Decider",
-            f"{decider} — {ctx['decision'][1] if ctx['decision'] else current_actor()}",
-            "",
-            f"## Kill criteria",
-            f"{kill}",
-            "",
-            f"## Measurement plan",
-            f"- Primary lagging: {p[17] or 'TBD'}",
-            f"- Leading: {p[18] or 'TBD'}",
-            f"- Guardrail: {p[19] or 'TBD'}",
-            "",
-            f"---",
-            f"*Generated by Pflanzer `/pflanzer-handoff` per ADR-0010.*",
-        ]
-        pr_body = "\n".join(pr_body_lines)
+        reviewer = branch_owner if (" " not in branch_owner and not branch_owner.startswith("(")) else "YOUR-GH-HANDLE"
+        winner_info = f"""## Vítěz
 
-        winner_info = f"""## 🏆 Winner
+- **Varianta**: `{w[0]}` (`{w[1]}`)
+- **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} v `{target_repo}`
+- **Rozsah**: {pr['loc_added'] if pr['loc_added'] is not None else '—'} přidaných řádků
+- **Gate skóre**: **{score}/100 (práh {target})** - {verdict}
 
-- **Variant**: `{w[0]}` (`{w[1]}`)
-- **Branch**: `{feat_branch}` v `{target_repo}`
-- **Code**: `{e[1]}` ({e[3]} files / {e[4]} LOC)
-- **Gate score**: **{gate_score}/{target}** {verdict}
+### Quality gates ({pr['applicable']} z {pr['total']} aplikovatelných)
 
-### Quality gates
-
-{_render_gate_badges(gates)}
+{pr['badges']}
 """
-        pr_command = f"""## 📤 Open PR (copy-paste)
+        pr_command = f"""## Otevři PR (copy-paste)
 
 ```bash
-cd {e[1]}
-git push -u origin {feat_branch}
+cd {tilde(e[1])}
+git push -u origin {pr['branch']}
 
 gh pr create \\
-  --title "{pr_title}" \\
+  --title {shlex.quote(pr['title'])} \\
   --body "$(cat <<'PRBODY'
-{pr_body}
+{pr['body']}
 PRBODY
 )" \\
   --base {target_branch} \\
-  --reviewer {branch_owner if branch_owner != '(target_branch_owner unset)' else 'YOUR-GH-HANDLE'} \\
+  --reviewer {reviewer} \\
   --label pflanzer
 ```
 """
 
-    return f"""# SHIP — {name}
+    measure = render_measure_30d({
+        "branch": pr["branch"], "head_sha_short": (pr["head_sha"] or "")[:10],
+        "loc_added": pr["loc_added"], "metric_primary": pr["metrics"][0],
+        "guardrail": pr["metrics"][2], "kill": pr["kill"],
+    })
 
-> Slug: `{p[2]}` · Generated: {today} · {verdict}
-> Per ADR-0010 (1-page SHIP.md místo 8-file compliance theater).
+    return f"""{BRAND}
+
+# SHIP — {name}
+
+> Projekt: `{p[2]}` · Vygenerováno: {today} · {verdict}
+> SHIP.md je primární handoff (1 stránka). Soubory per role jsou doplněk pro audit.
 
 ## Co se mění
 
 {p[4]}
 
-## Ownership
+## Odpovědnosti
 
-| Role | Person |
-|------|--------|
-| **Decider** | {decider} |
+| Role | Kdo |
+|------|-----|
+| **Decider** | {decider or '(nezadán)'} |
 | **Branch owner / merger** | {branch_owner} |
-| **Shadow PM** (mezi-session babysitter) | {shadow_pm} |
+| **Shadow PM** (hlídá Async) | {shadow_pm} |
 
 {winner_info}
+## Rizikový profil
 
-## Risk profile
+- **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profil**: `{p[11]}`
 
-- **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profile**: `{throwaway}`
+## Kill kritéria
 
-## Kill criteria
+{pr['kill']}
 
-{kill}
+## Měření
 
-## Measurement plan
-
-- **Primary lagging**: {p[17] or 'TBD — set v Session 2 / handoff'}
-- **Leading**: {p[18] or 'TBD'}
-- **Guardrail**: {p[19] or 'TBD'}
-- **Instrumentation deadline**: ship-date − 2 dny (per role catalog #12)
+- **Primary (lagging)**: {pr['metrics'][0]}
+- **Leading**: {pr['metrics'][1]}
+- **Guardrail**: {pr['metrics'][2]}
+- **Instrumentace hotová**: 2 dny před nasazením
 
 {pr_command}
-
 ## Co dál (T+0 → T+90)
 
-- **Today**: PR otevřený, branch_owner reviews
-- **T+1d**: PR merged → deploy preview link sdílen v Slack/Discord
-- **T+7d**: feature flag rollout 10 % users; Decider checks instrumentation
-- **T+14d**: rollout 50 % users; first metrics review (hit primary lagging?)
-- **T+30d**: full rollout OR rollback dle kill criteria
-- **T+60-90d**: retrospektiva, contribution do `data/method-metrics.json`
+- **Dnes**: PR otevřený, branch owner dělá review
+- **T+1 den**: PR merged, preview odkaz sdílen
+- **T+7 dní**: feature flag 10 % uživatelů; kontrola instrumentace
+- **T+14 dní**: 50 % uživatelů; první čtení metrik
+- **T+30 dní**: plný rollout, nebo rollback podle kill kritérií; **změř, co z kódu přežilo** (níže)
+- **T+60–90 dní**: retrospektiva, příspěvek do `method-metrics.json`
 
-## Compliance audit trail
+{measure}
+## Audit trail
 
-- DORA: audit_log v `data/pflanzer.db` audit_log table (7-letá retence)
-- Decision atribuce: `data/handoffs/{p[2]}/decision.md` (per-role package)
-- AI Act: pokud `tier=high`, generate Annex IV tech doc před production launch
-- GDPR: pokud `data_class=L3+`, RoPA update + DPIA (per Legal triage)
+- Audit log a decision log jsou v DB toolu (7letá retence, DORA); cesta: `pflanzer db`.
+- Decision log pro git: `.pflanzer/decisions/{p[2]}.md` v target repu (commitnutý při Rozhodnutí).
+- AI Act: pokud `tier=high`, Annex IV technická dokumentace před produkcí.
+- GDPR: pokud `data_class=L3+`, aktualizace RoPA a DPIA.
 
 ---
 
-*Tento SHIP.md je primary handoff artefakt. 8 per-role files
-(`data/handoffs/{p[2]}/{{decision,be,fe,qa,platform,data,support,compliance}}.md`)
-jsou supplementary pro audit + per-role deep dive — nikdo je nečte u stolu.
-Per perspektiva 02 vibe-product C7 (anti-theater).*
+*Soubory per role: `decision, be, fe, qa, platform, data, support, compliance` (`.md`) ve
+výstupní složce (`pflanzer data`) slouží pro audit a hlubší pohled; u stolu je nikdo nečte.*
 """
 
 
 def write_ship(slug: str) -> Path:
-    SHIP_DIR.mkdir(parents=True, exist_ok=True)
     project_dir = SHIP_DIR / slug
     project_dir.mkdir(parents=True, exist_ok=True)
     out = project_dir / "SHIP.md"
@@ -291,7 +327,7 @@ def write_ship(slug: str) -> Path:
             audit(
                 conn, action="ship.render",
                 target_type="project", target_id=int(proj[0]),
-                payload={"slug": slug, "path": display_path(out)},
+                payload={"slug": slug, "file": out.name},
             )
     return out
 
@@ -300,19 +336,23 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--print", action="store_true",
-                   help="Print SHIP.md to stdout (default: write to file)")
+                   help="Vypiš SHIP.md na stdout (default: zapiš do výstupní složky)")
+    p.add_argument("--pr-body", action="store_true",
+                   help="Vypiš jen tělo PR (pro `gh pr create --body-file -`)")
     args = p.parse_args()
 
-    if args.print:
+    if args.pr_body:
+        print(build_pr(args.slug)["body"])
+    elif args.print:
         print(render_ship_md(args.slug))
     else:
         path = write_ship(args.slug)
         print(json.dumps({
             "slug": args.slug,
-            "ship_path": display_path(path),
+            "ship_path": tilde(path),
             "next_step": (
-                f"Vyhoď {path} týmu na velký TV. Decider nebo branch_owner "
-                f"copy-paste `gh pr create` command z konce SHIP.md."
+                "Ukaž SHIP.md týmu. Decider nebo branch owner spustí `gh pr create` příkaz "
+                "z konce SHIP.md (z worktree vítěze)."
             ),
         }, ensure_ascii=False, indent=2))
 

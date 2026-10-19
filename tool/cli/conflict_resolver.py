@@ -1,4 +1,4 @@
-"""Slice 7 — Conflict resolver pro Session 2.
+"""Conflict resolver pro Rozhodnutí (top spory z feedbacku).
 
 Detekuje konflikty v posbíraném feedbacku a páruje je s navrhovanými
 resolutions z `docs/research/synthesis/01-conflict-matrix.md`. Heuristic-based
@@ -88,7 +88,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({2, 13}): {
         "axis": "Interpretace pain (PM vs CS)",
-        "resolution": "VoC ritual prvních 30 min Session 1; ticket data jako vstup, ne názor jako rozhodnutí.",
+        "resolution": "VoC ritual prvních 30 min Buildu; ticket data jako vstup, ne názor jako rozhodnutí.",
         "adr": None,
     },
     frozenset({2, 12}): {
@@ -113,7 +113,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({4, 11}): {
         "axis": "A11y stav generovaného kódu",
-        "resolution": "A11y quickscan + axe-core jako Session 1 gate; expert v místnosti od minuty 0, ne post-hoc.",
+        "resolution": "A11y quickscan + axe-core jako gate už v Buildu; expert v místnosti od minuty 0, ne post-hoc.",
         "adr": None,
     },
     frozenset({5, 15}): {

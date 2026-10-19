@@ -20,8 +20,15 @@ Dobrý první pilot:
 - vlastní **existující repo**, do kterého má kód jít;
 - nepotřebuje produkční data k vývoji (stačí syntetická).
 
-Nehodí se: platební flow (PSD2 SCA), AI Act High-risk, banky v DORA scope
-bez [`governance/`](governance/README.md). Na první pilot vyber něco jiného.
+**Kdy metodu NEpoužít** (jdi standardním SDLC / PRD-first):
+
+- compliance-citlivé věci — AI Act High-risk, banky v DORA scope (bez [`governance/`](governance/README.md));
+- platby a platební flow (PSD2 SCA);
+- silné externí závislosti (partner, legacy systém, schvalovaný kontrakt), které nejdou nasimulovat;
+- nativní mobilní aplikace s release cyklem přes store;
+- nejednoznačná strategie a **chybí Decider** s mandátem říct Go i Kill.
+
+Na první pilot vyber něco jiného.
 
 ### 2. Sežeň jména — 6 kroků cesty
 
@@ -71,13 +78,34 @@ pflanzer init
 
 # 3. Vyplň docs/INTEGRATION_GUIDE.md (~30 min): auth, API klient, state,
 #    logger, feature flags, struktura složek, test runner — AI se podle
-#    toho drží vašich konvencí. Pak commit:
+#    toho drží vašich konvencí. Zkontroluj .pflanzer/CONSTITUTION.md
+#    (krátká nepřekročitelná pravidla pro AI). Pak commit a push:
 git add docs/INTEGRATION_GUIDE.md .pflanzer/ tests/acceptance/
 git commit -m "chore(pflanzer): init project"
+git push
+
+# 4. Je repo připravené?
+pflanzer doctor
 ```
 
 Pak **restartuj Claude Code v tom repu** a zkontroluj, že `/pm` existuje
 (napiš `/pm` — bez argumentu ukáže stav a nabídne další krok).
+
+### Je repo připravené?
+
+`pflanzer doctor` ukáže checklist a „připraveno ke Kickoffu: ano/ne".
+Agent zvládne produkční kód jen v repu, které ho udrží na uzdě
+(Willison: „vibe engineering" potřebuje tvrdé brzdy). Musí být:
+
+- **testy** a spustitelný `test` skript;
+- **lint** a **build** skripty;
+- **CI**, které je pouští na každé větvi;
+- **preview deploy** větví (bez produkčních dat) — jinak Async nemá na co klikat;
+- vyplněný `docs/INTEGRATION_GUIDE.md` a `.pflanzer/CONSTITUTION.md`;
+- `pflanzer init` **commitnutý a pushnutý** (worktrees se zakládají z originu).
+
+Co chybí, `doctor` řekne. Nezačínej Kickoff na „ne", pokud chybějící věc
+vědomě nepřijmeš jako riziko.
 
 > Instaluj přes `install.sh`, ne jen `/plugin install` v Claude Code —
 > slash commandy potřebují i CLI `pflanzer`, které instaluje skript.
@@ -89,11 +117,14 @@ Pak **restartuj Claude Code v tom repu** a zkontroluj, že `/pm` existuje
 | Kdy | Co se děje | Příkaz |
 |-----|-----------|--------|
 | Kickoff | zadání na 1 stránku: problém, metrika, kill kritérium, jména 6 kroků | `/pm start` |
-| Build | AI staví 3 varianty ve 3 worktrees vašeho repa; jádro u jedné obrazovky směruje | `/pm live` nebo `/pm build` |
-| po Buildu | builder pushne 3 branche → preview URL → pošle odkazy všem | — |
+| Build | AI staví 3 varianty ve 3 worktrees vašeho repa, průběžně lint/testy/build; jádro u jedné obrazovky směruje; checkpoint bezpečnost & právo | `/pm live` nebo `/pm build` |
+| po Buildu | builder pushne 3 branche → preview URL (se štítkem „k rozhodnutí, ne produkt") → pošle odkazy všem | — |
 | Async | zástupci klikají a komentují, builder zapracovává | `/pm feedback` |
 | Rozhodnutí | demo, top 3 spory, tiché hlasování, Decider poslední → Go / Iterate / Kill | `/pm decide` |
-| Ship | quality gates ≥ 80/100, checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |
+| Ship | quality gates jen na vítěze: pilot ≥ 80 / production ≥ 85 ze 100, checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |
+
+**Kde jste?** `/pm` (nebo `/pm status`) řekne fázi a jeden další krok.
+Rozhodnutí se zapisují do repa: `.pflanzer/decisions/<slug>.md` — commitni je.
 
 **Spěcháte?** `/pm live "co řešíme"` spojí Kickoff a Build do jednoho
 sezení — vhodné pro malý interní tool.
@@ -107,7 +138,7 @@ sezení — vhodné pro malý interní tool.
 - [ ] Decider má mandát říct Go i Kill
 - [ ] Preview prostředí pro 3 branche domluvené s provozem
 - [ ] Všechna okna v kalendáři
-- [ ] `pflanzer init` v repu + vyplněný `INTEGRATION_GUIDE.md` commitnutý
+- [ ] `pflanzer doctor` hlásí „připraveno ke Kickoffu: ano" (init pushnutý, INTEGRATION_GUIDE + CONSTITUTION vyplněné)
 - [ ] `/pm` v Claude Code funguje
 
 ---
@@ -122,5 +153,14 @@ sezení — vhodné pro malý interní tool.
 | bezpečnost nechce syntetická data | nezačínej; vyber problém, který produkční data nepotřebuje |
 | přišlo 8 lidí | max 5 naráz — ostatní na svá okna, nebo rozděl scope |
 | Iterate podruhé | ne — problém je špatně zadaný, zpět na Kickoff |
+
+## Co měřit
+
+Metoda zatím nemá vlastní data, tak je sbírej. Tool je zapisuje do handoffu:
+
+- čas Kickoff → merge,
+- gate score vítěze,
+- počet kol Iterate,
+- kolik kódu vítěze přežije 30 dní v `main`.
 
 Aktualizace: `pflanzer update`. Odinstalace: viz konec výpisu `install.sh`.

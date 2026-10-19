@@ -1,11 +1,11 @@
-"""Slice 5 — Session 1 persistence layer.
+"""Build — persistence vrstva (v0.5; DB `sessions.type = 1`).
 
-The Claude Code orchestrator (`/pflanzer-session-1`) calls this module with a
-JSON spec built from facilitator + role-expert sub-agent outputs. We:
+Orchestrátor Buildu (`/pm build`, `/pm live`) volá tento modul s JSON specem
+(facilitátor + hlasy zástupců kroků cesty). Modul:
 
-1. Validate project status (must be 'triage' = pre-flight passed).
+1. Validate project status (must be 'triage' = pre-flight passed; 'session_2' = Iterate).
 2. Open / reuse session row (type=1).
-3. Persist 1-3 variants + per-role preference matrix.
+3. Persist 1-3 variants (+ větev a HEAD SHA z worktree, pokud existuje) + per-role preference matrix.
 4. Compute aggregate variant.preference_score with AI-only deflation
    (max 0.5 per `04-session-1.md` § Score závaznosti, synthesis 02).
 5. Append decision row (type='preference') with Decider attribution.
@@ -29,8 +29,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.extract import BRAND, DATA_ROOT, git_info, locate_worktree, table_has_col  # noqa: E402
 
-SESSIONS_DIR = REPO_ROOT / "data" / "sessions"
+SESSIONS_DIR = DATA_ROOT / "sessions"
 ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
                     "stitch", "cursor", "figma-make", "manual"}
 PREFERENCE_DIMS = ("user_value", "effort", "risk", "strategic_fit")
@@ -109,7 +110,7 @@ def _validate_spec(spec: dict[str, Any]) -> None:
         raise ValueError("spec missing 'slug'")
     variants = spec.get("variants") or []
     if not (1 <= len(variants) <= 3):
-        raise ValueError(f"Session 1 musí mít 1-3 varianty, got {len(variants)}")
+        raise ValueError(f"Build musí mít 1-3 varianty, got {len(variants)}")
     seen_names: set[str] = set()
     for v in variants:
         for k in ("name", "builder", "prototype_url"):
@@ -124,7 +125,7 @@ def _validate_spec(spec: dict[str, Any]) -> None:
             if not rp.get("rationale"):
                 raise ValueError(
                     f"role_preferences row for variant '{v['name']}' missing rationale "
-                    "(POVINNÉ per 04-session-1.md § Score závaznosti)"
+                    "(POVINNÉ, viz docs/methodology/04-session-1.md § Score závaznosti)"
                 )
 
 
@@ -177,16 +178,16 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
 
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT id, status FROM projects WHERE slug = ?", (slug,),
+            "SELECT id, status, target_repo_url FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
             raise ValueError(f"Project '{slug}' not found.")
-        project_id, status = int(proj[0]), proj[1]
+        project_id, status, target_repo_url = int(proj[0]), proj[1], proj[2]
         # session_2 = Iterate → další Build kolo (ADR-0021)
         if status not in ("triage", "session_1", "session_2"):
             raise ValueError(
                 f"Project status='{status}'. Build vyžaduje 'triage' "
-                f"(spusť `/pm triage {slug}` nejdřív) nebo Iterate po Rozhodnutí."
+                f"(spusť `/pm start` / triage pro {slug} nejdřív) nebo Iterate po Rozhodnutí."
             )
 
         # Role lookup: catalog_idx → role row metadata
@@ -197,7 +198,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         ).fetchall()
         if not role_rows:
             raise ValueError(
-                "Žádné role v DB. Spusť `/pflanzer-roles {slug}` nejdřív."
+                "Žádné role v DB. Dokonči Kickoff (`/pm start`) nejdřív."
             )
         idx_to_role: dict[int, dict[str, Any]] = {
             r[1]: {"id": r[0], "label": r[2], "status": r[3], "ai_proxy_mode": r[4]}
@@ -209,12 +210,21 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             "SELECT id FROM sessions WHERE project_id = ? AND type = 1",
             (project_id,),
         ).fetchone()
+        iterate_round = status == "session_2"  # Iterate = další Build kolo (max 1×)
+        existing_variants: dict[str, int] = {}
         if sess:
             session_id = int(sess[0])
-            # Reset variants for re-run idempotency
-            conn.execute(
-                "DELETE FROM variants WHERE session_id = ?", (session_id,),
-            )
+            existing_variants = {
+                r[0]: int(r[1]) for r in conn.execute(
+                    "SELECT name, id FROM variants WHERE session_id = ?", (session_id,),
+                ).fetchall()
+            }
+            # Opakovaný zápis NEmaže feedback ani extracted_code: varianty se upsertují
+            # podle jména. Nepřítomné varianty se mažou jen mimo Iterate kolo.
+            if not iterate_round:
+                for name, vid in existing_variants.items():
+                    if name not in {v["name"] for v in spec["variants"]}:
+                        conn.execute("DELETE FROM variants WHERE id = ?", (vid,))
         else:
             cur = conn.execute(
                 "INSERT INTO sessions (project_id, type, starts_at, decision) "
@@ -249,19 +259,39 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             role_meta_by_id = {r["id"]: r for r in idx_to_role.values()}
             agg_score = _aggregate_variant_score(resolved, role_meta_by_id)
 
-            cur = conn.execute(
-                """
-                INSERT INTO variants (
-                    session_id, name, builder, prototype_url,
-                    description_md, preference_score
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id, v["name"], v["builder"], v["prototype_url"],
-                    v.get("description_md"), agg_score,
-                ),
-            )
-            variant_id = cur.lastrowid
+            if v["name"] in existing_variants:
+                variant_id = existing_variants[v["name"]]
+                conn.execute(
+                    "UPDATE variants SET builder = ?, prototype_url = ?, "
+                    "description_md = ?, preference_score = ? WHERE id = ?",
+                    (v["builder"], v["prototype_url"], v.get("description_md"),
+                     agg_score, variant_id),
+                )
+                conn.execute("DELETE FROM role_preferences WHERE variant_id = ?", (variant_id,))
+            else:
+                cur = conn.execute(
+                    """
+                    INSERT INTO variants (
+                        session_id, name, builder, prototype_url,
+                        description_md, preference_score
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id, v["name"], v["builder"], v["prototype_url"],
+                        v.get("description_md"), agg_score,
+                    ),
+                )
+                variant_id = cur.lastrowid
+
+            # Větev + HEAD SHA z worktree (pokud existuje)
+            branch = head_sha = None
+            wt = locate_worktree(slug, v["name"], target_repo_url)
+            if wt is not None:
+                gi = git_info(wt)
+                branch, head_sha = gi["branch"], gi["head_sha"]
+                if table_has_col(conn, "variants", "head_sha"):
+                    conn.execute("UPDATE variants SET branch = ?, head_sha = ? WHERE id = ?",
+                                 (branch, head_sha, variant_id))
 
             for rp in resolved:
                 conn.execute(
@@ -283,6 +313,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 "id": variant_id, "name": v["name"], "builder": v["builder"],
                 "prototype_url": v["prototype_url"],
                 "preference_score": agg_score,
+                "branch": branch, "head_sha": head_sha,
                 "description_md": v.get("description_md"),
                 "role_preferences": resolved,
             })
@@ -316,6 +347,8 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
                 "variants": [v["name"] for v in persisted_variants],
                 "facilitator": facilitator,
                 "shortlist": decider_call.get("shortlist", []),
+                "iterate_round": iterate_round,
+                "branches": {v["name"]: v["branch"] for v in persisted_variants if v["branch"]},
             },
         )
 
@@ -330,8 +363,10 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         "variants": persisted_variants,
         "summary_path": str(summary_path),
         "next_step": (
-            f"Push variants do web hubu: `POST /api/projects/{slug}/variants` per variant. "
-            f"Pak: `/pflanzer-feedback-pull {slug}` (Slice 6) po sebrání feedbacku."
+            f"Async: sdílej preview URL variant "
+            f"({', '.join(v['name'] + ' ' + v['prototype_url'] for v in persisted_variants)}) "
+            f"zástupcům kroků cesty (3–5 dní). Feedback sbírej přes `/pm feedback {slug}`, "
+            f"pak `/pm decide {slug}`."
         ),
     }
 
@@ -351,7 +386,7 @@ def render_summary_md(
 
     var_table = "\n".join(
         f"| {v['name']} | `{v['builder']}` | {v['preference_score']:.2f} | "
-        f"{'✅ shortlist' if v['name'] in shortlist else '—'} | "
+        f"{'shortlist' if v['name'] in shortlist else '—'} | "
         f"[preview]({v['prototype_url']}) |"
         for v in variants
     )
@@ -393,16 +428,18 @@ def render_summary_md(
             + "\n".join(f"- {x}" for x in parking) + "\n"
         )
 
-    return f"""# Session 1 — {slug}
+    return f"""{BRAND}
+
+# Build — {slug}
 
 > Project ID: {project_id} · Session ID: {session_id}
-> Facilitator: {spec.get('facilitator', '—')}
-> Per `docs/methodology/04-session-1.md`.
+> Facilitátor: {spec.get('facilitator', '—')}
+> Viz `docs/methodology/04-session-1.md`.
 
 ## Varianty
 
-| Variant | Builder | Score (agg) | Shortlist | Preview |
-|---------|---------|-------------|-----------|---------|
+| Varianta | Builder | Skóre (agg) | Shortlist | Preview |
+|----------|---------|-------------|-----------|---------|
 {var_table}
 
 > Score = unweighted mean (user_value, 1-effort, 1-risk, strategic_fit) per role,
@@ -416,12 +453,11 @@ def render_summary_md(
 {veto_section}{parking_section}
 {chr(10).join(matrix_blocks)}
 
-## Next step
+## Další krok
 
-1. Push variants do web hubu (`POST /api/projects/{slug}/variants` per variant).
-2. Sběr feedbacku v scoring window (5-7 pracovních dní).
-3. `/pflanzer-feedback-pull {slug}` (Slice 6) → pull feedbacku do DB.
-4. `/pflanzer-session-2 {slug}` (Slice 7) → decisional session.
+1. Sdílej preview URL variant zástupcům kroků cesty (Async, 3–5 dní).
+2. `/pm feedback {slug}` — stáhne a agreguje feedback do DB.
+3. `/pm decide {slug}` — Rozhodnutí (Go / Iterate max 1× / Kill, Decider hlasuje poslední).
 """
 
 
@@ -431,18 +467,18 @@ def render_decision_md(
 ) -> str:
     decider_call = spec.get("decider_call", {})
     shortlist = decider_call.get("shortlist", [])
-    return f"""## Session 1 — Decider's preference call
+    return f"""## Build — shortlist Deciderem
 
 - Shortlist (1-3 variant): **{', '.join(shortlist) or '—'}**
 - Rationale: {decider_call.get('rationale', '—')}
 - Veto registr: {len(decider_call.get('veto_register') or [])} items
 - Parking lot: {len(decider_call.get('parking_lot') or [])} items
 
-### Per-variant aggregate score
+### Agregované skóre variant
 
 {chr(10).join(f"- **{v['name']}** (`{v['builder']}`) → {v['preference_score']:.2f}" for v in variants)}
 
-Atribuce: {current_actor()} · {datetime.now(timezone.utc).isoformat(timespec='seconds')}Z
+Atribuce: {current_actor()} · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
 """
 
 

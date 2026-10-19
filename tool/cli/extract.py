@@ -1,9 +1,17 @@
-"""Extract code z vibe-coding tools do `extracted/<slug>/<variant>/`.
+"""Registrace kódu varianty pro Ship (v0.5) + sdílené helpery Build/Ship.
 
-Cíl: po Session 1/2 mít skutečný kód v repu (ne jen preview URL), aby
-Session 3 mohla projet quality gates a tým ho mohl opravdu použít.
+Cíl: po Buildu a Rozhodnutí mít skutečný kód (ne jen preview URL), aby Ship
+mohl projet quality gates a tým ho mohl opravdu použít.
 
-Strategie podle builderu:
+**Výchozí metoda (v0.5) = `in_repo_branch`:** pokud existuje git worktree
+varianty (`~/.pflanzer/targets/<slug>-<A|B|C>`, větev `pflanzer/<slug>-<X>`),
+kód se jen zaregistruje (větev, HEAD SHA, velikost diffu proti základní větvi).
+Skeleton se nikdy nespouští, pokud worktree existuje.
+
+Sdílené helpery pro ostatní moduly Buildu/Shipu: `BRAND`, `DATA_ROOT`,
+`table_has_col`, `locate_worktree`, `git_info`, `diff_stats`, `tilde`.
+
+Strategie podle builderu (jen když worktree neexistuje):
 - **bolt / lovable / v0**: většinou exportují přes „Push to GitHub"
   → user vloží GitHub URL (https://github.com/<user>/<repo>) a my git clone.
 - **cursor**: code už je v lokálním repu (in-place edits) → extract = git fetch
@@ -36,9 +44,121 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 
-EXTRACTED_DIR = REPO_ROOT / "extracted"
+try:  # DATA_ROOT dodává tool.cli.db (výstupy mimo repo metody); fallback = <repo>/data
+    from tool.cli.db import DATA_ROOT  # type: ignore[attr-defined]  # noqa: E402
+except ImportError:  # pragma: no cover
+    DATA_ROOT = REPO_ROOT / "data"
+
+BRAND = "**Pflanzer Method | pflanzer.cz/method**"
+
+EXTRACTED_DIR = DATA_ROOT / "extracted"
 SUPPORTED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
                       "cursor", "manual", "stitch", "figma-make"}
+
+
+# --------------------------------------------------------------------------
+# Sdílené helpery (Build / Ship)
+# --------------------------------------------------------------------------
+
+
+def table_has_col(conn: Any, table: str, col: str) -> bool:
+    """True, pokud tabulka má sloupec (DB bez nejnovější additive migrace nespadne)."""
+    return any(r[1] == col for r in conn.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def tilde(path: Path | str) -> str:
+    """Absolutní cestu pod $HOME zkrátí na ~/… (do generovaných textů nepatří lokální cesty)."""
+    s = str(path)
+    home = str(Path.home())
+    return "~" + s[len(home):] if s == home or s.startswith(home + "/") else s
+
+
+def clean_text(value: Any, placeholder: str = "doplnit") -> str:
+    """Prázdná hodnota nebo placeholder `TBD…` z Kickoffu -> srozumitelné "doplnit"."""
+    text = (str(value).strip() if value is not None else "")
+    if not text or text.upper().startswith("TBD"):
+        return placeholder
+    return text
+
+
+def public_repo_ref(url: str | None) -> str:
+    """URL repa do textu; lokální cesta (file/bare origin) se zkrátí na název složky."""
+    if not url:
+        return "(target_repo_url nezadán v Kickoffu)"
+    return Path(url).name if url.startswith("/") else url
+
+
+def _targets_cache() -> Path:
+    try:
+        from tool.cli.worktree import TARGETS_CACHE
+        return Path(TARGETS_CACHE)
+    except Exception:  # pragma: no cover - worktree.py nedostupný
+        return Path.home() / ".pflanzer" / "targets"
+
+
+def locate_worktree(slug: str, variant: str, target_repo_url: str | None = None) -> Path | None:
+    """Najdi git worktree varianty (`<slug>-<X>` i `<repo>-<X>` v cache targetů)."""
+    cache = _targets_cache()
+    names = [f"{slug}-{variant}"]
+    if target_repo_url:
+        try:
+            from tool.cli.worktree import _slugify_repo
+            names.append(f"{_slugify_repo(target_repo_url)}-{variant}")
+        except Exception:
+            pass
+    for n in names:
+        cand = cache / n
+        if (cand / ".git").exists():
+            return cand
+    legacy = REPO_ROOT.parent / f"proto-{slug}-{variant}"
+    return legacy if (legacy / ".git").exists() else None
+
+
+def _git(wt: Path, *args: str, timeout: int = 30) -> tuple[int, str]:
+    try:
+        res = subprocess.run(["git", "-C", str(wt), *args], capture_output=True,
+                             text=True, timeout=timeout)
+        return res.returncode, res.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return 1, ""
+
+
+def git_info(wt: Path) -> dict[str, Any]:
+    """Větev + HEAD SHA + dirty flag worktree (prázdné hodnoty, pokud git selže)."""
+    rc_b, branch = _git(wt, "rev-parse", "--abbrev-ref", "HEAD")
+    rc_h, sha = _git(wt, "rev-parse", "HEAD")
+    rc_s, status = _git(wt, "status", "--porcelain")
+    return {
+        "branch": branch if rc_b == 0 else None,
+        "head_sha": sha if rc_h == 0 else None,
+        "dirty": bool(status) if rc_s == 0 else None,
+    }
+
+
+def diff_stats(wt: Path, base_branch: str = "main") -> dict[str, int | None]:
+    """Přidané/odebrané řádky a počet souborů vítězné větve proti základní větvi."""
+    base = None
+    for ref in (f"origin/{base_branch}", base_branch):
+        rc, mb = _git(wt, "merge-base", "HEAD", ref)
+        if rc == 0 and mb:
+            base = mb
+            break
+    if not base:
+        return {"added": None, "removed": None, "files": None}
+    rc, out = _git(wt, "diff", "--numstat", base, "HEAD", timeout=60)
+    if rc != 0:
+        return {"added": None, "removed": None, "files": None}
+    added = removed = files = 0
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        files += 1
+        if parts[0].isdigit():
+            added += int(parts[0])
+        if parts[1].isdigit():
+            removed += int(parts[1])
+    return {"added": added, "removed": removed, "files": files}
 
 
 # --------------------------------------------------------------------------
@@ -487,7 +607,7 @@ def _scaffold_skeleton(slug: str, variant: str, dest: Path,
 
 def _count_files(root: Path) -> tuple[int, int]:
     """Count source files + total LOC (skip node_modules, dist, etc.)."""
-    skip_dirs = {"node_modules", "dist", "build", ".next", "coverage", ".venv"}
+    skip_dirs = {"node_modules", "dist", "build", ".next", "coverage", ".venv", ".git"}
     code_exts = {".ts", ".tsx", ".js", ".jsx", ".py", ".css", ".scss", ".html",
                  ".json", ".md", ".yml", ".yaml"}
     files = 0
@@ -514,24 +634,26 @@ def extract(
     source_url: str | None = None, repo_url: str | None = None,
     method_override: str | None = None, force: bool = False,
 ) -> dict[str, Any]:
-    """Extract one variant's code into extracted/<slug>/<variant>/.
+    """Zaregistruj kód jedné varianty (default: existující git worktree).
 
     Args:
         slug: project slug.
         variant_name: A / B / C.
         source_url: prototype preview URL (for audit).
-        repo_url: GitHub URL pokud user pushl z builder.
-        method_override: force 'skeleton' / 'git_clone' / 'manual_paste'.
+        repo_url: GitHub URL pokud user pushl z builder (nebo `branch:<name>`).
+        method_override: force 'skeleton' / 'git_clone' / 'manual_paste' / 'in_repo_branch'.
 
-    Returns dict s extracted_id, local_path, files_count, total_loc, method.
+    Returns dict s extracted_id, local_path, files_count, total_loc, method, branch, head_sha.
     """
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT id, name FROM projects WHERE slug = ?", (slug,),
+            "SELECT id, name, target_repo_url, target_branch FROM projects WHERE slug = ?",
+            (slug,),
         ).fetchone()
         if not proj:
             raise ValueError(f"Project '{slug}' not found.")
         project_id = int(proj[0])
+        target_url, target_branch = proj[2], proj[3] or "main"
 
         variant = conn.execute(
             """
@@ -543,17 +665,19 @@ def extract(
             (project_id, variant_name),
         ).fetchone()
         if not variant:
-            raise ValueError(f"Variant '{variant_name}' not found in Session 1 for {slug}.")
+            raise ValueError(f"Varianta '{variant_name}' u projektu {slug} neexistuje (Build ji nezapsal).")
         variant_id, builder, prototype_url = int(variant[0]), variant[1], variant[2]
 
     source_url = source_url or prototype_url
+    worktree = locate_worktree(slug, variant_name, target_url)
 
-    # Decide extraction method
+    # Decide extraction method. Existující worktree má vždy přednost před skeletonem.
     if method_override:
         method = method_override
-    elif builder in ("claude-code", "codex-cli"):
-        # Code už je v repu (worktree feat branch). Jen ho zaregistrujeme.
+    elif worktree is not None:
         method = "in_repo_branch"
+    elif builder in ("claude-code", "codex-cli"):
+        method = "in_repo_branch"  # worktree chybí → níže srozumitelná chyba
     elif repo_url and _validate_github_url(repo_url):
         method = "git_clone"
     elif builder in ("stitch", "figma-make"):
@@ -564,78 +688,47 @@ def extract(
         method = "skeleton"
 
     dest = EXTRACTED_DIR / slug / variant_name
+    notes: list[str] = []
+    branch: str | None = None
+    head_sha: str | None = None
+    diff: dict[str, int | None] = {"added": None, "removed": None, "files": None}
 
-    notes = []
     if method == "in_repo_branch":
-        # Code je v target repo worktree (po Sprint 1 P0 fix přes worktree.py).
-        # Default convention: pflanzer/<slug>-<variant>. Worktree je sibling
-        # cached target clone (~/.pflanzer/targets/<repo-slug>-<variant>/).
-        from tool.cli.worktree import TARGETS_CACHE, _slugify_repo, verify_cwd_in_target
-
-        # Get target_repo_url for this project
-        with transaction() as conn:
-            row = conn.execute(
-                "SELECT target_repo_url FROM projects WHERE id = "
-                "(SELECT project_id FROM sessions WHERE id = "
-                "(SELECT session_id FROM variants WHERE id = ?))",
-                (variant_id,),
-            ).fetchone()
-        target_url = row[0] if row else None
-
         branch_name = (
             repo_url.replace("branch:", "") if repo_url and repo_url.startswith("branch:")
             else f"pflanzer/{slug}-{variant_name}"
         )
-
-        # Look for worktree in expected location (per worktree.py setup)
-        candidate_worktrees: list[Path] = []
+        if worktree is None:
+            raise ValueError(
+                f"Worktree varianty {variant_name} neexistuje (větev `{branch_name}`). "
+                f"Spusť `pflanzer worktree setup --slug {slug}` a postav variantu tam; "
+                f"bez toho nejde kód nasadit do target repa."
+            )
+        dest = worktree
         if target_url:
-            try:
-                repo_slug = _slugify_repo(target_url)
-                wt = TARGETS_CACHE / f"{slug}-{variant_name}"
-                if wt.exists():
-                    candidate_worktrees.append(wt)
-            except ValueError:
-                pass
-        # Legacy fallback: ../proto-<slug>-<variant>
-        legacy_wt = REPO_ROOT.parent / f"proto-{slug}-{variant_name}"
-        if legacy_wt.exists():
-            candidate_worktrees.append(legacy_wt)
-
-        if candidate_worktrees:
-            dest = candidate_worktrees[0]
-            # Pre-flight: cwd remote must match target_repo_url
-            ok, msg = verify_cwd_in_target(slug, dest) if target_url else (True, "no target_url to check")
-            if not ok and target_url:
-                notes.append(f"⚠ PRE-FLIGHT FAIL: {msg}")
-            files, loc = _count_files(dest)
-            notes.append(
-                f"Registered in-repo branch `{branch_name}` at {dest}. "
-                f"Code napsali Claude Code / Codex CLI přímo do target repa."
-            )
-        else:
-            # Worktree missing → tým ještě nespustil worktree.py setup
-            dest = REPO_ROOT  # fallback so handoff doesn't crash
-            files, loc = (0, 0)
-            notes.append(
-                f"⚠ Branch `{branch_name}` registrován, ale worktree neexistuje. "
-                f"Tým musí spustit `python tool/cli/worktree.py setup --slug {slug}` "
-                f"PŘED Session 1. Bez toho je reuse 0 % (code v meta-repu, "
-                f"ne v target repu '{target_url or 'unset'}')."
-            )
+            from tool.cli.worktree import verify_cwd_in_target
+            ok, msg = verify_cwd_in_target(slug, dest)
+            if not ok:
+                notes.append(f"PRE-FLIGHT FAIL: {msg}")
+        gi = git_info(dest)
+        branch, head_sha = gi["branch"] or branch_name, gi["head_sha"]
+        diff = diff_stats(dest, target_branch)
+        files, loc = _count_files(dest)
+        notes.append(f"Registrována větev `{branch}` @ {(head_sha or '?')[:10]} ve worktree.")
+        if gi["dirty"]:
+            notes.append("Worktree má necommitnuté změny - do PR půjde jen to, co je commitnuté.")
     elif method == "git_clone":
+        if not repo_url:
+            raise ValueError("git_clone vyžaduje --repo-url")
         files, loc = _git_clone(repo_url, dest, force=force)
-        notes.append(f"Cloned from {repo_url}" if force or not dest.exists() else f"Reused existing {dest}")
-    elif method == "skeleton":
+        notes.append(f"Cloned from {repo_url}" if force or not dest.exists() else f"Reused existing {dest.name}")
+    elif method in ("skeleton", "manual_paste"):
         files, loc = _scaffold_skeleton(slug, variant_name, dest, force=force)
         notes.append(
-            "Scaffolded production-grade skeleton (Vite + React + TS + Vitest + ESLint)."
-            f" Tým musí překopírovat komponenty z {source_url}."
-        )
-    elif method == "manual_paste":
-        files, loc = _scaffold_skeleton(slug, variant_name, dest, force=force)
-        notes.append(
-            "Skeleton ready. Tým paste-uje code z Cursoru / lokálního repa do dest."
+            "Scaffolded skeleton (Vite + React + TS + Vitest + ESLint). "
+            "Tým musí překopírovat komponenty z preview."
+            if method == "skeleton" else
+            "Skeleton ready. Tým vloží kód z Cursoru / lokálního repa do cílové složky."
         )
     elif method == "builder_api":
         raise NotImplementedError(
@@ -657,6 +750,15 @@ def extract(
              method, files, loc, current_actor(), "\n".join(notes)),
         )
         extracted_id = cur.lastrowid
+        if table_has_col(conn, "extracted_code", "diff_loc_added"):
+            conn.execute(
+                "UPDATE extracted_code SET diff_loc_added = ?, diff_loc_removed = ?, "
+                "diff_files = ? WHERE id = ?",
+                (diff["added"], diff["removed"], diff["files"], extracted_id),
+            )
+        if branch and table_has_col(conn, "variants", "head_sha"):
+            conn.execute("UPDATE variants SET branch = ?, head_sha = ? WHERE id = ?",
+                         (branch, head_sha, variant_id))
 
         audit(
             conn,
@@ -666,6 +768,7 @@ def extract(
             payload={
                 "slug": slug, "variant": variant_name,
                 "method": method, "files": files, "loc": loc,
+                "branch": branch, "head_sha": head_sha, "diff_loc_added": diff["added"],
             },
         )
 
@@ -677,13 +780,18 @@ def extract(
         "method": method,
         "local_path": display_path(dest),
         "absolute_path": str(dest),
+        "branch": branch,
+        "head_sha": head_sha,
         "files_count": files,
         "total_loc": loc,
+        "diff_loc_added": diff["added"],
+        "diff_loc_removed": diff["removed"],
+        "diff_files": diff["files"],
         "notes": notes,
         "next_step": (
-            f"cd extracted/{slug}/{variant_name} && npm install && npm run dev"
-            if (dest / "package.json").exists()
-            else f"Inspect {dest}/ a doplň missing parts ručně."
+            f"Kód je ve větvi `{branch}`; další krok: quality gates (`pflanzer session_3 --slug {slug}`)."
+            if method == "in_repo_branch"
+            else f"Zkontroluj {tilde(dest)}/ a doplň chybějící části ručně."
         ),
     }
 
@@ -697,8 +805,8 @@ def main() -> None:
     p.add_argument("--repo-url", default=None,
                    help="GitHub URL pokud user pushl z buildru")
     p.add_argument("--method", default=None,
-                   choices=["git_clone", "manual_paste", "builder_api", "skeleton"],
-                   help="Force specific extraction method")
+                   choices=["in_repo_branch", "git_clone", "manual_paste", "builder_api", "skeleton"],
+                   help="Force specific extraction method (default: in_repo_branch, pokud worktree existuje)")
     p.add_argument("--force", action="store_true",
                    help="Overwrite existing extracted dir (DELETES node_modules + edits)")
     args = p.parse_args()

@@ -1,0 +1,23 @@
+**Pflanzer Method | pflanzer.cz/method**
+
+# CONSTITUTION — nepřekročitelná pravidla pro AI buildery
+
+> Čte ji každý AI builder (Claude Code, Codex, ...) hned po `docs/INTEGRATION_GUIDE.md`.
+> Pravidla níže neporušuj ani na žádost; kdyby bylo nutné, zastav se a zeptej se týmu.
+
+1. **Žádná produkční data ani secrets.** Žádné credentials, tokeny, `.env` v kódu ani v gitu.
+2. **Jen syntetická data.** Fixtures a seed data si vymysli; reálné osobní údaje nepoužívej.
+3. **Síť default-deny.** Volej jen hostitele povolené níže v sekci „Doplň pro svůj repo“.
+4. **Drž konvence z `docs/INTEGRATION_GUIDE.md`** (auth, API klient, state, logger, folder layout).
+5. **Testy pro novou logiku.** Lint + test + build projdou po každém logickém kroku; commituj jen zelené.
+6. **Přístupnost základ.** Sémantické prvky, popisky, kontrast, ovladatelnost klávesnicí (WCAG 2.2 AA).
+7. **Žádné nové závislosti bez důvodu** v commit message.
+8. **Varianty nejsou hotový produkt.** Každá nese štítek „Varianta X k rozhodnutí“; neměň cizí kód mimo svůj scope.
+
+## Doplň pro svůj repo
+
+- Povolená síť (hostitelé / API): <doplň>
+- Zakázané adresáře nebo soubory (např. `infra/`, `migrations/`): <doplň>
+- Příkazy pro lint / test / build: <doplň>
+- Data classification a omezení (L1–L4): <doplň>
+- Další pravidla týmu: <doplň>

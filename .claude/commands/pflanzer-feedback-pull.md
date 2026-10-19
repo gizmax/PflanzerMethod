@@ -1,100 +1,72 @@
 ---
-description: Stáhne mezi-session feedback z web hubu, agreguje per dept/severity/varianta, spustí discovery-debt-detector audit. Slice 6.
+description: Async (/pm feedback, 3–5 dní) — sběr a agregace feedbacku zástupců (hub nebo offline), audit discovery debtu, blokace při otevřeném critical.
 ---
 
-# /pflanzer-feedback-pull — Mezi-session feedback intake
+# Async (`/pm feedback`) — feedback zástupců
 
 > **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
-> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
-> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`.
 
-Argumenty: `$ARGUMENTS` = projekt slug.
+**Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Předpoklad: web hub byl spuštěn (`tool/web/`) a tým posbíral feedback přes
-ScoringForm (`/<slug>/feedback/<variant_id>`) v 5-7 dní mezi-session okně.
+Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
 
-## Co tento command dělá
+Kdo: všichni zástupci 6 kroků, ~15 min denně na preview URL variant.
+Builder zapracovává připomínky.
 
-1. Spustí `pflanzer feedback_pull --slug $ARGUMENTS` → aggregate + summary MD.
-2. Pokud feedback_count > 0, spustí `discovery-debt-detector` agent na summary.
-3. Pokud Critical flags > 0 nebo debt verdict in (critical|high), notifikuje
-   Decider přes `AskUserQuestion` (eskalační protokol per ADR-0001).
-4. Vrátí summary + next step (Session 2 nebo Discovery Sprint).
+## Krok 1 — Feedback bez hubu (offline)
 
-## Jak postupuj
+Web hub není povinný. Kdo klikal na preview a feedback nezadal v hubu,
+zapíše ho přímo (ty to můžeš udělat za něj podle jeho slov):
 
-### Krok 1 — Pull + aggregate
+```bash
+pflanzer feedback add --slug $ARGUMENTS --variant A --role <krok/role> \
+  --severity critical|major|minor --text "<co a proč>"
+pflanzer feedback list --slug $ARGUMENTS
+```
+
+`critical` = brání nasazení (bezpečnost, právo, data, rozbitý hlavní tok).
+Nezneužívat; kdo dává critical, píše proč.
+
+## Krok 2 — Agregace
 
 ```bash
 pflanzer feedback_pull --slug $ARGUMENTS
 ```
 
-Stdout vrátí JSON s `summary_path`, `feedback_count`, `critical_flags`,
-`ai_only_ratio`. Read & ukaž týmu.
+Vrací `summary_path`, `feedback_count`, `critical_flags`. Při
+`feedback_count == 0` zastav a připomeň preview URL a termín; nepouštěj
+audit na prázdná data. Chybí hlasy zástupců některých kroků? Jmenuj je.
 
-Pokud `feedback_count == 0`:
-- Pravděpodobně tým ještě nesbírá. Připomeň URL web hubu
-  (`http://localhost:8000/$ARGUMENTS/compare`).
-- Stop tady, nepouštěj debt detector na prázdná data.
+## Krok 3 — Audit discovery debtu
 
-### Krok 2 — Discovery debt audit
+Pokud `feedback_count > 0`, spusť sub-agenta `discovery-debt-detector`
+(read-only) nad summary a Kickoff zadáním; výstup ulož do
+`feedback/<slug>-debt.json` ve výstupní složce (`pflanzer data`).
 
-Spusť sub-agent (read-only audit, neměl by nic zapisovat do DB):
+## Krok 4 — Otevřené critical
 
-```
-Agent(subagent_type="discovery-debt-detector", prompt="""
-Audit feedback summary pro slug=$ARGUMENTS.
-- Read data/feedback/$ARGUMENTS-summary.md (just generated).
-- Read data/charters/$ARGUMENTS.md.
-- Read data/sessions/$ARGUMENTS/_summary.md (pro OST node mapping).
-- Apply 5-dimension framework (assumption ratio / user contact / OST coverage
-  / AI-only sanity / persona freshness). Score 0-2 each, total 0-10.
-- Return ONLY JSON per agent definition.
-""")
-```
+Otevřený `critical` na vítězné variantě **blokuje Go** na Rozhodnutí (Iterate ho může opravit).
+Ukaž ho s autorem a zeptej se přes AskUserQuestion: opravit teď (builder),
+varianta ven ze shortlistu, nebo nechat na Decidera (override vyžaduje
+rationale v decision logu).
 
-Persistuj JSON output do `data/feedback/$ARGUMENTS-debt.json`.
+## Krok 5 — Výstup a další krok
 
-### Krok 3 — Eskalace (pokud potřeba)
+Tabulka: feedback podle kroku cesty a závažnosti, top 3 spory, critical,
+verdikt debtu. Na konci **jeden** krok:
 
-```python
-verdict = debt_json["verdict"]  # critical|high|manageable|healthy
-if verdict in ("critical", "high") or critical_flags > 0:
-    # Notifikuj Decider. Eskalační protokol per ADR-0001.
-```
+> Další krok: `/pm decide <slug>` — přizvi Decidera, 60–90 min.
 
-```
-AskUserQuestion: "Discovery debt verdict = {verdict}, critical flags = {N}.
-Co teď?"
-options:
-  - "Pokračovat do Session 2 přes všechno (Decider override + rationale)"
-  - "Stop — vyřešit blockers, re-pull za 2-3 dny"
-  - "Discovery Sprint (2 týdny) — Session 2 odložena"
-```
-
-Pokud Decider override → zapiš jako `decision` row type='escalation' s rationale.
-
-### Krok 4 — Souhrn + next step
-
-Print týmu:
-- Tabulka debt scores (5 dimenzí + total).
-- Critical flags (pokud nějaké) s kdo to flagnul + rationale.
-- Path k summary + debt.json.
-- Next: `/pm decide $ARGUMENTS` — přizvi Decidera, 60–90 min (pokud verdict ≥ manageable + 0 unresolved
-  criticals).
+(Při critical bez řešení: nejdřív oprava a znovu `/pm feedback <slug>`.)
 
 ## Co NEDĚLAT
 
-- **Nezakrývat critical flags** — eskaluj k Decider, neagreguj je do score.
-- **Nepřebíjet debt detector** — audit je read-only insight, neoznačuj automaticky
-  feedback jako neplatný.
-- **Nepouštět audit s feedback_count = 0** — vrátí healthy false positive.
-- **Nezapisovat debt.json do hlavní DB** — je to ephemeral audit artefakt
-  (per session). Hlavní zápis je summary.md + audit_log row z feedback_pull.py.
+- Nezakrývej critical v průměrech.
+- Nepouštěj audit na 0 feedbacku.
+- Nepřebíjej audit — je to vstup pro Decidera, ne verdikt.
 
 ## Reference
 
-- `docs/methodology/05-mezi-sessions.md` (mezi-session ritual)
-- `tool/cli/feedback_pull.py` (aggregate logic + summary MD)
-- `.claude/agents/discovery-debt-detector.md` (5-dim audit framework)
-- `docs/decisions/0001-decider-model.md` (eskalační protokol)
+- `docs/methodology/05-mezi-sessions.md` (rozšířená reference)
+- `.claude/agents/discovery-debt-detector.md`
