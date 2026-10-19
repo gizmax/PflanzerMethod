@@ -2,7 +2,7 @@
 
 Inputs come from Charter (data_class, ai_act_tier, throwaway_or_evolve) and
 Platform Triage (sandbox URL + approved runtime list). Output is a ranked
-shortlist of approved AI builders per `02-role-catalog.md` § Approved AI Tool
+shortlist of approved AI builders per `02-role-catalog.md` § 7. Security / Compliance
 list and devil's advocate Útok 8 (sandbox + prompt audit).
 
 Used by `/pm build` to seed the 1-3 paralelní variants. The

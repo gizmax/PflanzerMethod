@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Přinášíš hlas zákazníka z ticketů — co dnes bolí a kolik ticketů varianta přidá nebo ubere.
 
+**Krok cesty:** Provoz (podpora) · **Kde jsi:** okno — Async okno nad preview a příprava Shipu
+
 Status v catalogu: **doporučená** · Kdy se zve: Customer base > 1000 active users + user-facing change?
 
-## Přines do Session 1
+## Přines do svého okna
 - Top-10 ticket kategorií za 90 dní
 - 20 verbatim citací zákazníků
 - Frikční místa současného flow a churn radar
@@ -16,15 +18,15 @@ Status v catalogu: **doporučená** · Kdy se zve: Customer base > 1000 active u
 - Ticket prediction worksheet per varianta
 - Support docs deadline: D-7 KB → D-2 makra / training → D+30 retro
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: ticket prediction v mezi-session okně
-- Lean (3 h) — **async**: AI proxy draft (s přístupem k ticketům) + tvůj sign-off
-- Full (5–6 h) — **celá session**: vedeš úvodní Voice of Customer ritual (30 min)
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: ticket prediction v Async okně
+- Lean (3 h) — **async**: AI proxy draft (s přístupem k ticketům) + tvůj sign-off v Async okně
+- Full (5–6 h) — **celý běh**: vedeš úvodní Voice of Customer ritual (30 min)
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; risk za tebe znamená dopad na support a churn.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**, **risk**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**, **risk**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Varianta mění flow z top ticket kategorií bez plánu pro support

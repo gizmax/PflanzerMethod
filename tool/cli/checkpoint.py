@@ -1,7 +1,7 @@
 """`pflanzer checkpoint` — zapíše výsledek okna zástupce kroku cesty (ADR-0021).
 
 v0.5 nahrazuje plný 48h triage krátkými okny. Každé okno podepisuje příslušné
-triage tracky, takže Ship gate (odložený triage blokuje production_ready)
+triage tracky, takže Ship (odložený triage blokuje production_ready)
 projde bez paralelní byrokracie:
 
     zadani      → discovery          (Kickoff: problém, metrika, kill kritérium)

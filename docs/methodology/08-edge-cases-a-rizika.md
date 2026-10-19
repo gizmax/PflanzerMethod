@@ -1,372 +1,207 @@
 # 08 — Edge cases a rizika
 
-> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Edge cases níže jsou rozšířená reference; čísla sestavy (např. „>10 lidí“) jsou audit-grade — default je max 5 naráz; kde se liší, platí 1-pager.
+**Pflanzer Method | pflanzer.cz/method**
 
-> Co dělat, když metoda narazí na realitu. Každý edge case má strukturu
-> **Situace → Co dělat → Kdo rozhoduje → Mitigace**. Cílem není vyřešit
-> všechny patologie, ale dát facilitátorovi konkrétní protokol pro 13
-> nejčastějších scénářů.
+> K čemu je tento dokument: co dělat, když metoda narazí na realitu. Každý
+> případ má strukturu **situace → co dělat → kdo rozhoduje**. Číslování
+> je stabilní (odkazují na něj ADR-0001 a ADR-0017: § 11 kvórum, § 12
+> Decider). Default je malá skupina (max 5 naráz, ADR-0021); případy
+> o víc lidech platí pro rozšířenou sestavu Full.
 
-## 1. Stakeholder z povinné role nepřijde
+## 1. Zástupce kroku nebo Decider nepřijde
 
-**Situace.** Dva dny před Session 1: Decider má kalendářní konflikt /
-Security manager je nemocný / Legal counsel na PTO. Catalog [02-role-
-catalog] označuje jejich role jako POVINNÉ.
+**Situace.** Den před oknem je Decider, nebo zástupce bezpečnosti & práva
+nebo provozu, nedostupný.
 
-**Co dělat per role:**
+**Co dělat.**
+- **Decider:** nedelegovatelný — Kickoff/Rozhodnutí se **odkládá**, nepřesouvá
+  na delegáta bez mandátu. Backup Decider jen předem určený v Kickoffu.
+- **Bezpečnost & právo / provoz:** okno se přesune; **krok bez jména se
+  nesvolává**. Pomáhá předem určený zástupce s mandátem (deputy). Build
+  může proběhnout, ale Ship bez podepsaného okna neprojde.
+- Senior delegát u vetovací role: junior bez mandátu = okno se odkládá.
 
-- **Decider / Zadavatel (#1)** — *„AI proxy ❌ Nelze. Bez něj sessionu
-  1 odložit"* [02-role-catalog]. Session se **odkládá**, ne přesunuje
-  na delegáta. Decider mandate je nedelegovatelný (perspektiva 03 §
-  failure modes).
-- **Security (#7)** — pokud existuje pre-charter Security & Data Triage
-  s podpisem (krok 0a, [synthesis 03]), session může běžet **v
-  generative módu**, ale veto-bearing rozhodnutí čekají na async sign-
-  off do 48 h. Pokud triage chybí, session se odkládá.
-- **Legal / DPO (#10)** — AI proxy ⚠️ *jen pro L1/L2, minimal/limited
-  risk, internal* [synthesis 03]. Pro high-risk AI Act, special
-  categories, profiling, novel vendor, marketing claims — **lidský DPO
-  povinně**, session se odkládá.
+**Kdo rozhoduje.** Facilitátor + PdM; právo zrušit okno bez kvóra.
 
-**Kdo rozhoduje.** Facilitátor + PdM. Facilitátor má *„právo zadavateli
-podržte slovo"* [perspektiva 03], stejně tak právo session zrušit, když
-není kvórum.
+## 2. Veto bezpečnosti v Buildu
 
-**Mitigace.** Pre-charter triage 48 h předem [synthesis 01 osa B]
-zachytí 80 % případů ex-ante; kalendářní rezervace povinných rolí ≥10
-pracovních dní předem; **deputy register** — každá povinná role má
-předem nominovaného zástupce s mandátem.
+**Situace.** Bezpečnost označí variantu jako critical (token v URL, PII
+v event property, únik mezi tenanty, reálná PII v promptu).
 
-## 2. Security veto v Session 1
+**Co dělat.**
+1. Zastav stavbu na dotčené variantě.
+2. 5 min: veto přečteno nahlas, ostatní mlčí.
+3. 15 min: existuje varianta A' s technickou mitigací (tokenizace,
+   server-side tracking, pseudonymizace)? Ano → pokračuj na A'; ne →
+   varianta ven, soutěží zbylé.
+4. Zapiš do **veto registru** s rationale a mitigací.
+5. Reálná PII/L4 v promptu = okamžité přerušení, incident playbook,
+   72h GDPR hodiny.
 
-**Situace.** Security označí variantu A jako *Critical risk* (STRIDE
-Critical, např. *„token v URL parameru"*, *„PII v event property"*,
-*„cross-tenant data leakage"*).
+**Kdo rozhoduje.** Bezpečnost (lidský podpis); facilitátor moderuje
+proces, ne rozhodnutí. Veto nepřebíjí hlas, jen mitigace nebo výslovný
+override Decidera s rationale. **Prevence:** data classification a threat
+model v checkpointu a v `CONSTITUTION.md`.
 
-**Co dělat — protokol deeskalace:**
+## 3. HiPPO přebije skóre
 
-1. **Stop generative work na variantě A** — žádný další mockup, žádná
-   iterace.
-2. **Severity check 5 minut**: facilitátor + Security přečtou veto
-   nahlas, ostatní role poslouchají bez reakce (silent listening,
-   Liberating Structures).
-3. **Mitigation brainstorm 15 minut**: existuje varianta A' s technickou
-   mitigací (sandbox watermark, tokenizace, server-side tracking,
-   pseudonymizace)?
-4. Pokud A' existuje → pokračuje se na A'. Pokud ne → **session
-   pivotuje na variantu B/C**, A se vyřazuje [synthesis 01 osa D].
-5. Critical veto se loguje do **veto registru** s rationale a
-   mitigation návrhy.
+**Situace.** Zadavatel po prezentaci: „já to cítím jinak, jdeme s variantou
+A", i když B vede.
 
-**Kdo rozhoduje.** Security final (lidský podpis), AI proxy nepřípustná
-[02-role-catalog]. Facilitátor moderuje proces, ne rozhodnutí.
+**Co dělat.** Silent voting předem, **Decider hlasuje poslední**, skóre se
+zveřejní až po hlasování. Přebije-li přesto, zapiš do decision logu
+**člověka a rationale** („Decider override: A přes nižší skóre, protože…"),
+žádné anonymní „tým rozhodl". Častý override (> 30 % rozhodnutí) je signál
+ke kalibraci metody.
 
-**Mitigace.** Pre-charter Threat model lite (STRIDE one-pager) [synthesis
-02] zachytí typické vzory ex-ante; sandbox spec s pre-approved
-guardrails redukuje veto-surface area; **hierarchie závaznosti**
-(Critical = blocker / Yellow flag = warning / Score = vote) [synthesis
-01 osa D] dává Security strukturovanou cestu, ne binární vetovací
-hammer.
+**Kdo rozhoduje.** Decider (informed dictatorship), s povinným rationale.
+Critical od bezpečnosti/práva/přístupnosti se nepřebíjí hlasem.
 
-## 3. HiPPO přebije persony / score
+## 4. Scope creep
 
-**Situace.** Zadavatel po prezentaci AI syntézy v Session 2 řekne *„já
-to cítím jinak, půjdeme s variantou A, i když má score 2.4 vs varianta
-B se 4.1"* [perspektiva 02; synthesis 01 § A].
+**Situace.** „Když už jsme tady, přidáme export do PDF / SSO / multi-tenant."
 
-**Co dělat:**
+**Co dělat.** Parking lot okamžitě, bez diskuse; PdM ho vlastní (každý bod:
+vlastník, termín, rozhodnutí in-scope / další zadání / nikdy). Po třetím
+opakování facilitátor zastaví a připomene zadání. Nová věc = kandidát na
+další Kickoff, ne na tento Build.
 
-1. **Silent voting před verbálním** [perspektiva 03; Liberating
-   Structures 1-2-4-All]. Zadavatel hlasuje **poslední** — anti-HiPPO
-   pattern [synthesis 02 bod 10].
-2. **Score s rationale field** se zveřejňuje **až po hlasování**, ne
-   předem. HiPPO nemůže manipulovat persony.
-3. Pokud zadavatel přesto override-uje, **decision log atribuuje
-   člověka** s rationale: *„Decider override: variant A despite lower
-   score, reason: <textual rationale>"*. Žádné anonymní *„team
-   decided"*.
-4. Override se trackuje napříč projekty — pokud >30 % decisions je
-   HiPPO override, role catalog se kalibruje (signal pro CoP).
-
-**Kdo rozhoduje.** Decider má **informed dictatorship** [synthesis 02
-bod 10] — finální slovo, ale s povinným rationale a transparentní
-atribucí (DORA, AI Act čl. 14).
-
-**Mitigace.** Decider mandate v Charteru explicitně vyhraňuje, kdy je
-score advisory a kdy blocker. Critical risk od Security/Legal/A11y
-**nelze override-ovat HiPPO**, jen technickou mitigací nebo pivotem.
-
-## 4. Scope creep během Session 1
-
-**Situace.** Ve 4. hodině Session 1 zadavatel řekne *„když už tu
-všichni jsme, přidáme i export do PDF / SSO / multi-tenant"*.
-
-**Co dělat:**
-
-1. **Parking lot okamžitě** — facilitátor zapíše návrh do viditelného
-   sloupce *„Parking lot — Session 2 review"*. Žádná diskuse v Session 1.
-2. **PdM vlastní parking lot review** — každý bod má owner + due date
-   + decision (in-scope / next iteration / never).
-3. Pokud se scope creep opakuje 3× v jedné session, facilitátor
-   zastaví práci a explicitně připomene Charter scope. *„Tato session
-   řeší X. Y a Z patří do separátní iterace"* [perspektiva 03 §
-   conflict avoidance].
-
-**Kdo rozhoduje.** PdM + Facilitátor. PdM má tie-breaker na scope, UX
-na flow [synthesis 01 § PdM × UX].
-
-**Mitigace.** XYZ hypotéza v Charteru s explicit *„Out-of-scope"*
-sekcí; facilitátor *„konflikt nadojmem v 5. minutě výskytu, ne ke
-konci"* [perspektiva 03 § failure modes].
+**Kdo rozhoduje.** PdM + facilitátor (PdM scope, design flow).
 
 ## 5. AI vygeneruje halucinaci
 
-**Situace.** AI co-pilot navrhne UX pattern, který ergonomicky neexistuje
-(*drag-drop tabs s nested modal*) [perspektiva 04]; nebo fabricated API
-endpoint (*GET /api/v3/users/preferences/global*, který v
-backend systémech není); nebo fabricated legal claim v marketing copy
-(*„GDPR-certified"* — neexistující kategorie).
+**Situace.** Neexistující UX pattern, vymyšlený API endpoint, vymyšlené
+právní tvrzení v textu („GDPR-certified").
 
-**Co dělat — lidský review checkpoint:**
+**Co dělat.** Žádný AI výstup bez lidského podpisu příslušné role. Detektory:
 
-| Halucinace typ | Detektor | Kdo zachytí |
-|----------------|----------|-------------|
-| UX pattern | Pattern allowlist v Vibe-brief | FE lead + UX |
-| API endpoint | OpenAPI shadow agent diff vs registry | BE lead |
-| Legal claim | Marketing template (firemní), nikdy AI-generated | Legal/UX writer |
-| Component | Component manifest match | FE lead |
-| A11y assumption | axe-core run + manual keyboard test | A11y expert |
+| Typ | Detektor | Zachytí |
+|-----|----------|---------|
+| UX pattern | pattern allowlist v `INTEGRATION_GUIDE` | vývojář FE + design |
+| API endpoint | OpenAPI diff proti registru | vývojář BE |
+| Právní/marketingové tvrzení | firemní šablona, nikdy generovaný text | právo / UX writer |
+| Komponenta | component manifest | vývojář FE |
+| Přístupnost | axe-core + ruční klávesnicový test | A11y |
 
-**Pravidlo:** žádný AI output nejde do handoff package bez **lidského
-podpisu příslušné role**. *„AI je nejlepší co-pilot v místnosti — ale
-nikdo nepodepíše rozhodnutí, které udělala AI"* [perspektiva 03].
+**Kdo rozhoduje.** Vždy člověk příslušné expertízy. AI vede jen rychlé,
+kontextově lehké úkoly (Režim 3, [`02`](02-role-catalog.md)).
 
-**Kdo rozhoduje.** Vždy člověk příslušné expertízy, nikdy AI.
+## 6. Discovery debt odhalen během Buildu
 
-**Mitigace.** Tří-režimová matice [synthesis 03]: AI vede jen
-execution-heavy context-light tasky; konzultativní role mají AI proxy s
-human sign-off 24–48 h; vlastnické a vetovací role vždy člověk. Score
-deflation 0.5 pro AI-only feedback (zejména persona) [synthesis 03 #14].
+**Situace.** V průběhu vyjde najevo, že persona je stará slideshow a JTBD/OST
+neexistují; Debt Detector dává ≥ 7.
 
-## 6. Discovery debt detekován v Session 1
+**Co dělat.** Facilitátor stavbu zastaví („metoda řeší alignment, ne
+discovery"). Předřaď discovery ([`03`](03-pre-session-priprava.md) § Krok
+0): rozhovory nebo jejich ekvivalent, JTBD, OST v0. Kickoff/Build po něm
+znovu. Náklady jdou na projekt, ne na metodu.
 
-**Situace.** Ve 30. minutě Session 1 vyjde najevo, že persona je
-PowerPoint z roku 2024, JTBD chybí, OST neexistuje. AI Discovery Debt
-Detector [synthesis 02 § Discovery] vrací skóre ≥7 z 10 (= STOP).
+**Kdo rozhoduje.** Facilitátor (zastavit) + PdM (discovery) + design (persona).
 
-**Co dělat:**
+## 7. Zadání přes víc týmů
 
-1. **Facilitátor zastaví session** — žádné další divergence. *„Pflanzer
-   řeší alignment, ne discovery"* [perspektiva 02].
-2. **Předřadit 2-week Discovery Sprint** [synthesis 01 osa E]: 15
-   user rozhovorů, JTBD statement podepsaný PdM, OST v0, persona
-   freshness ≤6 měsíců (5+ rozhovorů).
-3. Session 1 se reschedule po Discovery Sprintu, ne dříve.
-4. Náklady na discovery (~10 person-days) jdou na účet projektu, ne
-   metody.
+**Situace.** V místnosti je víc než 5 lidí ze 3+ týmů; každý tým má vlastní
+backend, design system a release cyklus.
 
-**Kdo rozhoduje.** Facilitátor (právo session zastavit) + PdM (vlastní
-discovery deliverable) + UX (vlastní persona research).
+**Co dělat.** Scope zúžit na jeden bounded context, nebo **federovat**:
+mini-Build per tým (každý svoji buňku ≤ 5 lidí), architekt (#18) vlastní
+integration map, společné Rozhodnutí se 2 zástupci z týmu jen o integraci.
+Mezi buňkami synchronizuj OpenAPI a breaking-change registr.
 
-**Mitigace.** Discovery Readiness Gate jako krok 0 [synthesis 03];
-persona expiry policy (≤6 měsíců, ≤3 měsíce pro nové segmenty); Voice
-of Customer ritual prvních 30 min Session 1 (5 verbatim, 1 audio
-recording, 1 anekdota *„nejhorší týden support"*) [perspektiva 13].
+**Kdo rozhoduje.** EM + architekt. Bez architekta je multi-team zadání
+chaos; v takovém případě projekt nespouštěj.
 
-## 7. Multi-team scope nezvládnutý
+## 8. Preview jde ostře bez Ship
 
-**Situace.** V místnosti je >5 lidí (v0.5; rozšířeně >10) ze 3+ týmů; sanity check v
-[02-role-catalog] selhal; každý tým má vlastní backend, vlastní design
-system, vlastní release cadence.
+**Situace.** Sponzor vidí preview, pošle ho zákazníkovi a ten ji používá na
+ostro. Vítěz je sice určen pro produkci (evolve), ale **neprošel Ship**:
+gates, checkpointy, review.
 
-**Co dělat — federovaný workshop model** [synthesis 03 krok 12a]:
+**Co dělat.**
+1. **Okamžitě stáhni preview** (bezpečnost + provoz mají právo).
+2. Blame-free retro do 48 h: selhal technický enforcement (preview mělo
+   být bez prod dat a sítě), sociální (zadání), nebo komunikace?
+3. Sponzor zákazníkovi vysvětlí a dá termín: stejný kód projde Ship
+   (gates 80/85 + checkpointy) a nasadí se správnou cestou; **nic se
+   nepřepisuje**.
+4. Do zadání: preview před Ship se externě nesdílí a nepoužívá s reálnými
+   daty. U throw-away platí absolutně — do produkce nejde nikdy.
 
-1. **Per-team mini-session** (3–4 h každá): každý tým řeší svoji
-   bounded context, vyrobí sub-mockup + sub-charter.
-2. **Solution architect (#18)** [synthesis 03] vlastní integration map
-   napříč týmy: bounded contexts, contract dependencies, ADR archiv.
-3. **Společná final session** (3 h, max 2 zástupci per tým) — pouze
-   integration + alignment, ne generative work.
-4. Mezi mini-sessions a final: **shared OpenAPI registry update**, BE
-   shadow agenti synchronizují contracty.
+**Kdo rozhoduje.** Bezpečnost + provoz (takedown); EM + sponzor
+(komunikace); o urychlení Ship rozhoduje Decider s EM — gate se nesnižuje,
+jen priorizuje. „Production by stealth" je organizační chyba, ne technická;
+štítek „k rozhodnutí, ne produkt" a izolace preview ji jen zmírňují.
 
-**Kdo rozhoduje.** EM + Solution architect společně. Bez Solution
-architecta multi-team scope = chaos.
+## 9. Hodnocení se stane politickým nástrojem
 
-**Mitigace.** Pre-flight check: pokud projekt zasahuje >2 týmy → flag
-„multi-team", aktivuje federovaný model; Dependency Map jako povinný
-pre-flight artefakt (feature → team → typ → required by → owner)
-[synthesis 03 #9 patch].
+**Situace.** Oddělení dá variantě nejnižší skóre / critical, aby se zbavilo
+práce, nebo naopak nafoukne skóre kvůli agendě.
 
-## 8. Prototyp shipnut do prod bez review
+**Co dělat.** Rationale povinné (záznam bez něj je neplatný); critical bez
+důkazu (STRIDE, a11y, kapacita, právo) facilitátor sníží na varování;
+hlasy jsou v decision logu s jmény; chronicky podezřelý vzorec ukaž jako
+samostatný bod Rozhodnutí.
 
-**Situace.** Charter je (default) Track P + evolve — winner varianta
-*půjde* do produkce. Sponzor ale nečeká na Ship gate ani sign-off: vidí
-sandbox URL varianty po Session 1 nebo 2, dá ji enterprise zákazníkovi
-a zákazník ji začne používat „na ostro". Problém není, že by sponzor
-obešel throw-away (ten je od ADR-0005 v0.4 jen explicit opt-in), ale že
-**evolve zkrátil o Ship gate** — kód, který ještě neprošel quality gates
-≥ 80/100 ani sign-off paketem, běží s reálnými uživateli
-[perspektivy 04, 08, 15; synthesis 01 osa A; ADR-0005 v0.4].
+**Kdo rozhoduje.** Facilitátor (downgrade bez rationale); dlouhodobou
+kalibraci drží Champion/komunita.
 
-**Co dělat:**
+## 10. Champion nebo klíčový zástupce odejde
 
-1. **Okamžité takedown sandbox URL** — Platform team má enforcement
-   právo (sandbox modul má 24h TTL + cost cap, ale shadow-IT může
-   obejít). Network default-deny + noindex + watermark redukují, ale
-   neeliminují.
-2. **Blame-free retro do 48 h** [perspektiva 03] — co failnulo:
-   technický enforcement (sandbox spec), sociální enforcement
-   (Charter / sign-off), nebo komunikace (sponzor nevěděl, že evolve
-   ≠ „hned do prod")?
-3. **Šance vrátit**: pokud zákazník variantu viděl, ale ještě nepoužívá
-   v provozu, sponzor osobně volá s vysvětlením + timeline. U evolve
-   je timeline krátká: stejný kód projde Ship gate (quality gates
-   ≥ 80/100) + sign-off a nasadí se proper cestou — žádná
-   re-implementace.
-4. **Governance update**: Charter explicit uvádí, že evolve = „kód jde
-   do prod **přes** Ship gate + sign-off", a sponzor podpisem potvrzuje,
-   že sandbox URL před Ship gate se externě nesdílí a nepoužívá
-   s reálnými daty. U throw-away Charteru (opt-in) platí totéž
-   absolutně — artifact do prod nejde nikdy.
+**Situace.** Po týdnech odejde člověk, který vlastnil měření T+30/60/90
+nebo handoff.
 
-**Kdo rozhoduje.** Security + DevOps společně mají takedown autoritu;
-EM + sponzor řeší zákaznickou komunikaci; o urychleném průchodu Ship
-gate rozhoduje Decider s EM (gate se nesnižuje, jen priorizuje).
+**Co dělat.** Předem určený **buddy** (druhý senior ze stejné jednotky)
+převezme: 30min recap (hotové milníky, otevřená rizika), videoprůchod
+SHIP.md, přečtení decision logu (do 5 pracovních dní). Odchod zaznamenej
+jako signál udržitelnosti.
 
-**Mitigace.** Sandbox jako **technická pojistka, ne důvěra** [perspektiva
-15]: VPC, watermark, noindex, 24h TTL, žádný route do prod sítě.
-Evolve je default v Charteru, ale prod deploy je podmíněn Ship gate
-(quality gates ≥ 80/100) + kompletním sign-off paketem (FE + EM +
-Security + Legal + Platform + QA) [ADR-0005 v0.4; synthesis 01 osa A].
-Throw-away zůstává explicit opt-in pro 3 use-casy s rationale
-v Charteru. *„Production by stealth"* je organizační bug, ne technický
-[perspektiva 04].
+**Kdo rozhoduje.** EM (přidělení buddy) + PdM.
 
-## 9. Score se stane politickým nástrojem
+## 11. Zástupci nestíhají Async okno
 
-**Situace.** Oddělení X dá variantě skóre 1 (=blocker), aby se zbavilo
-implementační práce, ne kvůli reálnému riziku. Nebo: oddělení Y dá
-nadhodnocené skóre 5, aby protlačilo svou agendu.
+**Situace.** V okně jsou někteří zástupci na dovolené, v uzávěrce nebo mimo
+dosah.
 
-**Co dělat:**
+**Co dělat.**
+1. Async sběr je výchozí: hub nebo offline `pflanzer feedback add`, hlasování
+   do termínu; krátké video preview (≤ 10 min) pro nepřítomné.
+2. **Kvórum:** pokud do termínu odpoví méně než 60 % povinných zástupců,
+   Rozhodnutí se posune o nejvýš 5 dní. Při ≥ 60 % a chybějící **nevetovací**
+   roli se rozhoduje a její mlčení se zapíše jako „no objection" (ADR-0017).
+3. **Vetovací role** (bezpečnost & právo, kapacita EM) bez vyjádření:
+   Rozhodnutí je jen review, ne rozhodnutí.
+4. Okno se neprodlužuje nad strop stupně; nestíhá-li vetovací role,
+   upgrade stupně nebo odklad.
 
-1. **Rationale field povinné** [synthesis 02 bod 5] — score 1 nebo 5
-   bez rationale = invalid, facilitátor odmítá v aggregate.
-2. **Pattern detection napříč projekty** [perspektiva 12 § learning
-   loop]: facilitátor sleduje, které role chronicky underscore-ují
-   nebo overscore-ují. Po 5+ projektech kalibrace v CoP.
-3. **Hierarchie závaznosti** [synthesis 01 osa D] odděluje
-   *Critical (blocker)* od *Yellow flag (warning)* od *Score (vote)*.
-   Kdo dá Critical bez STRIDE/A11y/Capacity/Legal evidence = facilitátor
-   downgrade-uje na Yellow flag.
-4. **Decision log atribuuje hlasy s rationale**, ne anonymně. Politický
-   tlak vidí každý.
+**Kdo rozhoduje.** Facilitátor + PdM (PdM hlídá kalendář; ověř dovolené při
+bookování oken).
 
-**Kdo rozhoduje.** Facilitátor má pravomoc downgrade scoru bez
-rationale; CoP vlastní long-term kalibraci.
+## 12. Rozhodnutí skončí bez rozhodnutí
 
-**Mitigace.** Standardizovaná škála 1–5 Likert [synthesis 02 bod 5]
-uložená do interní DB; AI-only feedback weight max 0.5; transparency
-napříč Decision logem.
+**Situace.** Decider: „potřebuji to ještě promyslet, dejte mi týden."
 
-## 10. Champion odejde
+**Co dělat.** Použij **kanonický eskalační protokol v
+[`ADR-0001`](../decisions/0001-decider-model.md)** (scénáře A: Decider chybí ·
+B: „potřebuji čas" · C: Iterate vyčerpán). Text se sem nekopíruje — tři
+rozcházející se kopie byly původní chyba. Orientačně: písemné rozhodnutí do
+decision logu do 48 h, pak eskalace na sponzora, mlčení nevede k tichému
+zániku (Iterate), Iterate max 1× a poté Go nebo Kill. Prevence: mandát
+Deciderova a eskalační kontakt jsou už v zadání z Kickoffu.
 
-**Situace.** T+45 dní po handoffu Champion mění tým / firmu.
-Reinforcement track (T+30/60/90) ohrožen [perspektivy 07, 13].
+## 13. Selhání facilitátora
 
-**Co dělat:**
+Facilitátor je nejčastější bod selhání. Šest vzorců:
 
-1. **Champion buddy aktivuje** — předem nominovaný druhý senior z téže
-   BU [methodology 07].
-2. **Knowledge transfer protokol** (≤5 pracovních dní):
-   - 30-min recap deck (achieved milestones, parking lot, open risks).
-   - Async video walkthrough handoff package (≤20 min).
-   - Decision log čtení s buddy (≤60 min).
-   - CS proxy + Data + EM seznámeni s buddy jako novým point-of-contact.
-3. **CoP notification** — odchod championa je signál o adopci/burnout,
-   loguje se pro pattern detection.
+| Vzorec | Příznak | Protijed |
+|--------|---------|----------|
+| Captured by tool | 40 % času debugováním builderu | AI v sub-roli, záložní builder, facilitátor bez IDE |
+| Captured by HiPPO | podvědomé nadržování sponzorovi | silent voting, Decider poslední; u high-stakes druhý facilitátor |
+| Conflict avoidance | „vyřešíme potom" | konflikt pojmenovat v 5. minutě výskytu |
+| Energy blindness | tlačí agendu, tým mrtvý | pauza každých 90 min, pulz 1–5 prstů, strop délky |
+| AI as authority | „AI navrhla" jako argument | každý AI insight má lidský override; log atribuuje člověka |
+| Charter creep | 30 vstupů pro 12 perspektiv | MoSCoW vstupů, právo „tohle teď ne" |
 
-**Kdo rozhoduje.** EM (alokace buddy) + PdM (re-commit od přijímajícího
-týmu).
-
-**Mitigace.** Champion buddy povinný od začátku [methodology 07]; CoP
-sleduje champion turnover jako signal o sustainability metody.
-
-## 11. Mezi-session feedback windowless
-
-**Situace.** Mezi Session 1 a 2 je 3–7 pracovních dní (podle stupně, ADR-0017), ale 3 z 8 stakeholderů jsou
-na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
-
-**Co dělat:**
-
-1. **Asynchronní sběr default-on**: Miro board s prototypem variantami
-   + scoring formulář + threaded comments. Stakeholder hlasuje
-   asynchronně do deadline.
-2. **Video recap** (≤10 min) prezentace prototypu — facilitátor
-   nahraje, sdílí s PTO stakeholdery, ti hlasují async.
-3. **Quorum rule**: pokud <60 % povinných rolí dosáhne deadline,
-   Session 2 se posune o ≤5 dní. Pokud >60 % a missing role je
-   nevetovací → Session 2 běží, async input se započítává; mlčení nevetovací role po
-   deadline = „no objection“ zapsané do decision logu (ADR-0017).
-4. Vetovací role (Security, Legal, EM kapacita) bez async sign-offu =
-   Session 2 ne-decision-making, jen review.
-
-**Kdo rozhoduje.** Facilitátor + PdM. PdM vlastní stakeholder kalendář.
-
-**Mitigace.** Mezi-session podle stupně (Quick 3 / Lean 3–5 / Full 5–7
-pracovních dní, ADR-0017), prototyp deployed do 48 h, připomínka 48 h
-a 24 h před deadline [perspektiva 03]; PTO check při plánování Session 1
-(≥10 dní předem). Pokud vetovací role okno nestihne, upgrade stupně nebo
-odklad Session 2, ne prodlužování okna.
-
-## 12. Session 2 končí bez rozhodnutí
-
-**Situace.** Session 2 je 3 h rozhodovací [perspektiva 03], ale Decider
-po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
-
-**Co dělat.** Aplikuj **kanonický Decider eskalační protokol** v
-**`docs/decisions/0001-decider-model.md`**. Stručně:
-
-- **Decider chybí v Session 2** (Scenario A): posun max 5 pracovních dní,
-  dál eskalace na CPO (5 dní), dál automatický Kill.
-- **Decider říká „potřebuju víc času"** (Scenario B): T+48 h písemné
-  rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
-  (chrání před tichým úmrtím).
-- **Iterate exhausted** (Scenario C): Iterate = max 1 další Build kolo (Session 3 se nepoužívá), pak automatický Kill.
-
-**Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
-ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,
-adresován devil's advocate Útok 3).
-
-**Kdo rozhoduje.** ADR-0001 protokol — Decider → CPO → automatický default
-podle scenario.
-
-**Mitigace.** Decider mandate podepsaný CPO písemně před Session 1
-[synthesis 03 #1 patch]; informed dictatorship explicitně v Charteru;
-Session 2 jako rozhodovací, ne generativní (3 h struktura: 30 min
-prezentace / 60 min debata / 30 min go-iterate-kill / 30 min handoff
-podpis [perspektiva 03]).
-
-## 13. Failure modes facilitátora
-
-[perspektiva 03 § 5] — facilitátor je nejčastější bod selhání metody.
-Šest patologií + protijed:
-
-| Failure mode | Symptom | Protijed |
-|--------------|---------|----------|
-| **Captured by tool** | 40 % session debugováním Boltu | AI co-pilot v sub-roli, ne main UI; pre-tested fallback builder (Stitch + Cursor); facilitátor sleduje agendu, ne IDE |
-| **Captured by HiPPO** | Sponzor mě platí, podvědomě nadržuju | Silent voting, Decider hlasuje poslední; *„právo zadavateli podržet slovo"* v Charteru; co-facilitator pro high-stakes sessions |
-| **Conflict avoidance** | *„Vyřešíme potom"* | Konflikt nadojmem v 5. minutě výskytu, ne ke konci; facilitator playbook (sekce 2 výše) jako muscle memory |
-| **Energy blindness** | Tlačím přes agendu, tým mrtvý | Break každých 90 min nediskutuju; pulsní check-in (1–5 prst) každé 2 h; konec Session 1 v 16:00, ne 17:30 |
-| **AI as authority** | *„AI navrhla"* = autoritativní argument | Každý AI insight má human override; Decision log atribuuje **člověka** (AI Act čl. 14, GDPR čl. 22); AI = co-pilot, ne pilot |
-| **Charter creep** | 12 perspektiv chce 30+ vstupů | MoSCoW na vstupy [synthesis 02 § 5]: Default = MUST only, regulated = MUST + SHOULD, audit-grade = vše; facilitátor má právo *„won't do this session"* |
-
-**Kdo rozhoduje.** Facilitátor sám sebe nereviduje — **co-facilitator
-nebo CoP buddy** [synthesis 03 #17 Champion role] dělá observation +
-feedback po každé 3. session. Po 10 sessions kalibrace v CoP.
-
-**Mitigace.** Facilitátor není moderátor, je **architect of accountability**
-[perspektiva 03]: rozhoduje, kdy AI mluví, kdy člověk mlčí, kdy se
-konflikt eskaluje. Bez té tří-cestné dělby je Pflanzer rychlejší way to
-fail at scale.
+**Kdo rozhoduje.** Facilitátor sám sebe nehodnotí — pozorování po třetím
+Buildu dělá spolufacilitátor nebo Champion; po 10 Buildech kalibrace
+v komunitě praxe. Facilitátor je architekt odpovědnosti: rozhoduje, kdy AI
+mluví, kdy člověk mlčí a kdy se konflikt eskaluje.

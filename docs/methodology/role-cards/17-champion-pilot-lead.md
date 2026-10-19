@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Přenášíš zkušenost z předchozích pilotů a vlastníš, jak se metoda v BU učí.
 
+**Krok cesty:** Byznys (metoda) · **Kde jsi:** okno — Kickoff a závěr; mimo hlasování o variantách
+
 Status v catalogu: **volitelná (trigger)** · Kdy se zve: Druhý+ pilot v BU, nebo scaling Pflanzeru ve společnosti?
 
-## Přines do Session 1
+## Přines do svého okna
 - Retra předchozích pilotů
 - Coaching Kata: target / obstacle / next krok
 - Kontakt na security buddyho
@@ -15,9 +17,9 @@ Status v catalogu: **volitelná (trigger)** · Kdy se zve: Druhý+ pilot v BU, n
 - Retrospektivu pilotu a T+30 / 60 / 90 reporting
 - Návrhy změn do role catalogu
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **nepřítomna**: retro a Coaching Kata po session
-- Lean (3 h) — **async**: retro a T+30 reporting
+## Kdy jsi u toho
+- Quick (60–90 min) — **nepřítomna**: retro a Coaching Kata po Rozhodnutí
+- Lean (3 h) — **async**: retro (`/pm retro`) a T+30 reporting
 - Full (5–6 h) — **blok**: úvod a wrap-up / commitments
 
 ## Hlasuješ o

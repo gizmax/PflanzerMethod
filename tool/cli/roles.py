@@ -285,7 +285,7 @@ def run_from_json(path: Path) -> dict[str, Any]:
 # Role cards (audit N15) — one page per role, rendered from catalog `card`
 # --------------------------------------------------------------------------
 
-CARD_FIELDS = ("why", "bring", "sign_off", "when_in_room", "vote_on", "red_flags", "ai_proxy")
+CARD_FIELDS = ("why", "step", "place", "bring", "sign_off", "when_in_room", "vote_on", "red_flags", "ai_proxy")
 
 CATALOG_DOC = "docs/methodology/02-role-catalog.md"
 TIERS_DOC = "docs/methodology/00-lean-pflanzer.md"
@@ -301,7 +301,7 @@ STATUS_LABELS = {
 TIER_LABELS = {"quick": "Quick (60–90 min)", "lean": "Lean (3 h)", "full": "Full (5–6 h)"}
 TIER_SOURCES = {
     "arg": "zadáno přes `--tier`",
-    "db": "z Charteru (`projects.tier`)",
+    "db": "z Kickoffu (`projects.tier`)",
     "inferred": "odhad pro starší projekt bez `projects.tier`, přepiš přes `--tier`",
 }
 
@@ -362,7 +362,7 @@ def load_card_project(slug: str, tier: str | None = None) -> CardProject:
             (slug,),
         ).fetchone()
         if not row:
-            raise ValueError(f"Project '{slug}' not found. Run /pflanzer-charter first.")
+            raise ValueError(f"Project '{slug}' not found. Run `/pm start` first.")
         project_id = int(row["id"])
         roles = conn.execute(
             "SELECT catalog_idx, status, human_owner FROM roles "
@@ -378,7 +378,7 @@ def load_card_project(slug: str, tier: str | None = None) -> CardProject:
         }
         db_tier, db_source = _project_tier(conn, project_id, row["capacity_profile"])
     if not roles:
-        raise ValueError(f"Project '{slug}' has no selected roles. Run /pflanzer-roles first.")
+        raise ValueError(f"Project '{slug}' has no selected roles. Run `/pm roles` first.")
     tier_source = "arg" if tier else db_source
     return CardProject(
         slug=slug,
@@ -413,30 +413,32 @@ def render_card(
         BRAND_LINE, "",
         f"# Role card #{role['idx']} — {role['label']}", "",
         f"> {card['why']}", "",
+        f"**Krok cesty:** {card['step']} · **Kde jsi:** {card['place']}",
+        "",
         f"Status v catalogu: **{STATUS_LABELS.get(role['default_status'], role['default_status'])}**"
         f" · Kdy se zve: {role.get('trigger_question', 'vždy (core role)')}",
         "",
     ]
     if project:
         mine = project.assignments.get(int(role["idx"]), {})
-        sessions = (f"**Session 1:** {project.session_1 or 'zatím není v DB'} · "
-                    f"**Session 2:** {project.session_2 or 'zatím není v DB'}")
+        sessions = (f"**Build:** {project.session_1 or 'zatím není v DB'} · "
+                    f"**Rozhodnutí:** {project.session_2 or 'zatím není v DB'}")
         lines += [
             "## Tvůj projekt",
             f"- **Projekt:** {project.name} (`{project.slug}`) · "
             f"**Decider:** {project.decider or '—'}",
-            f"- **Ty:** {mine.get('human_owner') or '— doplň jméno před Session 1'} · "
+            f"- **Ty:** {mine.get('human_owner') or '— doplň jméno před Kickoffem'} · "
             f"status role: {STATUS_LABELS.get(mine.get('status', ''), mine.get('status', '—'))}",
             f"- {sessions}",
             "",
         ]
 
-    lines += ["## Přines do Session 1"]
+    lines += ["## Přines do svého okna"]
     lines += [f"- {item}" for item in card["bring"]]
     lines += ["", "## Podepisuješ"]
     lines += [f"- {item}" for item in card["sign_off"]]
 
-    heading = "## Kdy jsi v místnosti"
+    heading = "## Kdy jsi u toho"
     if tier:
         source = TIER_SOURCES.get(project.tier_source or "", "") if project else TIER_SOURCES["arg"]
         heading += f" (stupeň: **{TIER_LABELS[tier].split(' ')[0]}**, {source})"
@@ -455,7 +457,7 @@ def render_card(
         dims = " · ".join(f"`{d}`" for d in vote["dimensions"])
         focus = ", ".join(f"**{f}**" for f in vote.get("focus", []))
         lines += ["", f"Preference matrix: {dims}" + (f"; tvoje váha: {focus}" if focus else "")
-                  + ". K tomu commitment level 0–3 pro mezi-session práci."]
+                  + ". K tomu commitment level 0–3 pro Async okno."]
 
     lines += ["", "## Okamžitě hlas"]
     lines += [f"- {item}" for item in card["red_flags"]]
@@ -492,8 +494,8 @@ def render_cards_index(
 > Vygenerováno: `python3 tool/cli/roles.py cards --slug {project.slug}`.
 
 Každý člověk dostane **jen svou kartu** (1 strana) nejpozději s pozvánkou
-na Session 1. Metodiku číst nemusí — karta říká, co přinést, co podepisuje,
-kdy je v místnosti a na co hlasuje.
+na své okno (nebo na Build). Metodiku číst nemusí — karta říká, jaký krok cesty
+zastupuje, co přinést, co podepisuje, kdy je u toho a na co hlasuje.
 
 | # | Role | Člověk | Status | Karta |
 |---|------|--------|--------|-------|
@@ -514,10 +516,12 @@ kdy je v místnosti a na co hlasuje.
 > `python3 tool/cli/roles.py cards --all`. **Needitovat ručně** — test
 > `tests/test_role_cards.py` hlídá, že karty odpovídají generátoru.
 
-Sponzor, Security ani UX nemusí číst celou metodiku: každá karta na jedné
-straně říká, co do Session 1 přinést, co role podepisuje, kdy je v místnosti
-(Quick / Lean / Full), na co hlasuje a co má okamžitě nahlásit. Detail role
-je v `{CATALOG_DOC}`.
+Sponzor, Security ani UX nemusí číst celou metodiku. Karta = co zástupce
+kroku cesty (byznys, produkt, design, vývoj, bezpečnost & právo, provoz)
+přinese do svého okna: jestli je v jádru, nebo v okně, co přinést, co
+podepisuje (u bezpečnosti & práva a provozu příkazem `pflanzer checkpoint`),
+o čem hlasuje a co má okamžitě nahlásit. Stupeň (Quick / Lean / Full) je
+jen jeden řádek. Detail role je v `{CATALOG_DOC}`.
 
 Pro konkrétní projekt vygeneruj karty se jmény, Deciderem, termíny a stupněm:
 `python3 tool/cli/roles.py cards --slug <slug>` → `data/role-cards/<slug>/`.

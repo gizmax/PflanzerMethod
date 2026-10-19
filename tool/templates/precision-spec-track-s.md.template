@@ -1,7 +1,7 @@
 ---
 # Pflanzer Track S — Precision Specification
 #
-# Use this template ONLY when dev team was NOT in Session 1+2 room.
+# Use this template ONLY when dev team was NOT in the Build + Rozhodnutí room.
 # Default Pflanzer mode = artefakt JE produkt (winner code → prod direct).
 # Track S = fallback for 3 use cases:
 #   1. Vendor build (external team gets spec, not commit)
@@ -21,7 +21,7 @@ project: <project name>
 charter_ref: <git SHA of signed Charter ADR-0004 artifact>
 pilot_id: <Pflanzer pilot ID>
 target_repo: <git URL of target dev repo>
-sandbox_url: <Session 1+2 reference prototype URL>
+sandbox_url: <Build + Rozhodnutí reference prototype URL>
 sandbox_ttl: <date — extended to 30 days for Track S>
 
 # Authorship
@@ -155,10 +155,10 @@ expected delivery>
 **Referenced:**
 - Sandbox URL: <sandbox URL + screen / timestamp>
 - Figma: <frame ID if applicable>
-- Session 1 transcript: <line / timestamp>
+- Build transcript: <line / timestamp>
 
 **Attributed:**
-- Proposer: <name from Session 1>
+- Proposer: <name from Build>
 - Approver: <Decider name + date>
 
 **INVEST self-check:**
@@ -259,7 +259,7 @@ Per feature, ≥ 4 edge case types covered:
 - ❌ <feature> — rationale why deferred
 - ❌ <feature> — rationale why deferred
 
-Rationale: scope locked in Session 2 (winner varianta did NOT include these).
+Rationale: scope locked in Rozhodnutí (winner varianta did NOT include these).
 Re-opening scope = signed amendment per § 5.3 Amendment protocol.
 ```
 
@@ -721,8 +721,8 @@ Self-rate each dimension; sum must ≥ 80/100 before hand-off.
 # References (cross-links)
 
 - Pflanzer Charter (signed v<X>): {charter_ref}
-- Session 1 minutes: <link>
-- Session 2 decision log: <link>
+- Build minutes: <link>
+- Rozhodnutí decision log: <link>
 - Reference prototype: {sandbox_url}
 - Target dev repo: {target_repo}
 - ADRs in this spec:

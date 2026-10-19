@@ -4,9 +4,11 @@ Pflanzer Method | pflanzer.cz/method
 
 > Hájíš skutečného uživatele proti názorům v místnosti — tvrzení bez evidence označíš.
 
+**Krok cesty:** Produkt (evidence od uživatelů) · **Kde jsi:** okno — Async okno a Rozhodnutí (evidence)
+
 Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing flow nebo nový segment?
 
-## Přines do Session 1
+## Přines do svého okna
 - Personu ne starší než 6 měsíců (≥ 5 rozhovorů)
 - JTBD kartu a OST v0
 - Evidence: shadowing, ticket review nebo analýzu sales callů
@@ -16,15 +18,15 @@ Status v catalogu: **doporučená (default-on)** · Kdy se zve: Customer-facing 
 - JTBD / OST node tag per varianta
 - Persona expiry compliance (B2C 6 / B2B 9 / interní 12 měsíců)
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: AI archetype check, tvůj review v mezi-session okně
-- Lean (3 h) — **async**: AI proxy draft + tvůj sign-off do 24–48 h
-- Full (5–6 h) — **celá session**: hlídáš evidence u každé varianty
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: AI archetype check, tvůj review v Async okně
+- Lean (3 h) — **async**: AI proxy draft + tvůj sign-off v Async okně (24–48 h)
+- Full (5–6 h) — **celý běh**: hlídáš evidence u každé varianty
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze. AI-only persona hlas má deflaci max 0.5 / 1.0 — tvůj lidský hlas platí plně.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **user_value**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Persona po expiraci nebo bez rozhovorů

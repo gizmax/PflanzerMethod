@@ -2,13 +2,15 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #3 — Facilitátor (lidský + AI)
 
-> Vedeš session: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.
+> Vedeš Kickoff, Build a Rozhodnutí: agendu, energii a pořadí hlasování, a deeskaluješ konflikty mezi rolemi.
+
+**Krok cesty:** Produkt (vedení Buildu) · **Kde jsi:** jádro — celý Build, Async a Rozhodnutí
 
 Status v catalogu: **povinná** · Kdy se zve: vždy (core role)
 
-## Přines do Session 1
-- Energy curve plán podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)
-- Charter, seznam rolí a agendu s časovými boxy
+## Přines do svého okna
+- Plán energie podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h)
+- Zadání z Kickoffu, jména zástupců a agendu s časovými boxy
 - Šablonu parking lotu a decision logu s lidskou atribucí
 - Potvrzený dev pár u klávesnice pro každou variantu
 
@@ -16,10 +18,10 @@ Status v catalogu: **povinná** · Kdy se zve: vždy (core role)
 - Decision log a conflict log (AI píše, ty podepisuješ)
 - Hard rules: diff walkthrough před votingem, Decider hlasuje poslední
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **celá session**: vedeš wizard `/pm live`
-- Lean (3 h) — **celá session**: během buildu nemáš otevřené IDE
-- Full (5–6 h) — **celá session**: pro audit-grade profil s co-facilitátorem
+## Kdy jsi u toho
+- Quick (60–90 min) — **celý běh**: vedeš `/pm live` od Kickoffu po silent vote
+- Lean (3 h) — **celý běh**: vedeš Kickoff, `/pm build` i Rozhodnutí; během buildu nemáš otevřené IDE
+- Full (5–6 h) — **celý běh**: pro audit-grade profil s co-facilitátorem
 
 ## Hlasuješ o
 Nehlasuješ o variantách — vedeš silent vote (1-2-4-All), skóre zveřejníš až po hlasování a zapíšeš commitment level 0–3 per role.

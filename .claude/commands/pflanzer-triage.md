@@ -63,7 +63,7 @@ JSON spec format:
    - Read `data/triage/<slug>/_summary.md`.
    - Pokud overall='blocked', shrň důvody uživateli a navrhni nápravu.
    - Pokud overall='ok', připomeň pre-flight checklist
-     (`docs/methodology/03-pre-session-priprava.md` § Pre-flight checklist).
+     (`docs/methodology/03-pre-session-priprava.md` § Checklist před Kickoffem).
 
 5. **Sjednoť AI Act tier + Data class** s Charterem:
    - Security a Legal triage vrátí AI Act tier — pokud se liší od Charteru,

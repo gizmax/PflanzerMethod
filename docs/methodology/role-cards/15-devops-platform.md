@@ -2,30 +2,32 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #15 — DevOps / Platform
 
-> Zajišťuješ sandbox a cestu do produkce — deploy footprint, SLO a observability.
+> Zastupuješ krok provoz: sandbox, cestu do produkce, deploy footprint, SLO a observability.
+
+**Krok cesty:** Provoz · **Kde jsi:** okno — checkpoint provozu 20 min u Shipu (stačí DevOps nebo EM)
 
 Status v catalogu: **doporučená** · Kdy se zve: Změny v infra / deploy / runtime / sandbox? (téměř vždy)
 
-## Přines do Session 1
+## Přines do svého okna
 - Sandbox spec (Terraform modul, 24h TTL)
 - Approved runtime list a secret policy (Vault + OIDC)
 - Šablonu footprint estimate
 - Observability contract (OTel, structured logs, tracing)
 
 ## Podepisuješ
-- Platform triage (sandbox provisioning, runtime approval)
+- Checkpoint provozu: `pflanzer checkpoint --slug <slug> provoz --by JMÉNO --note …` (blokace: přidej `--blocked`)
 - SLO baseline a Promote-to-prod gate checklist
-- Deploy footprint TCO per varianta
+- Deploy footprint TCO vítězné varianty
 
-## Kdy jsi v místnosti
-- Quick (60–90 min) — **async**: triage je deferred; sandbox a worktrees připravíš předem
-- Lean (3 h) — **async**: sandbox připravíš předem, footprint review mezi sessions
-- Full (5–6 h) — **celá session**: sandbox a footprint per varianta
+## Kdy jsi u toho
+- Quick (60–90 min) — **async**: triage se odkládá; sandbox a worktrees připravíš předem
+- Lean (3 h) — **async**: sandbox připravíš předem, okno 20 min u Shipu
+- Full (5–6 h) — **celý běh**: sandbox a footprint per varianta v Buildu
 
 ## Hlasuješ o
 Skóruješ všechny 4 dimenze; effort a risk za tebe = provoz v produkci.
 
-Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro mezi-session práci.
+Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje váha: **effort**, **risk**. K tomu commitment level 0–3 pro Async okno.
 
 ## Okamžitě hlas
 - Varianta potřebuje runtime mimo approved list

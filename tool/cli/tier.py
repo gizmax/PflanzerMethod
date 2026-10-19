@@ -1,7 +1,7 @@
 """Pflanzer Method stupeň (tier): Quick / Lean / Full.
 
 Single source for the tier values and for deriving a tier when none was given
-explicitly. The tier drives Session 1 length, triage depth and the
+explicitly. The tier drives Build length, triage depth and the
 between-session window (docs/methodology/00-lean-pflanzer.md § Tři stupně,
 ADR-0017).
 """
@@ -11,7 +11,7 @@ from typing import Any
 
 TIERS: tuple[str, ...] = ("quick", "lean", "full")
 TIER_LABELS = {"quick": "Quick", "lean": "Lean", "full": "Full"}
-# ADR-0017: working days between Session 1 and Session 2.
+# ADR-0017: working days between Build and Rozhodnutí.
 WINDOW_DAYS = {"quick": "3", "lean": "3–5", "full": "5–7"}
 
 

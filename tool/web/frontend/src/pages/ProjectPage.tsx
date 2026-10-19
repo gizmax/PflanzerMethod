@@ -103,7 +103,7 @@ export default function ProjectPage() {
             <p className="text-brand-500 text-sm">
               Triage zatím neproběhla. V Claude Code:{" "}
               <code className="font-mono bg-brand-50 px-1.5 py-0.5 rounded">
-                /pflanzer-triage {slug}
+                /pm triage {slug}
               </code>
             </p>
           )}

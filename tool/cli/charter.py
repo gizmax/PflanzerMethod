@@ -52,7 +52,7 @@ THROWAWAY_USE_CASES = (
 
 @dataclass
 class CharterInput:
-    """Charter wizard inputs — must mirror the Claude Code wizard fields."""
+    """Kickoff inputs — must mirror the `/pm start` fields."""
 
     slug: str
     name: str
@@ -83,7 +83,7 @@ class CharterInput:
     tier: str | None = None
     # Deprecated (v0.2 "6 conditions for evolve" gate). Accepted so older
     # JSON specs still load, but ignored: production deploy is gated by
-    # Ship gate quality gates >= 80/100 + sign-off, not by Charter.
+    # Ship quality gates >= 80/100 + sign-off, not by Charter.
     evolve_conditions_met: list[str] = field(default_factory=list)
     # v0.5 (ADR-0021)
     target_repo_url: str | None = None
@@ -121,7 +121,7 @@ def render_charter_md(c: CharterInput) -> str:
     else:
         output_block = (
             "- Evolve = default (ADR-0005 v0.4): winner varianta jde do produkce; "
-            "prod deploy podmíněn Ship gate (quality gates ≥ 80/100) + sign-off.\n"
+            "prod deploy podmíněn Shipem (quality gates ≥ 80/100) + sign-off.\n"
         )
 
     path_block = ""

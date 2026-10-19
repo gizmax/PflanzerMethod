@@ -35,7 +35,7 @@ def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     assert f'--label "pflanzer:{slug}"' in md
     assert "## AI provenance" in md
     assert "## AI náklady (viditelnost)" in md  # N16: always present, never fails
-    assert "**Vybrán podle**: Ship gate" in md
+    assert "**Vybrán podle**: Ship -" in md
     assert "Co-Authored-By: Claude" not in md
     # Blocked (deferred triage + 2 gates) -> draft PR, blocked verdict.
     assert "BLOKOVÁNO" in md

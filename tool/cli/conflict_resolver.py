@@ -38,7 +38,7 @@ DIVERGENCE_THRESHOLD = 0.3
 CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     frozenset({1, 7}): {
         "axis": "Datová třída sandboxu (live integrace vs synthetic-only)",
-        "resolution": "Pre-charter Data Classification Statement podepsaný DPO před session 1; L4 = session se nekoná.",
+        "resolution": "Pre-charter Data Classification Statement podepsaný DPO před Buildem; L4 = Build se nekoná.",
         "adr": "ADR-0002 (Pre-flight triage tracks)",
     },
     frozenset({1, 9}): {
@@ -48,7 +48,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({1, 4}): {
         "axis": "Prototyp do prod (throw-away vs evolve)",
-        "resolution": "Evolve default v Charteru (ADR-0005 v0.4); prod deploy až po Ship gate (quality gates >= 80/100) + sign-off FE + EM + Security + DPO + DevOps + QA P2P. Throw-away jen jako explicit opt-in s rationale.",
+        "resolution": "Evolve default v Charteru (ADR-0005 v0.4); prod deploy až po Shipu (quality gates >= 80/100) + sign-off FE + EM + Security + DPO + DevOps + QA P2P. Throw-away jen jako explicit opt-in s rationale.",
         "adr": "ADR-0005 v0.4 (Track x Output: evolve default)",
     },
     frozenset({1, 5}): {

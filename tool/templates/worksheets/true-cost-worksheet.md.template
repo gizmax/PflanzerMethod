@@ -1,7 +1,7 @@
 # True Cost Worksheet — <project-slug>
 
 > Šablona pro per-pilot rozpočet Pflanzerova cyklu. Vyplň v gitu, sign-off
-> před Session 1. Referenční dokumentace:
+> před Buildem. Referenční dokumentace:
 > `docs/methodology/03-pre-session-priprava.md` Krok 1a.
 
 ## Header
@@ -13,7 +13,7 @@
 | Charter ref | `charters/<slug>.md` commit `<sha>` |
 | Profile | `default` / `regulated` / `audit-grade` |
 | Profile sign-off | EM `<name>` + Legal `<name>` — datum |
-| Cycle start | `<YYYY-MM-DD>` (Session 1 datum) |
+| Cycle start | `<YYYY-MM-DD>` (datum Buildu) |
 | Method Steward (review) | `<name>` |
 
 ## Per-role × per-phase rozpočet
@@ -74,7 +74,7 @@ Po skončení cyklu vyplnit (T+90):
 |--------|------|-----------|-----------|-------|
 | Total PD | | | | |
 | Reinforcement PD | | | | |
-| Cycle duration (calendar days, Session 1 → T+90) | | | | |
+| Cycle duration (calendar days, Build → T+90) | | | | |
 | Roles invited but absent (count) | | | | |
 
 **Pravidlo:** Skutečnost / Plán > 1.3 = mandatory flag v Method Steward T+6 reportu.

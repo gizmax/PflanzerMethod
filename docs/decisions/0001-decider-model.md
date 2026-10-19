@@ -111,7 +111,7 @@ Charter (ADR-0004) povinně obsahuje:
 
 - **Autoritativní zdroj:** tento ADR (0001), sekce „Kanonický Decider
   eskalační protokol".
-- **Reference (bez duplikace textu):** `06-session-2.md` § Účastníci,
+- **Reference (bez duplikace textu):** `06-session-2.md` § Kdo,
   `08-edge-cases-a-rizika.md` edge case 12, ADR-0004 Charter template.
 
 ## Reference
