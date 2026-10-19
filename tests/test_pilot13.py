@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import json
 import subprocess
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -182,7 +183,9 @@ def test_decide_prints_git_commands_and_does_not_commit(
     log = subprocess.run(["git", "log", "--oneline"], cwd=repo, capture_output=True, text=True)
     assert log.stdout.strip() == ""              # tool nic necommitnul
     text = (repo / ".pflanzer" / "decisions" / f"{slug}.md").read_text(encoding="utf-8")
-    assert "UTC" not in text.split("**Decider**")[1].splitlines()[0]
+    line = text.split("**Decider**")[1].splitlines()[0]
+    assert time.strftime("%Y-%m-%d") in line or time.strftime(  # lokální datum, ne vždy UTC
+        "%Y-%m-%d", time.localtime(time.time() - 60)) in line
 
 
 def test_ship_pr_block_has_decision_log_step_and_neutral_origin(tmp_path: Path) -> None:
@@ -294,6 +297,8 @@ def test_hub_warning_only_when_not_local(caplog: pytest.LogCaptureFixture,
                                          monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
+    pytest.importorskip("fastapi")
+    pytest.importorskip("sqlmodel")
     from tool.web.backend import main as backend
 
     async def run() -> None:
