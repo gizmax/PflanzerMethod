@@ -10,6 +10,7 @@ Rozhraní:
     pflanzer session_2 decide  --slug S go|iterate|kill --rationale "…"
                                [--winner A|B|C] [--decider "Jméno"]
                                [--override-critical "důvod"] [--iterate-focus "…"]
+                               [--variants A,B]   # jen Iterate: varianty druhého kola
                                [--checkpoint "Bezpečnost & právo: ok (Jana)"]...
                                [--force]   # změna už zapsaného Go/Kill (jen s --rationale)
     pflanzer session_2 resolve --slug S --feedback-id N [N…] --by JMÉNO --note "…"
@@ -427,6 +428,7 @@ def record_decision(
     override_critical: str | None = None,
     checkpoints: list[str] | None = None,
     force: bool = False,
+    iterate_variants: list[str] | str | None = None,
 ) -> dict[str, Any]:
     """Persist Decider's call (idempotentní per projekt: jedna session type=2)."""
     if decision not in VALID_DECISIONS:
@@ -448,6 +450,11 @@ def record_decision(
         )
     if decision != "go":
         winner = None  # vítěz dává smysl jen u Go
+    if isinstance(iterate_variants, str):
+        iterate_variants = [x for x in re.split(r"[,\s]+", iterate_variants) if x]
+    iterate_variants = [str(x).strip() for x in (iterate_variants or []) if str(x).strip()]
+    if iterate_variants and decision != "iterate":
+        raise ValueError("--variants patří jen k Iterate (které varianty jdou do druhého kola).")
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -481,6 +488,15 @@ def record_decision(
         if winner:   # velikost písmen nerozhoduje: `a` = `A`, `MOB` = `mob`
             by_lower = {v.lower(): v for v in variants}
             winner = by_lower.get(winner.lower(), winner.upper() if not variants else winner)
+        if iterate_variants:
+            by_lower = {v.lower(): v for v in variants}
+            bad = [x for x in iterate_variants if x.lower() not in by_lower]
+            if bad:
+                raise ValueError(
+                    f"--variants {','.join(bad)}: varianta v Buildu neexistuje "
+                    f"(jsou: {', '.join(sorted(variants)) or 'žádné'}). "
+                    f"Příklad: --variants {','.join(sorted(variants)[:2]) or 'A,B'}")
+            iterate_variants = sorted(dict.fromkeys(by_lower[x.lower()] for x in iterate_variants))
         if winner and winner not in variants:
             raise ValueError(
                 f"--winner {winner}: varianta '{winner}' v Buildu neexistuje (jsou: {', '.join(sorted(variants)) or 'žádné'})."
@@ -548,7 +564,7 @@ def record_decision(
         all_open = open_criticals(conn, project_id) if decision == "kill" else []
         decision_md = render_decision_md(
             slug, decision, rationale, decider, iterate_focus,
-            winner=winner, override_critical=override_critical,
+            iterate_variants=iterate_variants, winner=winner, override_critical=override_critical,
             criticals=criticals, votes=votes, checkpoints=checkpoints,
             all_criticals=all_open,
         )
@@ -575,6 +591,7 @@ def record_decision(
                 "slug": slug, "decision": decision, "winner": winner,
                 "decider": decider,
                 "iterate_focus": iterate_focus,
+                "iterate_variants": iterate_variants,
                 "override_critical": override_critical,
                 "overridden_criticals": [c["id"] for c in criticals] if override_critical else [],
                 "forced": bool(force),
@@ -599,6 +616,13 @@ def record_decision(
         "decision_log_repo": repo_log,
         "next_step": _next_step_label(decision, slug, winner),
     }
+    if decision == "iterate":
+        out["iterate_variants"] = iterate_variants
+        out["iterate_variants_dropped"] = (sorted(set(variants) - set(iterate_variants))
+                                           if iterate_variants else [])
+    if decision == "kill":
+        from tool.cli.status import cleanup_steps
+        out["cleanup"] = cleanup_steps(slug)
     if repo_log:
         out["hint"] = f"Commitni decision log do target repa: git add {repo_log} && git commit"
     else:
@@ -610,6 +634,7 @@ def record_decision(
 def render_decision_md(
     slug: str, decision: str, rationale: str, decider: str, iterate_focus: str | None,
     *, winner: str | None = None, override_critical: str | None = None,
+    iterate_variants: list[str] | None = None,
     criticals: list[dict[str, Any]] | None = None,
     votes: list[dict[str, Any]] | None = None, checkpoints: list[str] | None = None,
     all_criticals: list[dict[str, Any]] | None = None,
@@ -642,15 +667,16 @@ def render_decision_md(
         lines += ["### Checkpointy", ""] + [f"- {c}" for c in checkpoints] + [""]
     if decision == "iterate":
         lines += ["### Iterate (max 1×)", "", (iterate_focus or rationale).strip(), ""]
+        if iterate_variants:
+            lines += [f"Do druhého kola jdou: **{', '.join(iterate_variants)}** "
+                      "(ostatní varianty končí).", ""]
     if decision == "kill":
         lines += ["### Critical všech variant (v době Kill)", ""]
         if all_criticals:
             lines += [f"- {describe_critical(c)}" for c in all_criticals]
         else:
             lines.append("- žádné otevřené")
-        lines += ["", "### Poučení", "", "- ", "- ", "- ", "",
-                  f"> Doplň přes `pflanzer retro lesson --slug {slug} --text \"…\"` "
-                  "(co jsme se dozvěděli o problému, o uživatelích, o zadání).", ""]
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -699,6 +725,24 @@ def write_repo_decision_log(slug: str, section_md: str, *, label: str) -> str | 
         return None
 
 
+def append_lesson_to_log(slug: str, text: str, who: str) -> str | None:
+    """Poučení do `.pflanzer/decisions/<slug>.md`: jedna sekce „### Poučení“, další jen odrážky."""
+    bullet = f"- {text} — {who}"
+    path = Path.cwd() / ".pflanzer" / "decisions" / f"{slug}.md"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return write_repo_decision_log(slug, f"### Poučení\n\n{bullet}\n", label="Poučení")
+    idx = body.rfind("### Poučení")
+    if idx != -1 and "\n---" not in body[idx:] and "\n## " not in body[idx:]:
+        try:
+            path.write_text(body.rstrip("\n") + f"\n{bullet}\n", encoding="utf-8")
+            return str(path.relative_to(Path.cwd()))
+        except OSError:
+            return None
+    return write_repo_decision_log(slug, f"### Poučení\n\n{bullet}\n", label="Poučení")
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -737,7 +781,7 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         nxt = (f"kritické #{c0['id']} ({c0['submitted_by']}) na variantě {c0['variant']}: buď ho "
                f"oprav a `pflanzer session_2 resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO "
                f"--note \"…\"`, nebo na Rozhodnutí zvolte Iterate s cílem ho opravit "
-               f"(`pflanzer session_2 decide --slug {slug} iterate --iterate-focus \"…\" --rationale \"…\"`)")
+               f"(`pflanzer session_2 decide --slug {slug} iterate --variants {','.join(focus or ['A'])} --iterate-focus \"…\" --rationale \"…\"`)")
     elif not out["ready_for_decision"]:
         nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — sežeň víc hlasů "
                f"a feedbacku: `pflanzer feedback add --slug {slug} --variant A --role Produkt "
@@ -766,7 +810,16 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
     nxt = out["next_step"]
     phase = ("iterate" if dec == "iterate" else "after_go" if dec == "go"
              else "after_kill" if dec == "kill" else "decide")
+    if dec == "iterate" and out.get("iterate_variants"):
+        lines.append("Do druhého kola jdou: " + ", ".join(out["iterate_variants"])
+                     + (f" (vypadly: {', '.join(out['iterate_variants_dropped'])})"
+                        if out.get("iterate_variants_dropped") else ""))
+    elif dec == "iterate":
+        lines.append("Varianty druhého kola nebyly určeny — jdou ty z hlasování Buildu "
+                     "(příště: `--variants A,B`).")
     if dec == "kill":
+        for step in out.get("cleanup") or []:
+            lines.append("Úklid: " + step)
         nxt = (f"zapiš 1–3 poučení: `pflanzer retro lesson --slug {slug} "
                "--text \"co jsme se dozvěděli o problému, uživatelích nebo zadání\"`")
     return f"Rozhodnutí {slug}: {label}", lines, [], nxt, phase
@@ -798,6 +851,8 @@ def main() -> None:
     p_dec.add_argument("--override-critical", default=None, metavar="DŮVOD",
                        help="Decider přebíjí otevřený critical (důvod do auditu a decision logu)")
     p_dec.add_argument("--iterate-focus", default=None)
+    p_dec.add_argument("--variants", default=None, metavar="A,B",
+                       help="jen u Iterate: které varianty jdou do druhého kola (čárkou, např. A,B)")
     p_dec.add_argument("--checkpoint", action="append", default=[],
                        help="záznam checkpointu (opakovatelné), např. 'Bezpečnost & právo: ok (Jana)'")
     p_dec.add_argument("--force", action="store_true",
@@ -862,6 +917,7 @@ def main() -> None:
                 iterate_focus=args.iterate_focus, decider_attribution=args.decider,
                 winner=args.winner, override_critical=args.override_critical,
                 checkpoints=args.checkpoint, force=args.force,
+                iterate_variants=args.variants,
             )
             title, lines, warns, nxt, phase = _decision_view(out)
             emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,

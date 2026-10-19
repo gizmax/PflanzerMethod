@@ -4,6 +4,8 @@ import { api } from "../lib/api";
 import type { Variant } from "../lib/types";
 import { ErrorScreen, Loading, StateScreen } from "../components/StateScreen";
 import { Md } from "../lib/text";
+import { previewLoginText } from "../lib/task";
+import type { ProjectDetail } from "../lib/types";
 import { useIsDesktop, usePageTitle } from "../lib/hooks";
 
 export default function CompareVariants() {
@@ -12,6 +14,7 @@ export default function CompareVariants() {
   const [shortlist, setShortlist] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [decided, setDecided] = useState(false);
+  const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [error, setError] = useState<unknown>(null);
   const desktop = useIsDesktop();
   usePageTitle("Varianty");
@@ -20,6 +23,7 @@ export default function CompareVariants() {
     if (!slug) return;
     Promise.all([api.getProject(slug), api.listVariants(slug)])
       .then(([d, vs]) => {
+        setDetail(d);
         setTitle(d.project.name);
         setDecided(["session_2", "handoff", "killed"].includes(d.project.status));
         setShortlist(d.shortlist ?? []);
@@ -39,6 +43,8 @@ export default function CompareVariants() {
     );
   }
 
+  const killed = detail?.project.status === "killed";
+  const login = detail ? previewLoginText(detail) : null;
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -47,6 +53,14 @@ export default function CompareVariants() {
         <p className="pf-help">
           Každou variantu otevřete, vyzkoušejte hlavní tok a napište, co vás zastaví.
         </p>
+        {login && <p className="rounded-md bg-soft p-3 text-sm">{login}</p>}
+        {killed && (
+          <div className="rounded-md border border-sev-critical p-3 text-sm space-y-1">
+            <p><strong>Projekt byl ukončen, feedback se už nesbírá.</strong>
+              {detail?.kill?.reason ? <> Důvod: <Md text={detail.kill.reason} /></> : null}</p>
+            {(detail?.kill?.lessons ?? []).map((l, i) => <p key={i}>Poučení: {l.text}</p>)}
+          </div>
+        )}
       </div>
 
       <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -86,9 +100,11 @@ export default function CompareVariants() {
                 </p>
 
                 <div className="mt-auto flex flex-col gap-2">
-                  <Link to={`/${slug}/feedback/${v.id}`} className="pf-button w-full">
-                    {v.my_feedback ? "Dát další feedback" : "Dát feedback"}
-                  </Link>
+                  {!killed && (
+                    <Link to={`/${slug}/feedback/${v.id}`} className="pf-button w-full">
+                      {v.my_feedback ? "Dát další feedback" : "Dát feedback"}
+                    </Link>
+                  )}
                   {hasPreview && (
                     <a href={v.prototype_url} target="_blank" rel="noopener noreferrer"
                       className="pf-button-secondary w-full">

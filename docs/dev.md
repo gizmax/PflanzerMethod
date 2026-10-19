@@ -186,6 +186,7 @@ cd PflanzerMethod
 python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
 # Web hub (async feedback) — venv + build frontendu se připraví samy:
 tool/bin/pflanzer hub            # http://localhost:8000/method/ (localhost, bez přihlášení)
+                                 # obsazený port: hub navrhne `--port N`; za běhu zapisuje <datová složka>/hub.json
 tool/bin/pflanzer hub --host 0.0.0.0 --password …   # pro kolegy v síti
 # vývoj frontendu s hot reloadem: cd tool/web/frontend && npm install && npm run dev
 ```

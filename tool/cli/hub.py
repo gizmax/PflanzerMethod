@@ -13,9 +13,12 @@ nebo vygenerované a vypsané. Firemní nasazení s OIDC: PFLANZER_HUB_AUTH_MODE
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import secrets
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -63,6 +66,35 @@ def plan_auth(host: str, password: str | None, environ: dict[str, str]
     return env, notes
 
 
+def port_free(host: str, port: int) -> bool:
+    """Dá se na host:port poslouchat? (uvicorn jinak končí syrovou chybou)"""
+    bind = "127.0.0.1" if host in ("localhost",) else host
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((bind, port))
+        return True
+    except OSError:
+        return False
+
+
+def find_free_port(host: str, start: int, tries: int = 50) -> int | None:
+    return next((p for p in range(start + 1, start + 1 + tries) if port_free(host, p)), None)
+
+
+def hub_json_path() -> Path:
+    return DATA_ROOT / "hub.json"
+
+
+def write_hub_json(port: int) -> None:
+    try:
+        DATA_ROOT.mkdir(parents=True, exist_ok=True)
+        hub_json_path().write_text(json.dumps(
+            {"port": port, "url": f"http://127.0.0.1:{port}/method/"}), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def _venv() -> Path:
     venv = DATA_ROOT / "hub-venv"
     py = venv / "bin" / "python"
@@ -101,6 +133,15 @@ def main() -> None:
     p.add_argument("--rebuild", action="store_true", help="znovu sestavit frontend")
     args = p.parse_args()
 
+    if not port_free(args.host, args.port):
+        alt = find_free_port(args.host, args.port)
+        print(f"Port {args.port} je obsazený (nejspíš už běží jiný hub nebo jiná aplikace).",
+              file=sys.stderr)
+        if alt:
+            print(f"Zkuste jiný port: `pflanzer hub --port {alt}`", file=sys.stderr)
+        else:
+            print("Zadejte jiný port přes `--port N`.", file=sys.stderr)
+        sys.exit(2)
     py = _venv()
     has_ui = _frontend(args.rebuild)
     url = f"http://{'localhost' if args.host in ('127.0.0.1', '0.0.0.0') else args.host}:{args.port}"
@@ -115,9 +156,31 @@ def main() -> None:
     if notes:
         print()
     print("Ctrl+C ukončí.\n")
-    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT), "PFLANZER_DB": str(DB_PATH), **auth_env}
-    os.execve(str(py), [str(py), "-m", "uvicorn", "tool.web.backend.main:app",
-                        "--host", args.host, "--port", str(args.port)], env)
+    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT), "PFLANZER_DB": str(DB_PATH),
+           "PFLANZER_DATA": str(DATA_ROOT), **auth_env}
+    cmd = [str(py), "-m", "uvicorn", "tool.web.backend.main:app",
+           "--host", args.host, "--port", str(args.port)]
+    # hub.json: ostatní příkazy (preview) z něj poznají port; po ukončení se smaže.
+    write_hub_json(args.port)
+    proc = subprocess.Popen(cmd, env=env)
+
+    def _stop(*_a: object) -> None:
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _stop)
+    try:
+        sys.exit(proc.wait())
+    except KeyboardInterrupt:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    finally:
+        try:
+            hub_json_path().unlink()
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":

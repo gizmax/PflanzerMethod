@@ -56,6 +56,14 @@ METRICS_PATH = DATA_ROOT / "method-metrics.json"
 # --------------------------------------------------------------------------
 
 
+class KilledProject(ValueError):
+    """Zabitý projekt se nepředává — poučení místo balíčku."""
+
+    def __init__(self, slug: str) -> None:
+        super().__init__(f"Projekt {slug} skončil Kill — handoff se nedělá.")
+        self.slug = slug
+
+
 def _fetch_project_context(slug: str) -> dict[str, Any]:
     """Pull all context needed for handoff generation."""
     with transaction() as conn:
@@ -69,6 +77,8 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
         ).fetchone()
         if not proj:
             raise ProjectNotFound(slug)
+        if proj[3] == "killed":
+            raise KilledProject(slug)
         if proj[3] != "handoff":
             raise ValueError(
                 f"Project status='{proj[3]}'. Handoff vyžaduje status='handoff' "
@@ -1105,6 +1115,19 @@ def main() -> None:
     args = p.parse_args()
     try:
         out = generate(args.slug)
+    except KilledProject as e:
+        from tool.cli.retro import killed_notice
+        kn = killed_notice(e.slug, "handoff se nedělá")
+        lines = ["Projekt ukončen (Kill) — handoff se nedělá."]
+        ls = (kn or {}).get("lessons") or []
+        lines += [f"Poučení: {x['text']} — {x['by']}" for x in ls] or [
+            "Poučení zatím není zapsané."]
+        emit({"slug": e.slug, "killed": True, "lessons": ls}, title=f"Handoff {e.slug}: Kill",
+             lines=lines,
+             next_step=(f"`pflanzer retro lesson --slug {e.slug} --text \"…\"`" if not ls
+                        else "vezmi poučení do zadání dalšího Kickoffu (`/pm start`)"),
+             tips=tips(e.slug, "after_kill", {}), as_json=args.json)
+        return
     except ValueError as e:
         exit_if_project_missing(e)
         die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff --slug moje-appka")

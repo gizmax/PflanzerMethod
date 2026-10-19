@@ -32,6 +32,7 @@ po handoffu / SHIP.md `/pm retro <slug>` (T+7). „Ship hotový“ se pozná pod
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -110,10 +111,36 @@ def _last_build(slug: str) -> dict[str, Any]:
         return {}
 
 
+def iterate_choice(slug: str) -> list[str]:
+    """Explicitní výběr variant z posledního `decide iterate --variants` (audit); [] když žádný."""
+    try:
+        with transaction() as conn:
+            p = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+            if not p:
+                return []
+            rows = conn.execute(
+                "SELECT payload_json FROM audit_log WHERE action = 'session_2.decision' "
+                "AND target_type = 'project' AND target_id = ? ORDER BY id DESC",
+                (p[0],)).fetchall()
+        for (raw,) in rows:
+            try:
+                pl = json.loads(raw or "{}")
+            except (ValueError, TypeError):
+                continue
+            if pl.get("decision") == "iterate":
+                return [str(v) for v in pl.get("iterate_variants") or []]
+            return []
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+    return []
+
+
 def iterate_plan(slug: str) -> dict[str, Any] | None:
     """Po Rozhodnutí Iterate, před druhým Buildem: které varianty jdou do druhého kola a proč.
 
-    `variants` = shortlist z Buildu (jinak všechny varianty projektu), `focus` = text z Iterate.
+    `variants` = explicitní výběr z `decide iterate --variants` (jinak shortlist z Buildu,
+    jinak všechny varianty projektu), `focus` = text z Iterate, `explicit` = výběr zadal
+    Decider, `dropped` = varianty, které ve hře nejsou.
     None, když projekt není ve stavu „Iterate“ (status session_2).
     """
     try:
@@ -129,18 +156,65 @@ def iterate_plan(slug: str) -> dict[str, Any] | None:
                 "ORDER BY id DESC LIMIT 1", (p[0],)).fetchone()
     except Exception:  # noqa: BLE001 — advisory only
         return None
+    chosen = [n for n in iterate_choice(slug) if n in names]
     shortlist = [n for n in _last_build(slug).get("shortlist", []) or [] if n in names]
     focus = (row[0] or "").strip() if row else ""
-    return {"variants": sorted(dict.fromkeys(shortlist)) or names, "focus": focus or None}
+    variants = sorted(dict.fromkeys(chosen)) or sorted(dict.fromkeys(shortlist)) or names
+    return {"variants": variants, "focus": focus or None, "explicit": bool(chosen),
+            "dropped": [n for n in dict.fromkeys(names) if n not in variants]}
 
 
-def _variants_in_play(slug: str) -> list[str]:
+def variants_in_play(slug: str) -> list[str]:
     """Po Iterate: varianty druhého kola (ostatní skončily). Jinak []."""
     plan = iterate_plan(slug)
     if plan is not None:           # Iterate rozhodnuto, druhý Build ještě neběžel
         return plan["variants"]
     data = _last_build(slug)
     return [str(v) for v in data.get("variants", [])] if data.get("iterate_round") else []
+
+
+_variants_in_play = variants_in_play   # zpětná kompatibilita (testy, quick_session)
+
+
+def cleanup_steps(slug: str) -> list[str]:
+    """Kroky úklidu po Kill: běžící preview a worktrees. Read-only — nic nespouští ani nemaže."""
+    steps: list[str] = []
+    try:
+        from tool.cli.db import DATA_ROOT
+        state = json.loads((Path(DATA_ROOT) / "preview" / f"{slug}.json").read_text("utf-8"))
+        running = False
+        for v in (state.get("variants") or {}).values():
+            pids = [v.get(f"{k}_pid") for k in ("app", "proxy", "tunnel")]
+            pids += [e.get("app_pid") for e in (v.get("extra") or {}).values()]
+            for pid in filter(None, pids):
+                try:
+                    os.kill(int(pid), 0)
+                    running = True
+                except (OSError, ValueError):
+                    continue
+        if running:
+            steps.append(f"zastav náhled s heslem: `pflanzer preview down --slug {slug}`")
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    try:
+        from tool.cli.worktree import TARGETS_CACHE
+        found = sorted(w for w in Path(TARGETS_CACHE).glob(f"{slug}-*")
+                       if w.is_dir() and (w / ".git").is_file())
+        for wt in found:
+            clone = ""
+            try:
+                gitdir = (wt / ".git").read_text("utf-8").split("gitdir:", 1)[1].strip()
+                clone = str(Path(gitdir).parents[1].parent)   # <clone>/.git/worktrees/<n> -> <clone>
+            except (OSError, IndexError):
+                pass
+            steps.append(f"smaž worktree {wt.name}: `git -C {clone or '<klon target repa>'} "
+                         f"worktree remove --force {wt}`")
+    except Exception:  # noqa: BLE001 — advisory only
+        pass
+    if steps:
+        steps.append("větve `pflanzer/" + slug + "-*` můžeš smazat v klonu (`git branch -D …`); "
+                     "poučení a decision log zůstávají")
+    return steps
 
 
 def _blocked_triage(slug: str) -> list[str]:
@@ -280,7 +354,7 @@ def project_detail(slug: str) -> dict[str, Any]:
     for r in crit_rows:
         crit_by_variant.setdefault(r["variant"], []).append(r["who"])
     after_go = p["status"] == "handoff"
-    in_play = _variants_in_play(slug)  # po Iterate jen varianty posledního Build kola
+    in_play = variants_in_play(slug)  # po Iterate jen varianty posledního Build kola
     if after_go and winner:
         blocking_variants = [] if override_reason else [winner]
     elif in_play:
@@ -422,7 +496,8 @@ def project_detail(slug: str) -> dict[str, Any]:
         "ai_signers": {k: ai_signers[k] for k, _ in PATH_STEPS
                        if is_ai_owner(path_owners.get(k)) and ai_signers.get(k)},
         "core": core, "windows": windows, "session_mode": session_mode,
-        "variants": list(seen.values()),
+        "variants": [v for v in seen.values() if not in_play or v["name"] in in_play],
+        "variants_dropped": [n for n in seen if in_play and n not in in_play],
         "winner": winner,
         "feedback": {"total": fcount, "critical": critical, "critical_total": critical_total,
                      "critical_informational": {v: len(w) for v, w in critical_info.items()},
@@ -431,6 +506,7 @@ def project_detail(slug: str) -> dict[str, Any]:
         "ship_state": evidence["ship"], "killed_at": killed_at,
         "lesson_recorded": evidence["lesson"], "retro_done": evidence["retro_done"],
         "lessons": evidence["lessons"],
+        "cleanup": cleanup_steps(slug) if killed else [],
         "decision": decision, "iterate_rounds": iterate_rounds,
         "decision_log": [dict(d) for d in decisions],
         "gate_score": gate if gate else None, "gate_target": target,
@@ -513,6 +589,9 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
             for v in d["variants"]))
     elif d.get("session_mode") == "mob":
         lines.append("Režim: mob (jedna společná varianta)")
+    if d.get("variants_dropped"):
+        lines.append("Po Iterate vypadly: " + ", ".join(d["variants_dropped"])
+                     + " (jen informace, do druhého kola nejdou)")
     fb = d["feedback"]
     dec = f" · rozhodnutí: **{d['decision']}**" if d["decision"] else ""
     win = f" · vítěz: **{d['winner']}**" if d.get("winner") else ""
@@ -523,6 +602,9 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
             lines.append(f"Poučení ({len(lessons)}): {_short(lessons[0], 80)}")
         else:
             lines.append("Poučení: " + ("zapsáno" if d.get("lesson_recorded") else "zatím nezapsáno"))
+        if d.get("cleanup"):
+            lines.append("Úklid po Kill:")
+            lines += [f"  - {x}" for x in d["cleanup"]]
         return lines
     lines.append(f"Feedback: {fb['total']} (kritické otevřené: {fb['critical']}){dec}{win}")
     cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
@@ -576,8 +658,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     except Exception as e:  # DB nemigrovaná apod.
         if "no such table" in str(e):
-            die("databáze není inicializovaná — spusť `pflanzer update` "
-                "(migrace) nebo `python3 tool/db/migrate.py`.")
+            die("databáze není inicializovaná — spusť `pflanzer doctor` "
+                "(zkontroluje prostředí), případně `python3 tool/db/migrate.py`.")
             return
         raise
     if not args.slug and not args.json and len(data) == 1:

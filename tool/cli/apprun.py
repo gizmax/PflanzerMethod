@@ -78,6 +78,18 @@ def python_for(wt: Path) -> str:
     return "python3"
 
 
+def is_nextjs(wt: Path) -> bool:
+    """Next.js projekt: `next` v dependencies / devDependencies, nebo `next.config.*`."""
+    if any((wt / f"next.config.{e}").is_file() for e in ("js", "mjs", "cjs", "ts")):
+        return True
+    try:
+        pkg = json.loads((wt / "package.json").read_text(encoding="utf-8"))
+        deps = {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}
+        return "next" in deps
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def _has_make_target(wt: Path, target: str) -> bool:
     pat = re.compile(rf"^{re.escape(target)}\s*:(?!=)", re.MULTILINE)
     for name in ("Makefile", "makefile", "GNUmakefile"):

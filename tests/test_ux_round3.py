@@ -62,13 +62,13 @@ def test_kill_log_has_lessons_and_all_criticals_and_human_next_step(
     assert "10min demo" not in out and "Tiché hlasování" not in out
     assert "Kill je dobrý výsledek" in out  # tipy after_kill
     log = (repo_cwd / ".pflanzer" / "decisions" / f"{slug}.md").read_text(encoding="utf-8")
-    assert "### Poučení" in log
+    assert "### Poučení" not in log     # prázdná šablona pryč; poučení dopíše `retro lesson`
     for v in ("A", "B", "C"):
         assert f"na variantě {v}" in log
     assert "Critical všech variant" in log
     with transaction() as conn:
         body = conn.execute("SELECT body_md FROM decisions WHERE type = 'kill'").fetchone()[0]
-    assert "### Poučení" in body
+    assert "- \n" not in body
 
 
 def test_retro_lesson_writes_db_and_decision_log(

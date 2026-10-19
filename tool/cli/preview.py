@@ -10,7 +10,7 @@ pushnutí kódu mimo firmu.
                         [--host 127.0.0.1|0.0.0.0] [--base-port 8601] [--deadline TEXT]
     pflanzer preview status --slug S
     pflanzer preview restart --slug S [--variants A,C]   (po Iterate; zachová heslo a tunel)
-    pflanzer preview down --slug S
+    pflanzer preview down --slug S [--variants C]        (jen vybrané; jinak vše)
 
 Příkaz aplikace: `.pflanzer/project.toml` `[preview] command = "… {port}"`, jinak
 autodetekce (viz `tool/cli/apprun.py`). Port aplikace = base-port + i*10, proxy = +1.
@@ -428,20 +428,44 @@ def _stop_variant(v: dict[str, Any]) -> None:
             apprun.kill_group(pid_started[0])
 
 
-def down(slug: str) -> dict[str, Any]:
+def in_play(slug: str) -> list[str]:
+    """Varianty ve hře (po Iterate jen druhé kolo) — jen z `status`, žádná vlastní logika."""
+    try:
+        from tool.cli import status as st
+        fn = getattr(st, "variants_in_play", None) or getattr(st, "_variants_in_play", None)
+        return [str(x).upper() for x in (fn(slug) if fn else [])]
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+
+
+def down(slug: str, variants: list[str] | None = None) -> dict[str, Any]:
+    """Zastaví preview; s `variants` jen vybrané (ostatní zůstanou, heslo a tunel též)."""
     state = load_state(slug)
     if not state:
         return {"slug": slug, "stopped": [], "was_running": False}
+    all_v = state.get("variants", {})
+    if variants:
+        unknown = [n for n in variants if n not in all_v]
+        if unknown:
+            raise ValueError(f"Varianta {', '.join(unknown)} v preview není "
+                             f"(jsou: {', '.join(all_v)}).")
+    names = variants or list(all_v)
     stopped = []
-    for name, v in state.get("variants", {}).items():
+    for name in names:
+        v = all_v[name]
         running = [k for k, (pid, st) in _pids(v).items() if _alive(pid, st)]
         _stop_variant(v)
         if running:
             stopped.append(name)
-    try:
-        state_path(slug).unlink()
-    except OSError:
-        pass
+    if variants and len(names) < len(all_v):
+        for name in names:
+            del all_v[name]
+        save_state(slug, state)
+    else:
+        try:
+            state_path(slug).unlink()
+        except OSError:
+            pass
     return {"slug": slug, "stopped": stopped, "was_running": bool(stopped)}
 
 
@@ -498,7 +522,8 @@ def _fail_text(name: str, v: dict[str, Any], why: str) -> str:
 
 def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
        host: str = "127.0.0.1", base_port: int = DEFAULT_BASE_PORT,
-       deadline: str | None = None, timeout: float | None = None) -> dict[str, Any]:
+       deadline: str | None = None, timeout: float | None = None,
+       variants: list[str] | None = None) -> dict[str, Any]:
     if password is not None and not password.strip():
         raise ValueError("Heslo nesmí být prázdné — preview je vždy chráněné heslem "
                          "(vynechte --password a vygeneruje se).")
@@ -517,6 +542,13 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                          f"`pflanzer preview down --slug {slug}`; stav: "
                          f"`pflanzer preview status --slug {slug}`.")
     dirs = _primary_dirs(slug)
+    want = variants or [n for n in in_play(slug) if n in dirs]  # po Iterate jen druhé kolo
+    if want:
+        missing = [n for n in want if n not in dirs]
+        if missing:
+            raise ValueError(f"Varianta {', '.join(missing)} nemá worktree "
+                             f"(jsou: {', '.join(dirs)}).")
+        dirs = {n: dirs[n] for n in dirs if n in want}
     have_cf = shutil.which("cloudflared") is not None
     if tunnel == "cloudflared" and not have_cf:
         raise ValueError("Chybí `cloudflared` v PATH. Nainstalujte ho (např. "
@@ -722,7 +754,8 @@ def restart(slug: str, *, variants: list[str] | None = None,
                          f"`pflanzer preview up --slug {slug}`.")
     if timeout is None:
         timeout = float(os.environ.get("PFLANZER_PREVIEW_TIMEOUT", "90"))
-    names = variants or list(state["variants"])
+    play = [n for n in in_play(slug) if n in state["variants"]]
+    names = variants or play or list(state["variants"])  # bez --variants jen varianty ve hře
     unknown = [n for n in names if n not in state["variants"]]
     if unknown:
         raise ValueError(f"Varianta {', '.join(unknown)} v preview není "
@@ -732,6 +765,12 @@ def restart(slug: str, *, variants: list[str] | None = None,
     host = state.get("host", "127.0.0.1")
     restarted: list[str] = []
     warnings: list[str] = []
+    dropped = [n for n in state["variants"] if n not in names and not variants
+               and any(_variant_running(state["variants"][n]).values())]
+    if dropped:
+        warnings.append(
+            f"Varianta {', '.join(dropped)} už není ve hře (Iterate) a pořád běží — ukončete ji: "
+            f"`pflanzer preview down --slug {slug} --variants {','.join(dropped)}`.")
     procs: dict[str, subprocess.Popen] = {}
     for name in names:
         v = state["variants"][name]
@@ -740,6 +779,8 @@ def restart(slug: str, *, variants: list[str] | None = None,
             if key not in ("proxy", "tunnel") and _alive(pid, started):
                 apprun.kill_group(pid)
         wt = Path(v["worktree"])
+        if apprun.is_nextjs(wt):  # `next build` přepsal .next pod dev serverem -> čistý start
+            shutil.rmtree(wt / ".next", ignore_errors=True)
         ports = [v["app_port"]] + [e["app_port"] for e in (v.get("extra") or {}).values()]
         busy = [p for p in ports if not _wait_port_free(p)]
         if busy:
@@ -808,6 +849,32 @@ def restart(slug: str, *, variants: list[str] | None = None,
                          for n, v in state["variants"].items()}}
 
 
+def restart_for_worktree(path: Path) -> str | None:
+    """Běží preview varianty s tímto worktree? Restartuje ji (po `next build`, který přepsal
+    `.next` pod běžícím `next dev`) a vrátí lidskou zprávu; None = nic neběželo."""
+    try:
+        d = preview_dir()
+        files = sorted(d.glob("*.json")) if d.is_dir() else []
+        target = path.resolve()
+        for f in files:
+            state = load_state(f.stem)
+            for name, v in ((state or {}).get("variants") or {}).items():
+                try:
+                    same = Path(v.get("worktree", "")).resolve() == target
+                except OSError:
+                    same = False
+                if same and v.get("app_pid") and _alive(v["app_pid"], v.get("app_started", "")):
+                    try:
+                        restart(f.stem, variants=[name], timeout=60.0)
+                    except (ValueError, RuntimeError) as exc:
+                        return (f"preview varianty {name} po buildu nenaběhlo ({exc}); spusťte "
+                                f"`pflanzer preview restart --slug {f.stem} --variants {name}`")
+                    return f"preview varianty {name} bylo po buildu restartováno"
+    except Exception:  # noqa: BLE001 — advisory only
+        return None
+    return None
+
+
 _ROUTE_RES = (
     re.compile(r"""\b(?:app|router|server|api)\.(?:get|post|put|all|use)\(\s*['"`](/[^'"`:*?]*)['"`]"""),
     re.compile(r"""@\w+\.(?:get|post|route|api_route)\(\s*['"](/[^'"{<:]*)['"]"""),
@@ -850,9 +917,45 @@ def _is_spa_dir(wt: Path) -> bool:
 
 
 _COMPONENT_DIRS = ("components", "component", "ui", "hooks", "lib", "utils", "shared",
-                   "layouts")  # .tsx/.vue tady je komponenta, ne stránka
+                   "layouts", "features", "modules", "widgets")  # .tsx/.vue tady je komponenta, ne stránka
 _COMPONENT_EXTS = (".tsx", ".jsx", ".vue", ".svelte")
 _SKIP_PARTS = ("test", "spec", "docs/", "node_modules", ".pflanzer", "fixtures", "__tests__")
+
+
+_NEXT_PAGE_RE = re.compile(r"^page\.(?:tsx|jsx|ts|js)$")
+_NEXT_PAGES_EXT = (".tsx", ".jsx", ".ts", ".js")
+
+
+def next_route_for(rel: str) -> str | None:
+    """Trasa Next.js stránky podle cesty nového souboru (None = není stránka).
+
+    App Router: `[src/]app/**/page.(tsx|jsx|ts|js)`, route groups `(x)` a paralelní sloty `@x`
+    se vypouští, `[param]` zůstává jako vzor. Pages Router: `[src/]pages/**` bez `_app`,
+    `_document`, `_error`, `api/`. Cokoli jiného (komponenty, features/, lib/) stránka není."""
+    parts = Path(rel).parts
+    if parts[:1] == ("src",):
+        parts = parts[1:]
+    if not parts:
+        return None
+    if parts[0] == "app":
+        if not _NEXT_PAGE_RE.match(parts[-1]):
+            return None
+        segs = [x for x in parts[1:-1] if not (x.startswith("(") and x.endswith(")"))
+                and not x.startswith("@")]
+        if segs[:1] == ["api"]:
+            return None
+        return "/" + "/".join(segs)
+    if parts[0] == "pages":
+        name = Path(parts[-1])
+        if name.suffix not in _NEXT_PAGES_EXT or name.stem.startswith("_"):
+            return None
+        segs = list(parts[1:-1])
+        if segs[:1] == ["api"] or name.stem.endswith((".test", ".spec")):
+            return None
+        if name.stem != "index":
+            segs.append(name.stem)
+        return "/" + "/".join(segs)
+    return None
 
 
 def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
@@ -869,6 +972,15 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
     diff = subprocess.run(["git", "diff", "--unified=0", f"{base}...HEAD"], cwd=wt,
                           capture_output=True, text=True, timeout=30).stdout
     routes: list[str] = []
+    if apprun.is_nextjs(wt):  # Next: stránky jsou jen app/**/page.* a pages/**, nic jiného
+        names = subprocess.run(["git", "diff", "--name-only", "--diff-filter=A",
+                                f"{base}...HEAD"], cwd=wt, capture_output=True, text=True,
+                               timeout=30).stdout.split("\n")
+        for n in names:
+            r = next_route_for(n.strip()) if n.strip() else None
+            if r and r != "/" and r not in routes:
+                routes.append(r)
+        return routes
     spa = is_spa(wt) if spa is None else spa
     for ln in diff.splitlines():
         if not ln.startswith("+") or ln.startswith("+++"):
@@ -922,8 +1034,13 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
         hrefs = [h.split("#")[0].split("?")[0].rstrip("/") or "/"
                  for h in re.findall(r"""(?:href|action)\s*=\s*['"]([^'"]+)['"]""", body, re.I)]
         hrefs = [re.sub(r"^https?://[^/]+", "", h) for h in hrefs]
-        linked = [r for r in routes
-                  if any(h == r or h.endswith(r) or h == r.lstrip("/") for h in hrefs)]
+        def _is_linked(r: str) -> bool:
+            if "[" in r:  # dynamická trasa (/kvetiny/[id]): stačí odkaz pod statickým prefixem
+                pre = r.split("[", 1)[0].rstrip("/")
+                return any(h.startswith(pre + "/") for h in hrefs if pre)
+            return any(h == r or h.endswith(r) or h == r.lstrip("/") for h in hrefs)
+
+        linked = [r for r in routes if _is_linked(r)]
         if linked:
             return None
         shown = ", ".join(routes[:3])
@@ -939,9 +1056,24 @@ FEEDBACK_FALLBACK = ("Feedback: `pflanzer feedback add` nebo spusťte `pflanzer 
                      "a zapište ho tam.")
 
 
+def hub_urls() -> tuple[str, str]:
+    """(health URL, URL /method/) hubu: port z `<datová složka>/hub.json` (zapisuje hub při
+    startu), jinak výchozí :8000."""
+    try:
+        from tool.cli import db
+        data = json.loads((Path(db.DATA_ROOT) / "hub.json").read_text(encoding="utf-8"))
+        port = int(data["port"])
+        if 0 < port < 65536:
+            return (f"http://localhost:{port}/api/health", f"http://localhost:{port}/method/")
+    except (OSError, ValueError, KeyError, TypeError, ImportError):
+        pass
+    return HUB_HEALTH_URL, HUB_URL
+
+
 def hub_running() -> bool:
-    """Běží na :8000 opravdu Pflanzer hub? (/api/health = {"status": "ok"} a /method/ odpovídá)"""
-    st, body, _ct = apprun.http_fetch(HUB_HEALTH_URL, timeout=1.0, max_bytes=2000)
+    """Běží opravdu Pflanzer hub? (/api/health = {"status": "ok"} a /method/ odpovídá)"""
+    health_url, hub_url = hub_urls()
+    st, body, _ct = apprun.http_fetch(health_url, timeout=1.0, max_bytes=2000)
     if st != 200:
         return False
     try:
@@ -949,7 +1081,7 @@ def hub_running() -> bool:
             return False
     except (ValueError, AttributeError):
         return False
-    return apprun.http_get(HUB_URL, timeout=1.0) in (200, 401)
+    return apprun.http_get(hub_url, timeout=1.0) in (200, 401)
 
 
 def _variants_phrase(n: int) -> tuple[str, str]:
@@ -993,7 +1125,7 @@ def _up_view(res: dict[str, Any]) -> tuple[list[str], str, str]:
             lines.append(f"  + repo {role}: {r['url']} (interně, bez hesla)")
     lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
     lines.extend(f"Info: {n}" for n in res.get("notes") or [])
-    hub = HUB_URL if hub_running() else None
+    hub = hub_urls()[1] if hub_running() else None
     msg = share_message(res, hub)
     lines.append("Zpráva k přeposlání zástupcům:\n\n"
                  + "\n".join(f"> {ln}" for ln in msg.splitlines()) + "\n")
@@ -1031,6 +1163,8 @@ def main(argv: list[str] | None = None) -> None:
                     help="127.0.0.1 (jen tento počítač) nebo 0.0.0.0 (celá síť)")
     pu.add_argument("--base-port", type=int, default=DEFAULT_BASE_PORT,
                     help="port aplikace varianty A; B = +10, C = +20; proxy = port aplikace + 1")
+    pu.add_argument("--variants", default=None,
+                    help="např. A,C (jinak varianty ve hře, po Iterate jen druhé kolo)")
     pu.add_argument("--deadline", default=None, help="Termín pro zprávu zástupcům, např. „pátek 17:00“")
     pu.add_argument("--json", **js)
     ps = sub.add_parser("status", help="Co běží")
@@ -1039,10 +1173,12 @@ def main(argv: list[str] | None = None) -> None:
     pr = sub.add_parser("restart", help="Restartuje aplikace variant (po Iterate); heslo, "
                                         "porty a tunel zůstanou")
     pr.add_argument("--slug", required=True)
-    pr.add_argument("--variants", default=None, help="např. A,C (jinak všechny)")
+    pr.add_argument("--variants", default=None,
+                    help="např. A,C (jinak jen varianty ve hře; po Iterate druhé kolo)")
     pr.add_argument("--json", **js)
     pd = sub.add_parser("down", help="Ukončí varianty, proxy i tunely")
     pd.add_argument("--slug", required=True)
+    pd.add_argument("--variants", default=None, help="např. C (jinak všechny)")
     pd.add_argument("--json", **js)
     args = p.parse_args(argv)
 
@@ -1058,7 +1194,8 @@ def _dispatch(args: argparse.Namespace) -> None:
     slug = args.slug
     if args.cmd == "up":
         res = up(slug, password=args.password, tunnel=args.tunnel, host=args.host,
-                 base_port=args.base_port, deadline=args.deadline)
+                 base_port=args.base_port, deadline=args.deadline,
+                 variants=parse_variants(args.variants))
         lines, nxt, msg = _up_view(res)
         res["message"] = msg
         tips = tips_for_project(slug, "async", {})
@@ -1097,7 +1234,7 @@ def _dispatch(args: argparse.Namespace) -> None:
                         else f"`pflanzer preview down --slug {slug}` a znovu `up`"),
              as_json=args.json)
     else:
-        res = down(slug)
+        res = down(slug, variants=parse_variants(args.variants))
         emit(res, title="Preview zastaveno" if res["was_running"] else "Nic nebylo spuštěno",
              lines=[f"Ukončeno: {', '.join(res['stopped']) or 'nic'}"],
              next_step=_status_next(slug) if res["was_running"] else None,

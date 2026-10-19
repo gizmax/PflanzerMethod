@@ -545,30 +545,47 @@ def lessons(slug: str) -> list[dict[str, Any]]:
     return out
 
 
+def killed_notice(slug: str, what: str) -> dict[str, Any] | None:
+    """U zabitého projektu vysvětlení místo chyby (None, když projekt Kill není)."""
+    with transaction() as conn:
+        if not _project_killed(_load_project(conn, slug)):
+            return None
+    ls = lessons(slug)
+    lines = [f"Projekt {slug} skončil Kill — {what}, protože do produkce nic nešlo."]
+    lines += [f"Poučení: {x['text']} — {x['by']}" for x in ls] or ["Poučení zatím není zapsané."]
+    nxt = (f"`pflanzer retro lesson --slug {slug} --text \"…\"`" if not ls
+           else "vezmi poučení do zadání dalšího Kickoffu (`/pm start`)")
+    return {"slug": slug, "killed": True, "lessons": ls, "lines": lines, "next_step": nxt}
+
+
 def lesson(*, slug: str, text: str, by: str | None = None) -> dict[str, Any]:
     """Zapiš poučení (hlavně po Kill): do DB (audit `retro.lesson`) a do decision logu v cwd."""
     text = (text or "").strip()
     if not text:
         raise ValueError("Chybí --text: jedna věta, co jsme se dozvěděli "
                          "(o problému, o uživatelích, o zadání).")
-    who = (by or "").strip() or current_actor()
+    who = (by or "").strip()
     with transaction() as conn:
         project = _load_project(conn, slug)
         pid = int(project["id"])
+        if not who:
+            actor = current_actor()
+            who = actor if actor and actor != "unknown" else (
+                str(project.get("decider_name") or "").strip() or "neuvedeno (--by JMÉNO)")
         n = int(conn.execute(
             "SELECT COUNT(*) FROM audit_log WHERE action = 'retro.lesson' "
             "AND target_type = 'project' AND target_id = ?", (pid,)).fetchone()[0]) + 1
         audit(conn, action="retro.lesson", target_type="project", target_id=pid,
               payload={"slug": slug, "n": n, "text": text, "by": who})
-    from tool.cli.session_2 import SESSIONS_DIR, write_repo_decision_log
+    from tool.cli.session_2 import SESSIONS_DIR, append_lesson_to_log
 
-    section = f"### Poučení #{n}\n\n- {text} — {who}\n"
-    repo_log = write_repo_decision_log(slug, section, label=f"Poučení #{n}")
+    section = f"### Poučení\n\n- {text} — {who}\n"
+    repo_log = append_lesson_to_log(slug, text, who)
     summary = SESSIONS_DIR / slug / "_session_2_summary.md"
     if summary.is_file():
         try:
             with summary.open("a", encoding="utf-8") as fh:
-                fh.write(f"\n{section}")
+                fh.write(f"\n{section}" if n == 1 else f"- {text} — {who}\n")
         except OSError:
             pass
     return {"slug": slug, "lesson_id": n, "text": text, "by": who,
@@ -1225,6 +1242,15 @@ def main() -> None:
         "reminders": "pflanzer retro reminders --slug moje-appka --format ics --out pripominky.ics",
     }
     try:
+        if args.cmd in ("measure", "reminders"):
+            what = {"measure": "není co měřit (žádný merge, žádný kód v produkci)",
+                    "reminders": "připomínky T+7/30/60/90 nejsou potřeba"}[args.cmd]
+            kn = killed_notice(args.slug, what)
+            if kn:
+                emit(kn, title=f"Retro po Kill: {args.slug}", lines=kn["lines"],
+                     next_step=kn["next_step"], tips=tips(args.slug, "after_kill", {}),
+                     as_json=getattr(args, "json", False))
+                return
         if args.cmd == "measure":
             out = measure(slug=args.slug, pr_url=args.pr_url,
                           merge_commit=args.merge_commit, base=args.base,
