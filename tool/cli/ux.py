@@ -10,10 +10,13 @@ One shape everywhere: brand line → what happened (1–6 lines) → ONE next st
 """
 from __future__ import annotations
 
+import argparse
+import difflib
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -140,6 +143,12 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         ("open_critical", "Critical = nesmí se nasadit. Buď se opraví, nebo ho Decider "
                           "vědomě přebije s důvodem."),
     ],
+    "after_kill": [
+        (None, "Kill je dobrý výsledek — ušetřil Ship. Zapište 1–3 poučení (co jsme se "
+               "dozvěděli o problému, o uživatelích, o zadání)."),
+        (None, "Poděkujte týmu nahlas; varianty si nechte jako reference."),
+        (None, "Další pilot: vezměte poučení do zadání nového Kickoffu."),
+    ],
     "retro": [
         (None, "Retro do 30 minut: co bychom příště udělali jinak, a jedno rozhodnutí pro další pilot."),
     ],
@@ -227,6 +236,74 @@ def die(message: str, example: str = "") -> None:
     if example and example not in message:
         sys.stderr.write(f"\nPříklad správného použití:\n{example}\n")
     sys.exit(2)
+
+
+def did_you_mean(word: str, choices: Any) -> str | None:
+    """Closest match of `word` among `choices` (typo help), or None."""
+    opts = [str(c) for c in choices]
+    hit = difflib.get_close_matches(str(word), opts, n=1, cutoff=0.6)
+    return hit[0] if hit else None
+
+
+def project_not_found(slug: str) -> NoReturn:
+    """Czech "no such project" error with existing slugs; exit 2."""
+    slugs: list[str] = []
+    try:
+        from tool.cli.db import transaction
+        with transaction() as conn:
+            slugs = [r[0] for r in conn.execute("SELECT slug FROM projects ORDER BY slug").fetchall()]
+    except Exception:  # noqa: BLE001 — advisory only
+        pass
+    msg = f"Projekt „{slug}“ neexistuje."
+    near = did_you_mean(slug, slugs) if slugs else None
+    if near:
+        msg += f" Myslel jste „{near}“?"
+    msg += (" Existující projekty: " + ", ".join(slugs) + "." if slugs
+            else " Zatím žádný projekt nemáte — založíte ho přes /pm start.")
+    msg += " Přehled: pflanzer status"
+    die(msg)
+
+
+class CzechArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser with Czech, human error messages (exit 2, brand line)."""
+
+    def error(self, message: str) -> NoReturn:  # type: ignore[override]
+        prog = self.prog
+        m = re.match(r"the following arguments are required: (.+)", message)
+        if m:
+            names = [n.strip() for n in m.group(1).split(",")]
+            first = names[0]
+            extra = f" (a dále {', '.join(names[1:])})" if len(names) > 1 else ""
+            hint = f"Příklad a všechny parametry: {prog} --help"
+            self._fail(f"Chybí povinný parametr {first}{extra}. {hint}")
+        m = re.match(r"argument ([^:]+): invalid choice: '([^']*)' \(choose from (.+)\)", message)
+        if m:
+            bad = m.group(2)
+            choices = [c.strip().strip("'") for c in m.group(3).split(",")]
+            near = did_you_mean(bad, choices)
+            txt = f"Neznámý příkaz ‚{bad}‘."
+            if near:
+                txt += f" Myslel jste ‚{near}‘?"
+            txt += f" Možnosti: {', '.join(choices)}."
+            self._fail(txt)
+        m = re.match(r"unrecognized arguments: (.+)", message)
+        if m:
+            self._fail(f"Neznámý parametr: {m.group(1)}. Přehled: {prog} --help")
+        m = re.match(r"argument ([^:]+): expected one argument", message)
+        if m:
+            self._fail(f"Parametr {m.group(1)} potřebuje hodnotu. Přehled: {prog} --help")
+        m = re.match(r"argument ([^:]+): invalid (\w+) value: '([^']*)'", message)
+        if m:
+            self._fail(f"Parametr {m.group(1)} má neplatnou hodnotu ‚{m.group(3)}‘. "
+                       f"Přehled: {prog} --help")
+        m = re.match(r"argument ([^:]+): not allowed with argument (.+)", message)
+        if m:
+            self._fail(f"Parametry {m.group(1)} a {m.group(2)} nejdou použít spolu.")
+        self._fail(f"{message}. Přehled: {prog} --help")
+
+    def _fail(self, text: str) -> NoReturn:
+        sys.stderr.write(f"{BRAND_LINE}\n\nCHYBA: {text}\n")
+        sys.exit(2)
 
 
 def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
