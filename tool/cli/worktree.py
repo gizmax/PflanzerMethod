@@ -345,6 +345,23 @@ def _git_common_dir(repo: Path) -> Path:
     return p if p.is_absolute() else (repo / p).resolve()
 
 
+def _ensure_git_identity(clone: Path) -> list[str]:
+    """Git identita (user.name / user.email) v klonu z target repa (cwd), pokud tam chybí.
+
+    Bez ní commit varianty padne. Nastaví jen to, co klon nemá; vrací, co nastavil.
+    """
+    set_keys: list[str] = []
+    for key in ("user.name", "user.email"):
+        rc, val, _ = _git(clone, "config", "--get", key)
+        if rc == 0 and val.strip():
+            continue
+        rc, src, _ = _git(Path.cwd(), "config", "--get", key)
+        if rc == 0 and src.strip():
+            _git(clone, "config", key, src.strip())
+            set_keys.append(key)
+    return set_keys
+
+
 def _ensure_target_clone(target_repo_url: str, target_branch: str) -> Path:
     """Clone target repo (cached). Returns local path to clone."""
     repo_slug = _slugify_repo(target_repo_url)
@@ -1195,6 +1212,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     for i, repo in enumerate(repos):
         primary = i == 0
         clone = _ensure_target_clone(repo.url, repo.branch)
+        _ensure_git_identity(clone)
         wts = _create_worktrees(clone, slug, repo.branch, mode=mode, repo=repo, primary=primary)
         if primary:
             copied_inputs = _copy_kickoff_inputs(slug, wts)
@@ -1707,6 +1725,13 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
         if miss:
             lines.append(f"Dev nástroje ({', '.join(miss)}) nejsou v pyproject — doplňte je, "
                          "ať je má každý.")
+    node = [x for r in s.repos for x in r["install_results"]
+            if x.get("status") in ("ok", "cached") and x.get("kind") != "python"]
+    if node:
+        pms = sorted({str(r.get("package_manager") or "npm") for r in s.repos
+                      if any(x in node for x in r["install_results"])})
+        lines.append(f"{'/'.join(pms)} závislosti nainstalované "
+                     + ("v 1 složce" if len(node) == 1 else f"ve {len(node)} složkách") + ".")
     failed = [x for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
     if failed:
         lines.append(f"Instalace závislostí selhala v {len(failed)} složce(ích) — "
@@ -1717,7 +1742,8 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     else:
         extra = "".join(f" --add-dir {o['worktrees']['A']}" for o in s.repos[1:] if "A" in o["worktrees"])
         nxt = (f"`cd {_tilde(first_path)} && claude{extra}` — varianta A; B a C stejně v sousedních "
-               "složkách (každá dvojice jedna). Prompty: `pflanzer quick_session prompts --slug "
+               "složkách (každá dvojice u klávesnice pracuje v jedné složce). "
+               "Prompty: `pflanzer quick_session prompts --slug "
                f"{s.slug} --hook \"…\"`")
     return f"Worktrees připravené — `{s.slug}`", lines, nxt
 

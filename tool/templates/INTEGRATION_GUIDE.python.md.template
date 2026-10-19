@@ -49,6 +49,10 @@ log.info("user.login", extra={"user_id": user_id})
 
 - Provider: <LaunchDarkly | Unleash | proměnná prostředí | žádné>
 - Nová funkce za flagem: `<is_enabled("nazev-flagu")>` — vypnutí = rollback bez deploye.
+- **V preview a Buildu jsou flagy vždy ZAPNUTÉ**: Pflanzer spouští aplikaci s
+  `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; flag musí při `PFLANZER_PREVIEW=1`
+  vracet True. Default OFF platí až pro produkci po Shipu.
+- Nová funkce musí být dosažitelná odkazem z `/`.
 
 ## Struktura repa
 
@@ -57,7 +61,7 @@ app/                 # aplikační kód (balíček)
 ├── api/             # endpointy / views
 ├── services/        # byznys logika
 ├── models/          # ORM modely / schémata
-└── features/<slug>/ # sem padají Pflanzer varianty
+└── features/objednavka/ # sem padají Pflanzer varianty
 tests/               # pytest, zrcadlí strukturu app/
 pyproject.toml       # závislosti + konfigurace nástrojů
 ```
@@ -83,10 +87,10 @@ pyproject.toml       # závislosti + konfigurace nástrojů
 ## AI code provenance
 
 - Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
-  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: <AI>` trailer.
-- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: <slug>-<A|B|C>`,
-  `Pflanzer-Session: <1|2|ship>` (1 = Build, 2 = Rozhodnutí), `AI-Assisted: <claude-code | codex-cli | cursor>`.
-- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
+  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: Claude` trailer.
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: objednavka-A`,
+  `Pflanzer-Session: 1` (1 = Build, 2 = Rozhodnutí, ship = Ship), `AI-Assisted: claude-code` (nebo codex-cli, cursor).
+- PR labely: `ai-generated` + `pflanzer:objednavka`; PR body má sekci „AI provenance".
 - Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
   jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
 - Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
@@ -95,6 +99,6 @@ pyproject.toml       # závislosti + konfigurace nástrojů
 
 ## Folder for Pflanzer artefakty
 
-Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/<slug>/`,
-ne v root. Kód varianty v `app/features/<slug>/`. Po Rozhodnutí winner branche
+Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/objednavka/` (název = slug projektu),
+ne v root. Kód varianty v `app/features/objednavka/`. Po Rozhodnutí winner branche
 se merguje, ostatní se mažou.

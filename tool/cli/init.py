@@ -295,7 +295,7 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
 # Tento soubor čte Kickoff (quick_session bootstrap) a `pflanzer charter` jako defaults.
 
 [project]
-slug_default = "{slug_default}"
+slug_default = "{slug_default}"  # kód v URL a větvích, není to název projektu
 target_repo_url = "{origin_normalized or '<vyplň ručně>'}"
 target_branch = "main"
 

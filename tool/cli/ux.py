@@ -38,7 +38,8 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         ("kill_weak", "Kill kritérium potřebuje číslo: „po 4 týdnech otevře přehled méně než 5 "
                       "z 15 lidí → končíme“. Bez čísla se Kill nikdy neřekne."),
         ("ai_design", "Bez designéra: AI připraví návrh a kontrolu přístupnosti, ale vzhled "
-                      "před Ship potvrdí PdM (`pflanzer checkpoint … design`) — domluvte, "
+                      "potvrdí PdM před Rozhodnutím (`pflanzer checkpoint … design`; u pilotu Ship "
+                      "neblokuje, u production ano) — domluvte, "
                       "kdo se na varianty podívá."),
         ("ai_stand_ins", "Kroky s AI náhradou podepisuje člověk (ADR-0023) — "
                          "domluvte, kdo to bude, ještě dnes."),
