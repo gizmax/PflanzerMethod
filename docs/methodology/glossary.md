@@ -113,6 +113,10 @@ nestaví produkt — ten je už v target repo. Sign-off package slouží **audit
 **Deprecated:** *„handoff package"* — slovo *„handoff"* implies *„throw to
 dev team"*, což protiřečí Pflanzer claimu *„dev was in room from minute 0"*.
 
+> **`/pm handoff`** je jen název příkazu (stabilní rozhraní, ADR-0010):
+> vytvoří `SHIP.md` + sign-off package a vítěz jde přes PR do běžného
+> vývojového procesu. Není to předání k re-implementaci.
+
 ## Profile terms
 
 ### evolve (default)

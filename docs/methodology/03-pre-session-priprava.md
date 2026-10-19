@@ -224,7 +224,7 @@ hardening a reinforcement: **3× vyšší**.
 - Solution architect (#13): celkem ~2.0 PD (architecture review po S1).
 
 #### Audit-grade profil — přírůstky `+A` nad regulated
-- Co-facilitator (ADR-0010 / role #3 sekce): +1.5 PD (povinný druhý facilitátor).
+- Co-facilitator (role catalog #3): +1.5 PD (povinný druhý facilitátor).
 - Compliance auditor / external (mimo catalog, ad-hoc): +1.0 PD pre-flight + 0.5 PD post-Session 2.
 - Security (#7) DORA TLPT prep: +1.0 PD post-handoff (ne v cyklu, ale rozpočet držet).
 - Method Steward report contribution: +0.25 PD per audit dotaz.

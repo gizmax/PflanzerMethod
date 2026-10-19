@@ -1,6 +1,6 @@
-# ADR-0011 — Mob mode jako opt-in alternativa k paralelním dvojicím
+# ADR-0016 — Mob mode jako opt-in alternativa k paralelním dvojicím
 
-> Status: Accepted · 2026-05-14
+> Status: Accepted · 2026-05-14 · (původně číslováno 0011, přečíslováno 2026-10-19 kvůli kolizi)
 > Autor: research/mob-mode autoresearch (4 perspektiv) → synthesis
 > Související ADR: 0009 (Worktree v target repu), 0010 (SHIP.md primary handoff)
 

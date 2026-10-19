@@ -357,9 +357,9 @@ session metadata, dispatch:
 
 - **`docs/methodology/04-session-1.md`** — přidat sekci "Mob variant of agenda"
   (cca 200 řádků): kdy použít, mob protocol detail, pre-session checklist,
-  voting flow změna. Reference na `docs/decisions/0011-mob-mode-opt-in.md`.
+  voting flow změna. Reference na `docs/decisions/0016-mob-mode-opt-in.md`.
 
-- **`docs/decisions/0011-mob-mode-opt-in.md`** — ADR:
+- **`docs/decisions/0016-mob-mode-opt-in.md`** — ADR:
   - Kontext: brief otázka mob vs paralelní
   - Varianty: (a) mob default, (b) paralelní default + mob opt-in,
     (c) hybrid default
@@ -409,7 +409,7 @@ Things 1-2 perspectives mentioned but not making top changes:
 2. **`worktree.py`**: `--mode parallel|mob` flag, 1 worktree pro mob
 3. **`quick_session.py`**: `builder_prompts(mode=...)` parameter,
    `MOB_ITERATION_ANGLES` constant, `_render_builder_prompt_mob()` function
-4. **`docs/decisions/0011-mob-mode-opt-in.md`**: ADR schválena
+4. **`docs/decisions/0016-mob-mode-opt-in.md`**: ADR schválena
 5. **Hard-block guards**: production target ≥ 70 + team > 5 + veto role →
    force re-confirm warning
 
