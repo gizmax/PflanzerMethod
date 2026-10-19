@@ -76,6 +76,11 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         for r in results:
             track = r["track"]
             artefact_md = r.get("artefact_md", "")
+            signer = str(r.get("signed_by") or "")
+            if r["status"] == "ok" and (not signer.strip()
+                                        or re.search(r"(?i)pending|agent|\bAI\b", signer)):
+                # Návrh AI subagenta není podpis — okno čeká na člověka (ADR-0023).
+                r = {**r, "status": "pending"}
             (project_dir / f"{track}.md").write_text(artefact_md, encoding="utf-8")
 
             conn.execute(

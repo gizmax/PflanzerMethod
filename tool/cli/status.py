@@ -99,6 +99,18 @@ def _variants_in_play(slug: str) -> list[str]:
     return [str(v) for v in data.get("variants", [])] if data.get("iterate_round") else []
 
 
+def _blocked_triage(slug: str) -> list[str]:
+    """Tracky plného triage ve stavu blocked (prázdné = nic neblokuje)."""
+    try:
+        with transaction() as conn:
+            rows = conn.execute(
+                "SELECT t.track FROM triage t JOIN projects p ON p.id = t.project_id "
+                "WHERE p.slug = ? AND t.status = 'blocked' ORDER BY t.track", (slug,)).fetchall()
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+    return [r[0] for r in rows]
+
+
 def _with_slug(step: str, slug: str) -> str:
     return f"{step} {slug}" if step.startswith("/pm ") and step != "/pm start" else step
 
@@ -232,6 +244,13 @@ def project_detail(slug: str) -> dict[str, Any]:
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
                         build_running=evidence["build_running"])
     nxt = _with_slug(nxt, slug)
+    if p["status"] in ("draft", "charter"):
+        blocked_tracks = _blocked_triage(slug)
+        if blocked_tracks:
+            # Kickoff je hotový, ale plný triage (stupeň Full) blokuje Build.
+            phase = "Kickoff hotový — triage blokuje: " + ", ".join(blocked_tracks)
+            nxt = (f"odblokujte {', '.join(blocked_tracks)} (např. discovery: persona, JTBD, OST "
+                   f"— nebo písemný opt-out Decidera) a znovu `/pm triage {slug}`")
     killed = p["status"] == "killed"
     killed_at = None
     if killed:
@@ -503,7 +522,8 @@ def main(argv: list[str] | None = None) -> None:
         info_notes = [n for n in notes if "u throwaway stačí" in n]
         warnings = [b["text"] for b in d["blockers"]] + [n for n in notes if n not in info_notes]
         if d["next_step"] != "—":
-            nxt = f"`{d['next_step']}`"
+            ns = d["next_step"]
+            nxt = f"`{ns}`" if ns.startswith(("/pm", "pflanzer ")) else ns
         elif d["status"] == "killed":
             nxt = "— (projekt skončil Killem, poučení je zapsáno)"
         else:

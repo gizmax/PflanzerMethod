@@ -195,7 +195,7 @@ Při „ne" vypiš, co chybí a jak to opravit (viz `docs/zacni.md` § Je repo
 připravené?; INTEGRATION_GUIDE vývojář nechá vyplnit v Claude Code a
 zkontroluje, 5 min). Další krok: při „ano“ `/pm start`, jinak oprava a znovu
 `/pm doctor`. Commit všeho najednou, když chybí push:
-`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`.
+`git add -A docs .pflanzer tests .gitignore .claude && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`.
 
 ### 3. Deleguj
 

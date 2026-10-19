@@ -28,7 +28,7 @@ Ukaž lidský výstup a jeho Doporučení. Pokud „připraveno ke Kickoffu: ne"
 vypiš, co chybí (origin, vyplněný `INTEGRATION_GUIDE` — vývojář v Claude Code
 napíše „vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“ a zkontroluje,
 `CONSTITUTION`, test/lint/build, CI, preview deploy, pushnutý init:
-`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`), a zeptej se přes AskUserQuestion:
+`git add -A docs .pflanzer tests .gitignore .claude && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`), a zeptej se přes AskUserQuestion:
 *Opravit teď / Pokračovat vědomě (uveď riziko) / Zastavit.* Bez preview
 deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 
@@ -160,7 +160,7 @@ Ukaž lidský výstup toolu (s brand line) a předej jeho **Doporučení**; dopl
 
 Připomeň commit i s tím, co Kickoff vytvořil: `.pflanzer/decisions/`
 a `tests/acceptance/` (vedle `docs`, `.pflanzer`, `tests`):
-`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): kickoff" && git push -u origin HEAD`.
+`git add -A docs .pflanzer tests .gitignore .claude && git commit -m "chore(pflanzer): kickoff" && git push -u origin HEAD`.
 Specy v `.pflanzer/specs/` se necommitují.
 
 ### Pozvánky pro okna (napiš rovnou, nečekej na další pokyn)
