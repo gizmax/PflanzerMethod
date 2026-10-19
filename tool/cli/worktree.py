@@ -185,6 +185,29 @@ def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]
     return results
 
 
+def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
+    """Copy Kickoff inputs from the cwd target repo into worktrees if not yet pushed.
+
+    Worktrees are cloned from origin, so a freshly generated acceptance .feature
+    (or an unpushed CONSTITUTION) would otherwise be missing for the AI builder.
+    """
+    cwd = Path.cwd()
+    if not (cwd / ".pflanzer").is_dir():
+        return
+    for rel in (f"tests/acceptance/{slug}.feature", ".pflanzer/CONSTITUTION.md",
+                "docs/INTEGRATION_GUIDE.md"):
+        src = cwd / rel
+        if not src.is_file():
+            continue
+        for wt in worktrees:
+            dst = Path(wt) / rel
+            if not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(src.read_bytes())
+                print(f"[setup] copied {rel} → {Path(wt).name} (není v originu — commitni ho)",
+                      file=sys.stderr)
+
+
 def setup(slug: str, *, install_deps: bool = True,
           mode: str = "parallel") -> WorktreeSetup:
     """Setup worktrees pro Build projektu `slug`.
@@ -227,6 +250,8 @@ def setup(slug: str, *, install_deps: bool = True,
     worktrees = _create_worktrees(target_clone, slug, target_branch, mode=mode)
     print(f"[setup] mode={mode} → created {len(worktrees)} worktree(s): "
           f"{[w.name for w in worktrees]}", file=sys.stderr)
+
+    _copy_kickoff_inputs(slug, worktrees)
 
     pm = _detect_package_manager(target_clone)
     print(f"[setup] detected package manager: {pm}", file=sys.stderr)

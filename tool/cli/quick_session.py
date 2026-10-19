@@ -278,10 +278,10 @@ def bootstrap(
     # 1. Charter
     name = hook[:80] if len(hook) <= 80 else hook[:77] + "…"
     xyz = (
-        f"Tým má hypotézu, že **{hook}**. Ověříme ji při Kickoffu a Buildu "
+        f"Problém k vyřešení: **{hook}**. Ověříme ho při Buildu "
         f"(3 varianty v 3 worktrees). Risk profil: {profile['label']}."
     )
-    tbd = "TBD — doplň při Rozhodnutí"
+    tbd = "doplň při Rozhodnutí"
     charter = CharterInput(
         slug=slug,
         name=name,
