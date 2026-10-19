@@ -51,3 +51,32 @@ def test_init_disables_ai_coauthor(tmp_path: Path) -> None:
     cfg = json.loads((repo / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert cfg["includeCoAuthoredBy"] is False
     assert ".claude/settings.json" in init.git_add_command(repo)
+
+
+def test_security_sign_keeps_deferred_dpia_and_pravo_window(project: dict[str, Any]) -> None:
+    from tool.cli import checkpoint
+
+    slug = project["slug"]
+    triage.aggregate(slug, _results())                  # legal deferred (Renata, DPIA)
+    out = checkpoint.sign(slug, "bezpecnost", by="Igor", note="SMS ověření")
+    assert out["tracks"] == ["security"]
+    assert _track(slug, "legal")[0] == "deferred"       # DPIA se nepřepsala
+    with transaction() as conn:
+        pid = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()[0]
+        wins = {w["window"]: w for w in triage.triage_windows(conn, pid)}
+    assert wins["pravo"]["owner"] == "Renata"
+    res = checkpoint.sign(slug, "pravo", by="Renata", note="DPIA hotová")
+    assert res["signed_by_role"] == "zástupce"
+    assert _track(slug, "legal")[0] == "ok"
+
+
+def test_python_feature_without_tests_is_unverified(tmp_path: Path) -> None:
+    from tool.cli import quality_gates
+
+    repo = tmp_path / "py"
+    (repo / "tests" / "acceptance").mkdir(parents=True)
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    (repo / "tests" / "acceptance" / "x.feature").write_text("Požadavek: x\n", encoding="utf-8")
+    ctx, _, _ = quality_gates._make_ctx(repo)
+    res = quality_gates.gate_acceptance(ctx)
+    assert "NEOVĚŘENO" in res.details and "akceptační testy" in res.details

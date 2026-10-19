@@ -329,7 +329,8 @@ def hardening_run(
         what = ", ".join(f"{u['gate']} ({u['reason']})" for u in unverified)
         warnings.append(
             f"Neověřeno: {what} — skóre o tom nic neříká."
-            + (" U production to Ship blokuje: doplň nástroj a spusť znovu."
+            + (" U production to Ship blokuje: doplňte, co chybí (nástroj nebo akceptační "
+               "testy v tests/acceptance/), a spusťte Ship znovu."
                if unverified_blocks else
                " Ship to neblokuje (blokuje jen neověřená acceptance u production)."))
     ncheck = winner.get("new_code_check")

@@ -57,17 +57,19 @@ WINDOWS: dict[str, dict[str, Any]] = {
     "zadani": {"label": "Zadání (Kickoff)", "tracks": ("discovery",)},
     "bezpecnost": {"label": "Bezpečnost & právo", "tracks": ("security", "legal")},
     "provoz": {"label": "Provoz", "tracks": ("platform",)},
+    # Plný triage (stupeň Full): právo (DPIA) se podepisuje zvlášť, když ho triage odložil.
+    "pravo": {"label": "Právo (DPIA)", "tracks": ("legal",)},
     # Jen AI náhrada designu: žádný triage track (CHECK má 4 hodnoty), podpis je v audit logu.
     "design": {"label": "Design (AI)", "tracks": ()},
 }
 ALIASES = {"kickoff": "zadani", "discovery": "zadani", "security": "bezpecnost",
-           "legal": "bezpecnost", "pravo": "bezpecnost", "platform": "provoz",
+           "legal": "pravo", "dpia": "pravo", "platform": "provoz",
            "ops": "provoz", "ux": "design"}
 
 
 # Okno -> krok cesty, jehož zástupce ho podepisuje.
 WINDOW_STEP = {"zadani": "byznys", "bezpecnost": "bezpecnost", "provoz": "provoz",
-               "design": "design"}
+               "design": "design", "pravo": "bezpecnost"}
 SIGNER_KINDS = ("zástupce", "zástup", "autor kódu", "AI draft")
 AI_DRAFT_MARK = "AI draft — čeká na podpis člověka"
 USAGE = ('  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "co se ověřilo"\n'
@@ -238,6 +240,14 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         signers = _load_signers(conn, pid)
         core = _load_core(conn, pid)
         owner = owners.get(step)
+        if window == "pravo":
+            # Právo (DPIA) podepisuje ten, koho jmenoval plný triage (typicky DPO), ne vlastník
+            # kroku Bezpečnost & právo.
+            lg = conn.execute("SELECT signed_by FROM triage WHERE project_id = ? AND "
+                              "track = 'legal'", (pid,)).fetchone()
+            named = re.sub(r"\s*\(.*$", "", (lg[0] if lg and lg[0] else "")).strip()
+            if named and not re.search(r"(?i)pending|agent", named):
+                owner = named
         risk = load_risk_profile(conn, pid)
         if window == "design" and not is_ai_owner(owner):
             raise ValueError(
@@ -302,7 +312,19 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         artefact += f"\n_signed_by_role: {kind}_" + (f" · _ai_agent: {agent_name}_" if agent_name else "") + "\n"
         if countersigned:
             artefact += f"\n_Potvrzuje AI draft ({prior[1]})._\n"
-        for track in WINDOWS[window]["tracks"]:
+        tracks = list(WINDOWS[window]["tracks"])
+        if window == "bezpecnost":
+            legal = conn.execute(
+                "SELECT status, artefact_md FROM triage WHERE project_id = ? AND track = 'legal'",
+                (pid,)).fetchone()
+            from_full_triage = bool(legal) and "Kickoff" not in (legal[1] or "")[:80]
+            if legal and legal[0] in ("deferred", "blocked") and from_full_triage:
+                # Triage právo vědomě odložil (např. DPIA) — podpis bezpečnosti ho nepřepíše.
+                tracks = ["security"]
+                warnings.append(
+                    "Právo zůstává odložené z triage (např. DPIA) — podepisuje se zvlášť: "
+                    f'`pflanzer checkpoint --slug {slug} pravo --by "<DPO>" --note "DPIA hotová"`.')
+        for track in tracks:
             conn.execute(
                 """
                 INSERT INTO triage (project_id, track, status, artefact_md, signed_by, signed_at)
@@ -318,13 +340,13 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
               payload={"slug": slug, "by": who, "status": status, "note": note, "ai": ai,
                        "signed_by_role": kind, "ai_agent": agent_name,
                        "countersigned_ai_draft": countersigned,
-                       "tracks": list(WINDOWS[window]["tracks"])})
+                       "tracks": tracks})
     designated = _designated(window, owner, owners, risk, signers)
     log = _append_decision_log(slug, label, who, status, note, now, kind=kind,
                                agent=agent_name, signer=designated)
     next_step = _next_step(slug, window, status, owner, owners, risk, by=who, signers=signers)
     return {"slug": slug, "window": window, "label": label, "status": status,
-            "tracks": list(WINDOWS[window]["tracks"]), "signed_by": who,
+            "tracks": tracks, "signed_by": who,
             "signed_by_role": kind, "ai_agent": agent_name,
             "ai_draft": status == "pending", "ai": ai,
             "countersigned_ai_draft": countersigned,
@@ -425,6 +447,11 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                 else "pending"
             signer = payload.get("by")
         else:
+            if key == "pravo":
+                lg, sec = rows.get("legal"), rows.get("security")
+                # Okno právo ukazuj jen, když se právo od bezpečnosti odpojilo (odložené DPIA).
+                if not lg or (sec and lg[1] == sec[1] and lg[2] == sec[2]) or lg[1] == "čeká":
+                    continue
             tracks = [rows.get(t) for t in w["tracks"]]
             statuses = {r[1] if r else "missing" for r in tracks}
             state = ("ok" if statuses == {"ok"} else

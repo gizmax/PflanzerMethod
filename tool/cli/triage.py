@@ -270,8 +270,14 @@ def triage_windows(conn: sqlite3.Connection, project_id: int,
     decider = conn.execute("SELECT decider_name FROM projects WHERE id = ?",
                            (project_id,)).fetchone()
     out: list[dict[str, Any]] = []
+    sec = next((t for t in tracks if t["track"] == "security"), None)
+    legal = next((t for t in tracks if t["track"] == "legal"), None)
+    # Plný triage odložil právo (DPIA) a bezpečnost je podepsaná → samostatné okno „pravo".
+    split_legal = bool(sec and legal and sec["status"] == "ok" and legal["status"] != "ok")
     for window, label in WINDOW_LABEL.items():
         mine = [t for t in tracks if WINDOW_FOR_TRACK.get(t["track"]) == window]
+        if split_legal and window == "bezpecnost":
+            mine = [sec]
         statuses = {t["status"] for t in mine}
         state = ("ok" if statuses == {"ok"} else "blocked" if "blocked" in statuses
                  else "pending" if "pending" in statuses
@@ -281,6 +287,13 @@ def triage_windows(conn: sqlite3.Connection, project_id: int,
                  or (_human_name(decider[0]) if decider and window == "zadani" else None))
         out.append({"window": window, "label": label, "state": state, "owner": owner,
                     "signed_by": signer})
+    if split_legal:
+        st = legal["status"]
+        out.append({"window": "pravo", "label": "Právo (DPIA)",
+                    "state": "blocked" if st == "blocked" else "pending" if st == "pending"
+                    else "deferred",
+                    "owner": _human_name(legal.get("signed_by")) or "DPO",
+                    "signed_by": legal.get("signed_by")})
     return out
 
 
