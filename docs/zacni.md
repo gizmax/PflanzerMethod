@@ -10,7 +10,7 @@ Potřebuješ **~1 týden přípravy** (hlavně kalendáře) a **~8 dní** na pil
 
 ---
 
-## A. Lidi a domluvy (sponzor nebo PM, týden předem)
+## A. Lidi a domluvy (sponzor nebo PdM, týden předem)
 
 ### 1. Vyber problém
 
@@ -35,8 +35,8 @@ Na první pilot vyber něco jiného.
 | Krok cesty | Kdo | Kolik času |
 |------------|-----|-----------|
 | Byznys | sponzor s mandátem říct Go/Kill (= **Decider**) | 15 min + 90 min |
-| Produkt | PM | celý pilot (jádro) |
-| Design | designér (u interního toolu může krýt PM) | celý pilot (jádro) |
+| Produkt | PdM | celý pilot (jádro) |
+| Design | designér (u interního toolu může krýt PdM) | celý pilot (jádro) |
 | Vývoj | 1–2 vývojáři, kteří budou stavět | celý pilot (jádro) + Ship |
 | Bezpečnost & právo | security nebo DPO, stačí jeden | 20 min |
 | Provoz | DevOps / platforma, nebo EM | 20 min + domluva preview |
@@ -161,6 +161,14 @@ Metoda zatím nemá vlastní data, tak je sbírej. Tool je zapisuje do handoffu:
 - čas Kickoff → merge,
 - gate score vítěze,
 - počet kol Iterate,
-- kolik kódu vítěze přežije 30 dní v `main`.
+- kolik kódu vítěze přežije 30 dní v `main`,
+- AI náklady (tokeny per varianta a za cyklus) — součást SHIP.md.
+
+Po merge vítěze k tomu přidej **`/pm retro <slug>`**: změří % LOC vítěze
+v produkci beze změny (cíl ≥ 80 %), days-to-prod (cíl ≤ 14) a nastaví
+readouty T+7 (bugy, hotfixy), T+30 (leading metrika, přijetí handoffu),
+T+60 (rework) a T+90 (lagging metrika, verdikt Go / Iterate / Kill). Je to
+pod povrchem — hlavní cesta končí Shipem, ale bez těchto čísel se metoda
+nedá zlepšovat.
 
 Aktualizace: `pflanzer update`. Odinstalace: viz konec výpisu `install.sh`.

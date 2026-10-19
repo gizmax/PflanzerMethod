@@ -73,7 +73,6 @@ def project_detail(slug: str) -> dict[str, Any]:
             "SELECT id, type, decision, decision_ts FROM sessions WHERE project_id = ? ORDER BY id",
             (pid,),
         ).fetchall()
-        sess_ids = [int(s["id"]) for s in sessions]
         vcols = {r[1] for r in conn.execute("PRAGMA table_info(variants)").fetchall()}
         branch_sel = "v.branch" if "branch" in vcols else "NULL"
         variants = conn.execute(

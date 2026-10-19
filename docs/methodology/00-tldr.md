@@ -13,7 +13,7 @@
 Korporátní handoff hell. Zadavatel dostane nápad, pošle ho produktu, pinká se to,
 vznikne zadání, pinká se to s programátory, security to vetuje na konci, a za
 chvíli je rok pryč bez funkčního výstupu. Pflanzerova metoda nahrazuje sériový
-pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PM,
+pinkání paralelním vibe-codingem — všechny rozhodovací role (zadavatel, PdM,
 programátoři od minuty 0, security, legal, UX, …) jsou v jedné místnosti
 a AI slouží jako páka, která z verbálního inputu týmu generuje **běžící
 produkční-ready varianty** v reálném čase. **Výstup cyklu je hotový produkt,
@@ -27,12 +27,12 @@ aby kód šel rovnou do prod
    Gate (persona ≤6 měsíců, JTBD, OST), Security & Data triage (L1–L4
    classification, AI Act tier, DPIA), Platform Triage (sandbox spec, runtime),
    Capacity pre-sign-off od EM. Bez podpisů S1 nestartuje [synthesis 01 — B].
-2. **Session 1** (5–6 h, end v 16:00): všichni v místnosti **včetně programátora
+2. **Session 1** (3–6 h podle stupně, viz `00-lean-pflanzer.md` § Tři stupně): všichni v místnosti **včetně programátora
    od minuty 0**, AI generuje 1–3 **běžící produkční-ready varianty**, BE shadow
    agent paralelně generuje OpenAPI 3.1, A11y quickscan, token compliance check,
    ticket prediction. Výstup = anotované varianty + risk register + score
    závaznosti per role [synthesis 02 — sekce 3].
-3. **Mezi-session** (v0.5 default: 3–5 dní; rozšířeně 5–7 dní): běžící produkt na sandbox URL (24 h TTL,
+3. **Mezi-session** (3–7 pracovních dní podle stupně, v0.5 default Lean 3–5; ADR-0017): běžící produkt na sandbox URL (24 h TTL,
    watermark). Sbírá se strukturované hodnocení per oddělení (1–5 Likert +
    rationale; AI-only feedback deflated max 0.5).
 4. **Session 2** (3 h, rozhodovací): AI moderuje výklad připomínek per role,

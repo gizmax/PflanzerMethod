@@ -1,14 +1,13 @@
 """POST /api/projects/{slug}/variants, GET /api/projects/{slug}/variants."""
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..audit import write_audit
-from ..models import utcnow, Project, Session as PSession, Variant
+from ..models import Project, Variant, utcnow
+from ..models import Session as PSession
 
 router = APIRouter(prefix="/api/projects", tags=["variants"])
 

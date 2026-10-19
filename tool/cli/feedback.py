@@ -178,10 +178,10 @@ def main() -> None:
     a.add_argument("--score", type=float, help="0..1 (default dle severity)")
     a.add_argument("--ai-only", action="store_true", help="Feedback od AI persony (skóre max 0.5)")
 
-    l = sub.add_parser("list", help="Vypíše feedback projektu")
-    l.add_argument("--slug", required=True)
-    l.add_argument("--variant")
-    l.add_argument("--json", action="store_true")
+    ls_p = sub.add_parser("list", help="Vypíše feedback projektu")
+    ls_p.add_argument("--slug", required=True)
+    ls_p.add_argument("--variant")
+    ls_p.add_argument("--json", action="store_true")
 
     args = p.parse_args()
     try:

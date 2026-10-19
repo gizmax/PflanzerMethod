@@ -92,14 +92,18 @@ silent-vote výsledek, dělá to **veřejně s rationale do decision logu**
 
 [synthesis 01]:
 
-- **Prototyp do prod**: **evolve je default** (ADR-0005); throw-away jen
-  jako explicitní opt-in v Charteru. Evolve do produkce po kompletním sign-off paketu (FE + EM + Security + Legal + Platform + QA
-  P2P checklist).
+- **Prototyp do prod**: evolve je default v Kickoffu (Track P + evolve,
+  ADR-0005 v0.4) — vítězná varianta jde do produkce bez re-implementace.
+  Samotný prod deploy je ale podmíněn Ship (gates na vítěze, pilot ≥ 80 / production ≥ 85 ze 100)
+  + kompletním sign-off paketem (FE + EM + Security + Legal + Platform + QA
+  P2P checklist); do té doby žije varianta jen v sandboxu. Throw-away je
+  explicit opt-in s rationale z Kickoffu (discovery-only pilot, audit-grade
+  evidence separate od prod, regulated certified production).
 - **Security veto + zadavatel push**: Pre-charter triage zachytí 80 %.
   Critical = pivot. L4 data v promptu = okamžitý stop.
 - **EM kapacita vs business timeline**: T-shirt v session, story points
   až po 2-day capped spike. Persistence konflikt = eskalace mimo místnost.
-- **PM + UX persona ownership**: shared artefakt; PM tie-breaker na scope,
+- **PdM + UX persona ownership**: shared artefakt; PdM tie-breaker na scope,
   UX na flow. Persona doc podepsaný oběma.
 - **FE + BE contract**: contract-first, OpenAPI shadow paralelní.
   Breaking-change registr.
@@ -154,7 +158,7 @@ Každá zúčastněná role potvrzuje commitment level **0–3** [synthesis 03]:
 | **2** | Active scoring | Bude reviewovat handoff artefakty, on-call pro otázky |
 | **3** | Co-creation | Aktivně se podílí na delivery, owns dependency |
 
-**Critical role** (PM, EM, Security, Legal pokud relevantní) musí mít **≥ 2**;
+**Critical role** (PdM, EM, Security, Legal pokud relevantní) musí mít **≥ 2**;
 pokud kterákoli má 0, automatické iterate / re-charter.
 
 **AI-assisted commitment** se započítává deflated max 0.5 (AI proxy nemá

@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import DATA_ROOT, audit, current_actor, load_project_toml, transaction  # noqa: E402
+from tool.cli.tier import TIER_LABELS, WINDOW_DAYS, default_tier, validate_tier  # noqa: E402
 
 CHARTER_DIR = DATA_ROOT / "charters"
 
@@ -37,6 +38,16 @@ PATH_STEPS: dict[str, str] = {
     "bezpecnost": "Bezpečnost & právo",
     "provoz": "Provoz",
 }
+
+# ADR-0005 v0.4: default output mode is `evolve` (Track P + evolve).
+# `throwaway` is an explicit opt-in allowed only for these use cases and
+# must carry a `throwaway_rationale`.
+OUTPUT_MODES = ("evolve", "throwaway")
+THROWAWAY_USE_CASES = (
+    "discovery-only pilot (XYZ falsification, no production intent)",
+    "audit-grade evidence collection separate from production",
+    "regulated certified production (separate verified implementation)",
+)
 
 
 @dataclass
@@ -58,28 +69,60 @@ class CharterInput:
     capacity_person_days: int
     ai_act_tier: str  # minimal | limited | high | unacceptable
     data_class: str  # L1 | L2 | L3 | L4
-    throwaway_or_evolve: str  # throwaway | evolve
     reinforcement_t7: str
     reinforcement_t30: str
     reinforcement_t60: str
     reinforcement_t90: str
     reinforcement_budget_pd: float
     backup_decider: str | None = None
+    # ADR-0005 v0.4: default = evolve; throwaway requires a rationale that
+    # names one of THROWAWAY_USE_CASES.
+    throwaway_or_evolve: str = "evolve"  # evolve | throwaway
+    throwaway_rationale: str | None = None
+    # Stupeň Quick / Lean / Full (ADR-0021). None = derive from capacity_profile.
+    tier: str | None = None
+    # Deprecated (v0.2 "6 conditions for evolve" gate). Accepted so older
+    # JSON specs still load, but ignored: production deploy is gated by
+    # Ship gate quality gates >= 80/100 + sign-off, not by Charter.
     evolve_conditions_met: list[str] = field(default_factory=list)
     # v0.5 (ADR-0021)
     target_repo_url: str | None = None
     path_owners: dict[str, str] | None = None  # krok cesty -> jméno
     core: list[str] | None = None              # jádro (3–4 lidé, max 5 naráz)
 
+    def __post_init__(self) -> None:
+        self.tier = validate_tier(
+            self.tier or default_tier(self.capacity_profile), self.capacity_profile
+        )
+        if self.throwaway_or_evolve not in OUTPUT_MODES:
+            raise ValueError(
+                f"throwaway_or_evolve must be one of {OUTPUT_MODES}, "
+                f"got '{self.throwaway_or_evolve}'."
+            )
+        if self.throwaway_or_evolve == "throwaway" and not (
+            self.throwaway_rationale and self.throwaway_rationale.strip()
+        ):
+            raise ValueError(
+                "throwaway_or_evolve='throwaway' requires throwaway_rationale "
+                "(ADR-0005 v0.4: default is 'evolve'; throwaway is an explicit "
+                "opt-in for one of: " + "; ".join(THROWAWAY_USE_CASES) + ")."
+            )
+
 
 def render_charter_md(c: CharterInput) -> str:
     """Render Charter to markdown per ADR-0004 template."""
     today = date.today().isoformat()
     backup_line = f"- Backup Decider: {c.backup_decider}" if c.backup_decider else "- Backup Decider: —"
-    evolve_block = ""
-    if c.throwaway_or_evolve == "evolve":
-        cond = "\n".join(f"  - [x] {it}" for it in c.evolve_conditions_met)
-        evolve_block = f"\n### Evolve podmínky splněné (ADR-0005)\n{cond}\n"
+    if c.throwaway_or_evolve == "throwaway":
+        output_block = (
+            f"- **Throw-away rationale** (explicit opt-in, ADR-0005 v0.4): "
+            f"{c.throwaway_rationale}\n"
+        )
+    else:
+        output_block = (
+            "- Evolve = default (ADR-0005 v0.4): winner varianta jde do produkce; "
+            "prod deploy podmíněn Ship gate (quality gates ≥ 80/100) + sign-off.\n"
+        )
 
     path_block = ""
     if c.path_owners:
@@ -98,7 +141,7 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
     core_block = ""
     if c.core:
         core_block = (
-            f"\n## Jádro (celou dobu, max 5 lidí naráz)\n"
+            "\n## Jádro (celou dobu, max 5 lidí naráz)\n"
             + "\n".join(f"- {n}" for n in c.core) + "\n"
         )
     repo_line = f"\n- **Target repo**: {c.target_repo_url}" if c.target_repo_url else ""
@@ -134,12 +177,13 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
 - **Profil**: `{c.capacity_profile}` (default v0.5 ≈ 6–8 PD; regulated a
   audit-grade přidávají okna a brány, viz ADR-0021 + ADR-0008)
 - **Person-days commit**: **{c.capacity_person_days}**{repo_line}
+- **Stupeň**: **{TIER_LABELS[c.tier]}** · mezi-session okno {WINDOW_DAYS[c.tier]} pracovních dní (ADR-0017)
 
 ## Risk profile
 - **AI Act risk-tier**: `{c.ai_act_tier}` *(předběžný, přehodnotí se při Rozhodnutí)*
 - **Data classification**: `{c.data_class}`
-- **Throw-away vs evolve** (ADR-0005): **`{c.throwaway_or_evolve}`**
-{evolve_block}
+- **Throw-away vs evolve** (ADR-0005 v0.4): **`{c.throwaway_or_evolve}`**
+{output_block}
 ## Reinforcement track (ADR-0004)
 - **T+7**: {c.reinforcement_t7}
 - **T+30**: {c.reinforcement_t30}
@@ -167,16 +211,16 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
             INSERT INTO projects (
                 slug, name, charter_md, status,
                 decider_name, decider_mandate_from, cpo_escalation_contact, sponsor_name,
-                ai_act_tier, data_class, throwaway_or_evolve,
-                capacity_profile, capacity_person_days,
+                ai_act_tier, data_class, throwaway_or_evolve, throwaway_rationale,
+                capacity_profile, capacity_person_days, tier,
                 xyz_hypothesis, primary_lagging_metric, leading_metric, guardrail_metric,
                 kill_criteria,
                 reinforcement_t7, reinforcement_t30, reinforcement_t60, reinforcement_t90,
                 reinforcement_budget_pd
             ) VALUES (?, ?, ?, 'charter',
                       ?, ?, ?, ?,
+                      ?, ?, ?, ?,
                       ?, ?, ?,
-                      ?, ?,
                       ?, ?, ?, ?,
                       ?,
                       ?, ?, ?, ?,
@@ -192,8 +236,10 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
                 ai_act_tier = excluded.ai_act_tier,
                 data_class = excluded.data_class,
                 throwaway_or_evolve = excluded.throwaway_or_evolve,
+                throwaway_rationale = excluded.throwaway_rationale,
                 capacity_profile = excluded.capacity_profile,
                 capacity_person_days = excluded.capacity_person_days,
+                tier = excluded.tier,
                 xyz_hypothesis = excluded.xyz_hypothesis,
                 primary_lagging_metric = excluded.primary_lagging_metric,
                 leading_metric = excluded.leading_metric,
@@ -209,8 +255,8 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
             (
                 c.slug, c.name, charter_md,
                 c.decider_name, c.decider_mandate_from, c.cpo_escalation_contact, c.sponsor_name,
-                c.ai_act_tier, c.data_class, c.throwaway_or_evolve,
-                c.capacity_profile, c.capacity_person_days,
+                c.ai_act_tier, c.data_class, c.throwaway_or_evolve, c.throwaway_rationale,
+                c.capacity_profile, c.capacity_person_days, c.tier,
                 c.xyz_hypothesis, c.primary_lagging_metric, c.leading_metric, c.guardrail_metric,
                 c.kill_criteria,
                 c.reinforcement_t7, c.reinforcement_t30, c.reinforcement_t60, c.reinforcement_t90,

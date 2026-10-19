@@ -449,7 +449,7 @@ Feature: {p[1]}
 
 ## P2P (Prototype-to-Prod) checklist (9 položek)
 
-- [ ] Acceptance criteria reviewed + signed by PM
+- [ ] Acceptance criteria reviewed + signed by PdM
 - [ ] Contract tests (Pact) zelené
 - [ ] A11y axe-core run pass (žádné Critical / Serious)
 - [ ] Security: SBOM (`cyclonedx`/`syft`) + CVE scan (Trivy/Snyk) clean
@@ -786,7 +786,6 @@ def _collect_pilot_metrics(project_id: int, ctx: dict[str, Any]) -> dict[str, An
                 "AND v.name = ? ORDER BY e.id DESC LIMIT 1", (project_id, winner)).fetchone()
 
     kickoff = _parse_ts(p[17])  # projects.created_at
-    build_start = _parse_ts(sess[1][1]) if 1 in sess else None
     decision_at = _parse_ts(sess[2][2]) if 2 in sess else None
     ship_at = _parse_ts(ship_row[0]) if ship_row else None
     override = None
@@ -942,8 +941,8 @@ def generate(slug: str) -> dict[str, Any]:
         "metrics": metrics_entry,
         "metrics_file": tilde(METRICS_PATH),
         "next_step": (
-            f"Otevři `SHIP.md` (PR příkaz + sekce 'Změř po 30 dnech'); promote-to-prod "
-            f"checklisty jsou v `qa.md` a `platform.md`."
+            "Otevři `SHIP.md` (PR příkaz + sekce 'Změř po 30 dnech'); promote-to-prod "
+            "checklisty jsou v `qa.md` a `platform.md`."
         ),
     }
 

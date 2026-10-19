@@ -32,15 +32,17 @@ v toolu `pflanzer`; `pflanzer-*` commandy jsou interní implementace kroků.
 | `status` | — | totéž, výslovně |
 | `doctor` | — (`pflanzer doctor`) | je repo připravené ke Kickoffu? |
 | `start` | `pflanzer-charter` | **Kickoff** 15 min — zadání + jména 6 kroků |
-| `build` | `pflanzer-session-1` | **Build** 3 h — 3 varianty paralelně |
-| `live` | `pflanzer` | Kickoff + Build v jednom (malý interní tool) |
+| `build` | `pflanzer-session-1` | **Build** 3 h (Lean) — 3 varianty paralelně |
+| `live` | `pflanzer` | Kickoff + Build v jednom (**Quick**, 60–90 min; malý interní tool) |
 | `feedback` | `pflanzer-feedback-pull` | **Async** 3–5 dní — feedback zástupců |
 | `decide` | `pflanzer-session-2` | **Rozhodnutí** 60–90 min — Go / Iterate / Kill |
-| `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu |
+| `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu, SHIP.md |
 | `handoff` | `pflanzer-handoff` | balíček per role + metriky pilotu |
+| `retro` | `pflanzer-retro` | **Retro** — měření outcome: % LOC vítěze v produkci, days-to-prod, T+7/30/60/90 |
 
-Pokročilé (mimo hlavní cestu, jen regulované/větší projekty): `roles`
-(`pflanzer-roles`), `triage` (`pflanzer-triage`).
+Pokročilé (mimo hlavní cestu, jen regulované/větší projekty — stupeň Full):
+`roles` (`pflanzer-roles`; vedle výběru rolí rozešle role cards), `triage`
+(`pflanzer-triage`).
 
 **Delegace = přečti `.claude/commands/<cíl>.md` přes Read a postupuj přesně
 podle něj** (s `$ARGUMENTS` = slug). Nikdy nereimplementuj logiku cílového
@@ -51,7 +53,7 @@ commandu po svém.
 - **6 kroků cesty**, každý s pojmenovaným zástupcem: byznys (Decider),
   produkt, design, vývoj, bezpečnost & právo, provoz. Krok bez jména →
   upozorni a nabídni doplnění, než pustíš `build`.
-- **Jádro 3–4 lidé** (PM, 1–2 vývojáři, designér) celou dobu; ostatní
+- **Jádro 3–4 lidé** (PdM, 1–2 vývojáři, designér) celou dobu; ostatní
   na **okna**: Decider na Kickoff (15 min) + Rozhodnutí; bezpečnost & právo
   checkpoint 20 min během/po Buildu; provoz checkpoint 20 min u Ship.
 - **3 pravidla:** každý krok má jméno · max 5 lidí naráz · co umí automat,
@@ -71,7 +73,7 @@ commandu po svém.
 ### 2. Bez argumentů (nebo `status`)
 
 ```bash
-pflanzer status            # všechny projekty
+pflanzer status            # všechny projekty (vč. stupně Quick / Lean / Full)
 pflanzer status --slug S   # jeden projekt
 ```
 
@@ -83,6 +85,14 @@ a výběr. Žádný projekt → `pflanzer doctor` (je repo připravené?), pak
 
 Neodvozuj stav sám z DB (žádné ruční `sqlite3`) — jediný zdroj pravdy je
 `pflanzer status`.
+
+Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
+`draft` → `start` · `charter` → `build` (Full: nejdřív `roles` + `triage`) ·
+`session_1` → `feedback`, po zápisu feedbacku `decide` · `session_2` (Iterate)
+→ `decide` · `handoff` → `ship`, pak `handoff`. Existuje-li
+`data/handoffs/<slug>/SHIP.md`, nabídni vedle `handoff` i `retro`
+(po merge vítěze `measure`, hned `reminders`, pak T+7/30/60/90 readouty).
+`killed` → jen oznám; nový projekt = `start`.
 
 ### 2b. `doctor`
 
@@ -114,4 +124,6 @@ přijít — např. „Další krok: `/pm build demo-widget` — jádro, 3 h".
 - `docs/methodology/00-lean-pflanzer.md` — default profil průběhu
 - `docs/decisions/0021-mala-skupina-cela-cesta.md` — model účasti
 - `docs/decisions/0022-inspirace-z-trhu.md` — constitution, doctor, kontroly, měření
+- `docs/decisions/0017-mezi-session-okno-per-stupen.md` — stupně Quick / Lean / Full
+- `docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody — autoritativní tabulka stupňů (default **Lean**)
 - `README.md` § Quick start

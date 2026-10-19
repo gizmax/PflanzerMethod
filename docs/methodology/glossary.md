@@ -61,15 +61,13 @@ Template: `tool/templates/precision-spec-track-s.md.template`.
 
 Když dev tým není v room a spec jde k nim:
 
-1. **90-min walkthrough** — PM + dev lead + spec authors
+1. **90-min walkthrough** — PdM + dev lead + spec authors
 2. **5-day Q&A window** — dev klade otázky, spec authors odpovídají
 3. **Amendment protocol** — dev requests changes, sponzor approves
 4. **First milestone review** — dev demos first slice, spec authors verify
 5. **T+30 embedded reviewer** — spec author shadows dev sprint, detects drift early
 
 Definováno v ADR-0020.
-
-## Core deliverable terms
 
 ## Core deliverable terms
 
@@ -117,6 +115,15 @@ dev team"*, což protiřečí Pflanzer claimu *„dev was in room from minute 0"
 > vytvoří `SHIP.md` + sign-off package a vítěz jde přes PR do běžného
 > vývojového procesu. Není to předání k re-implementaci.
 
+### AI code provenance
+
+**Atribuce AI-asistovaného kódu** (doplněk k atribuci rozhodnutí v decision
+logu). Autor commitu = dev, který seděl u klávesnice, a ručí za kód jako za
+vlastní; AI nikdy není autor. AI asistence se značí commit trailery
+(`Pflanzer-Variant`, `Pflanzer-Session`, `AI-Assisted`) a PR labely
+(`ai-generated`, `pflanzer:<slug>`); review je stejná jako u lidského kódu.
+Definováno v `07-handoff-do-vyvoje.md` § AI code provenance.
+
 ## Profile terms
 
 ### evolve (default)
@@ -124,7 +131,7 @@ dev team"*, což protiřečí Pflanzer claimu *„dev was in room from minute 0"
 **Default mode**. Winner varianta z Session 2 jde **přímo do produkce**.
 Dev tým (#4 + #5 byli v room) ji doladí pro production hardening
 (observability, monitoring, edge cases) během D11-14. Quality gates
-≥ 80/100 = production prerequisite, ne *„prototype hardening checklist"*.
+(pilot ≥ 80 / production ≥ 85 ze 100) = production prerequisite, ne *„prototype hardening checklist"*.
 
 ### throw-away (explicit opt-in)
 
@@ -156,8 +163,47 @@ ne *„prototype playground"*.
 ### Session 3 (nepoužívá se)
 
 **Session 3 se nepoužívá** (ADR-0021) — produkční hardening = **Ship**
-(`/pm ship`, quality gates ≥ 80/100 + checkpoint provozu); **Iterate** =
+(`/pm ship`, gates na vítěze + checkpoint provozu); **Iterate** =
 další Build kolo (max 1×), ne třetí session.
+
+**Alias (deprecated):** *„Session 3“* — starší název v toolu; command
+`/pflanzer-session-3` zůstává jako implementace pod kapotou `/pm ship`.
+Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
+**Session 2b** (dříve také „Session 3“) — to není Ship.
+
+### Stupeň (Quick / Lean / Full)
+
+Míra rituálů kolem stejného jádra metody (vývojář u klávesnice, 3 paralelní
+varianty, anti-HiPPO, Decider). **Quick** = `/pm live`, Kickoff + Build
+v jednom, 60–90 min, okno 3 dny, jen `throwaway` / `pilot`. **Lean** =
+**v0.5 default**, Build 3 h, Async 3–5 dní. **Full** = governance /
+regulované, rozšířená agenda 5–6 h (`04-session-1.md`), 4 triage tracky,
+okno 5–7 dní. Rozhodnutí je ve všech stupních stejné. Autoritativní tabulka:
+`00-lean-pflanzer.md` § Tři stupně jedné metody (ADR-0017). Tool ukládá
+stupeň do `projects.tier`.
+
+### Ship
+
+**Pipeline, ne setkání.** Po Go v Rozhodnutí ji pouští vývojáři: quality
+gates na vítěze (score 0–100, pilot 80 / production 85) + `SHIP.md` → PR
+připravený k mergi (`/pm ship` + `/pm handoff`). Starší název „Ship gate“.
+
+### Retro
+
+`/pm retro` — měření outcome po Shipu: % LOC vítěze v produkci, days-to-prod
+a readouty T+7/30/60/90. Pod povrchem, mimo pět kroků hlavní cesty.
+
+## Zkratky
+
+### PdM
+
+**Produkt manažer** (role #2 v `02-role-catalog.md`). Zkratka „PdM" se
+v češtině neskloňuje, takže sedí do vět beze změny tvaru.
+
+### PM
+
+**Pflanzer Method.** Používá se **jen** v názvu commandu `/pm`, nikdy v textu
+(brand pravidlo v `CLAUDE.md`). Pro produkt manažera piš „PdM".
 
 ## Anti-patterns (deprecated language)
 
@@ -170,10 +216,12 @@ další Build kolo (max 1×), ne třetí session.
 | „dev team picks up the prototype" | „dev team byl v room, kód jde do prod" | Contradicts core claim |
 | „Prototype-to-Prod (P2P) checklist" | „Production readiness checklist" | Naming |
 | „extract code" (Ship) | „polish + observability" | „Extract" implies code wasn't prod-ready |
+| „Session 3" / „3 sezení" | „Ship" / „Kickoff, Build, Async, Rozhodnutí, Ship" | Ship je pipeline, ne setkání |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
+| „PM" pro produkt manažera | „PdM" (nebo „produkt manažer") | „PM" je vyhrazeno pro Pflanzer Method a smí být jen v názvu commandu `/pm` |
 
 ## Reference
 
-- ADR-0005 throw-away vs evolve prototype (resolved: evolve je default, throw-away explicitní opt-in)
+- ADR-0005 throw-away vs evolve prototype (v0.4: default = evolve, throw-away = explicit opt-in pro 3 use cases)
 - `docs/research/output-consistency/03-synthesis.md` — audit findings + recommendations
 - User clarification 2026-05-28: *„Výstup z Pflanzer metody je hotový produkt."*

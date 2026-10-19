@@ -48,8 +48,8 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({1, 4}): {
         "axis": "Prototyp do prod (throw-away vs evolve)",
-        "resolution": "Throw-away default v Charteru; evolve vyžaduje podpis FE + EM + Security + DPO + DevOps + QA P2P.",
-        "adr": "ADR-0005 (Throw-away vs evolve)",
+        "resolution": "Evolve default v Charteru (ADR-0005 v0.4); prod deploy až po Ship gate (quality gates >= 80/100) + sign-off FE + EM + Security + DPO + DevOps + QA P2P. Throw-away jen jako explicit opt-in s rationale.",
+        "adr": "ADR-0005 v0.4 (Track x Output: evolve default)",
     },
     frozenset({1, 5}): {
         "axis": "Vibe-coding speed vs migrace timeline",
@@ -58,7 +58,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({1, 6}): {
         "axis": "Speed vs research rigor",
-        "resolution": "XYZ hypotéza jako falsifikovatelný marker; persona ownership shared (PM + UX podpisují před session).",
+        "resolution": "XYZ hypotéza jako falsifikovatelný marker; persona ownership shared (PdM + UX podpisují před session).",
         "adr": "ADR-0004 (Business Charter)",
     },
     frozenset({1, 13}): {
@@ -73,7 +73,7 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
     },
     frozenset({2, 6}): {
         "axis": "Persona ownership (prioritization vs flow)",
-        "resolution": "Shared artefakt; PM tie-breaker na scope, UX na flow. Persona doc podepsaný oběma před session.",
+        "resolution": "Shared artefakt; PdM tie-breaker na scope, UX na flow. Persona doc podepsaný oběma před session.",
         "adr": None,
     },
     frozenset({2, 7}): {
@@ -87,13 +87,13 @@ CONFLICT_RESOLUTIONS: dict[frozenset, dict[str, str]] = {
         "adr": None,
     },
     frozenset({2, 13}): {
-        "axis": "Interpretace pain (PM vs CS)",
+        "axis": "Interpretace pain (PdM vs CS)",
         "resolution": "VoC ritual prvních 30 min Buildu; ticket data jako vstup, ne názor jako rozhodnutí.",
         "adr": None,
     },
     frozenset({2, 12}): {
         "axis": "Outcome vs output",
-        "resolution": "Measurement v DoD; PM + Analytics interlock — PM definuje outcome, Analytics měřitelný proxy.",
+        "resolution": "Measurement v DoD; PdM + Analytics interlock — PdM definuje outcome, Analytics měřitelný proxy.",
         "adr": None,
     },
     frozenset({2, 14}): {

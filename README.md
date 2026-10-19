@@ -51,6 +51,14 @@ Ship       /pm ship      1–2 dny, vývojáři + provoz gates jen na vítěze, 
 Tři pravidla: každý krok cesty má jméno · max 5 lidí naráz · co umí automat,
 nepotřebuje člověka v místnosti.
 
+**Stupně pod povrchem.** Výchozí je **Lean** (výše: Build 3 h, Async 3–5 dní).
+`/pm live` je **Quick** (Kickoff + Build v jednom, 60–90 min, okno 3 dny)
+a **Full** je governance / regulované (rozšířená agenda 5–6 h, okno 5–7 dní,
+role cards a triage). Autoritativní tabulka:
+[`docs/methodology/00-lean-pflanzer.md` § Tři stupně](docs/methodology/00-lean-pflanzer.md),
+[ADR-0017](docs/decisions/0017-mezi-session-okno-per-stupen.md). Po Shipu
+`/pm retro` změří, kolik kódu vítěze opravdu žije v produkci (T+7/30/60/90).
+
 Ven jde **PR vítěze** s gate score (pilot ≥ 80 / production ≥ 85 ze 100),
 decision log v `.pflanzer/decisions/` a metriky pilotu.
 
@@ -127,10 +135,11 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
 /pm roles <slug>      # Kdo zastupuje který krok cesty (z 18 rolí catalogu)
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
 /pm build <slug>      # Build (orchestrator s AI expert sub-agenty)
-# … async 3–5 dní (pflanzer hub nebo pflanzer feedback add) …
+# … async: Lean 3–5 dní, Full 5–7 dní (pflanzer hub nebo pflanzer feedback add) …
 /pm decide <slug>     # Rozhodnutí (Go / Iterate / Kill)
-/pm ship <slug>       # Quality gates
+/pm ship <slug>       # Quality gates (pflanzer.gates.yml) na vítěze
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
+/pm retro <slug>      # Měření outcome: % LOC v produkci, T+7/30/60/90
 ```
 
 ## Klíčový pilíř — 6 kroků cesty, každý se jménem
@@ -141,7 +150,7 @@ zůstat bez jména. Kdo může který krok zastoupit, říká **role catalog
 (18 rolí)** — knihovna zástupců, ne seznam pozvánek. Perspektivy rolí,
 které nejsou u stavby, může dodat AI expert sub-agent (jako vstup, ne hlas).
 
-Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog.md).
+Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog.md). Jednostránkové **role cards** (co zástupce kroku přinese do svého okna) jsou v [`docs/methodology/role-cards/`](docs/methodology/role-cards/README.md).
 
 ## Status
 
@@ -158,6 +167,9 @@ Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
 - **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
   → kód po Ship ready k mergi (gate_score 0-100)
+- **Testy a CI** ✅ — `tests/` (pytest, hermetické), ruff, GitHub Actions
+  (`.github/workflows/ci.yml`); viz „Testy a CI" níže
+- **Měření** ✅ — `/pm retro` (outcome T+7/30/60/90), AI provenance v SHIP.md, AI náklady
 
 ## Struktura repa
 
@@ -256,9 +268,34 @@ tool/bin/pflanzer hub            # http://localhost:8000/method/
 # vývoj frontendu s hot reloadem: cd tool/web/frontend && npm install && npm run dev
 ```
 
-> DB lokace: pokud `~/.pflanzer/` existuje, použije se `~/.pflanzer/pflanzer.db`
-> (installed plugin mode). Jinak `<repo>/data/pflanzer.db` (dev mode).
+> DB lokace: pokud existuje soubor `~/.pflanzer/pflanzer.db` (vytvoří ho
+> `install.sh`), použije se ten (installed plugin mode). Jinak
+> `<repo>/data/pflanzer.db` (dev mode) — samotný adresář `~/.pflanzer/targets/`
+> (cache target repozitářů z `worktree.py setup`) DB nepřepne.
 > Override: `export PFLANZER_DB=/path/to/db.sqlite`.
+> Web hub (`tool/web/backend`) používá stejné pořadí, takže CLI i hub čtou jednu DB.
+
+**Deploy web hubu ve firmě.** Backend je defaultně v `oidc` módu (bez SSO identity
+vrací 401); lokálně ho spouštěj s `PFLANZER_HUB_AUTH_MODE=dev` (to dělá
+`tool/web/run-local.sh`) — identita je pak neověřená hlavička `X-User`. Ve firmě
+musí hub stát za `oauth2-proxy` napojeným na firemní IdP (Entra ID / Okta /
+Keycloak): `cp tool/web/.env.example tool/web/.env`, vyplnit a
+`docker compose --profile oidc up`. Hodnotitel ve feedbacku je pak SSO e-mail
+(auditovatelná atribuce, AI Act čl. 14 / DORA). Detail:
+[`tool/web/README-auth.md`](tool/web/README-auth.md).
+
+### Testy a CI
+
+```bash
+pip install pytest ruff pyyaml         # + fastapi sqlmodel httpx pro test web auth
+python3 -m pytest -q                   # tests/ — hermetické: tmp DB, tmp HOME, lokální git repa
+ruff check tool tests                  # konfigurace v pyproject.toml
+python3 tool/cli/quality_gates.py --path tool/web/frontend --adapter tool/pflanzer.gates.yml
+```
+
+GitHub Actions (`.github/workflows/ci.yml`, push + PR): `tool` (ruff + pytest),
+`web-backend` (auth testy), `web-frontend` (`tsc --noEmit` + build) a `dogfood`
+(quality gates toolu na vlastním repu — jen report, na skóre nepadá).
 
 ## Plán fáze 2 (full)
 

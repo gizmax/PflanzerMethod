@@ -50,7 +50,7 @@ Před Session 1 svoláním musí být splněno **VŠECHNO** z následujícího:
 
 | Požadavek | Vlastník | Validace |
 |-----------|----------|----------|
-| Discovery Readiness Gate ✅ (persona ≤6 mo, JTBD signed, OST v0 ≥60 %) | PM | `03-pre-session-priprava.md` Krok 0 |
+| Discovery Readiness Gate ✅ (persona ≤6 mo, JTBD signed, OST v0 ≥60 %) | PdM | `03-pre-session-priprava.md` Krok 0 |
 | Triage tracks (Security + Legal + Platform) ✅ | Security + DPO + DevOps | `03-pre-session-priprava.md` Krok 0a |
 | Charter signed (per ADR-0004) **s flagem `track: P`** | Decider + Sponsor | viz § 7.1 Charter section sample |
 | **Dev tým committed v plné kapacitě po celý Session 1**: #4 FE + #5 BE (pokud projekt má BE) — jmenovitě, jeden senior + jeden mid OK, ne junior delegate | EM | EM signs off in Charter Capacity commit table |
@@ -126,7 +126,7 @@ Per `07-handoff-do-vyvoje.md` § Champion model. Track-P specifika:
 | T+7 | CS + Champion | Ticket check vs prediction | **Real production tickets**, ne sandbox simulace |
 | T+30 | Data + Champion | Leading metric readout, retro | **Real user behavior**, A/B winner cohort |
 | T+60 | Champion + EM | Capacity actual vs estimate | **Real DORA stats** (deploy frequency, lead time) |
-| T+90 | Decider + PM + EM + Champion | Lagging metric vs success criterion | **Go/Iterate/Kill** formal v ADR per ADR-0001 |
+| T+90 | Decider + PdM + EM + Champion | Lagging metric vs success criterion | **Go/Iterate/Kill** formal v ADR per ADR-0001 |
 
 ### 1.7 Kdy volit Track P (fit criteria)
 
@@ -175,7 +175,7 @@ OpenAPI 3.1, ADR set, Gherkin scenarios, ADR-grade compliance artefakty).
 
 | Požadavek | Vlastník | Validace |
 |-----------|----------|----------|
-| Discovery Readiness Gate ✅ | PM | identické s Track P |
+| Discovery Readiness Gate ✅ | PdM | identické s Track P |
 | Triage tracks ✅ | Security + DPO + DevOps | identické s Track P |
 | Charter signed **s flagem `track: S`** | Decider + Sponsor | viz § 7.1 Charter section sample |
 | **Track S justification signed**: 1 ze 4 hard triggers below | EM + Sponsor | Charter § Track S justification (mandatory) |
@@ -251,7 +251,7 @@ Per `06-session-2.md`, **s Track-S specifikací**:
 ### 2.5 Handoff to dev team (kdy, kdo, jak)
 
 **Kdy:** T+5 days post Session 2 — handoff meeting (90 min slot,
-implementation team + Champion + PM + Decider attend).
+implementation team + Champion + PdM + Decider attend).
 
 **Kdo:** Implementation team (named in Charter pre-flight) + #17 Champion
 (z Session 1+2, signed Decision log; vlastní Coaching Kata loop pro
@@ -305,7 +305,7 @@ Session 2 (limit 1 iterate per ADR-0001 Scenario C).
 | T+7 | Champion + Implementation lead | **Spec clarification rate**: <5 clarifications/week = OK; >10 = spec quality flag | Method Steward warning |
 | T+30 | Champion + Data | **Implementation progress vs Spec milestones**: % completed vs Charter expectation | Re-Charter trigger if <50 % expected |
 | T+60 | Champion + EM | **Spec drift detection**: LOC ratio in covered files vs original spec coverage | >20 % drift = Method Steward flag |
-| T+90 | Decider + PM + EM + Champion + Implementation lead | **Production deploy** (first prod commit s `#prod` tag, OR justified delay with new ETA) | Go / Iterate / Kill ADR |
+| T+90 | Decider + PdM + EM + Champion + Implementation lead | **Production deploy** (first prod commit s `#prod` tag, OR justified delay with new ETA) | Go / Iterate / Kill ADR |
 
 **Klíčový rozdíl od Track P:** v Track S **first production deploy je
 T+90 outcome**, ne T+0. Pflanzer cyklus dodá *spec*, dev tým dodá *prod*.
@@ -405,7 +405,7 @@ Tessl?
 | Dimenze | SDD (Kiro / Spec Kit) | Pflanzer Track S |
 |---------|----------------------|------------------|
 | Generovací cyklus | Sequential: Vision → PRD → Architecture → Tasks → Impl | Single-pass: pre-flight → Session 1 (3 h) → mezi-session → Session 2 (3 h) → handoff |
-| Stakeholder model | PM proxy (sponsor delegate; sequential review queues) | All cross-functional roles **fyzicky v room**: Session 1 + Session 2 |
+| Stakeholder model | PdM proxy (sponsor delegate; sequential review queues) | All cross-functional roles **fyzicky v room**: Session 1 + Session 2 |
 | Decision attribution | Implicit (spec is consensus document; no Decider) | **Explicit anti-HiPPO Decider model** (per ADR-0001) — Decider hlasuje poslední |
 | Conflict resolution | Async via PR comments; queue delays | In-room conflict resolution playbook (`06-session-2.md` § Top 3 sporné body) |
 | Pre-flight gates | Často skipnuté (PRD je Round 0) | Discovery Readiness Gate + Triage tracks (Security + Legal + Platform) mandatory |
@@ -454,7 +454,7 @@ context"* = pouze Track S, Track P zmizí.
   na Session 1"* je nejjednodušší cesta. Bez gating Track S se stane default.
 - **Sponsor gravity**: sponsor často nechce committi 3 h v room; *„napíšete
   mi spec, já to schválím"* je preferovaný workflow.
-- **Org culture gravity**: matrix orgs s strong PM function gravity vždy
+- **Org culture gravity**: matrix orgs s strong PdM function gravity vždy
   k spec-as-deliverable.
 
 **Struktural mitigace (4 vrstvy):**

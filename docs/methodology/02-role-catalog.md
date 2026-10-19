@@ -2,6 +2,8 @@
 
 > **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Role catalog je **knihovna zástupců kroků cesty, ne seznam pozvánek** — říká, kdo může který krok zastoupit. Plná sestava níže je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
 
+> **Role cards:** jednostránková karta per role (co přinést, co podepsat, kdy být v místnosti, na co hlasovat) → [`role-cards/README.md`](role-cards/README.md).
+>
 > **Status:** v0.2 (po expertním panelu, syntéze a applikaci diff `synthesis/03-role-catalog-updates.md`).
 > Změny vůči v0.1 jsou v ADR `decisions/0003-role-catalog-promotions.md`.
 
@@ -24,7 +26,7 @@ catalog níže je seznam, kdo může krok zastoupit.
 | # | Krok cesty | Kdo typicky zastupuje (catalog) | Účast |
 |---|------------|----------------------------------|-------|
 | 1 | Byznys | Zadavatel / sponzor = Decider (#1) | okna: Kickoff 15 min + Rozhodnutí 60–90 min |
-| 2 | Produkt | PM (#2) | jádro |
+| 2 | Produkt | PdM (#2) | jádro |
 | 3 | Design | UX / Designer (#6) | jádro |
 | 4 | Vývoj | FE / Vibe-coding lead (#4), BE / API lead (#5) | jádro (1–2 buildeři) |
 | 5 | Bezpečnost & právo | Security (#7), Legal / DPO (#10) — jeden stačí | okno: checkpoint 20 min |
@@ -32,7 +34,7 @@ catalog níže je seznam, kdo může krok zastoupit.
 
 Pravidla:
 
-- **Jeden člověk smí krýt víc kroků** (vývojář = vývoj + provoz, PM = produkt + design u interního toolu).
+- **Jeden člověk smí krýt víc kroků** (vývojář = vývoj + provoz, PdM = produkt + design u interního toolu).
 - **Žádný krok bez jména.** Krok bez zástupce = session se nesvolává.
 - **Jádro (3–4 lidé, celou dobu)** vs **okno (konkrétní čas nad konkrétním artefaktem)**. Nikdy víc než 5 lidí naráz.
 - Zástupce musí mít mandát; kdo nemůže v okně rozhodnout, není zástupce.
@@ -64,13 +66,13 @@ Pravidla:
 - **Vstup:** JTBD formát, OST v0 (≥60 % vyplněná), success metric (leading +
   lagging), persona doc, OKR alignment, XYZ hypotéza.
 - **Výstup:** preference matrix per role, PRD-lite, updated OST.
-- **AI proxy:** ⚠️ Krátkodobě s předem připraveným briefem, finální slovo PM.
+- **AI proxy:** ⚠️ Krátkodobě s předem připraveným briefem, finální slovo PdM.
 
 ### 3. Facilitátor (lidský + AI) — POVINNÁ
 - **Vede session**, hlídá agendu a energy curve, deeskaluje konflikty,
   orchestrouje AI co-pilot.
-- **Vstup:** energy curve plán (Session 1 = 5–6 h s koncem 16:00, mezi-session
-  = 5–7 dní, Session 2 = 3 h rozhodovací), tří-režimová AI-human matice
+- **Vstup:** energy curve plán (Session 1 = 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně),
+  mezi-session = 3–7 dní podle stupně, Session 2 = 3 h rozhodovací), tří-režimová AI-human matice
   (viz níže).
 - **Výstup:** facilitační notes, conflict log, decision log s lidskou atribucí.
 - **AI proxy:** ❌ Lidský facilitátor nutný — AI samotná konflikt mezi
@@ -211,7 +213,7 @@ Pravidla:
 - **AI proxy:** ⚠️ Pokud má AI přístup k ticket history.
 
 ### 14. End-user proxy / User research — DOPORUČENÁ default-on
-- **Trigger pro opt-out:** fresh persona ≤ 3 měsíce + JTBD signed by PM
+- **Trigger pro opt-out:** fresh persona ≤ 3 měsíce + JTBD signed by PdM
   (zdokumentovaný důvod).
 - **Vstup:** persona freshness ≤ 6 mo (≥ 5 rozhovorů), JTBD card, OST v0,
   alternativy NDA (shadowing / ticket review / sales call analysis).
@@ -270,7 +272,7 @@ Pravidla:
 ### Fáze pre-flight (PŘED Session 1)
 
 **Krok 0 — Discovery Readiness Gate.**
-- Persona ≤ 6 měsíců? + JTBD podepsaný PM? + OST v0 ≥ 60 %?
+- Persona ≤ 6 měsíců? + JTBD podepsaný PdM? + OST v0 ≥ 60 %?
 - ❌ Pokud cokoli chybí → **2-week Discovery Sprint**, Session 1 odložena.
 
 **Krok 0a — Triage tracks (paralelně, async, 48–72 h pre-read).**
@@ -283,7 +285,7 @@ Pravidla:
 
 ### Fáze role selection (kdo do místnosti)
 
-1. **Vždy:** Zadavatel (1) + PM (2) + Facilitátor (3) → core 3.
+1. **Vždy:** Zadavatel (1) + PdM (2) + Facilitátor (3) → core 3.
 2. **Mění se UI / přidává se view?** → +Frontend (4) + UX (6).
 3. **Mění se data / API?** → +Backend (5).
 4. **Pracujeme s daty uživatelů, auth, integracemi, platbami?** → +Security (7) [POVINNĚ].
@@ -330,7 +332,7 @@ Detail v `03-pre-session-priprava.md`.
 
 Tyto role **nelze** nahradit AI:
 - #1 Zadavatel (final)
-- #2 PM (final)
+- #2 PdM (final)
 - #3 Facilitátor
 - #7 Security (final veto)
 - #9 EM (kapacita)

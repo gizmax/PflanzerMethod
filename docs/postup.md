@@ -3,6 +3,9 @@
 **Pflanzer Method | pflanzer.cz/method**
 
 > Zjednodušený průběh v0.5 (ADR-0021). Detail: `docs/methodology/00-lean-pflanzer.md`.
+> Diagram popisuje výchozí stupeň **Lean**; `/pm live` je **Quick** (Kickoff + Build
+> v jednom, 60–90 min), **Full** je governance / regulované (delší Build a Async,
+> role cards, triage) — viz § Tři stupně v 1-pageru a ADR-0017.
 
 ## Diagram průběhu
 
@@ -30,7 +33,7 @@ gantt
     dateFormat  D
     axisFormat  den %d
     title Účast v čase (jádro = celou dobu, ostatní jen okna)
-    section Jádro (PM, 1–2 vývojáři, designér)
+    section Jádro (PdM, 1–2 vývojáři, designér)
     Kickoff + Build + Rozhodnutí :active, 1, 7d
     section Decider
     Kickoff 15 min      :milestone, 1, 0d
@@ -107,9 +110,19 @@ Prakticky:
 - Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
   bezpečnosti & práva.
 
-> Pozn.: push branchí a preview deploy dnes dělá builder ručně / CI target
-> repa; tool (`worktree.py`) zakládá jen worktrees. Automatizace = budoucí
-> krok.
+**Možnosti, jak varianty zpřístupnit** (od nejjednoduššího):
+
+1. **Preview deploy firmy** — push branchí, preview URL z CI (výše).
+2. **Draft PR per varianta** — `pflanzer worktree preview --slug <slug>`
+   založí draft PR každé větve; preview URL se vezme z checků PR (Vercel /
+   Netlify) a uloží k variantě. Push do remote target repa tool nejdřív
+   vypíše a chce potvrzení.
+3. **Playwright záznam** — `pflanzer worktree preview --slug <slug> --mode playwright`
+   nahraje průchod acceptance scénáři (video + trace); pro zástupce, kteří
+   nemají kde klikat, nebo když firma preview deploy nemá.
+
+Push branchí a preview deploy jinak dělá builder / CI target repa; tool
+zakládá worktrees a (volitelně) draft PR.
 
 Kde jste? `/pm status` — fáze a jeden další krok.
 

@@ -14,7 +14,7 @@ Akademik) identifikoval **3 fatální problémy** s původní ADR-0007 formulac�
    VP Engineering Effectiveness, 2 levely pod CTO).
 2. **Steward role** (*„10 % FTE, EM bez headcount"*) — budget vapor, conflict
    of interest (advocate-as-measurer). → **Supersedes** ADR-0012 (0.5-0.7 FTE
-   dedikovaný Senior PM, €100-150k OPEX, blind acceptance review delegated
+   dedikovaný Senior PdM, €100-150k OPEX, blind acceptance review delegated
    na external EM panel).
 3. **Falsifiability** — fit criteria post-hoc redefinovatelné, statistický
    test nepre-registered, drift / fork nedetekovatelný. → **Addendum**

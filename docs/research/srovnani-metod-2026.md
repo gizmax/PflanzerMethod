@@ -35,7 +35,7 @@
 | Atlassian AI mob | Atlassian, 2025 | 2–4 vývojáři, řidič rotuje | 1 cesta | mob + AI reviewer | PR, merge 1–2 dny | ~10 featur, shoda AI draftu <50 % → ~80 % |
 | Atlassian AI Builders Week | Atlassian, 2025–26 | malé týmy designérů/PM + product engineer | mnoho buildů | neuvedeno | 1 PR do monorepa | 85 % adopce, 240 buildů (samoevaluace) |
 | Crisp / Scania AI mob | 2025 | ~4 lidé denně, stakeholdeři přes otevřený slot v kalendáři | 1 cesta | mob | neuvedeno | kvalitativní |
-| Uber prototype-first | Uber, 2026 | PM, design, inženýři, provoz | 6 konceptů / 20 min | neformální | **otevřená otázka** | anekdoty |
+| Uber prototype-first | Uber, 2026 | PdM, design, inženýři, provoz | 6 konceptů / 20 min | neformální | **otevřená otázka** | anekdoty |
 | Shopify AI memo | Shopify, 2025 | kultura celé firmy | — | — | — | politika, ne proces |
 | AI design sprint | Sherwen aj., 2025 | facilitovaný workshop | koncepty | dot voting | wireframy, ne kód | testimonial |
 | McKinsey agentic pods | McKinsey, 2025–26 | 8–12 → 4–6 lidí + agenti | — | „co stavět" = úzké hrdlo | — | mix dat a marketingu (text jen ze shrnutí) |
