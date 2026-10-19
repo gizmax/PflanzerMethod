@@ -370,7 +370,8 @@ def test_prompts_node_stack_uses_scripts(tmp_path: Path) -> None:
 def test_doctor_stack_specific_advice(tmp_path: Path) -> None:
     py = tmp_path / "py"
     py.mkdir()
-    (py / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (py / "pyproject.toml").write_text("[project]\nname='x'\ndependencies=['requests']\n",
+                                       encoding="utf-8")
     assert "npm" not in doctor.check_preview(py)["advice"]
     lock = doctor.check_package_manager(py)
     assert lock["status"] == doctor.WARN and "uv lock" in lock["advice"]

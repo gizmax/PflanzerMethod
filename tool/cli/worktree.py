@@ -455,11 +455,114 @@ def _install_cmd(wt: Path, pm: str) -> list[str]:
             else ["npm", "install", "--no-audit", "--no-fund", "--no-package-lock"])
 
 
+PY_DEV_TOOLS = ("pytest", "ruff")
+
+
+def _is_python_repo(wt: Path) -> bool:
+    return (any((wt / f).exists() for f in ("pyproject.toml", "setup.py", "setup.cfg"))
+            or bool(list(wt.glob("requirements*.txt"))))
+
+
+def _read_pyproject(wt: Path) -> dict[str, Any]:
+    try:
+        import tomllib
+        return tomllib.loads((wt / "pyproject.toml").read_text(encoding="utf-8"))
+    except Exception:  # chybí / nečitelné / starý Python bez tomllib
+        return {}
+
+
+def _req_name(spec: str) -> str:
+    m = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)", spec)
+    return m.group(1).lower().replace("_", "-") if m else ""
+
+
+def _python_declared(wt: Path, data: dict[str, Any]) -> dict[str, Any]:
+    """Co repo deklaruje: requirements soubory, extras dev/test, PEP 735 skupiny, runtime deps."""
+    proj = data.get("project") or {}
+    extras = [e for e in ("dev", "test") if e in (proj.get("optional-dependencies") or {})]
+    groups: list[str] = []
+    for g in ("dev", "test"):
+        for item in (data.get("dependency-groups") or {}).get(g) or []:
+            if isinstance(item, str):
+                groups.append(item)
+    reqs = [f for f in ("requirements.txt", "requirements-dev.txt", "requirements_dev.txt",
+                        "dev-requirements.txt", "requirements-test.txt") if (wt / f).is_file()]
+    names: set[str] = set()
+    for spec in (list(proj.get("dependencies") or []) + groups
+                 + [x for e in extras for x in proj["optional-dependencies"][e]]):
+        names.add(_req_name(str(spec)))
+    for f in reqs:
+        try:
+            for ln in (wt / f).read_text(encoding="utf-8", errors="replace").splitlines():
+                names.add(_req_name(ln.split("#", 1)[0]))
+        except OSError:
+            pass
+    return {"reqs": reqs, "extras": extras, "groups": groups,
+            "deps": [str(x) for x in proj.get("dependencies") or []],
+            "has_build": bool(data.get("build-system")) or (wt / "setup.py").exists(),
+            "names": names}
+
+
+def _python_tools_used(wt: Path, data: dict[str, Any]) -> list[str]:
+    """Dev nástroje, které repo používá (Makefile, pyproject sekce), ale nemusí deklarovat."""
+    text = ""
+    for f in ("Makefile", "makefile", "pyproject.toml"):
+        try:
+            text += (wt / f).read_text(encoding="utf-8", errors="replace") + "\n"
+        except OSError:
+            pass
+    tools = data.get("tool") or {}
+    return [t for t in PY_DEV_TOOLS
+            if t in tools or re.search(rf"(?<![\w-]){t}(?![\w-])", text)]
+
+
+def _install_python(wt: Path) -> dict[str, Any]:
+    """`.venv` ve worktree + deklarované závislosti (best-effort, nic nepadá)."""
+    res: dict[str, Any] = {"path": str(wt), "kind": "python"}
+    if (wt / ".venv").exists():
+        return {**res, "status": "cached"}
+    rc, out, err = _run(["python3", "-m", "venv", ".venv"], cwd=wt, timeout=180)
+    if rc != 0:
+        return {**res, "status": "failed", "cmd": "python3 -m venv .venv",
+                "details": (out + err)[-300:]}
+    py = str(wt / ".venv" / "bin" / "python")
+    pip = [py, "-m", "pip", "install", "-q", "--disable-pip-version-check"]
+    data = _read_pyproject(wt)
+    decl = _python_declared(wt, data)
+    steps: list[list[str]] = []
+    for f in decl["reqs"]:
+        steps.append([*pip, "-r", f])
+    if (wt / "pyproject.toml").exists() or (wt / "setup.py").exists():
+        target = "." + (f"[{','.join(decl['extras'])}]" if decl["extras"] else "")
+        if decl["extras"] or decl["deps"]:
+            steps.append([*pip, "-e", target])
+        if decl["groups"]:
+            steps.append([*pip, *decl["groups"]])
+    used = _python_tools_used(wt, data)
+    missing = [t for t in used if t not in decl["names"]]
+    if missing:
+        steps.append([*pip, *missing])
+    for cmd in steps:
+        rc, out, err = _run(cmd, cwd=wt, timeout=600)
+        if rc != 0 and "-e" in cmd and decl["deps"] and not decl["has_build"]:
+            rc, out, err = _run([*pip, *decl["deps"]], cwd=wt, timeout=600)
+        if rc != 0:
+            return {**res, "status": "failed", "details": (out + err)[-300:],
+                    "cmd": ".venv/bin/python -m pip install " + " ".join(cmd[len(pip):])}
+    out_res: dict[str, Any] = {**res, "status": "ok", "cmd": "python3 -m venv .venv"}
+    if missing:
+        out_res["dev_tools_missing"] = missing
+    return out_res
+
+
 def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]:
     """Run package-manager install per worktree (best-effort)."""
     results = []
     for w in worktrees:
         if not (w / "package.json").exists():
+            if _is_python_repo(w):
+                results.append(_install_python(w))
+                continue
             results.append({"path": str(w), "status": "skipped",
                             "reason": "non-JS repo (bez package.json) — Maven/Gradle/.NET/Go "
                                       "závislosti se nainstalují lazily v quality gates"})
@@ -1597,6 +1700,13 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
                  + ("nainstalovány" if hooks <= {"installed", "ok"} else ", ".join(sorted(hooks))))
     if s.guard:
         lines.append(guard_summary(s.guard, s.slug))
+    py = [x for r in s.repos for x in r["install_results"] if x.get("kind") == "python"]
+    if py and all(x["status"] in ("ok", "cached") for x in py):
+        lines.append(f"Python: `.venv` a závislosti připravené ve {len(py)} složkách.")
+        miss = sorted({t for x in py for t in x.get("dev_tools_missing", [])})
+        if miss:
+            lines.append(f"Dev nástroje ({', '.join(miss)}) nejsou v pyproject — doplňte je, "
+                         "ať je má každý.")
     failed = [x for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
     if failed:
         lines.append(f"Instalace závislostí selhala v {len(failed)} složce(ích) — "

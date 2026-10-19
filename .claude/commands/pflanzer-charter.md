@@ -66,6 +66,11 @@ deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 
 U kroku s AI náhradou se zeptej **hned i na člověka, který to podepíše**,
 a řekni, že AI náhrada platí jen pro tento projekt (příště sehnat člověka).
+**Když tým podepisujícího určí, MUSÍŠ ho předat ve specu v `ai_signers`**
+(`{"bezpecnost": "Pavel Šnek"}`) — jinak `pflanzer status` dál hlásí „čeká na
+podpis: určete kdo“. Zkráceně jde i přímo v `path_owners`:
+`"bezpecnost": "AI:security-expert / Pavel Šnek"` (oddělovač ` / ` nebo `|`).
+Autor kódu (Vývoj) nemá podepisovat bezpečnost u osobních dat — tool varuje.
 
 **Kdo podepíše bezpečnost & právo, když security není** — nabízej v tomto
 pořadí, **nikdy ne autora kódu jako default**:
@@ -120,11 +125,14 @@ v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe):
   "metric": "<metrika>",
   "kill_criteria": "<kdy zabalit>",
   "path_owners": {"byznys": "Honza", "produkt": "Petra", "design": "AI:ux-expert", "vyvoj": "Jan", "bezpecnost": "AI:security-expert", "provoz": "Jan"},
+  "ai_signers": {"bezpecnost": "Pavel Šnek", "design": "Petra"},
   "core": ["Petra", "Jan", "Eva"]
 }
 ```
 
 `path_owners`: jméno, `AI` nebo `AI:<agent>` (jen kde to tabulka dovolí).
+`ai_signers` (nepovinné): krok s AI náhradou (`bezpecnost|provoz|design|produkt`) →
+jméno člověka, který AI draft podepíše; vyplň vždy, když to tým řekl.
 Víc repozitářů (FE + BE, monorepo): místo `target_repo_url` dej
 `"target_repos"` — text `fe=https://…/web, be=https://…/api#develop` nebo
 pole `[{"role": "fe", "url": "…", "branch": "main", "workspace": "apps/web"}]`.

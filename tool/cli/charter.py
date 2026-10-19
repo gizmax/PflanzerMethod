@@ -12,6 +12,7 @@ Output: charter markdown (DATA_ROOT/charters) + řádek v projects + audit log.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -89,6 +90,26 @@ def owner_display(value: str | None, step: str = "") -> str:
     return value
 
 
+_SIGNER_SEP = re.compile(r"\s+/\s+|\s*\|\s*")
+# Kroky, u kterých AI draft podepisuje člověk (klíče `ai_signers`).
+SIGNER_STEPS = ("produkt", "design", "bezpecnost", "provoz")
+
+
+def split_owner_signer(value: str | None) -> tuple[str, str | None]:
+    """`AI:security-expert / Pavel Šnek` -> (`AI:security-expert`, `Pavel Šnek`).
+
+    Zkrácený zápis platí jen pro AI hodnoty (oddělovač ` / ` nebo `|`); lidské jméno
+    se nikdy neřeže.
+    """
+    v = (value or "").strip()
+    if not is_ai_owner(v):
+        return v, None
+    parts = [x.strip() for x in _SIGNER_SEP.split(v, maxsplit=1)]
+    if len(parts) == 2 and parts[0]:
+        return parts[0], parts[1] or None
+    return v, None
+
+
 def _norm_owner(value: str | None) -> str:
     return "AI" if is_ai_owner(value) else (value or "").strip()
 
@@ -103,8 +124,15 @@ def _security_signers(path_owners: dict[str, str], risk_profile: str) -> str:
     return f"{d} nebo {p} do 48 h"
 
 
+def _same_name(a: str | None, b: str | None) -> bool:
+    ta = set((a or "").casefold().split())
+    tb = set((b or "").casefold().split())
+    return bool(ta and tb and (ta <= tb or tb <= ta))
+
+
 def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
-                          tier: str | None) -> tuple[list[dict[str, str]], list[str]]:
+                          tier: str | None, ai_signers: dict[str, str] | None = None,
+                          ) -> tuple[list[dict[str, str]], list[str]]:
     """Check which steps a stand-in AI may cover (ADR-0023 table).
 
     Returns (ai_stand_ins, warnings); raises ValueError with a human sentence
@@ -134,6 +162,16 @@ def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
                        else (path_owners.get("vyvoj") if risk_profile == "pilot"
                              else "člověk z provozu")),
         }[step]
+        named = (ai_signers or {}).get(step)
+        if named:
+            signer = named
+            vyvoj = path_owners.get("vyvoj")
+            if (step == "bezpecnost" and risk_profile != "throwaway" and vyvoj
+                    and not is_ai_owner(vyvoj) and _same_name(named, vyvoj)):
+                warnings.append(
+                    f"{named} je autor kódu (Vývoj) a podepisuje bezpečnost — "
+                    "osobní data a právní kontrolu (GDPR, smlouvy) autor kódu nepokrývá; "
+                    "lepší je Decider, PdM nebo DPO (ADR-0023).")
         stand_ins.append({"step": step, "label": label, "agent": agent, "signer": str(signer)})
         if step == "design" and risk_profile == "production":
             warnings.append(
@@ -145,6 +183,15 @@ def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
                 f"{label}: AI připraví jen draft; podpis člověka je nutný před Ship "
                 f"({'do 48 h' if step == 'bezpecnost' else 'vývojář z jádra stačí u pilotu'})."
             )
+    for step, who in (ai_signers or {}).items():
+        if step not in SIGNER_STEPS:
+            raise ValueError(f"ai_signers: neznámý krok „{step}“. Platné: "
+                             f"{', '.join(SIGNER_STEPS)}.")
+        if not (who or "").strip() or is_ai_owner(who):
+            raise ValueError(f"ai_signers.{step}: podepisuje člověk — napiš jeho jméno, ne AI.")
+        if not is_ai_owner(path_owners.get(step)):
+            warnings.append(f"ai_signers.{step} ({who}) ignoruji — krok "
+                            f"{PATH_STEPS[step]} nezastupuje AI.")
     return stand_ins, warnings
 
 
@@ -238,6 +285,7 @@ class CharterInput:
     # v0.5 (ADR-0021)
     target_repo_url: str | None = None
     path_owners: dict[str, str] | None = None  # krok cesty -> jméno
+    ai_signers: dict[str, str] | None = None   # krok s AI náhradou -> člověk, který draft podepíše
     core: list[str] | None = None              # jádro (3–4 lidé, max 5 naráz)
 
     def __post_init__(self) -> None:
@@ -277,7 +325,10 @@ def render_charter_md(c: CharterInput) -> str:
     path_block = ""
     if c.path_owners:
         rows = "\n".join(
-            f"| {label} | {owner_display(c.path_owners.get(key)) or '**— BEZ JMÉNA —**'} |"
+            f"| {label} | {owner_display(c.path_owners.get(key)) or '**— BEZ JMÉNA —**'}"
+            + (f" — podepisuje {c.ai_signers[key]}"
+               if (c.ai_signers or {}).get(key) and is_ai_owner(c.path_owners.get(key)) else "")
+            + " |"
             for key, label in PATH_STEPS.items()
         )
         path_block = f"""
@@ -433,6 +484,11 @@ def persist_charter(c: CharterInput, charter_md: str) -> int:
                 project_id,
             ),
         )
+
+        if c.ai_signers and any(r[1] == "ai_signers_json"
+                                for r in conn.execute("PRAGMA table_info(projects)").fetchall()):
+            conn.execute("UPDATE projects SET ai_signers_json = ? WHERE id = ?",
+                         (json.dumps(c.ai_signers, ensure_ascii=False), project_id))
 
         conn.execute(
             """

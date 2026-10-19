@@ -85,6 +85,20 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
     return status, "/pm"
 
 
+def _variants_in_play(slug: str) -> list[str]:
+    """Po Iterate: varianty posledního Build kola (ostatní skončily). Jinak []."""
+    try:
+        with transaction() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM audit_log WHERE action = 'session_1.persist' "
+                "ORDER BY id DESC").fetchall()
+        data = next((d for d in (json.loads(r[0]) for r in rows if r[0])
+                     if d.get("slug") == slug), {})
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+    return [str(v) for v in data.get("variants", [])] if data.get("iterate_round") else []
+
+
 def _with_slug(step: str, slug: str) -> str:
     return f"{step} {slug}" if step.startswith("/pm ") and step != "/pm start" else step
 
@@ -184,6 +198,11 @@ def project_detail(slug: str) -> dict[str, Any]:
     path_owners: dict[str, str] = {}
     if "path_owners_json" in cols and p["path_owners_json"]:
         path_owners = json.loads(p["path_owners_json"])
+    try:
+        ai_signers = json.loads(p["ai_signers_json"]) if (
+            "ai_signers_json" in cols and p["ai_signers_json"]) else {}
+    except (ValueError, TypeError):
+        ai_signers = {}
     core = json.loads(p["core_json"]) if "core_json" in cols and p["core_json"] else []
     tier = p["tier"] if "tier" in cols and p["tier"] else None
 
@@ -199,8 +218,11 @@ def project_detail(slug: str) -> dict[str, Any]:
     for r in crit_rows:
         crit_by_variant.setdefault(r["variant"], []).append(r["who"])
     after_go = p["status"] == "handoff"
+    in_play = _variants_in_play(slug)  # po Iterate jen varianty posledního Build kola
     if after_go and winner:
         blocking_variants = [] if override_reason else [winner]
+    elif in_play:
+        blocking_variants = [v for v in crit_by_variant if v in in_play]
     else:
         blocking_variants = list(crit_by_variant)
     critical_total = sum(len(v) for v in crit_by_variant.values())
@@ -291,7 +313,9 @@ def project_detail(slug: str) -> dict[str, Any]:
                     f"{variant} (nahlásil: {uniq}) — oprav, nebo Decider vědomě přebije."})
     for variant, whos in critical_info.items():
         uniq = ", ".join(dict.fromkeys(whos))
-        info.append(f"Critical na poražené variantě {variant} ({len(whos)}×, nahlásil: {uniq}) "
+        where = (f"poražené variantě {variant}" if after_go
+                 else f"variantě {variant}, která po Iterate skončila")
+        info.append(f"Critical na {where} ({len(whos)}×, nahlásil: {uniq}) "
                     "neblokuje — zapište do parking lotu nebo vědomě zavřete.")
 
     def _pending_sig() -> dict[str, str] | None:
@@ -302,7 +326,7 @@ def project_detail(slug: str) -> dict[str, Any]:
         crit_b = next((b for b in blockers if b["kind"] == "critical"), None)
         if first:
             nxt = first["command"].replace("…", "co je opraveno")
-        elif crit_b:
+        elif crit_b and p["status"] != "session_2":  # při Iterate critical opraví Build kolo
             nxt = crit_b["command"]
         elif p["status"] == "handoff" and evidence["ship"] in ("none", "failed"):
             pend = _pending_sig()
@@ -315,6 +339,8 @@ def project_detail(slug: str) -> dict[str, Any]:
         "next_step": nxt, "decider": p["decider_name"],
         "path_owners": {k: path_owners.get(k) for k, _ in PATH_STEPS},
         "ai_stand_ins": [k for k, _ in PATH_STEPS if is_ai_owner(path_owners.get(k))],
+        "ai_signers": {k: ai_signers[k] for k, _ in PATH_STEPS
+                       if is_ai_owner(path_owners.get(k)) and ai_signers.get(k)},
         "core": core,
         "variants": list(seen.values()),
         "winner": winner,
@@ -391,7 +417,9 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
     owners = d["path_owners"]
     lines = [f"Fáze: **{d['phase']}** · stupeň {tier_label(d['tier'])}",
              f"Decider: {d['decider'] or '—'}" + (f" · jádro: {', '.join(d['core'])}" if d["core"] else "")]
+    signers = d.get("ai_signers") or {}
     steps = [f"{label} {owner_display(owners.get(key), key) or '— BEZ JMÉNA —'}"
+             + (f" — AI draft, podepíše {signers[key]}" if signers.get(key) else "")
              for key, label in PATH_STEPS]
     lines.append("Kroky cesty: " + " · ".join(steps))
     if d["variants"]:

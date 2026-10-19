@@ -40,6 +40,7 @@ from tool.cli.charter import (  # noqa: E402
     people_check,
     persist_charter,
     render_charter_md,
+    split_owner_signer,
     validate_ai_stand_ins,
 )
 from tool.cli.db import (  # noqa: E402
@@ -307,6 +308,35 @@ def _write_acceptance_feature(
     return str(out)
 
 
+def _normalize_ai_signers(raw: dict[str, str] | None,
+                          shorthand: dict[str, str]) -> dict[str, str] | None:
+    """Merge `ai_signers` from the spec with signers from `AI:agent / Jméno` shorthand."""
+    if raw is not None and not isinstance(raw, dict):
+        raise ValueError('ai_signers musí být objekt {"bezpecnost": "Pavel Šnek"}.')
+    out: dict[str, str] = dict(shorthand)
+    for k, v in (raw or {}).items():
+        key = _strip_diacritics(str(k)).lower().strip().replace(" ", "_")
+        key = {"bezpecnost_a_pravo": "bezpecnost", "bezpecnost_pravo": "bezpecnost"}.get(key, key)
+        out[key] = v.strip() if isinstance(v, str) else ""
+    return out or None
+
+
+def _split_shorthand_owners(raw: dict[str, str] | None) -> tuple[Any, dict[str, str]]:
+    """`"bezpecnost": "AI:security-expert / Pavel Šnek"` -> owners bez jména + signers."""
+    if not isinstance(raw, dict):
+        return raw, {}
+    clean: dict[str, str] = {}
+    signers: dict[str, str] = {}
+    for k, v in raw.items():
+        owner, signer = split_owner_signer(v) if isinstance(v, str) else (v, None)
+        clean[k] = owner
+        if signer:
+            key = _strip_diacritics(str(k)).lower().strip().replace(" ", "_")
+            signers[{"bezpecnost_a_pravo": "bezpecnost",
+                     "bezpecnost_pravo": "bezpecnost"}.get(key, key)] = signer
+    return clean, signers
+
+
 def bootstrap(
     *, hook: str, decider_name: str, risk_profile: str,
     room_role_idx: list[int] | None = None, slug: str | None = None,
@@ -318,6 +348,7 @@ def bootstrap(
     metric: str | None = None,
     kill_criteria: str | None = None,
     path_owners: dict[str, str] | None = None,
+    ai_signers: dict[str, str] | None = None,
     core: list[str] | None = None,
     target_repos: list[dict[str, Any]] | str | None = None,
     target_branch: str | None = None,
@@ -344,6 +375,9 @@ def bootstrap(
             nebo `AI` / `AI:<agent>` (ADR-0023: jen produkt v Quick/throwaway, design,
             bezpečnost a provoz jako pre-check; NIKDY byznys a vývoj).
             Pokud zadáno a některý krok chybí → ValueError s lidskou větou (ADR-0021).
+        ai_signers: {"bezpecnost": "Pavel Šnek"} — člověk, který podepíše AI náhradu kroku
+            (bezpecnost | provoz | design | produkt). Zkráceně přímo v path_owners:
+            `"AI:security-expert / Pavel Šnek"` (oddělovač ` / ` nebo `|`).
         core: jména jádra (3–4 lidé; > 5 unikátních = warning).
         leading_metric / guardrail_metric: nepovinné; když chybí, uloží se None
             (do PR/SHIP se nic nedosazuje).
@@ -368,14 +402,21 @@ def bootstrap(
                          "production = ostrý provoz).")
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
+    path_owners, short_signers = _split_shorthand_owners(path_owners)
     owners_by_step = _normalize_path_owners(path_owners)  # fail fast, before any write
+    signers_by_step = _normalize_ai_signers(ai_signers, short_signers)
+    if signers_by_step and not owners_by_step:
+        raise ValueError("ai_signers dává smysl jen spolu s path_owners (kroky s AI náhradou).")
     tier = (validate_tier(tier, profile["capacity_profile"]) if tier
             else DEFAULT_TIER_BY_RISK[risk_profile])
     ai_stand_ins: list[dict[str, str]] = []
     ai_warnings: list[str] = []
     if owners_by_step:
         ai_stand_ins, ai_warnings = validate_ai_stand_ins(
-            owners_by_step, risk_profile=risk_profile, tier=tier)
+            owners_by_step, risk_profile=risk_profile, tier=tier, ai_signers=signers_by_step)
+        if signers_by_step:   # ukládáme jen kroky, které AI opravdu zastupuje
+            signers_by_step = {k: v for k, v in signers_by_step.items()
+                               if is_ai_owner(owners_by_step.get(k))} or None
         if room_role_idx is None:
             room_role_idx = sorted(set(PATH_STEP_ROLE.values()))
     room_role_idx = list(room_role_idx) if room_role_idx is not None else list(DEFAULT_ROOM)
@@ -403,7 +444,7 @@ def bootstrap(
     # Pořadí varování je stálé: AI náhrady -> kdo smí podepsat -> lidé v místnosti -> role.
     warnings: list[str] = list(ai_warnings)
     if owners_by_step and is_ai_owner(owners_by_step.get("bezpecnost")) \
-            and risk_profile != "throwaway":
+            and risk_profile != "throwaway" and not (signers_by_step or {}).get("bezpecnost"):
         from tool.cli.checkpoint import signer_guidance
         warnings.append(signer_guidance("bezpecnost", owners_by_step, risk_profile))
     warnings += people_check(core, owners_by_step)
@@ -445,6 +486,7 @@ def bootstrap(
         tier=tier,
         target_repo_url=target_repo_url,
         path_owners=owners_by_step,
+        ai_signers=signers_by_step,
         core=list(core) if core else None,
     )
     charter_md = render_charter_md(charter)
@@ -516,7 +558,8 @@ def bootstrap(
                 "target_repo_url": target_repo_url,
                 "target_repos": [r.to_dict() for r in repos],
                 "production_readiness_target": profile.get("production_readiness_target", 0),
-                "path_owners": owners_by_step, "core": core, "metric": metric,
+                "path_owners": owners_by_step, "ai_signers": signers_by_step,
+                "core": core, "metric": metric,
                 "ai_stand_ins": ai_stand_ins, "warnings": warnings,
             },
         )
@@ -535,6 +578,7 @@ def bootstrap(
         "production_readiness_target": profile.get("production_readiness_target", 0),
         "target_repo_url": target_repo_url,
         "path_owners": owners_by_step,
+        "ai_signers": signers_by_step,
         "core": core,
         "target_repos": [r.to_dict() for r in repos],
         "charter_path": str(DATA_ROOT / "charters" / f"{slug}.md"),
@@ -1559,6 +1603,8 @@ BOOTSTRAP_EPILOG = """Pole specu (JSON):
   nepovinné: slug, metric, kill_criteria, tier (quick | lean | full), core [jména],
              path_owners {byznys, produkt, design, vyvoj, bezpecnost, provoz}
              (hodnota = jméno, nebo AI / AI:agent; ne u byznys a vývoj),
+             ai_signers {bezpecnost|provoz|design|produkt: "jméno člověka, který AI draft
+             podepíše"} — nebo zkráceně v path_owners: "AI:security-expert / Pavel Šnek",
              target_repo_url, target_repos, target_branch
 
 Příklad:
@@ -1693,7 +1739,7 @@ def main() -> None:
     p_boot.add_argument("--spec", required=True,
                         help=spec_help + ". Pole: {hook, decider_name, risk_profile, slug?, role_owners?, "
                              "metric?, kill_criteria?, path_owners?{byznys,produkt,design,vyvoj,bezpecnost,provoz; "
-                             "hodnota jméno nebo AI / AI:agent}, core?[], "
+                             "hodnota jméno nebo AI / AI:agent [/ podepisující]}, ai_signers?{krok: jméno}, core?[], "
                              "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url'), tier?}")
     p_boot.add_argument("--json", action="store_true", help="Strojový výstup")
 

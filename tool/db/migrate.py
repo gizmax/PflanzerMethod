@@ -38,6 +38,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
         ("path_owners_json", "TEXT"),
         ("core_json", "TEXT"),
+        # Kdo (člověk) podepíše AI náhradu kroku: {"bezpecnost": "Pavel Šnek"}
+        ("ai_signers_json", "TEXT"),
         # ADR-0005 v0.4 (audit N2): throwaway is opt-in and needs a rationale
         ("throwaway_rationale", "TEXT"),
         # Audit N8: multi-repo (FE / BE / monorepo workspace) as JSON array
