@@ -27,11 +27,12 @@ def test_adapter_in_tree_drives_gates(tmp_path: Path) -> None:
     assert status["tests"] == "fail"
     others = {g: s for g, s in status.items() if g not in ("build", "tests")}
     assert set(others) == set(qg.GATE_TYPES) - {"build", "tests"}
-    assert set(others.values()) == {"unsupported"}
+    assert {v for g, v in others.items() if g != "acceptance"} == {"unsupported"}
+    assert others["acceptance"] == "skipped"  # NEOVĚŘENO, nikdy tichý průchod
 
     agg = qg.aggregate_score(results)
     assert agg["gates_run"] == 2
-    assert agg["gates_unsupported"] == len(qg.GATE_TYPES) - 2
+    assert agg["gates_unsupported"] == len(qg.GATE_TYPES) - 3  # acceptance = NEOVĚŘENO
     # build (1.5) passes, tests (2.0) fails -> 1.5 / 3.5
     assert agg["gate_score"] == round(100 * 1.5 / 3.5)
 

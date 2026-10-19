@@ -107,6 +107,9 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
   Bez `[preview.<role>]` se příkaz autodetekuje (Node / Python); repo bez příkazu
   se přeskočí s varováním. `preview status` ukáže stav po repech, `preview down`
   ukončí vše.
+- **Push větví:** `pflanzer/<slug>-<X>` jsou ve worktrees v klonu pod
+  `data/targets/<slug>-<X>` (cesta je ve výstupu `worktree setup`), ne v hlavním
+  repu: `cd data/targets/<slug>-A && git push origin pflanzer/<slug>-A`.
 - **Ship / PR:** gates jedou na vítěze, `handoff_pr` commitne a pushne větev a
   otevře PR do base toho repa **per repo**; PR se odkazují navzájem.
 

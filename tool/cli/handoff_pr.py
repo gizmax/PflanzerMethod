@@ -810,7 +810,8 @@ def build_pr(slug: str, repo: str | None = None,
     if loc_added is not None and loc_added > 20000:
         warnings.append(
             "⚠ Rozsah vypadá nesmyslně — nejsou v commitu node_modules/ nebo build výstup?")
-    if state["unverified"] and target > 0:
+    if state["unverified"] and target > 0 and "NEOVĚŘENO" not in (
+            (_gate_summary(gates, rg) if gates else None) or ""):
         warnings.append(
             "Neověřeno: " + ", ".join(f"{u['gate']} ({u['reason']})" for u in state["unverified"])
             + " — skóre o tom nic neříká.")
@@ -1187,7 +1188,7 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     people_md = ("## Podpisy a odpovědnosti\n\n" + "\n".join(people) + "\n\n") if people else ""
 
     pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
-    return f"""{BRAND}
+    md = f"""{BRAND}
 
 # SHIP — {name}
 
@@ -1202,6 +1203,7 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
 
 {people_md}{threshold_md}{pr_command}
 {_measure_md(slug, pr)}"""
+    return re.sub(r"\n{3,}", "\n\n", md)
 
 
 def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str:
@@ -1310,7 +1312,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 {measure}
 ## Záznam rozhodnutí
 
-- Audit log a decision log jsou v DB toolu (7letá retence, DORA); cesta: `pflanzer db`.
+- Audit log a decision log jsou v DB toolu (retence 7 let nastavená v nástroji); cesta: `pflanzer db`.
 - Decision log pro git: `.pflanzer/decisions/{p[2]}.md` v target repu (commitnutý při Rozhodnutí).
 - AI Act: pokud `tier=high`, Annex IV technická dokumentace před produkcí.
 - GDPR: pokud `data_class=L3+`, aktualizace RoPA a DPIA.

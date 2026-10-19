@@ -29,6 +29,8 @@ from typing import Any
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
 PYTHON_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
+GO_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.go.md.template"
+GENERIC_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.generic.md.template"
 CONSTITUTION_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "CONSTITUTION.md.template"
 GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.template"
 GATES_FILENAME = "pflanzer.gates.yml"
@@ -40,12 +42,21 @@ from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 
 def guide_template_for(path: Path) -> Path:
-    """INTEGRATION_GUIDE šablona podle stacku repa: Python varianta, jinak (Node) stávající."""
+    """INTEGRATION_GUIDE šablona podle stacku: Python / Go; Node (React/TS) a repo bez rozpoznaného
+    stacku (bez package.json) dostane generic variantu, jen neznámé s package.json zůstává Node."""
     try:
-        python = detect_stack(path) == "python"
+        stack = detect_stack(path)
     except OSError:
-        python = False
-    return PYTHON_TEMPLATE_PATH if python and PYTHON_TEMPLATE_PATH.is_file() else TEMPLATE_PATH
+        stack = None
+    if stack == "python" and PYTHON_TEMPLATE_PATH.is_file():
+        return PYTHON_TEMPLATE_PATH
+    if stack == "go" and GO_TEMPLATE_PATH.is_file():
+        return GO_TEMPLATE_PATH
+    if stack in ("maven", "gradle", "dotnet") and GENERIC_TEMPLATE_PATH.is_file():
+        return GENERIC_TEMPLATE_PATH
+    if stack is None and not (path / "package.json").is_file() and GENERIC_TEMPLATE_PATH.is_file():
+        return GENERIC_TEMPLATE_PATH
+    return TEMPLATE_PATH
 
 
 def git_add_command(target_repo: Path) -> str:
@@ -256,6 +267,10 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "build": {"cmd": "go build ./..."},
             "lint": {"cmd": "go vet ./..."},
             "tests": {"cmd": "go test ./..."},
+            ("acceptance" if next((target / "tests" / "acceptance").glob("*_test.go"), None)
+             else "#acceptance"): {
+                "_note": "Go akceptační testy: tests/acceptance/*_test.go (package acceptance).",
+                "cmd": "go test ./tests/acceptance/..."},
             "#coverage": {"cmd": "go test -coverprofile=cover.out ./... && go tool cover -func=cover.out",
                           "parse": r"regex:^total:\s+\(statements\)\s+(?P<metric>[\d.]+)%",
                           **COVERAGE_THRESHOLDS},
@@ -302,33 +317,73 @@ def render_gates_template(target: Path) -> tuple[str, str | None]:
     return text, stack
 
 
-def write_gates_template(target: Path, force: bool = False) -> dict[str, Any]:
+def _yaml_available() -> bool:
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def render_gates_json(target: Path) -> tuple[str, str | None]:
+    """JSON varianta adaptéru (bez PyYAML): jen aktivní brány, komentované příklady jdou do `_poznamka`."""
+    stack = detect_stack(target)
+    presets = _gate_presets(stack, target)
+    data: dict[str, Any] = {}
+    for gate in GATE_TYPES:
+        spec = presets.get(gate)
+        if spec is not None:
+            data[gate] = {k: v for k, v in spec.items() if not k.startswith("_")}
+    return json.dumps(data, ensure_ascii=False, indent=2) + "\n", stack
+
+
+def write_gates_template(target: Path, force: bool = False, fmt: str = "auto") -> dict[str, Any]:
+    """`fmt`: auto (YAML, bez PyYAML JSON) | yaml | json. Nikdy nekončí bez rady."""
     target = target.resolve()
     if not target.is_dir():
         return {"ok": False, "reason": f"{target} není adresář"}
     if not GATES_TEMPLATE_PATH.exists():
         return {"ok": False, "reason": f"Template missing: {GATES_TEMPLATE_PATH}"}
-    out_path = target / GATES_FILENAME
-    if out_path.exists() and not force:
-        return {"ok": False, "path": str(out_path),
-                "reason": f"{GATES_FILENAME} už existuje (--force pro overwrite)"}
-    text, stack = render_gates_template(target)
+    note = ""
+    if fmt == "auto":
+        fmt = "yaml" if _yaml_available() else "json"
+        if fmt == "json":
+            note = ("PyYAML není nainstalovaný, proto vznikl `pflanzer.gates.json` "
+                    "(stejný obsah; YAML by quality_gates nenačetl).")
+    elif fmt == "yaml" and not _yaml_available():
+        note = ("pozor: PyYAML chybí — `pflanzer.gates.yml` se nenačte, dokud nespustíš "
+                "`pip install pyyaml` (nebo `--format json`).")
+    filename = GATES_FILENAME if fmt == "yaml" else "pflanzer.gates.json"
+    out_path = target / filename
+    others = [n for n in ("pflanzer.gates.yml", "pflanzer.gates.yaml", "pflanzer.gates.json")
+              if (target / n).exists()]
+    if others and not force:
+        return {"ok": False, "path": str(target / others[0]),
+                "reason": f"{others[0]} už existuje (--force pro overwrite)"}
+    text, stack = render_gates_json(target) if fmt == "json" else render_gates_template(target)
     out_path.write_text(text, encoding="utf-8")
-    active = [g for g in GATE_TYPES
-              if any(line.startswith(f"{g}:") for line in text.splitlines())]
+    if fmt == "json":
+        active = [g for g in GATE_TYPES if g in json.loads(text)]
+    else:
+        active = [g for g in GATE_TYPES
+                  if any(line.startswith(f"{g}:") for line in text.splitlines())]
+    steps = [
+        f"1. Projdi `{filename}` — doplň příkazy pro brány, které tým umí měřit "
+        "(lint, coverage, acceptance).",
+        "2. Ověř lokálně: `pflanzer quality_gates --path <repo>` (bez DB).",
+        f"3. Commitni `{filename}` do main — reviewuj jeho změny jako CI config.",
+    ]
+    if note:
+        steps.insert(0, note)
     return {
         "ok": True,
         "path": str(out_path),
+        "format": fmt,
         "stack": stack or "unknown",
         "active_gates": active,
         "unsupported_gates": [g for g in GATE_TYPES if g not in active],
-        "next_steps": [
-            f"1. Projdi `{GATES_FILENAME}` — odkomentuj příklady pro gates, které "
-            "tým umí měřit (lint, coverage, acceptance).",
-            "2. Ověř lokálně: `python3 tool/cli/quality_gates.py --path <repo>` "
-            "(bez DB, jen JSON výstup).",
-            f"3. Commitni `{GATES_FILENAME}` do main — reviewuj jeho změny jako CI config.",
-        ],
+        "note": note,
+        "next_steps": steps,
     }
 
 
@@ -469,11 +524,13 @@ shadow_pm = "<jméno PdM>"
     # never write it implicitly (it switches quality_gates to adapter mode).
     stack = detect_stack(target_repo)
     gates_hint: list[str] = []
-    if stack not in (None, "node", "python") and not (target_repo / GATES_FILENAME).exists():
+    if stack not in (None, "node", "python") and not any(
+            (target_repo / n).exists()
+            for n in ("pflanzer.gates.yml", "pflanzer.gates.yaml", "pflanzer.gates.json")):
         gates_hint.append(
             f"6. Stack {STACK_LABELS[stack]}: vygeneruj gate adaptér "
             "`pflanzer init gates-template --path .` (jinak část quality "
-            "gates skončí jako unsupported).")
+            "gates skončí jako neověřené).")
 
     return {
         "ok": True,
@@ -511,12 +568,14 @@ def main() -> None:
         help="Write a prefilled pflanzer.gates.yml (stack autodetect) into the target repo",
     )
     gt.add_argument("--path", default=".", help="Target repo path (default: cwd)")
-    gt.add_argument("--force", action="store_true", help="Overwrite existing pflanzer.gates.yml")
+    gt.add_argument("--force", action="store_true", help="Overwrite existing pflanzer.gates.*")
+    gt.add_argument("--format", choices=("auto", "yaml", "json"), default="auto",
+                    help="auto = YAML, bez PyYAML JSON (default)")
     gt.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args()
 
     if args.command == "gates-template":
-        out = write_gates_template(Path(args.path), force=args.force)
+        out = write_gates_template(Path(args.path), force=args.force, fmt=args.format)
         if not out.get("ok"):
             if args.json:
                 print(json.dumps(out, ensure_ascii=False, indent=2))
@@ -525,7 +584,8 @@ def main() -> None:
         emit(out, title="Gate adaptér vytvořen",
              lines=[f"Soubor `{out['path']}` (stack: {out['stack']}).",
                     f"Aktivní kontroly: {', '.join(out['active_gates']) or '—'}.",
-                    "Nepodporované kontroly (zatím): " + (", ".join(out["unsupported_gates"]) or "žádné")],
+                    "Bez příkazu (doplň ručně): " + (", ".join(out["unsupported_gates"]) or "žádné")]
+             + ([out["note"]] if out.get("note") else []),
              next_step="projdi soubor, odkomentuj, co tým umí měřit, a commitni ho do main",
              tips=[], as_json=args.json)
         return

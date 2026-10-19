@@ -1,0 +1,73 @@
+# INTEGRATION_GUIDE.md — pro vibe-coding session v tomto repu
+
+> **Tento soubor čte Claude Code / Codex CLI jako PRVNÍ věc** v každé Pflanzer
+> session. Stack tohoto repa Pflanzer nepoznal (není Node, Python ani Go) —
+> vyplň sekce podle reality. Updatuj při velkých změnách architektury.
+
+## Stack a prostředí
+
+- Jazyk + verze: <Java 21 | .NET 8 | Rust | Ruby | PHP | ...>
+- Build nástroj: <Maven | Gradle | dotnet | cargo | make | ...>
+- Závislosti: `<příkaz instalace>`
+- Spuštění lokálně: `<příkaz>` — port čti z proměnné prostředí `PORT`
+
+## Auth pattern
+
+- Provider: <OIDC / OAuth2 | session cookie | API klíč | žádná auth>
+- Kde se ověřuje: <middleware / filter / dekorátor>
+- Chráněný endpoint: `<příklad>`
+
+## API a datová vrstva
+
+- Routing: `<kde jsou routy>`
+- Validace vstupu: <knihovna | ručně>
+- DB: <ORM | SQL | žádná>
+- **Vibe-coded varianty NESMÍ generovat migrace** — změny schématu jdou do samostatného PR s labelem `db-migration`.
+
+## Logger / observability
+
+- Logger: `<knihovna>` — žádný výpis na stdout v produkčním kódu
+- Tracing / metriky: <OpenTelemetry | žádné>
+
+## Feature flags
+
+- Provider: <LaunchDarkly | Unleash | proměnná prostředí | žádné>
+- **V preview a Buildu jsou flagy vždy ZAPNUTÉ**: Pflanzer spouští aplikaci s
+  `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`.
+- Nová funkce musí být dosažitelná odkazem z `/`.
+
+## Struktura repa
+
+```
+<strom adresářů: kód, testy, tests/acceptance/>
+```
+
+## Testy
+
+- Test runner: `<příkaz>`
+- Akceptační testy: `tests/acceptance/` ve formátu, který umí tvůj test runner
+- Nový kód bez testu se nemerguje.
+
+## Lint, typy, formát
+
+- Lint: `<příkaz>` ; typy: `<příkaz | kompilátor>`
+
+## Brány kvality
+
+Pflanzer nezná příkazy tohoto stacku: vygeneruj adaptér `pflanzer init gates-template --path .`
+a doplň příkazy pro build / tests / lint / acceptance.
+
+## CI
+
+- CI: <GitHub Actions | GitLab CI | jiné> — build + testy musí projít před mergem do `main`.
+
+## AI code provenance
+
+- Autor commitu = dev u klávesnice, ručí za kód jako za vlastní. AI nikdy jako autor —
+  žádný `Co-Authored-By: Claude` trailer.
+- PR labely: `ai-generated` + `pflanzer:objednavka`; PR body má sekci „AI provenance".
+- **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická data.
+
+## Folder for Pflanzer artefakty
+
+Artefakty Pflanzer Method drží v `docs/pflanzer/objednavka/` (název = slug projektu).

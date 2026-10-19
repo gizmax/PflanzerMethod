@@ -100,8 +100,8 @@ def test_reminders_ics(project: dict[str, Any]) -> None:
     lines = ics.split("\r\n")
     assert lines[0] == "BEGIN:VCALENDAR"
     assert lines[-2] == "END:VCALENDAR"
-    assert ics.count("BEGIN:VEVENT") == 4
-    assert ics.count("END:VEVENT") == 4
+    assert ics.count("BEGIN:VEVENT") == 5  # T+7/30/60/90 + kill kritérium z Kickoffu
+    assert ics.count("END:VEVENT") == 5
     assert "DTSTART;VALUE=DATE:20260908" in ics   # T+7
     assert "DTSTART;VALUE=DATE:20261130" in ics   # T+90
     assert all(len(line.encode("utf-8")) <= 75 for line in lines)

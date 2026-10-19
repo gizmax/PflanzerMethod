@@ -190,6 +190,7 @@ def _audit_state(conn: Any, pid: int) -> dict[str, Any]:
         except (ValueError, TypeError, AttributeError):
             continue
     return {"build_running": latest("worktree.setup") is not None, "ship": ship,
+            "triage_run": latest("triage.aggregate") is not None,
             "lesson": latest("retro.lesson") is not None,
             "retro_done": latest("retro.measure") is not None,
             "lessons": [x for x in lessons if x]}
@@ -293,6 +294,11 @@ def project_detail(slug: str) -> dict[str, Any]:
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
                         build_running=evidence["build_running"])
     nxt = _with_slug(nxt, slug)
+    if (tier == "full" and p["status"] in ("draft", "charter", "triage")
+            and not evidence["build_running"] and not evidence.get("triage_run")):
+        # Full stupeň jde přes roles + plný triage; rovnou Build by je přeskočil.
+        phase = "Kickoff hotový — Full: čeká plný triage"
+        nxt = f"/pm triage {slug}"
     if p["status"] in ("draft", "charter"):
         blocked_tracks = _blocked_triage(slug)
         if blocked_tracks:

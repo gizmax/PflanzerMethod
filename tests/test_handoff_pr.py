@@ -112,7 +112,8 @@ def test_pr_body_and_ship_have_no_placeholders(shipped: dict[str, Any]) -> None:
             assert ph not in text, f"placeholder {ph!r} v textu určeném lidem"
     assert "Brány:" in pr["body"] and "/100" in pr["body"]
     # 2 běžící brány -> poctivá jedna věta, ne tučně
-    assert pr["gates_summary"] == "100/100 jen ze 2 bran — orientační"
+    assert pr["gates_summary"].startswith("100/100 jen ze 2 bran — orientační")
+    assert "NEOVĚŘENO: acceptance" in pr["gates_summary"]   # acceptance chybí = neověřeno
     assert "**100/100" not in pr["body"]
 
 

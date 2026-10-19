@@ -955,6 +955,21 @@ def metric_horizon_days(project: dict[str, Any]) -> tuple[int, str] | None:
     return None
 
 
+_KILL_HORIZON_RE = re.compile(
+    r"(?i)\b(?:po|do|za|během|behem)\s+(\d{1,3})\s*(dn[ůu]|dn[íi]|dny|den|t[ýy]dn\w*|měsíc\w*|mesic\w*)")
+
+
+def kill_horizon_days(project: dict[str, Any]) -> tuple[int, str] | None:
+    """Termín kill kritéria z Kickoffu („po 4 týdnech“, „do 30 dnů“) -> (dny, text kritéria)."""
+    text = str(project.get("kill_criteria") or "").strip()
+    m = _KILL_HORIZON_RE.search(text)
+    if not m:
+        return None
+    n, unit = int(m.group(1)), m.group(2).lower()
+    days = n * 7 if unit.startswith(("t", "týd")) else n * 30 if unit.startswith(("měs", "mes")) else n
+    return (days, text) if 0 < days <= 365 else None
+
+
 def _reminder_items(
     slug: str, from_date: str | None,
 ) -> tuple[dict[str, Any], date, str, list[dict[str, Any]]]:
@@ -1005,7 +1020,25 @@ def _reminder_items(
                            f"--milestone {nearest} --metric {metrics[0]} --value <N> "
                            f"--evidence <URL>"),
         })
-        items.sort(key=lambda it: it["due"])
+    kh = kill_horizon_days(project)
+    if kh:
+        days, ktext = kh
+        nearest = next((m for m in MILESTONES if MILESTONE_DAYS[m] >= days), MILESTONES[-1])
+        metric = f"t{days}_project_metric"
+        items.append({
+            "milestone": f"kill{days}",
+            "label": f"Kill kritérium (T+{days})",
+            "due": start + timedelta(days=days),
+            "owner": owners["t30"][0] if "t30" in owners else owners[nearest][0],
+            "owner_source": "kill kritérium z Kickoffu",
+            "deliverable": (f"Vyhodnotit kill kritérium z Kickoffu („{ktext}“): "
+                            "splněno -> Kill a poučení, jinak pokračovat"),
+            "metrics": [metric],
+            "record_cmd": (f"pflanzer retro record --slug {slug} "
+                           f"--milestone {nearest} --metric {metric} --value <N> "
+                           f"--evidence <URL>"),
+        })
+    items.sort(key=lambda it: it["due"])
     return project, start, start_source, items
 
 

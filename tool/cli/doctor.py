@@ -191,6 +191,9 @@ def _manifest_has_deps(repo: Path, manifest: str) -> bool:
                         or poetry.get("dev-dependencies"))
         if manifest == "requirements.txt":
             return True
+        if manifest == "go.mod":  # go.sum vzniká jen s `require` (modul bez závislostí ho nemá)
+            return bool(re.search(r"^\s*require\b|^\s+\S+\s+v\d", path.read_text(
+                encoding="utf-8", errors="replace"), re.MULTILINE))
     except Exception:  # nečitelný manifest: raději upozorni na lockfile
         return True
     return True

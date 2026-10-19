@@ -277,6 +277,63 @@ def _repo_stat_lines(ctx: dict[str, Any]) -> list[str]:
     return out
 
 
+_FIN_RE = re.compile(
+    r"(?i)\bDORA\b|\bPSD2\b|MiFID|Solvency|\bbank\w*|pojišť\w*|pojistn\w*|finančn\w+|"
+    r"platební|platebn\w+|fintech|úvěr\w*|hypotéč\w*|investičn\w+|broker\w*|obchodník s cennými")
+
+
+def is_financial(ctx: dict[str, Any]) -> bool:
+    """Spadá projekt do finančního sektoru (DORA)? Podle zadání, domény a triage artefaktů."""
+    p = ctx["project_tuple"]
+    parts = [str(x or "") for x in (p[1], p[4], p[5])]
+    parts += [str(t.get("artefact_md") or "") for t in ctx.get("triage", [])
+              if t.get("track") in ("legal", "security")]
+    return bool(_FIN_RE.search(" ".join(parts)))
+
+
+def regulation_text(ctx: dict[str, Any]) -> dict[str, str]:
+    """Regulatorní formulace podle domény: DORA a 7letá retence jen u finančního sektoru."""
+    if is_financial(ctx):
+        return {"attrib": "DORA / AI Act čl. 14 / GDPR čl. 22",
+                "attrib_short": "DORA",
+                "retention": "audit_log retention 7 let (DORA)",
+                "retention_note": "(DORA 7-letá retence enforced)",
+                "third_party": "DORA 3rd-party review",
+                "recipients": "z DORA 3rd-party register",
+                "ir_sla": "Incident response SLA ≤ 4 h: doplnit per vendor (DORA čl. 12)",
+                "concentration": "Provider concentration risk: doplnit (DORA čl. 28)",
+                "logging": "structured logs s atribucí, 7-letá retence (DORA)"}
+    return {"attrib": "AI Act čl. 14 / GDPR čl. 22",
+            "attrib_short": "AI Act čl. 14",
+            "retention": "audit_log retence dle Legal triage (nástroj ukládá 7 let; upřesnit)",
+            "retention_note": "(retenci určí Legal triage; nástroj ukládá 7 let)",
+            "third_party": "3rd-party review",
+            "recipients": "z registru dodavatelů",
+            "ir_sla": "Incident response SLA: doplnit per vendor (dle smlouvy)",
+            "concentration": "Závislost na jednom dodavateli: doplnit",
+            "logging": "structured logs s atribucí, retence dle Legal triage"}
+
+
+def stack_commands(local_path: str | None) -> tuple[str, str]:
+    """(stack, bash blok) podle souborů ve větvi vítěze: Go / Python / Rust / Node / Make."""
+    root = Path(local_path).expanduser() if local_path else None
+
+    def has(*names: str) -> bool:
+        return bool(root and root.is_dir() and any((root / n).exists() for n in names))
+
+    if has("go.mod"):
+        return "go", "go mod download     # pokud ještě ne\ngo vet ./...\ngo build ./...\ngo test ./..."
+    if has("package.json"):
+        return "node", "npm install        # pokud ještě ne\nnpm run lint\nnpm run build\nnpm test"
+    if has("pyproject.toml", "requirements.txt", "setup.py"):
+        return "python", "python -m pip install -e .   # pokud ještě ne\nruff check .\npython -m pytest"
+    if has("Cargo.toml"):
+        return "rust", "cargo clippy\ncargo build\ncargo test"
+    if has("Makefile"):
+        return "make", "make lint\nmake build\nmake test"
+    return "unknown", "# stack nerozpoznán — použij příkazy z README / Makefile projektu"
+
+
 def render_be(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top_variant = ctx["variants"][0] if ctx["variants"] else None
@@ -393,10 +450,7 @@ def render_fe(ctx: dict[str, Any]) -> str:
 
 ```bash
 cd {tilde(ext['local_path'])}
-npm install        # pokud ještě ne
-npm run lint
-npm run build
-npm test
+{stack_commands(ext['local_path'])[1]}
 ```
 
 Detail per brána: `quality-{top['name']}.md` ve výstupní složce (`pflanzer data`).
@@ -467,6 +521,7 @@ DS deviation list (s ownerem) — viz souhrn Buildu (`_summary.md`).
 def render_qa(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top = ctx["variants"][0] if ctx["variants"] else None
+    reg = regulation_text(ctx)
     return f"""# QA handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -517,7 +572,7 @@ Feature: {p[1]}
 - [ ] Performance baseline meets SLO (z platform.md)
 - [ ] Measurement plan instrumented (z data.md)
 - [ ] Support docs ready D-7 (KB) → D-2 (makra) (z support.md)
-- [ ] Decision log atributed (DORA), audit_log retention 7 let
+- [ ] Decision log atributed ({reg['attrib_short']}), {reg['retention']}
 
 ## Exploratory test charter (90 min template)
 
@@ -586,7 +641,7 @@ Tool: Grafana / DataDog (per company default).
 - [ ] Cost estimate (TCO sheet) + budget approval
 - [ ] Security sign-off (SBOM + CVE + secret scan clean)
 
-## DORA 3rd-party review (z Security triage)
+## {regulation_text(ctx)['third_party']} (z Security triage)
 
 {sec_triage['artefact_md'][:500] if sec_triage and sec_triage['artefact_md'] else '_(no security triage artefakt — spusť triage znovu před produkcí)_'}
 """
@@ -697,6 +752,14 @@ ritual (per `04-session-1.md` § Full — rozšířená agenda).
 """
 
 
+def _excerpt(md: str, n: int = 1500) -> str:
+    """Začátek + konec artefaktu: poznámky oken (checkpointy) jsou připojené na konci."""
+    md = md.strip()
+    if len(md) <= n:
+        return md
+    return md[: n // 3].rstrip() + "\n\n[…]\n\n" + md[-(n * 2 // 3):].lstrip()
+
+
 def render_compliance(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     legal_triage = next((t for t in ctx["triage"] if t["track"] == "legal"), None)
@@ -712,10 +775,14 @@ def render_compliance(ctx: dict[str, Any]) -> str:
         ai_line = ai_stand_in_line(slug)
     except Exception:  # noqa: BLE001
         ai_line = None
+    reg = regulation_text(ctx)
     hook_text = " ".join(str(x or "") for x in (p[5], p[4]))
     pii_hit = re.search(
         r"(?i)osobn\w*\s+(?:údaj|udaj|dat)\w*|e-?mail|telefon|jméno|jmeno|adres\w+|"
-        r"přihlášk\w*|formulář\w*|registrac\w*|zákazn\w+|objednáv\w+|personal data|gdpr", hook_text)
+        r"přihlášk\w*|formulář\w*|registrac\w*|zákazn\w+|objednáv\w+|personal data|gdpr|"
+        r"průkazk\w*|čísl\w*\s+průkaz\w*|občansk\w+\s+průkaz\w*|rodn\w+\s+čísl\w*|"
+        r"datum\s+narození|narozen\w+|e-?mail\w*|telefon\w*|adres\w+|bydliště|čtenář\w*",
+        hook_text)
     pii = (f"ano, podle zadání (zmínka: „{pii_hit.group(0)}“) — upřesnit kategorie"
            if pii_hit else "v zadání se osobní údaje nezmiňují — potvrdit")
     risk = ctx.get("risk_profile")
@@ -735,11 +802,11 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 
 ## Audit trail dump
 
-**Decision log atribuce** (DORA / AI Act čl. 14 / GDPR čl. 22):
+**Decision log atribuce** ({reg['attrib']}):
 
 {chr(10).join(decision_attrib) or '_(žádná rozhodnutí)_'}
 
-**Audit log entries**: {audit_count_text} (DORA 7-letá retence enforced).
+**Audit log entries**: {audit_count_text} {reg['retention_note']}.
 
 ## RoPA update (Records of Processing Activities)
 
@@ -755,7 +822,7 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - Data subjects: doplnit
 - Categories of data: doplnit (per Security triage Data Classification)
 - Retention: per `data.md` § Privacy classification
-- Recipients (3rd parties): doplnit (z DORA 3rd-party register)
+- Recipients (3rd parties): doplnit ({reg['recipients']})
 
 ## AI Act risk register entry
 
@@ -763,24 +830,24 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - Use case description: {p[5]}
 - Annex IV technical doc required: {'YES' if p[8] in ('high', 'limited') else 'NO'}
 - Human oversight mechanism: doplnit (per Legal triage)
-- Logging requirements: structured logs s atribucí, 7-letá retence
+- Logging requirements: {reg['logging']}
 
 ## DPA flag list (3rd party AI vendors)
 
 - doplnit: per Security triage Approved AI Tool list, ověř DPA na všech vendorech
 - Penetration test review v posledních 12 mo: doplnit per vendor
-- Incident response SLA ≤ 4 h: doplnit per vendor (DORA čl. 12)
-- Provider concentration risk: doplnit (DORA čl. 28)
+- {reg['ir_sla']}
+- {reg['concentration']}
 
 ## Triage artefakty (full text)
 
 ### Security triage
 
-{sec_triage['artefact_md'][:1500] if sec_triage and sec_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
+{_excerpt(sec_triage['artefact_md']) if sec_triage and sec_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
 
 ### Legal triage
 
-{legal_triage['artefact_md'][:1500] if legal_triage and legal_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
+{_excerpt(legal_triage['artefact_md']) if legal_triage and legal_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
 
 ## Pre-production gate
 
@@ -790,7 +857,7 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - [ ] DPA signed for all AI vendors
 - [ ] Security SBOM + CVE scan clean
 - [ ] Secret scan clean
-- [ ] Audit log retention configured (7 let DORA)
+- [ ] Audit log retention configured ({reg['retention']})
 """
 
 

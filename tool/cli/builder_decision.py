@@ -127,6 +127,7 @@ class DecisionInput:
     customer_facing: bool = False
     production_target: int = 0  # 0..100; >0 = optimize pro reusable code (práh gates)
     prefer_hosted_preview: bool = False  # opt-in: tým chce Bolt/v0/Lovable (greenfield, designer-led)
+    sandbox_pending: bool = False  # platform triage je `pending` (AI návrh čeká na podpis)
 
 
 # In-repo CLI builders — default. Code rovnou v repu, žádný extract step.
@@ -271,6 +272,9 @@ def recommend(di: DecisionInput, top_n: int = 3) -> dict[str, Any]:
         "fallback": "manual",
         "diversity_hint": diversity_hint,
         "mode": "hosted_preview" if di.prefer_hosted_preview else "in_repo_cli",
+        "notes": (["Sandbox (platform triage) čeká na podpis člověka — Build smí běžet, "
+                   "Ship ho bez podpisu nepustí (`pflanzer checkpoint … provoz --by …`)."]
+                  if di.sandbox_pending else []),
     }
 
 
@@ -291,7 +295,8 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
             (proj[0],),
         ).fetchone()
 
-    has_sandbox = bool(platform and platform[0] in ("ok", "deferred"))
+    has_sandbox = bool(platform and platform[0] in ("ok", "deferred", "pending"))
+    sandbox_pending = bool(platform and platform[0] == "pending")
     # production_target je aktivní pokud je nastaven (>0). Throwaway projekt
     # může mít target=0 (nezáleží na export). Pilot/production typicky 70+.
     production_target = int(proj[4] or 0)
@@ -306,6 +311,7 @@ def recommend_for_slug(slug: str, stack_hint: str | None = None,
         customer_facing=customer_facing,
         production_target=production_target,
         prefer_hosted_preview=prefer_hosted_preview,
+        sandbox_pending=sandbox_pending,
     )
     return recommend(di)
 

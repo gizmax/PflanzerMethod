@@ -693,7 +693,7 @@ def bootstrap(
             "Triage odložený (Kickoff nemá 48h pre-read). Checkpoint Bezpečnost & "
             "právo proběhne do 48 h po Buildu, před Ship."
         ),
-        "next_step": f"/pm build {slug}",
+        "next_step": f"/pm triage {slug}" if tier == "full" else f"/pm build {slug}",
     }
 
 
@@ -1212,9 +1212,17 @@ def stack_profile(path: Path | None) -> StackProfile:
         if "lint" in targets:
             cmds.append("make lint")
         run = "make run" if "run" in targets else None
-        return StackProfile("python", cmds, run)
-    simple = {"go": (["go vet ./...", "go test ./..."], None),
-              "maven": (["mvn -q test"], None),
+        return StackProfile("python", cmds, run, acceptance_glob="tests/acceptance/test_*.py")
+    if stack == "go":
+        # Makefile: všechny existující kontrolní cíle (test, lint, vet, build) + run; bez něj plný řetěz
+        make_cmds = [f"make {t}" for t in ("test", "lint", "vet", "build") if t in targets]
+        if make_cmds:
+            cmds = make_cmds if "test" in targets else [*make_cmds, "go test ./..."]
+        else:
+            cmds = ["go build ./... && go vet ./... && go test ./..."]
+        run = "make run" if "run" in targets else "go run ."
+        return StackProfile("go", cmds, run, acceptance_glob="tests/acceptance/*_test.go")
+    simple = {"maven": (["mvn -q test"], None),
               "gradle": (["./gradlew test" if (path / "gradlew").exists() else "gradle test"], None),
               "dotnet": (["dotnet test --nologo"], None)}
     if stack in simple:
@@ -1247,12 +1255,17 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
                    multi_repo: bool = False) -> str:
     """Společná pravidla pro AI buildera (v0.5): constitution, kontroly v Buildu, štítek."""
     stack = stack or StackProfile()
-    acc_file = ("tests/acceptance/test_*.py" if stack.stack == "python"
-                else stack.acceptance_glob or "tests/acceptance/*.test.js")
+    acc_file = (stack.acceptance_glob or
+                ("tests/acceptance/test_*.py" if stack.stack == "python" else
+                 "tests/acceptance/*_test.go" if stack.stack == "go" else
+                 "tests/acceptance/" if stack.stack in ("maven", "gradle", "dotnet")
+                 else "tests/acceptance/*.test.js"))
+    acc_note = (" (package `acceptance`; Ship spustí `go test ./tests/acceptance/...`)"
+                if stack.stack == "go" else "")
     feature_line = (
         f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
         "implementace musí projít všemi scénáři. Akceptační testy k nim napiš do "
-        f"`{acc_file}` (běžný test runner projektu) — Ship je spustí jako bránu acceptance.\n"
+        f"`{acc_file}`{acc_note} (běžný test runner projektu) — Ship je spustí jako bránu acceptance.\n"
         if has_feature else ""
     )
     n = 4 if has_feature else 3
