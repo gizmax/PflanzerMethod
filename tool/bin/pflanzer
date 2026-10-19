@@ -49,6 +49,7 @@ case "$SUB" in
     echo "  pflanzer data      # datová složka (DB, charters, feedback, ...)"
     echo "  pflanzer update    # git pull + migrace + update pluginu"
     echo "  pflanzer hub       # web hub pro feedback (http://localhost:8000/method/)"
+    echo "  pflanzer preview up --slug S   # spustí 3 varianty s heslem (+ tunel), vypíše URL a zprávu zástupcům; down|status"
     echo "  pflanzer checkpoint --slug S bezpecnost|provoz --by JMÉNO --note …  # podpis okna"
     echo "  pflanzer checkpoint --slug S bezpecnost --ai --note …               # AI draft (ADR-0023), podepíše člověk"
     echo ""

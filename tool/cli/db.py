@@ -81,6 +81,39 @@ def display_path(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
 
 
+_SCHEMA_CHECKED: set[str] = set()
+
+
+def _schema_version() -> int:
+    """Fingerprint schématu + migrací (31 bitů) — změna = DB se dorovná sama."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in (SCHEMA_PATH, REPO_ROOT / "tool" / "db" / "migrate.py"):
+        h.update(f.read_bytes() if f.exists() else b"")
+    return int(h.hexdigest()[:7], 16)
+
+
+def _ensure_schema(conn: sqlite3.Connection) -> None:
+    """Po aktualizaci toolu dorovnej existující DB (bez ručního `pflanzer update`)."""
+    key = str(DB_PATH)
+    if key in _SCHEMA_CHECKED:
+        return
+    _SCHEMA_CHECKED.add(key)
+    want = _schema_version()
+    have = conn.execute("PRAGMA user_version").fetchone()[0]
+    has_tables = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
+    if have == want or not has_tables:
+        return  # aktuální, nebo prázdná DB (tu zakládá migrate/fixture)
+    import contextlib
+    import io
+
+    from tool.db import migrate  # noqa: PLC0415 — lazy, avoids import cycle
+    with contextlib.redirect_stdout(io.StringIO()):
+        migrate.apply_schema()
+    conn.execute(f"PRAGMA user_version = {want}")
+
+
 def get_connection() -> sqlite3.Connection:
     """Return a SQLite connection with row_factory and FK enforcement."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -88,6 +121,7 @@ def get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
+    _ensure_schema(conn)
     return conn
 
 

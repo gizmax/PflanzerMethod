@@ -273,7 +273,8 @@ def test_doctor_tip_does_not_repeat_warning_rows(tmp_path: Path) -> None:
     repo = tmp_path / "bare"
     repo.mkdir()
     rows = [doctor.check_ci(repo), doctor.check_preview(repo)]
-    assert all(r["status"] == doctor.WARN for r in rows)
+    assert rows[0]["status"] == doctor.WARN
+    assert rows[1]["status"] == doctor.OK            # stačí `pflanzer preview up`
     _title, lines, _nxt, _warns, tips = doctor._human(repo, rows)
     assert any("CI konfigurace" in ln for ln in lines)
     assert any("Preview deploy" in ln for ln in lines)

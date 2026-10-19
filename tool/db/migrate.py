@@ -92,6 +92,8 @@ ADDITIVE_TABLES: tuple[str, ...] = (
 CHECK_REBUILDS: dict[str, str] = {
     # Audit N3: worktree extraction is a first-class extraction_method
     "extracted_code": "'worktree'",
+    # Gate `smoke` (spuštění aplikace vítěze) je povolený gate_type
+    "quality_gates": "'smoke'",
 }
 
 
@@ -205,6 +207,7 @@ def apply_schema(reset: bool = False) -> None:
         print(f"[migrate] removed existing db: {db_path}")
 
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
+    _db._SCHEMA_CHECKED.add(str(db_path))  # explicitní migrace — žádná auto-migrace navíc
     conn = get_connection()
     try:
         tables_before = _existing_tables(conn)
@@ -234,6 +237,7 @@ def apply_schema(reset: bool = False) -> None:
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
             ).fetchall()
         ]
+        conn.execute(f"PRAGMA user_version = {_db._schema_version()}")
         print(f"[migrate] applied schema. tables: {', '.join(tables)}")
         print(f"[migrate] db at: {db_path}")
     finally:

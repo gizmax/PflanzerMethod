@@ -77,6 +77,10 @@ def test_migration_upgrades_v0_db(old_db: Path) -> None:
     assert row == (7, "in_repo_branch")
     gates = conn.execute("SELECT COUNT(*) FROM quality_gates WHERE extracted_id = 7")
     assert gates.fetchone()[0] == 1
+    # Brána `smoke` je po migraci povolená (rebuild quality_gates CHECK).
+    conn.execute(
+        "INSERT INTO quality_gates (extracted_id, gate_type, status) VALUES (7, 'smoke', 'pass')"
+    )
     assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
     idx = {r[1] for r in conn.execute("PRAGMA index_list(extracted_code)")}
     assert "idx_extracted_variant" in idx
