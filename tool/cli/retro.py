@@ -1076,15 +1076,8 @@ SUBCOMMANDS = ("measure", "record", "report", "reminders", "lesson")
 
 
 def _usage_help(first: str | None) -> str:
-    slug = first if first and not first.startswith("-") else "moje-appka"
-    return (
-        "Retro umí pět věcí (slug projektu je vždy za --slug):\n"
-        f"  pflanzer retro measure   --slug {slug} --pr-url <adresa PR>   # kolik kódu vítěze přežilo, days-to-prod\n"
-        f"  pflanzer retro record    --slug {slug} --milestone t7 --metric t7_bugs --value 2   # čtení T+7/30/60/90\n"
-        f"  pflanzer retro report    --slug {slug}                         # shrnutí do souboru\n"
-        f"  pflanzer retro reminders --slug {slug} --format ics --out {slug}-pripominky.ics   # připomínky do kalendáře\n"
-        f"  pflanzer retro lesson    --slug {slug} --text \"co jsme se dozvěděli\"   # poučení (hlavně po Kill)"
-    )
+    del first  # nikdy nedosazujeme zadané slovo (překlep) jako slug
+    return "pflanzer retro report --slug <slug>   (další: measure, record, reminders, lesson)"
 
 
 def main() -> None:
@@ -1191,7 +1184,7 @@ def main() -> None:
             nxt = (f"další poučení: `pflanzer retro lesson --slug {args.slug} --text \"…\"`; "
                    f"shrnutí: `pflanzer retro report --slug {args.slug}`"
                    if out["killed"] else f"`pflanzer retro report --slug {args.slug}`")
-            lines = [f"Zapsáno poučení #{out['lesson_id']}: {out['text']}"]
+            lines = [f"Zapsáno poučení #{out['lesson_id']}: „{out['text']}“"]
             lines.append("Přidáno do decision logu " + (f"({out['decision_log_repo']}) — commitni ho."
                          if out["decision_log_repo"] else "(z target repa se zapíše i do "
                          "`.pflanzer/decisions/`)."))

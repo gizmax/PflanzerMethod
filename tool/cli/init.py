@@ -316,6 +316,30 @@ shadow_pm = "<jméno PdM>"
             additions.append(".pflanzer/local/\n")
         if ".pflanzer/specs/" not in text:
             additions.append(".pflanzer/specs/\n")
+        lines_present = {ln.strip() for ln in text.splitlines()}
+
+        def _missing(*entries: str) -> list[str]:
+            return [e for e in entries if e not in lines_present
+                    and e.rstrip("/") not in lines_present]
+
+        stack_now = detect_stack(target_repo)
+        if stack_now == "node" or (target_repo / "package.json").is_file():
+            extra = _missing("node_modules/")
+            try:
+                pkg = json.loads((target_repo / "package.json").read_text(encoding="utf-8"))
+                has_build = isinstance((pkg.get("scripts") or {}).get("build"), str)
+            except (OSError, ValueError, AttributeError):
+                has_build = False
+            if has_build:
+                extra += _missing("dist/")
+            if extra:
+                additions.append("\n# Node (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
+        if stack_now == "python":
+            extra = _missing(".venv/", "__pycache__/")
+            if extra:
+                additions.append("\n# Python (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
+        if additions and text and not text.endswith("\n"):
+            text += "\n"
         if additions:
             gitignore.write_text(text + "".join(additions), encoding="utf-8")
             actions.append(f"updated: .gitignore (+{len(additions)} entries)")

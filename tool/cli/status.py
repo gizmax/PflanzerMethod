@@ -111,8 +111,18 @@ def _audit_state(conn: Any, pid: int) -> dict[str, Any]:
     if ship == "done" and (latest("handoff.generate") is not None
                            or latest("ship.render") is not None):
         ship = "handed_off"
+    lessons: list[str] = []
+    for (raw,) in conn.execute(
+            "SELECT payload_json FROM audit_log WHERE action = 'retro.lesson' AND "
+            "target_type = 'project' AND target_id = ? ORDER BY id", (pid,)).fetchall():
+        try:
+            lessons.append(str(json.loads(raw or "{}").get("text") or "").strip())
+        except (ValueError, TypeError, AttributeError):
+            continue
     return {"build_running": latest("worktree.setup") is not None, "ship": ship,
-            "lesson": latest("retro.lesson") is not None}
+            "lesson": latest("retro.lesson") is not None,
+            "retro_done": latest("retro.measure") is not None,
+            "lessons": [x for x in lessons if x]}
 
 
 def project_detail(slug: str) -> dict[str, Any]:
@@ -313,7 +323,8 @@ def project_detail(slug: str) -> dict[str, Any]:
                      "by_severity": sev},
         "checkpoints": cps, "blockers": blockers, "info": info,
         "ship_state": evidence["ship"], "killed_at": killed_at,
-        "lesson_recorded": evidence["lesson"],
+        "lesson_recorded": evidence["lesson"], "retro_done": evidence["retro_done"],
+        "lessons": evidence["lessons"],
         "decision": decision, "iterate_rounds": iterate_rounds,
         "decision_log": [dict(d) for d in decisions],
         "gate_score": gate if gate else None, "gate_target": target,
@@ -392,7 +403,11 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
     win = f" · vítěz: **{d['winner']}**" if d.get("winner") else ""
     if d["status"] == "killed":
         lines.append(f"Feedback: {fb['total']}{dec}")
-        lines.append("Poučení: " + ("zapsáno" if d.get("lesson_recorded") else "zatím nezapsáno"))
+        lessons = d.get("lessons") or []
+        if lessons:
+            lines.append(f"Poučení ({len(lessons)}): {_short(lessons[0], 80)}")
+        else:
+            lines.append("Poučení: " + ("zapsáno" if d.get("lesson_recorded") else "zatím nezapsáno"))
         return lines
     lines.append(f"Feedback: {fb['total']} (critical otevřené: {fb['critical']}){dec}{win}")
     cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
@@ -467,13 +482,16 @@ def main(argv: list[str] | None = None) -> None:
              tips=[] if args.json else _tips(d), warnings=warnings, as_json=args.json)
         return
     lines = []
+    open_proj = next((r for r in data if r["next_step"] != "—"
+                      and r.get("status") != "killed" and not r.get("retro_done")), None)
     for r in data:
         blocked = next((b for b in r["blockers"] if b["kind"] == "blocked"), None)
         flag = f" · ⚠ {blocked['text'].split(' — ')[0]}" if blocked else ""
         step = f"`{r['next_step']}`" if r["next_step"] != "—" else "—"
         lines.append(f"`{r['slug']}` — {_short(r['name'])} · {r['phase']}{flag} → {step}")
     emit(data, title="Projekty" if data else "Zatím žádný projekt", lines=lines,
-         next_step=(f"`pflanzer status --slug {data[0]['slug']}`" if data else "`/pm start`"),
+         next_step=(f"`{open_proj['next_step']}`" if open_proj else
+                    "Žádný rozpracovaný projekt — nový přes /pm start"),
          tips=[], as_json=args.json)
 
 

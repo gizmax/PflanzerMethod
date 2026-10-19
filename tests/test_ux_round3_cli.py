@@ -177,7 +177,7 @@ def test_status_after_kill_hides_blockers_and_points_to_lesson(
     capsys.readouterr()
     _main(monkeypatch, status, "--slug", slug)
     out2 = capsys.readouterr().out
-    assert "Poučení: zapsáno" in out2 and "poučení je zapsáno" in out2
+    assert "Poučení (1): Problém trápí jen vedení" in out2 and "poučení je zapsáno" in out2
 
 
 def test_checkpoint_after_kill_is_error(project: dict[str, Any], vote: Callable[..., Any],

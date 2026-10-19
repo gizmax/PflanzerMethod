@@ -361,7 +361,8 @@ def test_retro_without_subcommand_is_czech_help(monkeypatch: pytest.MonkeyPatch,
         retro.main()
     assert exc.value.code == 2
     err = capsys.readouterr().err
-    assert "chybí, co se má udělat" in err and "pflanzer retro report    --slug moje-appka" in err
+    assert "chybí, co se má udělat" in err
+    assert "pflanzer retro report --slug <slug>" in err and "moje-appka --" not in err
     assert "usage:" not in err and "invalid choice" not in err
 
 

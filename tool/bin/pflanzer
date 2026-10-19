@@ -65,8 +65,7 @@ case "$SUB" in
       MSG="CHYBA: Neznámý příkaz ‚${SUB}‘."
       if [ -n "$NEAR" ]; then MSG="$MSG Myslel jste ‚${NEAR}‘?"; fi
       echo "$MSG" >&2
-      echo "Příkazy: $(echo $CMDS | sed 's/ /, /g')." >&2
-      echo "Podrobnosti: pflanzer help" >&2
+      echo "Přehled: pflanzer help" >&2
       exit 2
     fi
     PYTHONPATH="$ROOT" exec python3 "$SCRIPT" "$@" ;;

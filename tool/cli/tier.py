@@ -70,3 +70,29 @@ def infer_tier(conn: Any, project_id: int, capacity_profile: str | None) -> str:
     # Legacy quick bootstrap stored `production` as capacity_profile='regulated'.
     risk = "production" if capacity_profile == "regulated" else None
     return default_tier(capacity_profile, quick_bootstrap=bool(quick), risk_profile=risk)
+
+
+TIER_MEANING = {
+    "quick": "rychlé ověření směru, Kickoff + Build v jednom (60–90 min), `/pm live`; "
+             "bezpečnost se dohání před pilotem",
+    "lean": "výchozí: Build 3 h, checkpoint bezpečnosti 20 min, `/pm start` → `/pm build`",
+    "full": "regulované / governance: Build 5–6 h, 4 triage tracky povinné, "
+            "`/pm roles` → `/pm triage` → `/pm build`",
+}
+
+
+def overview() -> str:
+    """Human overview of the three tiers (what `pflanzer tier` prints)."""
+    rows = [f"- {TIER_LABELS[t]} (`{t}`) — okno {window_label(t)} mezi Buildem a Rozhodnutím; "
+            f"{TIER_MEANING[t]}" for t in TIERS]
+    return ("**Pflanzer Method | pflanzer.cz/method**\n\nStupně metody:\n\n" + "\n".join(rows)
+            + "\n\nStupeň se volí při Kickoffu (`--tier quick|lean|full`); "
+              "aktuální stupeň projektu ukáže `pflanzer status --slug <slug>`.")
+
+
+def main() -> None:
+    print(overview())
+
+
+if __name__ == "__main__":
+    main()

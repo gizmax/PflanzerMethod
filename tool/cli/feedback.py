@@ -137,9 +137,19 @@ def add_feedback(
     return {
         "id": fid, "slug": slug, "variant": variant.upper(), "department": department,
         "role_matched": role_id is not None, "severity": sev, "score": val,
-        "submitted_by": actor, "focus_variants": focus,
+        "submitted_by": actor, "focus_variants": focus, "category": category,
         "blocks_go": sev == "critical" and variant.upper() in focus,
     }
+
+
+NON_CODE_CATEGORIES = {"scope", "rozsah", "duplicate", "duplicita", "strategy", "strategie",
+                       "business", "byznys"}
+
+
+def is_business_critical(department: str, category: str | None) -> bool:
+    """Critical od kroku Byznys nebo z kategorie, kterou nespraví kód (rozsah/duplicita/strategie)."""
+    return (_norm(department or "") in ("byznys", "business")
+            or _norm(category or "") in NON_CODE_CATEGORIES)
 
 
 def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]:
@@ -236,10 +246,16 @@ def main() -> None:
                 fid, sl = res["id"], res["slug"]
                 if res["blocks_go"]:
                     lines.append(f"Kritické na {res['variant']} blokuje Go, dokud se nevyřeší.")
-                    nxt = (f"oprav to ve variantě {res['variant']} a pak "
-                           f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
-                           f"--by JMÉNO --note \"co se opravilo\"`; nebo Decider přebije při Go: "
-                           f"`--override-critical \"důvod\"`")
+                    if is_business_critical(res["department"], res.get("category")):
+                        nxt = (f"Byznysový critical: zvažte Kill (problém je vyřešen jinde) nebo "
+                               f"vědomé `--override-critical \"důvod\"` Deciderem při Go "
+                               f"(`pflanzer session_2 decide --slug {sl} go --winner "
+                               f"{res['variant']} …`)")
+                    else:
+                        nxt = (f"oprav to ve variantě {res['variant']} a pak "
+                               f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
+                               f"--by JMÉNO --note \"co se opravilo\"`; nebo Decider přebije při Go: "
+                               f"`--override-critical \"důvod\"`")
                 else:
                     lines.append(f"Kritické na {res['variant']} Go neblokuje, pokud vyhraje jiná "
                                  f"varianta ({'/'.join(res['focus_variants']) or '—'}).")

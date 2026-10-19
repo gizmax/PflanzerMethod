@@ -213,6 +213,10 @@ def hardening_run(
         target = int(proj[2]) if proj[2] is not None else 80
         target_branch = proj[4] or "main"
         decider_name = proj[5]
+        if status == "killed":
+            raise ValueError(
+                "Projekt skončil Killem, Ship není možný. "
+                f"Poučení: `pflanzer retro lesson --slug {slug} --text \"…\"`.")
         if status != "handoff":
             raise ValueError(
                 f"Project status='{status}'. Ship vyžaduje Go v Rozhodnutí "
@@ -575,7 +579,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
     if meets:
         return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}."
     fails, warns = _failing(winner)
-    return (f"Skóre {score}/100 je pod prahem {target}. Dopravit: "
+    return (f"Skóre {score}/100 je pod prahem {target}. Opravit: "
             f"{', '.join(fails) or 'viz report'}"
             + (f" (varování: {', '.join(warns)})" if warns else "")
             + f". Pak znovu `/pm ship {slug}`, nebo Ship i přesto na odpovědnost Decidera: "

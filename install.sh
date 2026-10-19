@@ -53,6 +53,15 @@ else
   warn "node není v PATH — nutný pro 'npm run dev' v extracted sessions"
 fi
 
+# PyYAML je volitelný (pflanzer.gates.yml); neblokující pokus o instalaci, jen když chybí.
+if python3 -c 'import yaml' >/dev/null 2>&1; then
+  ok "PyYAML"
+elif python3 -m pip install --user --quiet pyyaml >/dev/null 2>&1; then
+  ok "PyYAML nainstalován (pip --user)"
+else
+  warn "PyYAML se nepodařilo nainstalovat — pflanzer.gates.yml nepůjde číst; použij pflanzer.gates.json nebo 'pip install pyyaml'"
+fi
+
 if command -v claude >/dev/null; then
   ok "claude (Claude Code) v PATH"
 else

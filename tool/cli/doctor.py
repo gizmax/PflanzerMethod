@@ -346,6 +346,20 @@ def check_project_toml(repo: Path) -> dict[str, str]:
     return _check(name, OK, ".pflanzer/project.toml")
 
 
+def check_gates_yaml(repo: Path) -> dict[str, str] | None:
+    """⚠ když repo má pflanzer.gates.yml a PyYAML chybí (jinak se brány nenačtou)."""
+    name = "Gate adaptér (YAML)"
+    if not any((repo / f).is_file() for f in ("pflanzer.gates.yml", "pflanzer.gates.yaml")):
+        return None
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        return _check(name, WARN, "pflanzer.gates.yml je v repu, ale chybí PyYAML",
+                      "Použijte pflanzer.gates.json, nebo `pip install pyyaml`.",
+                      "pilot půjde, ale Ship brány z adaptéru nenačte")
+    return None
+
+
 def run_checks(repo: Path) -> list[dict[str, str]]:
     git_rows, origin = check_git(repo)
     rows = list(git_rows)
@@ -355,6 +369,9 @@ def run_checks(repo: Path) -> list[dict[str, str]]:
     rows.append(check_constitution(repo))
     rows.append(check_project_toml(repo))
     rows.append(check_package_manager(repo))
+    gy = check_gates_yaml(repo)
+    if gy:
+        rows.append(gy)
     rows.extend(check_scripts(repo))
     rows.append(check_ci(repo))
     rows.append(check_preview(repo))

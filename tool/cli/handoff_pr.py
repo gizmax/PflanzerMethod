@@ -710,6 +710,9 @@ def build_pr(slug: str) -> dict[str, Any]:
         warnings.append(
             f"Nový kód bez testů: {notests['new_source_files']} nových zdrojových souborů, "
             "žádný nový ani změněný test.")
+    if loc_added is not None and loc_added > 20000:
+        warnings.append(
+            "⚠ Rozsah vypadá nesmyslně — nejsou v commitu node_modules/ nebo build výstup?")
     if state["unverified"] and target > 0:
         warnings.append(
             "Neověřeno: " + ", ".join(f"{u['gate']} ({u['reason']})" for u in state["unverified"])
@@ -912,14 +915,17 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
                   "bezpečnost nepodepsal člověk."] if sec_gap else [])
     verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *pr["warnings"]])
 
+    winner_md = "" if w else "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
+    first = real(p[4]) or name
     if w:
-        desc = _winner_description(w)
-        winner_md = f"## Vítěz {w[0]}" + (f" — {desc}" if desc else "") + "\n"
-    else:
-        winner_md = "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
-    changes = [real(p[4]) or name]
+        first = re.sub(r"Ověříme ho na třech funkčních variantách[^.]*\.",
+                       f"Ověřili jsme na třech funkčních variantách; vyhrála {w[0]}.", first)
+    changes = [first]
     if pr["metrics"][0]:
         changes.append(f"Metrika úspěchu: {pr['metrics'][0]}")
+    if w:
+        desc = _winner_description(w)
+        changes.append(f"Vítěz {w[0]}" + (f" — {desc}" if desc else "."))
     changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
 
     score_line = (pr["gates_summary"] or f"{score}/100") + f" (práh {target}) — {verdict}"
