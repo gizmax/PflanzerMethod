@@ -1,4 +1,4 @@
-"""Slice 3 — Pre-flight triage aggregator.
+"""Pre-flight triage aggregator (volitelný krok pro regulované projekty).
 
 The 4 triage sub-agents (discovery-readiness, security-triage, legal-triage,
 platform-triage) run in parallel via Claude Code Agent calls. Each returns
@@ -24,7 +24,13 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 
-TRIAGE_DIR = REPO_ROOT / "data" / "triage"
+try:  # výstupy mimo repo metody (DATA_ROOT z tool.cli.db); fallback <repo>/data
+    from tool.cli.db import DATA_ROOT  # type: ignore[attr-defined]  # noqa: E402
+except ImportError:  # pragma: no cover
+    DATA_ROOT = REPO_ROOT / "data"
+
+BRAND = "**Pflanzer Method | pflanzer.cz/method**"
+TRIAGE_DIR = DATA_ROOT / "triage"
 EXPECTED_TRACKS = ("discovery", "security", "legal", "platform")
 
 
@@ -130,11 +136,13 @@ def render_summary_md(
         warn_section = "\n## Warnings\n\n" + "\n".join(f"- {w}" for w in warnings) + "\n"
 
     next_step = (
-        "`/pflanzer-session-1 " + slug + "` — Session 1 orchestrator." if overall == "ok"
-        else "**Session 1 odložena.** Vyřešte blockers a spusťte `/pflanzer-triage " + slug + "` znovu."
+        "`/pm build " + slug + "` — Build (3 varianty paralelně)." if overall == "ok"
+        else "**Build odložen.** Vyřešte blockers a spusťte triage pro `" + slug + "` znovu."
     )
 
-    return f"""# Pre-flight Triage — {slug}
+    return f"""{BRAND}
+
+# Pre-flight Triage — {slug}
 
 > Project ID: {project_id} · Overall: **{overall.upper()}**
 > Per ADR-0002 (Pre-flight triage tracks).
@@ -143,7 +151,7 @@ def render_summary_md(
 |-------|--------|-----------|-----------|
 {rows}
 {block_section}{warn_section}
-## Next step
+## Další krok
 
 {next_step}
 """

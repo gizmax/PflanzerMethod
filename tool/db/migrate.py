@@ -33,18 +33,40 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Autoresearch Sprint 3 (perspektiva 02): ship contract fields
         ("target_branch_owner", "TEXT"),
         ("shadow_pm", "TEXT"),
-        # Mob mode autoresearch (Sprint 4 — ADR-0011)
+        # Mob mode autoresearch (Sprint 4 — ADR-0016)
         ("session_mode", "TEXT DEFAULT 'parallel'"),
+        # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
+        ("path_owners_json", "TEXT"),
+        ("core_json", "TEXT"),
         # ADR-0005 v0.4 (audit N2): throwaway is opt-in and needs a rationale
         ("throwaway_rationale", "TEXT"),
         # Audit N8: multi-repo (FE / BE / monorepo workspace) as JSON array
         ("target_repos", "TEXT"),
-        # Stupeň metody Quick / Lean / Full (ADR-0021); backfilled below
+        # Stupeň metody Quick / Lean / Full (ADR-0017); backfilled below
         ("tier", "TEXT CHECK (tier IN ('quick','lean','full'))"),
     ],
+    # v0.5 Rozhodnutí: vítěz + override critical (session_2.py)
+    "sessions": [
+        ("winner_variant", "TEXT"),
+        ("override_critical_reason", "TEXT"),
+    ],
     "variants": [
+        # v0.5 Build/Ship: větev a HEAD SHA varianty z worktree (session.py / extract.py)
+        ("branch", "TEXT"),
+        ("head_sha", "TEXT"),
         # Audit N10: diff walkthrough summary per variant (markdown)
         ("diff_summary_md", "TEXT"),
+    ],
+    # v0.5 Ship: velikost diffu vítěze proti základní větvi (metriky pilotu)
+    "extracted_code": [
+        ("diff_loc_added", "INTEGER"),
+        ("diff_loc_removed", "INTEGER"),
+        ("diff_files", "INTEGER"),
+    ],
+    # v0.5 Async: vyřešený critical feedback už neblokuje Rozhodnutí
+    "feedback": [
+        ("resolved_at", "TIMESTAMP"),
+        ("resolved_note", "TEXT"),
     ],
 }
 
@@ -144,6 +166,13 @@ def _rebuild_check_tables(conn, schema_sql: str) -> list[str]:
             conn.execute("BEGIN")
             try:
                 conn.execute(new_ddl)
+                # Additive columns that schema.sql does not declare (v0.5 diff_loc_*,
+                # ...) must survive the rebuild, otherwise the data is lost and the
+                # next run re-adds them (non-idempotent).
+                have = {r[1] for r in conn.execute(f"PRAGMA table_info({tmp})")}
+                for col, type_ in ADDITIVE_COLUMNS.get(table, []):
+                    if col not in have:
+                        conn.execute(f"ALTER TABLE {tmp} ADD COLUMN {col} {type_}")
                 old_cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]
                 new_cols = {r[1] for r in conn.execute(f"PRAGMA table_info({tmp})")}
                 cols = ", ".join(c for c in old_cols if c in new_cols)

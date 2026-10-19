@@ -1,9 +1,13 @@
-# ADR-0021 — Délka mezi-session okna podle stupně (Quick / Lean / Full)
+# ADR-0017 — Délka mezi-session okna podle stupně (Quick / Lean / Full)
 
-> Status: Accepted · 2026-09-23
+> Status: Accepted · 2026-09-23 · (původně číslováno 0021, přečíslováno 2026-10-19 kvůli kolizi s ADR-0021 „malá skupina, celá cesta“)
 > Autor: audit `docs/research/review-2026-09/01-audit-a-navrhy-zlepseni.md` (nález N18)
-> Související: ADR-0001 (Decider, Session 2b), ADR-0020 (Track P/S),
+> Související: ADR-0001 (Decider, Session 2b), ADR-0020 (Track P/S), ADR-0021 (malá skupina, celá cesta; terminologie Kickoff / Build / Async / Rozhodnutí / Ship),
 > `docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody
+
+> **Terminologie v0.5 (ADR-0021):** Session 1 = Build, mezi-session okno = Async,
+> Session 2 = Rozhodnutí, Ship gate = Ship. Default stupeň je **Lean**, `/pm live` je
+> **Quick**, **Full** je governance / regulované. Rozhodnutí níže se tím nemění.
 
 ## Kontext
 
@@ -20,7 +24,7 @@ nekonzistentní:
   i úkol: místo „klikni a dej preference" projít PR diff a napsat keep / fix /
   kill per soubor.
 - Lean recept (`00-lean-pflanzer.md`) mezitím počítal se 4 dny (Den 6–9),
-  e-shop case study s ~5 dny a `05-mezi-sessions.md`, `04-session-1.md`,
+  jiný dokument s ~5 dny a `05-mezi-sessions.md`, `04-session-1.md`,
   `00-tldr.md`, commandy a README s pevnými 5–7 dny.
 
 Obě perspektivy mají pravdu pro jiný typ projektu. Podle `CLAUDE.md` se spor

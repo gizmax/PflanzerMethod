@@ -15,6 +15,7 @@ import logging
 import os
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -131,3 +132,20 @@ def api_root() -> dict[str, object]:
             "POST /api/feedback",
         ],
     }
+
+
+# Serve the built frontend (one URL for the whole hub: /method/). Built by `pflanzer hub`.
+_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if _DIST.is_dir():
+    from fastapi.responses import FileResponse, RedirectResponse
+
+    @app.get("/", include_in_schema=False)
+    def _root() -> RedirectResponse:
+        return RedirectResponse("/method/")
+
+    @app.get("/method/{path:path}", include_in_schema=False)
+    def _spa(path: str) -> FileResponse:
+        file = (_DIST / path).resolve()
+        if path and file.is_file() and file.is_relative_to(_DIST):
+            return FileResponse(file)
+        return FileResponse(_DIST / "index.html")

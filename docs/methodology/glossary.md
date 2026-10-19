@@ -1,5 +1,7 @@
 # Glossary — Pflanzer terminologie
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Terminologie v0.5: Kickoff → Build → Async → Rozhodnutí → Ship; „Session 1/2“ = synonyma Build/Rozhodnutí. Glossary je rozšířená reference; kde se liší, platí 1-pager.
+
 > Definice termínů, kde panovala nejednoznačnost. **v0.4, 2026-05-28.**
 > Updated po dual-track design (`docs/research/dual-track-design/`)
 > a output consistency audit (`docs/research/output-consistency/`).
@@ -109,6 +111,10 @@ nestaví produkt — ten je už v target repo. Sign-off package slouží **audit
 **Deprecated:** *„handoff package"* — slovo *„handoff"* implies *„throw to
 dev team"*, což protiřečí Pflanzer claimu *„dev was in room from minute 0"*.
 
+> **`/pm handoff`** je jen název příkazu (stabilní rozhraní, ADR-0010):
+> vytvoří `SHIP.md` + sign-off package a vítěz jde přes PR do běžného
+> vývojového procesu. Není to předání k re-implementaci.
+
 ### AI code provenance
 
 **Atribuce AI-asistovaného kódu** (doplněk k atribuci rozhodnutí v decision
@@ -125,7 +131,7 @@ Definováno v `07-handoff-do-vyvoje.md` § AI code provenance.
 **Default mode**. Winner varianta z Session 2 jde **přímo do produkce**.
 Dev tým (#4 + #5 byli v room) ji doladí pro production hardening
 (observability, monitoring, edge cases) během D11-14. Quality gates
-≥ 80/100 = production prerequisite, ne *„prototype hardening checklist"*.
+(pilot ≥ 80 / production ≥ 85 ze 100) = production prerequisite, ne *„prototype hardening checklist"*.
 
 ### throw-away (explicit opt-in)
 
@@ -137,7 +143,7 @@ Flag v Charteru pro **3 výjimky**:
    DO-178C, některé AI Act High-risk uses), kde MUST existovat separate
    implementation track.
 
-**Throw-away NENÍ default** (v0.3.1 change). Sponzor musí podepsat v Charteru
+**Throw-away NENÍ default** (vyřešeno od v0.3.1; potvrzeno ADR-0005 a ADR-0021). Sponzor musí podepsat v Charteru
 *„throw-away"* explicit a uvést který z 3 use casů aplikuje.
 
 ## Session terms
@@ -154,27 +160,38 @@ ne *„prototype playground"*.
 
 **Winner varianta selected for prod** + sign-off package.
 
-### Stupeň (Quick / Lean / Full)
+### Session 3 (nepoužívá se)
 
-Míra rituálů kolem stejného jádra metody (dev v room, 3 paralelní varianty,
-anti-HiPPO, Decider). **Quick** = 60–90 min in-room, 1 kolo buildu, triage
-deferred, jen `throwaway` / `pilot` (`/pm live`). **Lean** = 3 h, 2 kola
-buildu s mid-checkpointem, default pro Track P (`/pm build`). **Full** =
-5–6 h, kompletní agenda `04-session-1.md`, 4 triage tracks povinné,
-audit-grade / regulated. Session 2 je ve všech stupních 3 h. Autoritativní
-tabulka: `00-lean-pflanzer.md` § Tři stupně jedné metody. Tool ukládá stupeň
-do `projects.tier` (Charter / bootstrap; starší projekty doplní `migrate.py`).
+**Session 3 se nepoužívá** (ADR-0021) — produkční hardening = **Ship**
+(`/pm ship`, gates na vítěze + checkpoint provozu); **Iterate** =
+další Build kolo (max 1×), ne třetí session.
 
-### Ship gate
-
-**Pipeline, ne setkání.** Po Go rozhodnutí v Session 2 ji pouští dev pár:
-quality gates (score 0–100) + `SHIP.md` → PR připravený k mergi
-(`/pm ship` + `/pm handoff`). Pflanzer cyklus = **2 sezení + Ship gate**.
-
-**Alias (deprecated):** *„Session 3"* — starší název v toolu; command
+**Alias (deprecated):** *„Session 3“* — starší název v toolu; command
 `/pflanzer-session-3` zůstává jako implementace pod kapotou `/pm ship`.
 Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
-**Session 2b** (dříve také „Session 3“) — to není Ship gate.
+**Session 2b** (dříve také „Session 3“) — to není Ship.
+
+### Stupeň (Quick / Lean / Full)
+
+Míra rituálů kolem stejného jádra metody (vývojář u klávesnice, 3 paralelní
+varianty, anti-HiPPO, Decider). **Quick** = `/pm live`, Kickoff + Build
+v jednom, 60–90 min, okno 3 dny, jen `throwaway` / `pilot`. **Lean** =
+**v0.5 default**, Build 3 h, Async 3–5 dní. **Full** = governance /
+regulované, rozšířená agenda 5–6 h (`04-session-1.md`), 4 triage tracky,
+okno 5–7 dní. Rozhodnutí je ve všech stupních stejné. Autoritativní tabulka:
+`00-lean-pflanzer.md` § Tři stupně jedné metody (ADR-0017). Tool ukládá
+stupeň do `projects.tier`.
+
+### Ship
+
+**Pipeline, ne setkání.** Po Go v Rozhodnutí ji pouští vývojáři: quality
+gates na vítěze (score 0–100, pilot 80 / production 85) + `SHIP.md` → PR
+připravený k mergi (`/pm ship` + `/pm handoff`). Starší název „Ship gate“.
+
+### Retro
+
+`/pm retro` — měření outcome po Shipu: % LOC vítěze v produkci, days-to-prod
+a readouty T+7/30/60/90. Pod povrchem, mimo pět kroků hlavní cesty.
 
 ## Zkratky
 
@@ -198,8 +215,8 @@ v češtině neskloňuje, takže sedí do vět beze změny tvaru.
 | „handoff package" | „sign-off package" | „Handoff" implies dev re-implementation; Pflanzer dev was in room |
 | „dev team picks up the prototype" | „dev team byl v room, kód jde do prod" | Contradicts core claim |
 | „Prototype-to-Prod (P2P) checklist" | „Production readiness checklist" | Naming |
-| „extract code" (Ship gate) | „polish + observability" | „Extract" implies code wasn't prod-ready |
-| „Session 3" / „3 sezení" | „Ship gate" / „2 sezení + Ship gate" | Ship gate je pipeline, ne setkání |
+| „extract code" (Ship) | „polish + observability" | „Extract" implies code wasn't prod-ready |
+| „Session 3" / „3 sezení" | „Ship" / „Kickoff, Build, Async, Rozhodnutí, Ship" | Ship je pipeline, ne setkání |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
 | „PM" pro produkt manažera | „PdM" (nebo „produkt manažer") | „PM" je vyhrazeno pro Pflanzer Method a smí být jen v názvu commandu `/pm` |
 

@@ -3,7 +3,7 @@
 Single source for the tier values and for deriving a tier when none was given
 explicitly. The tier drives Session 1 length, triage depth and the
 between-session window (docs/methodology/00-lean-pflanzer.md § Tři stupně,
-ADR-0021).
+ADR-0017).
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 TIERS: tuple[str, ...] = ("quick", "lean", "full")
 TIER_LABELS = {"quick": "Quick", "lean": "Lean", "full": "Full"}
-# ADR-0021: working days between Session 1 and Session 2.
+# ADR-0017: working days between Session 1 and Session 2.
 WINDOW_DAYS = {"quick": "3", "lean": "3–5", "full": "5–7"}
 
 
@@ -23,7 +23,7 @@ def validate_tier(tier: str, capacity_profile: str | None = None) -> str:
     if t == "quick" and capacity_profile == "audit-grade":
         raise ValueError(
             "tier='quick' nejde s capacity_profile='audit-grade' — audit-grade "
-            "projekt potřebuje Full stupeň (4 triage tracks, okno 5–7 dní, ADR-0021)."
+            "projekt potřebuje Full stupeň (4 triage tracks, okno 5–7 dní, ADR-0017)."
         )
     return t
 

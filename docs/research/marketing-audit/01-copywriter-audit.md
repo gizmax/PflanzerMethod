@@ -620,7 +620,7 @@ copy. Tato sekce je gating factor pro celý web.
 
 **Co tam je:**
 - H2 (CS): *„Z terénu. e-shop · 2026."* / EN: *„From the field. e-shop · 2026."*
-- Stamp: `Field Notes · Pilot P-001` | `e-commerce · ~7M MAU · CZ/SK/PL`
+- Stamp: `Field Notes · Pilot P-001` | `e-commerce · enterprise`
 - Pull quote: *„Dali jsme dohromady 6 lidí. Tři hodiny vajbili..."*
 - 2 body paragraphs
 - 10 receipt rows (Účastníci, Setkání, ..., AI Act tier: limited)
@@ -661,8 +661,8 @@ pro „Read full case (PDF)" download.
 
 #### Diff stamp (CS):
 ```diff
-- Field Notes · Pilot P-001 | e-commerce · ~7M MAU · CZ/SK/PL
-+ Field Notes · Pilot P-001 — e-shop | e-commerce · ~7M MAU · CZ/SK/PL
+- Field Notes · Pilot P-001 | e-commerce · enterprise
++ Field Notes · Pilot P-001 — e-shop | e-commerce · enterprise
 ```
 (`e-shop` v headeru, ne až v body — reader skenuje pull-quotes a receipts,
 neoči-přečte „e-shop" z H2.)
@@ -672,7 +672,7 @@ neoči-přečte „e-shop" z H2.)
 - E-commerce platforma. Klasický rigidní workflow: zadavatel → produkt → UX →
 - vývoj, jeden cyklus měsíce. Cíl pilotu: nasadit vibe-coding tak, aby cesta
 - od první alignment session k produktivnímu kódu trvala týdny, ne měsíce.
-+ E-commerce platforma, ~7M MAU. Rigidní workflow: zadavatel → produkt → UX →
++ Velká e-commerce platforma. Rigidní workflow: zadavatel → produkt → UX →
 + vývoj, jeden cyklus = měsíce. Cíl: cestu od první alignment session k
 + produkčnímu kódu zkrátit na týdny.
 ```

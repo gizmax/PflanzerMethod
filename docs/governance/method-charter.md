@@ -216,7 +216,7 @@ Měříme proti **current state v dané organizaci**: sériový handoff
   regulated, customer-facing, scope category, BU) → top-quartile propensity
   baseline projects = control set per Pflanzer pilot.
 - **Bootstrap budget €40k + 3 měsíce pre-pilot Steward effort** pro baseline
-  collection (P2 follow-up: ADR-0010 method post-mortem disclosure + budget
+  collection (P2 follow-up: plánované ADR o method post-mortem disclosure + budget
   spec).
 
 ## Reinforcement track (method-level + per-pilot)
@@ -253,7 +253,7 @@ data jsou unreliable).
   - **Navrhnout** method-level Kill / Sunset (per Charter section *„Kill criteria"*).
   - **Svolat emergency review** (early-kill veto, per ADR-0011) pokud 2+ leading
     indicators porušují threshold > 60 dní nebo stopping-for-harm rule triggers.
-  - **Operacionální definice leading indicators** v `docs/methodology/leading-indicators.md`
+  - **Operacionální definice leading indicators** v `docs/governance/leading-indicators.md`
     (LI-1 pre-flight rejection rate, LI-2 S1→S2 churn, LI-3 Champion overload,
     LI-4 Decider override rate, LI-5 pre-Ship-gate prod slip) — dashboard +
     threshold + veto trigger workflow.

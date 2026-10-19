@@ -1,5 +1,7 @@
 # 07 — Sign-off + deploy do produkce (dual-track)
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default cesta do produkce je **Ship** (`/pm ship` → `/pm handoff`); tento dokument je rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+
 > Závěrečný krok Pflanzerovy metody. **Output závisí na Track designation**
 > v Charteru (per ADR-0020 dual-track model):
 >
@@ -70,7 +72,7 @@ licenční implikace. Platí pro Track P (winner kód jde do prod) i Track S
   trailer (GitHub ho zobrazuje jako spoluautorství) — automatickou
   atribuci builderu vypnout v jeho nastavení. AI asistence se značí
   výhradně trailery z pravidla 2.
-- Mob mode (1 sdílený worktree, ADR-0011): autor = aktuální driver;
+- Mob mode (1 sdílený worktree, ADR-0016): autor = aktuální driver;
   při rotaci driveru se commituje před předáním klávesnice.
 
 ### Pravidlo 2 — commit trailery (zapisuje Pflanzer tool)

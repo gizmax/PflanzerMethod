@@ -1,9 +1,11 @@
 # 05 — Mezi sessions
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Default Async trvá 3–5 dní; okno 5–7 dní níže je rozšířená reference; kde se liší, platí 1-pager.
+
 > Status: v1.0. Scoring window mezi Session 1 a Session 2: prototype hub
 > s 1–3 variantami, strukturovaný feedback per oddělení, async triage update,
 > Discovery Debt Detector audit. Délka podle stupně: **Quick 3 / Lean 3–5 /
-> Full 5–7 pracovních dní** (ADR-0021). Detail níže popisuje Full stupeň.
+> Full 5–7 pracovních dní** (ADR-0017). Detail níže popisuje Full stupeň.
 
 ## Cíl mezi-sessions okna
 
@@ -14,7 +16,7 @@ materiál — ne pokračovat v generaci.
 
 ## Délka okna
 
-Délka se řídí stupněm, protože stupeň určuje, kdo musí dát feedback (ADR-0021):
+v0.5 default (Lean) je **3–5 dní** (Async). Délka se řídí stupněm, protože stupeň určuje, kdo musí dát feedback (ADR-0017):
 
 | Stupeň | Okno | Plán |
 |--------|------|------|
@@ -22,7 +24,7 @@ Délka se řídí stupněm, protože stupeň určuje, kdo musí dát feedback (A
 | **Lean** | 3–5 pracovních dní (default 4) | Den 1 preview · Den 2–3 diff review + scoring · Den 4 syntéza + Decider review |
 | **Full** | 5–7 pracovních dní | viz rozpis níže |
 
-**Úkol v okně** (ADR-0021 § 2): dev páry a technické role projdou PR diff
+**Úkol v okně** (ADR-0017 § 2): dev páry a technické role projdou PR diff
 varianty a ke každému souboru napíšou **keep / fix / kill**; non-tech
 stakeholdeři hodnotí preview přes scoring formulář. Mlčení nevetovací role
 po deadline = „no objection“ v decision logu; mlčení vetovací role souhlas
@@ -38,7 +40,7 @@ není. Připomínka 48 h a 24 h před deadline.
 Delší než 7 dní = ztráta kontextu a momentum. Ve Full stupni je kratší než 5
 dní málo — async vetovací role (Legal, Security, Engineering manager) nestihnou
 triage update a AI Act Fázi B. Quick a Lean vetovací role v okně nemají, proto
-jim stačí 3–5 dní (ADR-0021).
+jim stačí 3–5 dní (ADR-0017).
 
 ## Variant hub spec
 

@@ -1,19 +1,15 @@
-"""Slice 6 — Feedback intake & audit (pre-Session 2 prep).
+"""Async — sběr a agregace feedbacku (`/pm feedback`).
 
-Web hub a CC sdílí stejnou SQLite (`data/pflanzer.db`), takže "pull" není
-data-mover, ale **feedback summary + audit trigger**:
+Web hub i CLI (`pflanzer feedback add`) píšou do stejné SQLite, takže
+"pull" není přenos dat, ale **souhrn feedbacku + audit**:
 
-1. List veškerého feedbacku per project z web hubu.
-2. Aggregate by department / severity / variant.
-3. Identifikuj **Critical flags** (severity='critical') → eskalační log.
-4. Připrav summary MD pro Session 2 (`docs/methodology/06-session-2.md`
-   § Aggregate feedback by department).
-5. Volitelně spustit discovery-debt-detector audit (přes Claude Agent;
-   tento modul jen připraví vstupní data).
+1. Načte feedback ke všem variantám projektu (hub i offline zápisy).
+2. Agreguje podle oddělení / severity / varianty.
+3. Vyznačí **critical flags** (severity='critical').
+4. Připraví souhrn MD pro Rozhodnutí.
+5. Když feedback chybí, řekne to jasně a NEVYTVÁŘÍ prázdný souhrn.
 
-AI-only deflation byla již aplikována v `tool/web/backend/api/feedback.py`
-při submit (devil's advocate Útok 6 — heuristic, ne measurement). Tady už
-pracujeme s deflated scores.
+AI-only deflace (max 0.5) se aplikuje už při zápisu (hub i `feedback add`).
 """
 from __future__ import annotations
 
@@ -28,10 +24,15 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, transaction  # noqa: E402
+from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
 
-FEEDBACK_DIR = REPO_ROOT / "data" / "feedback"
-
+FEEDBACK_DIR = DATA_ROOT / "feedback"
+BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
+NO_FEEDBACK_MSG = (
+    "Žádný feedback — sbírej přes hub nebo `pflanzer feedback add` "
+    "(např. pflanzer feedback add --slug {slug} --variant A --role \"Bezpečnost\" "
+    "--severity major --text \"...\")."
+)
 
 def aggregate(slug: str) -> dict[str, Any]:
     """Aggregate feedback for a project. Returns structured summary."""
@@ -43,24 +44,22 @@ def aggregate(slug: str) -> dict[str, Any]:
             raise ValueError(f"Project '{slug}' not found.")
         project_id, name, status = int(proj[0]), proj[1], proj[2]
 
-        if status not in ("session_1", "session_2", "handoff"):
-            # Soft warn — feedback before Session 1 exists is OK pro early bird,
-            # ale obvykle to znamená že tým spustil pull předčasně.
-            pass
-
-        # Pull all feedback for variants in this project's session 1
+        # Feedback ke všem variantám projektu (i po Iterate)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
+        resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
         rows = conn.execute(
-            """
+            f"""
             SELECT f.id, f.variant_id, v.name AS variant_name, v.builder,
                    f.role_id, r.catalog_label AS role_label,
                    f.severity, f.department, f.category,
                    f.score, f.rationale, f.ai_act_dimension, f.wcag_level,
-                   f.is_ai_only, f.submitted_by, f.submitted_at
+                   f.is_ai_only, f.submitted_by, f.submitted_at,
+                   {resolved} AS resolved_at
             FROM feedback f
             JOIN variants v ON v.id = f.variant_id
             JOIN sessions s ON s.id = v.session_id
             LEFT JOIN roles r ON r.id = f.role_id
-            WHERE s.project_id = ? AND s.type = 1
+            WHERE s.project_id = ?
             ORDER BY f.submitted_at DESC
             """,
             (project_id,),
@@ -86,7 +85,7 @@ def aggregate(slug: str) -> dict[str, Any]:
             ai_only_ratio_data["total"] += 1
             if fb["is_ai_only"]:
                 ai_only_ratio_data["ai_only"] += 1
-            if fb["severity"] == "critical":
+            if fb["severity"] == "critical" and not fb["resolved_at"]:
                 critical_flags.append({
                     "id": fb["id"],
                     "variant": v,
@@ -109,7 +108,8 @@ def aggregate(slug: str) -> dict[str, Any]:
             scores = data["scores"]
             data["avg_score"] = round(sum(scores) / len(scores), 3) if scores else 0.0
             data["criticals"] = sum(1 for fb in feedback
-                                    if fb["variant_name"] == v and fb["severity"] == "critical")
+                                    if fb["variant_name"] == v and fb["severity"] == "critical"
+                                    and not fb["resolved_at"])
             del data["scores"]  # don't dump raw
 
         ai_only_ratio = (
@@ -146,7 +146,7 @@ def aggregate(slug: str) -> dict[str, Any]:
 
 
 def render_summary_md(agg: dict[str, Any]) -> str:
-    """Render feedback summary MD pro Session 2 prep."""
+    """Souhrn feedbacku pro Rozhodnutí (v0.5)."""
     sev_table = "\n".join(
         f"| {s} | {agg['by_severity'].get(s, 0)} |"
         for s in ("critical", "high", "medium", "low")
@@ -170,59 +170,64 @@ def render_summary_md(agg: dict[str, Any]) -> str:
         crit_section = (
             f"\n## ⚠ Critical flags ({len(agg['critical_flags'])})\n\n"
             f"{crit_rows}\n\n"
-            f"> Per `04-session-1.md` § Konfliktní situace: Critical flag = session "
-            f"pivotuje na alt. variantu (Security/Legal veto pattern).\n"
+            f"> Critical flag = varianta se nedá vybrat, dokud se nevyřeší nebo "
+            f"Decider výslovně nepřijme riziko (ADR-0001, veto Bezpečnost & právo).\n"
         )
 
     ai_warn = ""
     if agg["ai_only_ratio"] > 0.5:
         ai_warn = (
             f"\n> ⚠ **AI-only ratio = {agg['ai_only_ratio']:.0%}** — víc než polovina "
-            f"feedbacku je AI persona, ne reální lidé. Discovery debt risk "
-            f"(per role catalog #14). Před Session 2 doporučeno: real user interview.\n"
+            f"feedbacku je AI persona, ne reální lidé. Riziko discovery debtu. "
+            f"Před Rozhodnutím doporučen rozhovor se skutečným uživatelem.\n"
         )
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    return f"""# Feedback summary — {agg['project_name']}
+    return f"""{BRAND_LINE}
 
-> Slug: `{agg['slug']}` · Pulled: {today} · Project status: `{agg['project_status']}`
-> Per `docs/methodology/05-mezi-sessions.md` + `06-session-2.md`.
+# Souhrn feedbacku — {agg['project_name']}
+
+> Slug: `{agg['slug']}` · Staženo: {today} · Stav projektu: `{agg['project_status']}`
+> Async (3–5 dní) → vstup pro Rozhodnutí (Go / Iterate / Kill).
 
 ## Přehled
 
-- **Feedback rows celkem**: {agg['feedback_count']}
-- **AI-only ratio**: {agg['ai_only_ratio']:.0%} (deflated max 0.5 per Útok 6)
+- **Řádků feedbacku celkem**: {agg['feedback_count']}
+- **AI-only ratio**: {agg['ai_only_ratio']:.0%} (skóre AI-only max 0.5)
 {ai_warn}
-## Severity rozložení
+## Rozložení podle severity
 
-| Severity | Count |
+| Severity | Počet |
 |----------|-------|
 {sev_table}
 
-## Per-variant scoring
+## Skóre podle varianty
 
-| Variant | Feedback rows | Avg score | Critical flags |
-|---------|---------------|-----------|----------------|
+| Varianta | Řádků feedbacku | Průměrné skóre | Critical flags |
+|----------|-----------------|----------------|----------------|
 {var_rows}
 
-## Per-department avg score
+## Průměrné skóre podle oddělení
 
-| Department | Avg score |
-|------------|-----------|
+| Oddělení | Průměrné skóre |
+|----------|----------------|
 {dept_rows}
 {crit_section}
 ## Co dál
 
-1. Spusť **discovery-debt-detector** sub-agent na tento summary
-   (vrátí skóre 0-10; > 2 = warning, > 5 = block Session 2).
-2. Pokud Critical flags > 0 → Decider review **před** Session 2 (eskalační
-   protokol per ADR-0001).
-3. Spusť `/pflanzer-session-2 {agg['slug']}` (Slice 7) pro decisional session.
+1. Spusť **discovery-debt-detector** na tento souhrn (skóre 0–10;
+   > 2 = varování, > 5 = blokuje Rozhodnutí).
+2. Pokud jsou otevřené Critical flags → Decider je řeší **před** Rozhodnutím
+   (eskalační protokol ADR-0001).
+3. Spusť `/pm decide` pro Rozhodnutí.
 """
 
 
-def write_summary(slug: str) -> Path:
-    agg = aggregate(slug)
+def write_summary(slug: str, agg: dict[str, Any] | None = None) -> Path | None:
+    """Zapíše souhrn; při 0 řádcích feedbacku nezapíše nic a vrátí None."""
+    agg = agg or aggregate(slug)
+    if agg["feedback_count"] == 0:
+        return None
     FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
     out = FEEDBACK_DIR / f"{slug}-summary.md"
     out.write_text(render_summary_md(agg), encoding="utf-8")
@@ -233,26 +238,40 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--json", action="store_true",
-                   help="Print full aggregate JSON (default: render MD summary)")
+                   help="Vypíše celý agregát jako JSON (default: zapíše souhrn MD)")
     args = p.parse_args()
 
-    if args.json:
-        print(json.dumps(aggregate(args.slug), ensure_ascii=False, indent=2, default=str))
-    else:
+    try:
         agg = aggregate(args.slug)
-        path = write_summary(args.slug)
+    except ValueError as e:
+        print(f"CHYBA: {e}", file=sys.stderr)
+        sys.exit(2)
+
+    if args.json:
+        print(json.dumps(agg, ensure_ascii=False, indent=2, default=str))
+        return
+
+    if agg["feedback_count"] == 0:
         print(json.dumps({
             "slug": args.slug,
-            "summary_path": str(path),
-            "feedback_count": agg["feedback_count"],
-            "critical_flags": len(agg["critical_flags"]),
-            "ai_only_ratio": agg["ai_only_ratio"],
-            "next_step": (
-                "Discovery debt audit + /pflanzer-session-2 <slug>"
-                if agg["feedback_count"] > 0
-                else "Žádný feedback yet — počkej 5-7 dní mezi-session okno."
-            ),
+            "feedback_count": 0,
+            "summary_path": None,
+            "message": NO_FEEDBACK_MSG.format(slug=args.slug),
         }, ensure_ascii=False, indent=2))
+        sys.exit(1)
+
+    path = write_summary(args.slug, agg)
+    print(json.dumps({
+        "slug": args.slug,
+        "summary_path": display_path(path),
+        "feedback_count": agg["feedback_count"],
+        "critical_flags": len(agg["critical_flags"]),
+        "ai_only_ratio": agg["ai_only_ratio"],
+        "next_step": (
+            "Nejdřív vyřeš otevřené critical flags, pak /pm decide"
+            if agg["critical_flags"] else "Discovery debt audit, pak /pm decide"
+        ),
+    }, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

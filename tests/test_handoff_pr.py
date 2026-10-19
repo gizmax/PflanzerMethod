@@ -26,7 +26,8 @@ def shipped(worktree_project: dict[str, Any], vote: Callable[..., Any]) -> dict[
 def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     slug = shipped["slug"]
     md = handoff_pr.render_ship_md(slug)
-    assert md.startswith("Pflanzer Method | pflanzer.cz/method")
+    # v0.5 brand line is bold (`**Pflanzer Method | pflanzer.cz/method**`).
+    assert md.startswith("**Pflanzer Method | pflanzer.cz/method**")
     assert f"Pflanzer-Variant: {slug}-A" in md
     assert "Pflanzer-Session: ship" in md
     assert "AI-Assisted: claude-code" in md

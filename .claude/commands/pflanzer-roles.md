@@ -1,11 +1,23 @@
 ---
-description: Vede tým decision tree pro výběr rolí z 18-position role catalogu (Slice 2). Persistne role rows do DB + generuje summary.
+description: Vede tým decision tree pro výběr rolí z 18-position role catalogu. Persistne role rows do DB + generuje summary.
 ---
 
-# /pflanzer-roles — Role selection wizard (Slice 2)
+> **Pokročilé / volitelné.** Není součást hlavní cesty (`/pm` + 5 kroků + 3 pravidla). Použij u regulovaných nebo větších projektů; pro běžný pilot stačí jména zástupců na Kickoffu (`/pm start`).
+
+# Role — výběr zástupců (pokročilé)
+
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
 
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá, že už proběhl
-`/pflanzer-charter <slug>` (status musí být `charter`).
+Kickoff (`/pm start`) (status musí být `charter`).
+
+> **v0.5 (ADR-0021):** cílem není seznam pozvánek, ale **jméno pro každý
+> ze 6 kroků cesty** (byznys, produkt, design, vývoj, bezpečnost & právo,
+> provoz) + označení `jádro` / `okno`. Vybrané role z decision tree mapuj na
+> kroky; role navíc = AI expert perspektiva, ne další osoba. Jádro max 4,
+> naráz max 5. Krok bez jména na konci wizardu → nepustit dál.
 
 ## Co tento command dělá
 
@@ -16,7 +28,7 @@ v DB a generuje `data/charters/<slug>-roles.md` summary.
 ## Jak postupuj
 
 1. **Validuj slug** — pokud `$ARGUMENTS` chybí, použij AskUserQuestion.
-   Ověř, že `projects.status = 'charter'` (= proběhl `/pflanzer-charter`).
+   Ověř, že `projects.status = 'charter'` (= proběhl Kickoff (`/pm start`)).
    Pokud `draft` → instruuj uživatele spustit Charter wizard nejdřív.
 
 2. **Načti referenční dokumenty:**
@@ -82,7 +94,7 @@ v DB a generuje `data/charters/<slug>-roles.md` summary.
 6. **Sestav JSON spec** a předej do `tool/cli/roles.py`:
 
 ```bash
-python3 tool/cli/roles.py --spec /tmp/<slug>-roles-spec.json
+pflanzer roles --spec /tmp/<slug>-roles-spec.json
 ```
 
 JSON spec format:
@@ -136,7 +148,7 @@ python3 tool/cli/roles.py cards --slug <slug> [--tier quick|lean|full]
    - Počet vybraných rolí + jejich seznam s AI proxy režimem.
    - Path k summary a ke kartám (`data/role-cards/<slug>/README.md`).
    - Status: `charter` (zůstává — status='triage' nastaví slice 3).
-   - Next krok: `/pflanzer-triage <slug>`.
+   - Next krok: `/pm triage <slug>` (regulované) nebo rovnou `/pm build <slug>`.
 
 ## Co NEDĚLAT
 

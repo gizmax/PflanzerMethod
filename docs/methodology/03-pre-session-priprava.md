@@ -1,5 +1,7 @@
 # 03 — Pre-session příprava
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Tento dokument je rozšířená reference pro větší / regulované projekty (plný pre-flight, worksheet, triage); kde se liší, platí 1-pager.
+
 > Status: v1.0. Vstupy do Session 1, pre-flight gating, triage tracks,
 > Business Charter a logistika. Bez splněných kroků 0 a 1 a bez kompletní
 > MoSCoW MUST sady **Session 1 neodstartuje**.
@@ -175,6 +177,10 @@ Zadavatel hlasuje **poslední** (anti-HiPPO).
 
 ### Profil cyklu (volba před vyplněním)
 
+> **v0.5 (ADR-0021):** default profil Pflanzer Method = **~6–8 PD**
+> (jádro 3–4 lidé × ~1,5 dne + okna + Ship). Čísla 10 PD / 32 PD níže jsou
+> z v0.4 a platí jen jako worksheet pro **regulated / audit-grade** projekty.
+
 | Profil | Total PD (orientačně) | Trigger |
 |--------|----------------------|---------|
 | **Default** | ~10 PD | Standardní B2B / interní tool, žádný regulatorní gate, Track P + evolve (default per ADR-0005 v0.4) |
@@ -183,7 +189,7 @@ Zadavatel hlasuje **poslední** (anti-HiPPO).
 
 Volbu profilu schvaluje EM + Legal v rámci Krok 0a (Legal & Security Triage).
 Profil je **odhad**, ne strop — pokud reálný cost > profil × 1.3, **flag
-do Session 2 retra** a method-level T+30 readoutu (viz `method-charter.md`).
+do Session 2 retra** a method-level T+30 readoutu (viz `docs/governance/method-charter.md`).
 
 ### Worksheet — per-role × per-phase
 
@@ -218,7 +224,7 @@ hardening a reinforcement: **3× vyšší**.
 - Solution architect (#13): celkem ~2.0 PD (architecture review po S1).
 
 #### Audit-grade profil — přírůstky `+A` nad regulated
-- Co-facilitator (ADR-0010 / role #3 sekce): +1.5 PD (povinný druhý facilitátor).
+- Co-facilitator (role catalog #3): +1.5 PD (povinný druhý facilitátor).
 - Compliance auditor / external (mimo catalog, ad-hoc): +1.0 PD pre-flight + 0.5 PD post-Session 2.
 - Security (#7) DORA TLPT prep: +1.0 PD post-handoff (ne v cyklu, ale rozpočet držet).
 - Method Steward report contribution: +0.25 PD per audit dotaz.
@@ -239,7 +245,7 @@ hardening a reinforcement: **3× vyšší**.
 
 **Pravidlo:** Reinforcement budget commit je **prerequisite, ne nice-to-have**.
 Bez podpisu „rozpočet T+7/30/60/90 = X PD souhrnně, owner = Y" v Charteru
-**Session 1 neodstartuje**. Detail viz `method-charter.md` sekce
+**Session 1 neodstartuje**. Detail viz `docs/governance/method-charter.md` sekce
 *„Reinforcement track method-level"* a Charter projektový (ADR-0004).
 
 **Audit dotaz po pilotu** (Method Steward T+6 report):
@@ -344,15 +350,15 @@ log export, opt-out trainingu. Bez toho = neschváleno.
 - **Triage tracks**: Security & Data + Legal & Privacy + Platform paralelně,
   48–72 h před session.
 - **Role pozvánky**: per Decision tree z `02-role-catalog.md`. Sanity check
-  > **10 lidí v místnosti = scope příliš široký**, zúžit nebo paralelní
+  > **5 lidí naráz (v0.5; 10 jen v audit-grade) = scope příliš široký**, zúžit nebo paralelní
   sessions po menších buňkách (federovaný model pro multi-team).
 - **Sandbox provisioning**: Platform team objedná Terraform modul, sandbox
   ready do 24 h před session.
 - **Capacity check**: EM má **veto na workshop**, pokud PI > 80 % committed
   [synthesis 02, perspektiva 09]. Bez kapacity = no session, ne „domluvíme
   to potom".
-- **Délka Session 1**: 3–6 h podle stupně (Quick 60–90 min / Lean 3 h / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně); Full konec v 16:00 [perspektiva 03]. Ne 8 h.
-- **Mezi-session**: 3–7 pracovních dní podle stupně (ne 14).
+- **Délka Session 1**: 3–6 h podle stupně (Quick 60–90 min / Lean 3 h = v0.5 default / Full 5–6 h, viz `00-lean-pflanzer.md` § Tři stupně); Full konec v 16:00 [perspektiva 03]. Ne 8 h.
+- **Mezi-session**: 3–7 pracovních dní podle stupně (Lean 3–5; ne 14).
 - **Senior delegate**: každá vetovací role posílá senior s explicit
   veto/sign-off mandátem; junior bez mandátu = session se odkládá
   [perspektiva 01].
@@ -378,7 +384,7 @@ session odložena**, ne začata s improvizací.
 [ ] Vibe-brief: tech stack, tokens, component manifest, conventions
 [ ] Backend Context Pack: OpenAPI, ERD, NFR baseline, ADR archiv
 [ ] Demo data se správnou shape (synthetic L1/L2)
-[ ] Roles invited per Decision tree (≤ 10 lidí), všichni s mandátem
+[ ] Roles invited per Decision tree (v0.5: max 5 naráz; ≤ 10 jen rozšířeně), všichni s mandátem
 [ ] SSO + MFA enrolment všech účastníků
 [ ] WCAG 2.2 AA baseline a persona disability set (pokud customer-facing)
 [ ] Event taxonomy + measurement plan draft (pokud release intent)

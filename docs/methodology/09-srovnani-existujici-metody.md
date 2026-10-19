@@ -1,5 +1,7 @@
 # Pflanzer vs adjacent metody — srovnání
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Srovnání níže je psané pro rozšířenou podobu (délky, PD); default v0.5 je ~8 dní a ~6–8 PD; kde se liší, platí 1-pager.
+
 > Cílový čtenář: analytik / metodolog, který potřebuje obhájit volbu metody
 > proti alternativě. Každý argument je v tabulce, rozhodovacím stromu a
 > seznamu diferenciátorů.
@@ -156,7 +158,7 @@ historicky neměl Security/Legal v primary room.
 
 **Co to umožňuje:** Late-stage veto eliminované — security/legal flag
 risk surface na minutě 240, ne v sprintu 4. Audit-grade profil přidává
-co-facilitator (ADR-0010) a Method Steward (ADR-0012) pro multi-pilot
+co-facilitator (role catalog #3) a Method Steward (ADR-0012) pro multi-pilot
 governance.
 
 ### 2. Score závaznosti per role + AI deflation (decision moat)
@@ -209,7 +211,7 @@ artefakt, který velcí poradci nemají.
 
 ### 5. 2-session formát s týdenním asyncem + reinforcement track (operational moat)
 
-**Co:** Session 1 (vibe, 3-6h) → 3-7 dní async iterace (podle stupně, ADR-0021) → Session 2 (rozhodnutí,
+**Co:** Session 1 (vibe, 3-6h) → 3-7 dní async iterace (podle stupně, ADR-0017) → Session 2 (rozhodnutí,
 3h) → handoff → reinforcement T+7/30/60/90. Default profil ~14 dní calendar,
 ~10 PD effort.
 

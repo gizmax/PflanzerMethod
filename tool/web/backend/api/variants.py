@@ -1,14 +1,12 @@
 """POST /api/projects/{slug}/variants, GET /api/projects/{slug}/variants."""
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..audit import write_audit
-from ..models import Project, Variant
+from ..models import Project, Variant, utcnow
 from ..models import Session as PSession
 
 router = APIRouter(prefix="/api/projects", tags=["variants"])
@@ -62,7 +60,7 @@ def create_variant(
         select(PSession).where(PSession.project_id == project.id, PSession.type == 1)
     ).first()
     if not session_row:
-        session_row = PSession(project_id=project.id, type=1, starts_at=datetime.utcnow())
+        session_row = PSession(project_id=project.id, type=1, starts_at=utcnow())
         db.add(session_row)
         db.commit()
         db.refresh(session_row)

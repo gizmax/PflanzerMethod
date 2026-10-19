@@ -1,32 +1,39 @@
 ---
-description: Měření outcome — % LOC winneru v produkci, days-to-prod, T+7/30/60/90 readouty a připomínky; alias pro `/pm retro`
+description: Retro (/pm retro) — měření outcome po Ship: % LOC vítěze v produkci, days-to-prod, T+7/30/60/90 readouty a připomínky.
 ---
 
-# /pflanzer-retro — Měření outcome (audit N4)
+# Retro (`/pm retro`) — měření outcome po Ship
 
 > **Branding:** Každý user-facing výstup tohoto commandu začíná brand line
 > **`Pflanzer Method | pflanzer.cz/method`** (první řádek, pak prázdný řádek).
+
+**Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
 Argumenty: `$ARGUMENTS` = `<slug> [measure|record|report|reminders]` —
 podpříkaz volitelný; bez něj command sám pozná, co chybí (viz Krok 1).
 
 Předpoklad: `projects.status = 'handoff'` a existuje
-`data/handoffs/<slug>/SHIP.md` (Ship gate proběhl, PR s winner branchí
-`pflanzer/<slug>-<X>` byl otevřen v target repu).
+`data/handoffs/<slug>/SHIP.md` (Ship proběhl, PR s větví vítěze
+`pflanzer/<slug>-<X>` byl otevřen v target repu). Retro je poslední krok
+cesty za Handoffem a **nepatří do jádra 5 kroků** — spouští ho ten, kdo
+vlastní měření (zástupce kroku Produkt nebo Provoz), ne celá skupina.
 
 ## Co tento command dělá
 
-Metoda tvrdí **„≥ 80 % LOC winneru jde do produkce beze změny, prod deploy
-D11–14"**. Tento command to měří z target repa a ukládá do tabulky
-`outcomes` (`data/pflanzer.db`), takže case study a PflanzerIndex (ADR-0014)
-stojí na datech, ne na dojmech.
+Metoda tvrdí **„≥ 80 % LOC vítěze jde do produkce beze změny, prod deploy
+do 14 dnů"**. Tento command to měří z target repa a ukládá do tabulky
+`outcomes` (`data/pflanzer.db`), takže PflanzerIndex (ADR-0014) a sekce
+„Co měřit" v `docs/zacni.md` stojí na datech, ne na dojmech. Tohle je
+čtvrtá metrika vedle čtyř, které zapisuje Handoff (čas Kickoff → merge, gate
+score vítěze, kola Iterate, přežití kódu 30 dní): **kolik kódu vítěze
+opravdu žije v produkci a co se s ním stalo za 7 / 30 / 60 / 90 dní.**
 
 | Podpříkaz | Co udělá | Milník |
 |-----------|----------|--------|
-| `measure` | Najde winner (stejné pravidlo jako SHIP.md), lokalizuje clone target repa (`~/.pflanzer/targets/<repo>/`), `git fetch`, spočítá `loc_winner`, `loc_merged_unchanged`, `loc_reused_pct`, `days_to_prod`, `winner_commits` | `ship` |
+| `measure` | Najde vítěze (stejné pravidlo jako SHIP.md), lokalizuje clone target repa (`~/.pflanzer/targets/<repo>/`), `git fetch`, spočítá `loc_winner`, `loc_merged_unchanged`, `loc_reused_pct`, `days_to_prod`, `winner_commits` | `ship` |
 | `record` | Ruční readout (bugy, leading/lagging metrika, rework, verdikt) | `t7` / `t30` / `t60` / `t90` |
 | `report` | `data/retro/<slug>-retro.md` + porovnání s cíli (reuse ≥ 80 %, days-to-prod ≤ 14 → jinak FLAG) | — |
-| `reminders` | T+7/30/60/90 od Session 2 GO s ownery z Charteru jako `.ics`, checklist nebo `gh issue create` příkazy | — |
+| `reminders` | T+7/30/60/90 od Go v Rozhodnutí s ownery z Charteru jako `.ics`, checklist nebo `gh issue create` příkazy | — |
 
 Doporučené názvy metrik pro `record`:
 
@@ -45,7 +52,7 @@ Doporučené názvy metrik pro `record`:
 ### Krok 1 — Stav
 
 ```bash
-python3 tool/cli/retro.py report --slug <slug>
+pflanzer retro report --slug <slug>
 ```
 
 JSON vrátí `checks` (reuse, days_to_prod: `ok` / `flag` / `missing`)
@@ -53,14 +60,14 @@ a `milestones` (`recorded` / `pending` / `overdue`). Podle toho:
 
 - `loc_reused_pct` = `missing` → **Krok 2 (measure)**.
 - Nějaký milník `overdue` → **Krok 3 (record)** pro ten milník.
-- Připomínky ještě nevygenerované (typicky hned po Ship gate) → **Krok 4**.
+- Připomínky ještě nevygenerované (typicky hned po Ship) → **Krok 4**.
 
-### Krok 2 — Measure (po merge winner PR)
+### Krok 2 — Measure (po merge PR vítěze)
 
 Zeptej se na PR a merge commit:
 
 ```
-AskUserQuestion: "Winner PR pro {slug} — je už mergnutý?"
+AskUserQuestion: "PR vítěze pro {slug} — je už mergnutý?"
 options:
   - "Ano, vložím URL PR" [text input → https://github.com/<org>/<repo>/pull/<N>]
   - "Ano, vložím SHA merge commitu" [text input]
@@ -71,12 +78,12 @@ Pokud máš jen PR URL a `gh` na PATH není (nebo není přihlášený), zeptej 
 dodatečně na SHA merge commitu (`git log --merges --oneline` v target repu).
 
 ```bash
-python3 tool/cli/retro.py measure --slug <slug> \
+pflanzer retro measure --slug <slug> \
   --pr-url <PR_URL> [--merge-commit <SHA>] [--repo-path <clone>]
 ```
 
 - Squash merge funguje stejně. Rebase merge: `--merge-commit` = poslední
-  commit rebasované série, `--base` = commit, ze kterého winner vznikl.
+  commit rebasované série, `--base` = commit, ze kterého vítěz vznikl.
 - Chyba „winner branch neexistuje" → branch byla po merge smazaná; obnov ji
   (`git fetch origin pull/<N>/head:pflanzer/<slug>-<X>`) a pusť znovu.
 - `measure` je přepočitatelný — opakované spuštění nahradí `ship` rows.
@@ -99,14 +106,14 @@ Pro T+7 bugy spočítej issues (pokud je `gh` k dispozici):
 `gh issue list --label pflanzer:<slug> --state all --json number --jq length`.
 
 ```bash
-python3 tool/cli/retro.py record --slug <slug> --milestone t7 \
+pflanzer retro record --slug <slug> --milestone t7 \
   --metric t7_bugs --value <N> --evidence <URL> --notes "<kontext>"
 ```
 
 Kvalitativní reakce stakeholderů patří do `--notes` u
 `t30_handoff_acceptance_pct` (případně `t90_go_iterate_kill`).
 
-### Krok 4 — Reminders (hned po Ship gate)
+### Krok 4 — Reminders (hned po Ship)
 
 ```
 AskUserQuestion: "Jak chcete připomínky T+7/30/60/90?"
@@ -117,7 +124,7 @@ options:
 ```
 
 ```bash
-python3 tool/cli/retro.py reminders --slug <slug> --format ics \
+pflanzer retro reminders --slug <slug> --format ics \
   --out data/retro/<slug>-reminders.ics
 ```
 
@@ -127,7 +134,7 @@ default ownera z `07-handoff-do-vyvoje.md` § Reinforcement track.
 ### Krok 5 — Report + next step
 
 ```bash
-python3 tool/cli/retro.py report --slug <slug> --md
+pflanzer retro report --slug <slug> --md
 ```
 
 Ukaž report. Pokud je některý cíl `flag`, zapiš do T+30 retro příčinu
@@ -137,7 +144,7 @@ další krok ve tvaru `/pm retro <slug>` s termínem nejbližšího milníku.
 ## Co NEDĚLAT
 
 - **Nevymýšlet čísla.** Bez merge commitu `measure` nespouštěj a hodnoty
-  neodhaduj — case study se plní jen z `outcomes`.
+  neodhaduj — čísla se berou jen z `outcomes`.
 - **Nespouštět `gh issue create` automaticky** — `reminders --format gh-issues`
   příkazy jen vypíše; spouští je tým.
 - **Nepřepisovat FLAG na úspěch.** Reuse < 80 % nebo days-to-prod > 14 je
@@ -151,4 +158,4 @@ další krok ve tvaru `/pm retro <slug>` s termínem nejbližšího milníku.
 - `tool/db/schema.sql` — tabulka `outcomes`
 - `docs/methodology/07-handoff-do-vyvoje.md` § Reinforcement track
 - `docs/research/review-2026-09/01-audit-a-navrhy-zlepseni.md` § N4
-- `docs/case-studies/eshop-2026.md` — první case study plněná z `/pm retro`
+- `docs/zacni.md` § Co měřit

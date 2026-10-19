@@ -1,5 +1,7 @@
 # 08 — Edge cases a rizika
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Edge cases níže jsou rozšířená reference; čísla sestavy (např. „>10 lidí“) jsou audit-grade — default je max 5 naráz; kde se liší, platí 1-pager.
+
 > Co dělat, když metoda narazí na realitu. Každý edge case má strukturu
 > **Situace → Co dělat → Kdo rozhoduje → Mitigace**. Cílem není vyřešit
 > všechny patologie, ale dát facilitátorovi konkrétní protokol pro 13
@@ -173,7 +175,7 @@ recording, 1 anekdota *„nejhorší týden support"*) [perspektiva 13].
 
 ## 7. Multi-team scope nezvládnutý
 
-**Situace.** V místnosti je >10 lidí ze 3+ týmů; sanity check v
+**Situace.** V místnosti je >5 lidí (v0.5; rozšířeně >10) ze 3+ týmů; sanity check v
 [02-role-catalog] selhal; každý tým má vlastní backend, vlastní design
 system, vlastní release cadence.
 
@@ -293,7 +295,7 @@ sleduje champion turnover jako signal o sustainability metody.
 
 ## 11. Mezi-session feedback windowless
 
-**Situace.** Mezi Session 1 a 2 je 3–7 pracovních dní (podle stupně, ADR-0021), ale 3 z 8 stakeholderů jsou
+**Situace.** Mezi Session 1 a 2 je 3–7 pracovních dní (podle stupně, ADR-0017), ale 3 z 8 stakeholderů jsou
 na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
 
 **Co dělat:**
@@ -306,14 +308,14 @@ na PTO / on-site visit / quarter close [perspektiva 03 § energy curve].
 3. **Quorum rule**: pokud <60 % povinných rolí dosáhne deadline,
    Session 2 se posune o ≤5 dní. Pokud >60 % a missing role je
    nevetovací → Session 2 běží, async input se započítává; mlčení nevetovací role po
-   deadline = „no objection“ zapsané do decision logu (ADR-0021).
+   deadline = „no objection“ zapsané do decision logu (ADR-0017).
 4. Vetovací role (Security, Legal, EM kapacita) bez async sign-offu =
    Session 2 ne-decision-making, jen review.
 
 **Kdo rozhoduje.** Facilitátor + PdM. PdM vlastní stakeholder kalendář.
 
 **Mitigace.** Mezi-session podle stupně (Quick 3 / Lean 3–5 / Full 5–7
-pracovních dní, ADR-0021), prototyp deployed do 48 h, připomínka 48 h
+pracovních dní, ADR-0017), prototyp deployed do 48 h, připomínka 48 h
 a 24 h před deadline [perspektiva 03]; PTO check při plánování Session 1
 (≥10 dní předem). Pokud vetovací role okno nestihne, upgrade stupně nebo
 odklad Session 2, ne prodlužování okna.
@@ -331,8 +333,7 @@ po 3 h řekne *„potřebuju to ještě promyslet, dejte mi týden"*.
 - **Decider říká „potřebuju víc času"** (Scenario B): T+48 h písemné
   rozhodnutí do decision logu, T+72 h eskalace na CPO, dál „Iterate default"
   (chrání před tichým úmrtím).
-- **Iterate exhausted** (Scenario C): hard cap 1 další iterační rozhodovací
-  session (Session 2b per ADR-0001; nezaměňovat se Ship gate), pak automatický Kill.
+- **Iterate exhausted** (Scenario C): Iterate = max 1 další Build kolo (Session 3 se nepoužívá), pak automatický Kill.
 
 **Důležité:** **neduplikuj** zde text protokolu — autoritativní zdroj je
 ADR-0001. Kopírování textu způsobuje rozcházení verzí (původní bug v0.2,

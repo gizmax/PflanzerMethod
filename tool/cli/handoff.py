@@ -1,20 +1,25 @@
-"""Slice 8 — Handoff package generator.
+"""Handoff — balíček per role + metriky pilotu (v0.5; `/pm handoff`).
 
-Per-role handoff artefakty po Decider Go (status='handoff'). 8 souborů:
-1. `decision.md`      — Charter + decisions table dump + ADR drafty
+Po Go v Rozhodnutí (status='handoff') vygeneruje do výstupní složky
+(`<DATA_ROOT>/handoffs/<slug>/`, viz `pflanzer data`) doplňkové soubory per role:
+1. `decision.md`      — shrnutí Kickoffu (ne kopie charteru) + decision log + ADR drafty
 2. `be.md`            — OpenAPI 3.1 stub, ERD placeholder, breaking-change registr
-3. `fe.md`            — Component manifest delta, design tokens diff
-4. `qa.md`            — Gherkin scénáře + contract test skeleton + P2P checklist (9)
-5. `platform.md`      — Sandbox spec + paved-road template + SLO archetype
-6. `data.md`          — Event taxonomy delta + measurement plan
-7. `support.md`       — Ticket prediction worksheet + support docs deadline
-8. `compliance.md`    — Audit trail dump + RoPA update + AI Act register
+3. `fe.md`            — component manifest delta, design tokens diff
+4. `qa.md`            — Gherkin scénáře + contract test skeleton + P2P checklist
+5. `platform.md`      — sandbox spec + paved-road template + SLO archetyp
+6. `data.md`          — event taxonomy delta + plán měření
+7. `support.md`       — ticket prediction worksheet + deadline podkladů pro support
+8. `compliance.md`    — audit trail + RoPA + AI Act register
 
-Plus `method-metrics.json` — time-to-handoff agregát napříč projekty (post-mortem
-trends, viz devil's advocate Útok 11 — reinforcement track).
+Primární artefakt je `SHIP.md` (`handoff_pr.py`, 1 stránka + PR příkaz + sekce
+"Změř po 30 dnech"). Každý soubor začíná brand line.
 
-Output dir: `data/handoffs/<slug>/`. Skip vrtění Jinja2 — string templates
-v Pythonu jsou čitelnější + zero dependency.
+Plus `method-metrics.json` (`<DATA_ROOT>/method-metrics.json`): metriky pilotu
+napříč projekty — čas Kickoff -> Rozhodnutí -> Ship, počet lidí v jádru, feedback
+dle severity, gate skóre vítěze, počet Iterate kol a LOC vítěze. Na trhu AI-asistovaného
+vývoje nikdo takováto data nemá; bez nich se metoda nedá zlepšovat.
+
+Jinja2 se nepoužívá — string šablony v Pythonu jsou čitelnější a bez závislostí.
 """
 from __future__ import annotations
 
@@ -29,9 +34,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, transaction  # noqa: E402
+from tool.cli.extract import BRAND, DATA_ROOT, clean_text, table_has_col, tilde  # noqa: E402
+from tool.cli.session_2 import get_winner  # noqa: E402
 
-HANDOFF_DIR = REPO_ROOT / "data" / "handoffs"
-METRICS_PATH = REPO_ROOT / "data" / "method-metrics.json"
+HANDOFF_DIR = DATA_ROOT / "handoffs"
+METRICS_PATH = DATA_ROOT / "method-metrics.json"
 
 
 # --------------------------------------------------------------------------
@@ -54,9 +61,8 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             raise ValueError(f"Project '{slug}' not found.")
         if proj[3] != "handoff":
             raise ValueError(
-                f"Project status='{proj[3]}'. /pflanzer-handoff vyžaduje "
-                f"status='handoff' (= Session 2 Decider's Go). "
-                f"Spusť `/pflanzer-session-2 {slug}` nejdřív."
+                f"Project status='{proj[3]}'. Handoff vyžaduje status='handoff' "
+                f"(= Go v Rozhodnutí). Spusť `/pm decide {slug}` nejdřív."
             )
         project_id = int(proj[0])
 
@@ -79,6 +85,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             (project_id,),
         ).fetchall())
 
+        winner_name = get_winner(conn, project_id)
         variants = list(conn.execute(
             """
             SELECT v.name, v.builder, v.prototype_url, v.preference_score,
@@ -86,10 +93,18 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             FROM variants v
             JOIN sessions s ON s.id = v.session_id
             WHERE s.project_id = ? AND s.type = 1
-            ORDER BY v.preference_score DESC
+            ORDER BY (v.name = ?) DESC, v.preference_score DESC
             """,
-            (project_id,),
+            (project_id, winner_name or ""),
         ).fetchall())
+        branch_by_variant = {}
+        if table_has_col(conn, "variants", "head_sha"):
+            branch_by_variant = {
+                r[0]: (r[1], r[2]) for r in conn.execute(
+                    "SELECT v.name, v.branch, v.head_sha FROM variants v "
+                    "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? AND s.type = 1",
+                    (project_id,)).fetchall()
+            }
 
         decisions = list(conn.execute(
             "SELECT type, body_md, atribuce_user, atribuce_ts FROM decisions "
@@ -117,7 +132,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
             (project_id,),
         ).fetchone()
 
-        # Extracted code per variant (Slice production-path)
+        # Extracted code per variant
         extracted_rows = list(conn.execute(
             """
             SELECT v.name, e.id, e.local_path, e.extraction_method,
@@ -134,6 +149,8 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
                 "extracted_id": row[1], "local_path": row[2],
                 "method": row[3], "files_count": row[4], "total_loc": row[5],
                 "source_url": row[6], "source_repo_url": row[7],
+                "branch": branch_by_variant.get(row[0], (None, None))[0],
+                "head_sha": branch_by_variant.get(row[0], (None, None))[1],
             } for row in extracted_rows
         }
 
@@ -169,6 +186,7 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
         },
         "handoff_decision_ts": handoff_decision[0] if handoff_decision else None,
         "extracted_by_variant": extracted_by_variant,
+        "winner": winner_name,
         "gate_score": int(gate_score[0]) if gate_score and gate_score[0] is not None else 0,
         "production_readiness_target": int(gate_score[1]) if gate_score and gate_score[1] else 80,
     }
@@ -181,28 +199,36 @@ def _fetch_project_context(slug: str) -> dict[str, Any]:
 
 def render_decision(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
-    decision_lines = "\n\n".join(d["body_md"] for d in ctx["decisions"])
+    # Charter se tu NEduplikuje (je v DB a v decision logu Kickoffu); jen shrnutí + odkaz.
+    log_entries = [d for d in ctx["decisions"] if d["type"] != "charter"]
+    decision_lines = "\n\n".join(d["body_md"] for d in log_entries)
     return f"""# Decision package — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()} · Status: `{p[3]}`
+> Projekt: `{p[2]}` · Vygenerováno: {_now()} · Stav: `{p[3]}`
 
-## Charter (snapshot)
+## Shrnutí Kickoffu
 
-{p[4] or '_(charter_md missing)_'}
+- **Hypotéza**: {p[5] or 'doplnit'}
+- **Decider**: {p[6] or 'doplnit'} · **Sponzor**: {p[7] or 'doplnit'}
+- **Metriky**: primary {clean_text(p[13])} · leading {clean_text(p[14])} · guardrail {clean_text(p[15])}
+- **Kill kritéria**: {p[16] or 'doplnit'}
+- **Vítěz Rozhodnutí**: {ctx.get('winner') or '—'}
 
-## Decision log (all entries)
+Celé zadání (charter) je v DB toolu (`pflanzer db`) a v decision logu v target repu.
 
-{decision_lines or '_(žádná rozhodnutí v log)_'}
+## Decision log (bez charteru)
 
-## ADR drafts (suggestions)
+{decision_lines or '_(žádná rozhodnutí v logu)_'}
 
-Ze Session 2 conflict resolutions a triage outputs lze vyrobit:
+## ADR drafty (návrhy)
 
-- ADR: throw-away vs evolve (per ADR-0005, link to `docs/decisions/0005-...`)
-- ADR: AI Act tier + DPIA outcome (per Legal triage artefakt)
-- ADR: Sandbox lifecycle (per Platform triage)
+Z konfliktů řešených v Rozhodnutí a z triage lze vyrobit:
 
-Tým by měl review těchto bodů a vyrobit konkrétní ADR soubory v `docs/decisions/`.
+- ADR: throw-away vs evolve (viz `docs/decisions/0005-…`)
+- ADR: AI Act tier + výsledek DPIA (z Legal triage)
+- ADR: životní cyklus sandboxu (z Platform triage)
+
+Tým by tyto body měl projít a založit konkrétní ADR soubory v `docs/decisions/` target repa.
 """
 
 
@@ -221,14 +247,14 @@ def render_be(ctx: dict[str, Any]) -> str:
         ext = ctx["extracted_by_variant"].get(top_variant["name"])
         if ext:
             extracted_block = (
-                f"\n### 🚀 Extracted code\n\n"
-                f"- Local path: `{ext['local_path']}`\n"
-                f"- Method: `{ext['method']}`\n"
-                f"- Files: {ext['files_count']} · LOC: {ext['total_loc']}\n"
-                f"- Source repo: {ext['source_repo_url'] or '(none — skeleton/manual)'}\n"
-                f"- Gate score: **{ctx['gate_score']}/{ctx['production_readiness_target']}**\n\n"
-                f"BE folder (typicky): `{ext['local_path']}/server/` nebo `/api/`. "
-                f"Pokud chybí — tým pair-programuje na backendu, FE už máme.\n"
+                f"\n### Kód vítěze\n\n"
+                f"- Větev: `{ext.get('branch') or '—'}`"
+                f"{' @ `' + ext['head_sha'][:10] + '`' if ext.get('head_sha') else ''}\n"
+                f"- Metoda: `{ext['method']}`\n"
+                f"- Soubory: {ext['files_count']} · LOC: {ext['total_loc']}\n"
+                f"- Gate skóre: **{ctx['gate_score']}/100 (práh {ctx['production_readiness_target']})**\n\n"
+                f"BE kód hledej typicky v `server/` nebo `api/` dané větve. "
+                f"Pokud chybí, backend se píše v páru, FE už je hotové.\n"
             )
 
     return f"""# Backend handoff — {p[1]}
@@ -248,7 +274,7 @@ info:
 servers:
   - url: https://api.{p[2]}.sandbox.example.com
 paths:
-  # TODO: BE shadow agent v Session 1 měl vygenerovat per varianta.
+  # TODO: BE expert v Buildu měl vygenerovat per varianta.
   # Přenes paths sem z prototype repo.
   /healthz:
     get:
@@ -273,7 +299,7 @@ schema migration plán. Použij dbml/erdantic.
 ## Contract test skeleton (Pact)
 
 - Provider: {p[2]} BE
-- Consumers: TBD (per Session 1 BE shadow agent output)
+- Consumers: doplnit (podle výstupu BE experta z Buildu)
 - Test framework: Pact / Schemathesis
 - CI gate: every PR runs contract tests against latest consumer pact
 
@@ -295,38 +321,31 @@ def render_fe(ctx: dict[str, Any]) -> str:
     if ext:
         extracted_section = f"""
 
-## 🚀 Extracted code (PRODUCTION-READY-ish)
+## Kód vítěze
 
-- **Local path**: `{ext['local_path']}`
-- **Method**: `{ext['method']}`
-- **Files**: {ext['files_count']} ({ext['total_loc']} LOC)
-- **Gate score**: **{ctx['gate_score']}/{ctx['production_readiness_target']}**
-  ({'✅ ready' if ctx['gate_score'] >= ctx['production_readiness_target'] else '⚠ pilot-only'})
+- **Větev**: `{ext.get('branch') or '—'}`{' @ `' + ext['head_sha'][:10] + '`' if ext.get('head_sha') else ''}
+- **Metoda**: `{ext['method']}`
+- **Soubory**: {ext['files_count']} ({ext['total_loc']} LOC)
+- **Gate skóre**: **{ctx['gate_score']}/100 (práh {ctx['production_readiness_target']})**
+  ({'splňuje práh' if ctx['gate_score'] >= ctx['production_readiness_target'] else 'pod prahem'})
 
 ### Co s tím dál
 
 ```bash
-cd {ext['local_path']}
+cd {tilde(ext['local_path'])}
 npm install        # pokud ještě ne
-npm run lint       # ESLint zero warnings (target)
-npm run build      # TypeScript strict mode passes
-npm test           # Vitest suite
+npm run lint
+npm run build
+npm test
 ```
 
-Quality gate per-gate detail: `data/handoffs/{p[2]}/quality-{top['name']}.md`.
+Detail per brána: `quality-{top['name']}.md` ve výstupní složce (`pflanzer data`).
 
-### Open PR
+### PR
 
-```bash
-git checkout -b feat/{p[2]}
-cp -r {ext['local_path']}/* path/to/your/target_repo/
-cd path/to/your/target_repo
-git add . && git commit -m "feat({p[2]}): import vibe-coding output (variant {top['name']})"
-git push -u origin feat/{p[2]}
-gh pr create --title "feat({p[2]}): {p[1]}" --body "Pflanzer session output, gate score {ctx['gate_score']}/100"
-```
+Kód už je ve větvi vítěze v target repu - nic se nekopíruje. Otevři PR příkazem
+ze `SHIP.md` (`pflanzer handoff_pr --slug {p[2]}`).
 """
-
     return f"""# Frontend handoff — {p[1]}
 
 > Slug: `{p[2]}` · Generated: {_now()}
@@ -336,7 +355,7 @@ gh pr create --title "feat({p[2]}): {p[1]}" --body "Pflanzer session output, gat
 
 **`{p[10]}`** (per Charter, ADR-0005)
 
-{'⚠ EVOLVE: vyžaduje code review s podpisem FE + EM + Security před merge do prod repo.' if p[10] == 'evolve' else 'Throw-away: prototype zůstává v sandboxu, do prod repa NEPŘENÁŠET. Použij jako reference pro greenfield implementaci.'}
+{'EVOLVE: vyžaduje code review (FE + EM + bezpečnost) před merge do produkčního repa.' if p[10] == 'evolve' else 'Throw-away: prototyp zůstává v sandboxu, do produkčního repa se NEPŘENÁŠÍ. Slouží jako reference pro čistou implementaci.'}
 {extracted_section}
 
 ## Vítězná varianta
@@ -349,20 +368,20 @@ gh pr create --title "feat({p[2]}): {p[1]}" --body "Pflanzer session output, gat
 
 ```
 TODO: Diff component inventory PRE vs POST tohoto sprintu.
-- New components: TBD (extract z prototypu)
-- Modified components: TBD
-- Deprecated components: TBD
+- New components: doplnit (extract z prototypu)
+- Modified components: doplnit
+- Deprecated components: doplnit
 ```
 
 ## Design tokens diff
 
 ```
 TODO: Token compliance % per varianta:
-- A: TBD% (target > 90 %)
-- B: TBD%
-- C: TBD%
+- A: doplnit% (target > 90 %)
+- B: doplnit%
+- C: doplnit%
 
-DS deviation list (s ownerem) — viz Session 1 _summary.
+DS deviation list (s ownerem) — viz souhrn Buildu (`_summary.md`).
 ```
 
 ## Figma↔commit lineage placeholder
@@ -374,7 +393,7 @@ DS deviation list (s ownerem) — viz Session 1 _summary.
 ## A11y baseline (z A11y triage)
 
 - WCAG 2.2 AA target
-- axe-core run report: TBD (run pre-merge)
+- axe-core run report: doplnit (run pre-merge)
 - Critical/Serious findings = blocker
 
 ## Tech stack contract
@@ -403,7 +422,7 @@ Feature: {p[1]}
   Scenario: Happy path
     Given valid input z persona
     When uživatel projde flow
-    Then primary lagging metric ({p[13] or 'TBD'}) zaznamená event
+    Then primary lagging metric ({clean_text(p[13])}) zaznamená event
 
   Scenario: Negative path — invalid input
     Given invalid input
@@ -486,7 +505,7 @@ Vyber 1 z 5 archetypů:
 - real-time API: 99.9 %, p95 < 200ms
 - mobile BE: 99.5 %, p95 < 500ms
 
-**Vyber pro {p[2]}**: TBD (vyplň při first deploy).
+**Vyber pro {p[2]}**: doplnit (vyplň při first deploy).
 
 ## 4 golden signals dashboard
 
@@ -509,7 +528,7 @@ Tool: Grafana / DataDog (per company default).
 
 ## DORA 3rd-party review (z Security triage)
 
-{sec_triage['artefact_md'][:500] if sec_triage and sec_triage['artefact_md'] else '_(no security triage artefakt — re-run /pflanzer-triage před production)_'}
+{sec_triage['artefact_md'][:500] if sec_triage and sec_triage['artefact_md'] else '_(no security triage artefakt — spusť triage znovu před produkcí)_'}
 """
 
 
@@ -524,9 +543,9 @@ def render_data(ctx: dict[str, Any]) -> str:
 
 | Metric type | Metric | Source | Cadence |
 |-------------|--------|--------|---------|
-| **Primary lagging** | {p[13] or 'TBD'} | TBD | weekly |
-| **Leading** | {p[14] or 'TBD'} | TBD | daily |
-| **Guardrail** | {p[15] or 'TBD'} | TBD | continuous |
+| **Primary lagging** | {clean_text(p[13])} | doplnit | weekly |
+| **Leading** | {clean_text(p[14])} | doplnit | daily |
+| **Guardrail** | {clean_text(p[15])} | doplnit | continuous |
 
 > ⚠ **Instrumentation deadline = ship-date − 2 dny (merge-blokující).**
 > Per role catalog #12 + perspektiva 12.
@@ -537,8 +556,8 @@ def render_data(ctx: dict[str, Any]) -> str:
 Naming convention: object_action (snake_case)
 
 NEW EVENTS (this sprint):
-- TBD_event_1
-- TBD_event_2
+- nový_event_1
+- nový_event_2
 
 MODIFIED EVENTS:
 - (none)
@@ -554,10 +573,10 @@ DEPRECATED EVENTS:
 
 - Hypothesis: per Charter XYZ
 - Variants: control vs {ctx["variants"][0]["name"] if ctx["variants"] else 'A'}
-- Primary metric: {p[13] or 'TBD'}
-- Sample size: TBD (power analysis)
-- Duration: TBD (typically 2 weeks)
-- **Kill criteria**: {p[16] or 'TBD'}
+- Primary metric: {clean_text(p[13])}
+- Sample size: doplnit (power analysis)
+- Duration: doplnit (typically 2 weeks)
+- **Kill criteria**: {p[16] or 'doplnit'}
 
 ## Learning agenda
 
@@ -568,7 +587,7 @@ DEPRECATED EVENTS:
 ## Privacy classification
 
 - Data class: **{p[9]}** (z Charter)
-- Consent strategy: TBD (per Legal triage)
+- Consent strategy: doplnit (per Legal triage)
 - Retention: per data class default (L1: 5 let, L2: 3 roky, L3: 1 rok podle GDPR + use case)
 """
 
@@ -584,9 +603,9 @@ def render_support(ctx: dict[str, Any]) -> str:
 
 | Predicted issue | Volume estimate | TTR target | Deflectable? | VoC match |
 |-----------------|-----------------|------------|--------------|-----------|
-| TBD issue 1     | TBD/week        | TBD min    | TBD          | TBD       |
-| TBD issue 2     | TBD/week        | TBD min    | TBD          | TBD       |
-| TBD issue 3     | TBD/week        | TBD min    | TBD          | TBD       |
+| doplnit issue 1     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
+| doplnit issue 2     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
+| doplnit issue 3     | doplnit/week        | doplnit min    | doplnit          | doplnit       |
 
 > Per role catalog #13: top-3 predikované tickety = **P1 v acceptance
 > criteria** (řešeno v `qa.md`).
@@ -612,8 +631,8 @@ ritual (per `04-session-1.md` § 09:00–09:30 blok).
 
 ## Capacity baseline
 
-- Predicted ticket volume increase: TBD %
-- Required additional agent capacity: TBD person-hours / week
+- Predicted ticket volume increase: doplnit %
+- Required additional agent capacity: doplnit person-hours / week
 - Escalation path: tier 1 → tier 2 → product team
 """
 
@@ -622,7 +641,7 @@ def render_compliance(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     legal_triage = next((t for t in ctx["triage"] if t["track"] == "legal"), None)
     sec_triage = next((t for t in ctx["triage"] if t["track"] == "security"), None)
-    audit_count_text = "TBD (query audit_log)"
+    audit_count_text = "doplnit (query audit_log)"
 
     decision_attrib = []
     for d in ctx["decisions"]:
@@ -648,36 +667,36 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - Processing activity name: {p[1]}
 - Data class: **{p[9]}**
 - AI Act tier: **{p[8]}**
-- Lawful basis: TBD (z Legal triage)
-- Data subjects: TBD
-- Categories of data: TBD (per Security triage Data Classification)
+- Lawful basis: doplnit (z Legal triage)
+- Data subjects: doplnit
+- Categories of data: doplnit (per Security triage Data Classification)
 - Retention: per `data.md` § Privacy classification
-- Recipients (3rd parties): TBD (z DORA 3rd-party register)
+- Recipients (3rd parties): doplnit (z DORA 3rd-party register)
 
 ## AI Act risk register entry
 
 - Risk tier: **{p[8]}**
 - Use case description: {p[5]}
 - Annex IV technical doc required: {'YES' if p[8] in ('high', 'limited') else 'NO'}
-- Human oversight mechanism: TBD (per Legal triage)
+- Human oversight mechanism: doplnit (per Legal triage)
 - Logging requirements: structured logs s atribucí, 7-letá retence
 
 ## DPA flag list (3rd party AI vendors)
 
-- TBD: per Security triage Approved AI Tool list, ověř DPA na všech vendorech
-- Penetration test review v posledních 12 mo: TBD per vendor
-- Incident response SLA ≤ 4 h: TBD per vendor (DORA čl. 12)
-- Provider concentration risk: TBD (DORA čl. 28)
+- doplnit: per Security triage Approved AI Tool list, ověř DPA na všech vendorech
+- Penetration test review v posledních 12 mo: doplnit per vendor
+- Incident response SLA ≤ 4 h: doplnit per vendor (DORA čl. 12)
+- Provider concentration risk: doplnit (DORA čl. 28)
 
 ## Triage artefakty (full text)
 
 ### Security triage
 
-{sec_triage['artefact_md'][:1500] if sec_triage and sec_triage['artefact_md'] else '_(deferred — re-run /pflanzer-triage)_'}
+{sec_triage['artefact_md'][:1500] if sec_triage and sec_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
 
 ### Legal triage
 
-{legal_triage['artefact_md'][:1500] if legal_triage and legal_triage['artefact_md'] else '_(deferred — re-run /pflanzer-triage)_'}
+{legal_triage['artefact_md'][:1500] if legal_triage and legal_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
 
 ## Pre-production gate
 
@@ -705,21 +724,115 @@ def _now() -> str:
 # --------------------------------------------------------------------------
 
 
-def update_method_metrics(slug: str, ctx: dict[str, Any]) -> dict[str, Any]:
-    """Append project's time-to-handoff to method-metrics.json."""
-    p = ctx["project_tuple"]
+def _parse_ts(value: Any) -> datetime | None:
+    """ISO i SQLite CURRENT_TIMESTAMP ("YYYY-MM-DD HH:MM:SS", UTC) -> aware datetime."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
-    # Compute time-to-handoff
-    created = p[17]  # created_at
-    handoff_ts = ctx["handoff_decision_ts"]
-    days = None
-    if created and handoff_ts:
+
+def _delta(a: datetime | None, b: datetime | None) -> dict[str, float | None]:
+    if not a or not b:
+        return {"hours": None, "days": None}
+    secs = (b - a).total_seconds()
+    return {"hours": round(secs / 3600, 2), "days": round(secs / 86400, 2)}
+
+
+def _collect_pilot_metrics(project_id: int, ctx: dict[str, Any]) -> dict[str, Any]:
+    """Metriky pilotu z DB a auditu (nic se nezadává ručně)."""
+    p = ctx["project_tuple"]
+    with transaction() as conn:
+        sess = {r[0]: r for r in conn.execute(
+            "SELECT type, starts_at, decision_ts FROM sessions WHERE project_id = ? "
+            "ORDER BY id", (project_id,)).fetchall()}
+        iterate_rounds = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE project_id = ? AND type = 3",
+            (project_id,)).fetchone()[0]
+        ship_row = conn.execute(
+            "SELECT ts FROM audit_log WHERE action = 'session_3.hardening' AND target_id = ? "
+            "ORDER BY id DESC LIMIT 1", (project_id,)).fetchone()
+        dec_row = conn.execute(
+            "SELECT ts, payload_json FROM audit_log WHERE action = 'session_2.decision' "
+            "AND target_id = ? ORDER BY id DESC LIMIT 1", (project_id,)).fetchone()
+        sev = {r[0]: r[1] for r in conn.execute(
+            "SELECT f.severity, COUNT(*) FROM feedback f JOIN variants v ON v.id = f.variant_id "
+            "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? GROUP BY f.severity",
+            (project_id,)).fetchall()}
+        owners = [r[0] for r in conn.execute(
+            "SELECT DISTINCT human_owner FROM roles WHERE project_id = ? "
+            "AND human_owner IS NOT NULL AND TRIM(human_owner) <> ''", (project_id,)).fetchall()]
+        core = None
+        if table_has_col(conn, "projects", "core_json"):
+            row = conn.execute("SELECT core_json FROM projects WHERE id = ?", (project_id,)).fetchone()
+            if row and row[0]:
+                try:
+                    core = json.loads(row[0])
+                except json.JSONDecodeError:
+                    core = None
+        winner = ctx.get("winner")
+        diff = None
+        if winner:
+            has_diff = table_has_col(conn, "extracted_code", "diff_loc_added")
+            diff = conn.execute(
+                "SELECT e.total_loc, e.files_count"
+                + (", e.diff_loc_added, e.diff_loc_removed, e.diff_files" if has_diff
+                   else ", NULL, NULL, NULL")
+                + " FROM extracted_code e JOIN variants v ON v.id = e.variant_id "
+                "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? AND s.type = 1 "
+                "AND v.name = ? ORDER BY e.id DESC LIMIT 1", (project_id, winner)).fetchone()
+
+    kickoff = _parse_ts(p[17])  # projects.created_at
+    decision_at = _parse_ts(sess[2][2]) if 2 in sess else None
+    ship_at = _parse_ts(ship_row[0]) if ship_row else None
+    override = None
+    if dec_row and dec_row[1]:
         try:
-            t0 = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
-            t1 = datetime.fromisoformat(str(handoff_ts).replace("Z", "+00:00"))
-            days = round((t1 - t0).total_seconds() / 86400, 2)
-        except Exception:
-            days = None
+            override = json.loads(dec_row[1]).get("override_critical")
+        except json.JSONDecodeError:
+            override = None
+
+    core_names = core if isinstance(core, list) else None
+    if core_names is not None:
+        core_size = len({(c.get("name") if isinstance(c, dict) else str(c)) for c in core_names})
+    else:
+        core_size = len(owners) or None
+
+    return {
+        "timeline": {
+            "kickoff_at": str(p[17]) if p[17] else None,
+            "build_started_at": str(sess[1][1]) if 1 in sess and sess[1][1] else None,
+            "decision_at": decision_at.isoformat() if decision_at else None,
+            "ship_at": ship_at.isoformat() if ship_at else None,
+            "kickoff_to_decision": _delta(kickoff, decision_at),
+            "decision_to_ship": _delta(decision_at, ship_at),
+            "kickoff_to_ship": _delta(kickoff, ship_at),
+        },
+        "core_size": core_size,
+        "feedback_by_severity": {k: int(sev.get(k, 0)) for k in ("critical", "high", "medium", "low")},
+        "iterate_rounds": int(iterate_rounds),
+        "critical_override": bool(override),
+        "winner": winner,
+        "winner_gate_score": ctx["gate_score"],
+        "gate_target": ctx["production_readiness_target"],
+        "winner_loc_added": diff[2] if diff and diff[2] is not None else None,
+        "winner_loc_removed": diff[3] if diff and diff[3] is not None else None,
+        "winner_files_changed": diff[4] if diff and diff[4] is not None else None,
+        "winner_loc_total": diff[0] if diff else None,
+    }
+
+
+def update_method_metrics(slug: str, ctx: dict[str, Any]) -> dict[str, Any]:
+    """Upsert metrik pilotu do `method-metrics.json` (podle slug)."""
+    p = ctx["project_tuple"]
+    pilot = _collect_pilot_metrics(ctx["project_id"], ctx)
+
+    created = _parse_ts(p[17])
+    handoff_ts = _parse_ts(ctx["handoff_decision_ts"])
+    days = _delta(created, handoff_ts)["days"]
 
     METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
     metrics: dict[str, Any] = {"projects": []}
@@ -730,7 +843,7 @@ def update_method_metrics(slug: str, ctx: dict[str, Any]) -> dict[str, Any]:
             metrics = {"projects": []}
 
     metrics.setdefault("projects", [])
-    # Upsert by slug
+    previous = next((m for m in metrics["projects"] if m.get("slug") == slug), {})
     metrics["projects"] = [m for m in metrics["projects"] if m.get("slug") != slug]
     entry = {
         "slug": slug,
@@ -744,26 +857,32 @@ def update_method_metrics(slug: str, ctx: dict[str, Any]) -> dict[str, Any]:
         "feedback_ai_only": ctx["feedback_summary"]["ai_only"],
         "variants_count": len(ctx["variants"]),
         "time_to_handoff_days": days,
-        "handoff_at": str(handoff_ts) if handoff_ts else None,
+        "handoff_at": str(ctx["handoff_decision_ts"]) if ctx["handoff_decision_ts"] else None,
         "metrics_recorded_at": _now(),
+        **pilot,
+        # Vyplní se ručně po 30 dnech (viz SHIP.md, sekce "Změř po 30 dnech"); upsert ho nepřepíše.
+        "after_30d": previous.get("after_30d") or {
+            "code_survival_pct": None, "incidents": None, "success_metric_vs_target": None,
+        },
     }
     metrics["projects"].append(entry)
 
-    # Aggregates
-    days_all = [p["time_to_handoff_days"] for p in metrics["projects"]
-                if p.get("time_to_handoff_days") is not None]
+    days_all = [m["time_to_handoff_days"] for m in metrics["projects"]
+                if m.get("time_to_handoff_days") is not None]
+    k2s = [m["timeline"]["kickoff_to_ship"]["days"] for m in metrics["projects"]
+           if m.get("timeline", {}).get("kickoff_to_ship", {}).get("days") is not None]
+    scores = [m["winner_gate_score"] for m in metrics["projects"]
+              if m.get("winner_gate_score") is not None]
     metrics["aggregates"] = {
         "total_projects": len(metrics["projects"]),
-        "avg_time_to_handoff_days": (
-            round(sum(days_all) / len(days_all), 2) if days_all else None
-        ),
+        "avg_time_to_handoff_days": round(sum(days_all) / len(days_all), 2) if days_all else None,
         "min_time_to_handoff_days": min(days_all) if days_all else None,
         "max_time_to_handoff_days": max(days_all) if days_all else None,
+        "avg_kickoff_to_ship_days": round(sum(k2s) / len(k2s), 2) if k2s else None,
+        "avg_winner_gate_score": round(sum(scores) / len(scores), 1) if scores else None,
     }
 
-    METRICS_PATH.write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    METRICS_PATH.write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
     return entry
 
 
@@ -792,13 +911,13 @@ def generate(slug: str) -> dict[str, Any]:
     written: list[str] = []
     for name, fn in RENDERERS.items():
         path = out_dir / f"{name}.md"
-        path.write_text(fn(ctx), encoding="utf-8")
-        written.append(str(path))
+        path.write_text(f"{BRAND}\n\n{fn(ctx)}", encoding="utf-8")
+        written.append(path.name)
 
-    # Sprint 3: primary artefakt = SHIP.md (per ADR-0010 + perspektiva 02 C7)
+    # Primární artefakt = SHIP.md (1 stránka + PR příkaz + "Změř po 30 dnech")
     from tool.cli.handoff_pr import write_ship  # local import to avoid cycle
     ship_path = write_ship(slug)
-    written.insert(0, str(ship_path))  # SHIP.md first in list = primary
+    written.insert(0, ship_path.name)
 
     metrics_entry = update_method_metrics(slug, ctx)
 
@@ -810,19 +929,20 @@ def generate(slug: str) -> dict[str, Any]:
             target_id=ctx["project_id"],
             payload={
                 "slug": slug,
-                "files": [Path(w).name for w in written],
+                "files": written,
                 "time_to_handoff_days": metrics_entry["time_to_handoff_days"],
             },
         )
 
     return {
         "slug": slug,
-        "out_dir": str(out_dir),
+        "out_dir": tilde(out_dir),
         "files": written,
         "metrics": metrics_entry,
-        "p2p_gate_checklist": (
-            f"Promote-to-prod gate checklist v {out_dir}/qa.md "
-            "+ {out_dir}/platform.md (9 + 7 položek)."
+        "metrics_file": tilde(METRICS_PATH),
+        "next_step": (
+            "Otevři `SHIP.md` (PR příkaz + sekce 'Změř po 30 dnech'); promote-to-prod "
+            "checklisty jsou v `qa.md` a `platform.md`."
         ),
     }
 
@@ -831,7 +951,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     args = p.parse_args()
-    print(json.dumps(generate(args.slug), ensure_ascii=False, indent=2, default=str))
+    try:
+        out = generate(args.slug)
+    except ValueError as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False, indent=2), file=sys.stderr)
+        sys.exit(2)
+    print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
 
 
 if __name__ == "__main__":

@@ -1,87 +1,56 @@
 ---
-description: Generate per-role handoff package (8 souborů) + method-metrics aggregate. Slice 8.
+description: Handoff (/pm handoff) — balíček per role (PR-ready) + metriky pilotu (čas Kickoff→merge, gate score, Iterate kola, přežití kódu).
 ---
 
-# /pflanzer-handoff — Handoff package generator
+# Handoff (`/pm handoff`)
 
-Argumenty: `$ARGUMENTS` = projekt slug.
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`.
 
-Předpoklad: `projects.status = 'handoff'` (= Session 2 Decider's Go).
+**Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-## Co tento command dělá
+Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
 
-Per `docs/methodology/07-handoff-do-vyvoje.md` § Per-role handoff:
+Předpoklad: Rozhodnutí = Go a proběhl `/pm ship`. Jinak řekni, který krok chybí.
 
-1. Pull all project context (Charter, roles, triage, sessions, variants, decisions, feedback).
-2. Render 8 per-role artefaktů do `data/handoffs/<slug>/`:
-   - `decision.md` — Charter snapshot + decision log + ADR drafty
-   - `be.md` — OpenAPI 3.1 stub, ERD, breaking-change registr, contract test skeleton
-   - `fe.md` — throw-away/evolve directive, component manifest delta, design tokens diff
-   - `qa.md` — Gherkin scénáře (1 happy + ≥ 1 negative per varianta), P2P checklist (9 položek)
-   - `platform.md` — Sandbox spec, paved-road, SLO baseline, promote-to-prod gate
-   - `data.md` — measurement plan, event taxonomy delta, A/B test design, learning agenda
-   - `support.md` — ticket prediction worksheet, support docs deadline (D-7/D-2/D+30)
-   - `compliance.md` — audit trail dump, RoPA update, AI Act register, DPA flag list
-3. Update `data/method-metrics.json` (time-to-handoff aggregate napříč projekty).
-4. Audit log entry.
-
-## Jak postupuj
-
-### Krok 1 — Validace
-
-Read project status z DB. Pokud ≠ 'handoff', instruuj uživatele spustit
-`/pflanzer-session-2 $ARGUMENTS` nejdřív (Decider Go nutný).
-
-### Krok 2 — Generate
+## Krok 1 — Generování
 
 ```bash
-python3 tool/cli/handoff.py --slug $ARGUMENTS
+pflanzer handoff --slug $ARGUMENTS       # balíček per role do výstupní složky
+pflanzer handoff_pr --slug $ARGUMENTS    # PR-ready podklady + metriky pilotu
+pflanzer data                            # kde výstupy leží (~/.pflanzer)
 ```
 
-Stdout vrátí JSON s `out_dir`, `files[]`, `metrics`, `p2p_gate_checklist`.
+## Krok 2 — Rozeslání
 
-### Krok 3 — Per-role assignment
+Pro každý krok cesty vezmi jméno z Kickoffu a dej mu jeho soubor
+(vývoj, QA, provoz, bezpečnost & právo, rozhodnutí). Placeholdery TODO
+jsou záměr — doplní tým podle kontextu.
 
-Z `roles` table lookup human_owner per role. Pošli každému ownerovi jeho
-package (souborový link nebo email; v0 jen log path):
+## Krok 3 — Metriky pilotu
 
-| Role | Owner | Handoff file |
-|------|-------|--------------|
-| BE lead (#5) | <owner> | `data/handoffs/<slug>/be.md` |
-| FE lead (#4) | <owner> | `data/handoffs/<slug>/fe.md` |
-| QA (#8) | <owner> | `data/handoffs/<slug>/qa.md` |
-| DevOps (#15) | <owner> | `data/handoffs/<slug>/platform.md` |
-| Data (#12) | <owner> | `data/handoffs/<slug>/data.md` |
-| CS proxy (#13) | <owner> | `data/handoffs/<slug>/support.md` |
-| Security (#7) + Legal (#10) | <owner> | `data/handoffs/<slug>/compliance.md` |
-| Decider (#1) | <owner> | `data/handoffs/<slug>/decision.md` |
+Ukaž, co tool sesbíral — slouží k vylepšení metody:
 
-### Krok 4 — Promote-to-prod gate readout
+- čas Kickoff → merge
+- gate score vítěze
+- počet kol Iterate
+- kolik kódu vítěze přežije 30 dní v `main` (doměř po 30 dnech)
 
-Přečti `qa.md` § P2P checklist (9 položek) + `platform.md` § Promote-to-prod
-gate (7 položek). Sečti totální gate items, ukaž kolik je hotových (manuálně
-checkuje QA + DevOps post-implementation).
+## Krok 4 — Další krok
 
-### Krok 5 — Souhrn
+> Další krok: po merge vítěze `/pm retro <slug>` — změří % LOC vítěze
+> v produkci a days-to-prod, hned nastaví připomínky T+7/30/60/90.
 
-- Path k `data/handoffs/<slug>/` (8 souborů).
-- Method-metrics: time-to-handoff_days pro tento projekt.
-- Aggregate metrics napříč projekty (avg / min / max time-to-handoff).
-- Reminder: po deployi spusť reinforcement track per Charter (T+7 / T+30 / T+60 / T+90).
+Reinforcement podle zadání z Kickoffu (T+7/30/90) drží Decider. Retro je
+pod povrchem: hlavní cesta končí Shipem a Handoffem.
 
 ## Co NEDĚLAT
 
-- **Negeneruj package pokud status ≠ 'handoff'** — vyžaduje Decider's Go.
-- **Nepřebíjet template defaults** — TODO placeholders jsou záměr; tým je
-  doplní per project context (BE openapi, FE component delta, atd.).
-- **Nezapisovat real PII do souborů** — Charter / triage / decisions
-  obsahují jen byly napsané týmem; pokud tým psal PII, fix v Charteru.
-- **Nezapomenout method-metrics** — důležité pro reinforcement track
-  (devil's advocate Útok 11): bez metrik tým nezjistí, jestli metoda
-  funguje napříč pilotmi.
+- Negeneruj bez Go.
+- Nezapisuj osobní údaje do balíčku.
+- Nezapomeň na metriky — bez dat se metoda nezlepší.
 
 ## Reference
 
-- `docs/methodology/07-handoff-do-vyvoje.md` (canonical handoff specifikace)
-- `tool/cli/handoff.py` (8 renderers + method-metrics)
-- `data/method-metrics.json` (cross-project aggregate)
+- `docs/methodology/07-handoff-do-vyvoje.md`
+- `.claude/commands/pflanzer-retro.md` (`/pm retro`)

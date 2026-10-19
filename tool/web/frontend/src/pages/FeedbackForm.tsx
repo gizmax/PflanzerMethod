@@ -5,6 +5,8 @@ import type { Feedback, Role, Variant } from "../lib/types";
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const WCAG = ["N/A", "A", "AA", "AAA"] as const;
+// 6 kroků cesty (ADR-0021) — fallback, když zástupce není v role catalogu
+const PATH_STEPS = ["Byznys", "Produkt", "Design", "Vývoj", "Bezpečnost & právo", "Provoz"] as const;
 
 export default function FeedbackForm() {
   const { slug, variantId } = useParams<{ slug: string; variantId: string }>();
@@ -18,8 +20,8 @@ export default function FeedbackForm() {
   // Form state
   const [roleId, setRoleId] = useState<number | null>(null);
   const [severity, setSeverity] = useState<Feedback["severity"]>("medium");
-  // Department is derived from the selected role; no free-text input (yet).
-  const [department] = useState("");
+  // Department = vybraná role, jinak krok cesty (ADR-0021).
+  const [department, setDepartment] = useState("");
   const [category, setCategory] = useState("");
   const [score, setScore] = useState(0.7);
   const [rationale, setRationale] = useState("");
@@ -99,6 +101,20 @@ export default function FeedbackForm() {
               </option>
             ))}
           </select>
+          {roleId === null && (
+            <select
+              className="pf-input mt-2"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+            >
+              <option value="">— nebo krok cesty —</option>
+              {PATH_STEPS.map((step) => (
+                <option key={step} value={step}>
+                  {step}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">

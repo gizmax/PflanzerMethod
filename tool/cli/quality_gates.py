@@ -1,50 +1,55 @@
-"""Production-ready quality gate runner.
+"""Quality gates (Ship, v0.5) — automatické brány místo lidí v místnosti.
 
-Pro každý extracted/<slug>/<variant>/ projektu spustí 7 gates:
-- **lint**         npm run lint / ruff check
-- **types**        tsc --noEmit / mypy
-- **tests**        npm test / pytest
-- **security**     npm audit / pip-audit + secret scan (gitleaks pokud k dispozici)
-- **a11y**         axe-core (volitelně, only pokud npm install proběhl)
-- **build**        npm run build / python -m build
-- **observability**  scan na console.log → warn (production code by neměl mít)
+Pro worktree / adresář vítězné varianty spustí až 9 gates:
+- **build**         `npm run build` (jen pokud je build script)
+- **types**         `tsc --noEmit` (jen s tsconfig.json) / mypy (jen s konfigurací)
+- **lint**          `npm run lint` (jen pokud je lint script) / ruff
+- **tests**         `npm test` / pytest; žádné nalezené testy = FAIL ("žádné testy")
+- **coverage**      vitest --coverage (jen pokud je coverage nástroj)
+- **acceptance**    Playwright scénáře z `tests/acceptance/` (jen pokud existují)
+- **security**      secret scan + `npm audit` (vždy)
+- **a11y**          heuristika nad HTML/JSX/TSX/Vue/Svelte (jen pokud UI soubory jsou)
+- **observability** `console.*` ve zdrojácích (jen pro JS/TS)
 
-Gate report: per gate { status: pass|warn|fail|skipped|unsupported, details, metric }.
-Aggregate: gate_score 0..100 (passing weight = 1, warn = 0.5, fail/skip = 0).
+**Stack-aware:** gate, který pro stack nedává smysl (např. `types` bez
+tsconfig.json), je `skipped` s důvodem a **nepočítá se do jmenovatele**.
+Skóre = body z aplikovatelných gates / max aplikovatelných × 100, vždy 0–100.
+Výstup: "X/100 (práh Y)".
 
-Vstup: extracted_id z `extracted_code` table (or --slug + --variant lookup).
-Output: persisted do `quality_gates` table + summary MD do
-`data/handoffs/<slug>/quality-<variant>.md` + návratové `gate_score`.
+Gate report: per gate { status: pass|warn|fail|skipped, details, metric }.
+pass = 1, warn = 0.5, fail = 0; skipped / unsupported se vynechávají.
 
-Závislosti: žádné Python deps (jen subprocess). Předpokládá `npm`/`node` na PATH.
-Pokud chybí, gates se označí 'unsupported' (ne fail).
+Vstup: extracted_id z `extracted_code` (nebo --slug + --variant).
+Výstup: řádky v `quality_gates`, `<DATA_ROOT>/handoffs/<slug>/quality-<variant>.md`
+a návratové `gate_score`.
 
-Gate adapter (audit N7): if `pflanzer.gates.yml` (or `.yaml` / `.json`) exists
-in the checked path or any parent up to the git root, its per-gate commands
-replace autodetection entirely:
+Závislosti: žádné Python deps (jen subprocess). Chybí-li `node_modules`, zkusí
+se instalace přes detekovaný package manager (timeout `PFLANZER_INSTALL_TIMEOUT`,
+default 300 s); nejde-li to, gates závislé na instalaci jsou SKIP s důvodem.
+
+Gate adapter (audit N7): pokud existuje `pflanzer.gates.yml` (nebo `.yaml` / `.json`)
+v kontrolované cestě či jejím rodiči až po git root, jeho příkazy per gate NAHRADÍ
+autodetekci úplně:
 
     build: {cmd: "mvn -q -DskipTests compile", cwd: ".", parse: exit_code}
     coverage: {cmd: "...", parse: 'regex:(?P<metric>[\\d.]+)%', warn_below: 60, fail_below: 30}
-    security: {builtin: true}   # reuse the built-in runner (secret scan)
+    security: {builtin: true}   # použije vestavěný runner (secret scan)
 
-Gates missing from the adapter report 'unsupported' ("define in
-pflanzer.gates.yml"), never 'fail'. YAML needs PyYAML (optional import);
-without it use `pflanzer.gates.json`. Template + docs: `tool/templates/
-pflanzer.gates.yml.template`, `tool/templates/README-gates.md`; generator:
-`pflanzer init gates-template --path <repo>`.
+Gate chybějící v adaptéru je 'unsupported' ("define in pflanzer.gates.yml"), nikdy
+'fail', a stejně jako SKIP nejde do jmenovatele skóre. YAML vyžaduje PyYAML
+(volitelný import); bez něj použij `pflanzer.gates.json`. Šablona + dokumentace:
+`tool/templates/pflanzer.gates.yml.template`, `tool/templates/README-gates.md`;
+generátor: `pflanzer init gates-template --path <repo>`.
 
-Without an adapter, Node and Python behave exactly as before. Other stacks are
-autodetected as a fallback (only when the dir is neither Node nor Python):
-Maven (`pom.xml`), Gradle (`build.gradle[.kts]`), .NET (`*.sln`/`*.csproj`),
-Go (`go.mod`) -> build/tests (+ lint for .NET and Go); the remaining gates
-report 'unsupported'. A missing binary also yields 'unsupported'.
+Bez adaptéru se autodetekuje Node a Python; jiné stacky jen jako fallback (adresář není
+Node ani Python): Maven (`pom.xml`), Gradle, .NET (`*.sln`/`*.csproj`), Go (`go.mod`)
+-> build/tests (+ lint pro .NET a Go), zbytek 'unsupported'.
 
-DB-free entry point: `run_gates_on_path(path)` / CLI `--path <dir>`.
-`adapter_path=` / CLI `--adapter <file>` injects an adapter from outside the
-worktree (session_3 loads it from the base branch via `git show`, so an agent
-in the worktree cannot rewrite its own gates); its `cwd` resolves against the
-checked path. `aggregate_score()` also reports `gates_run` (pass/warn/fail)
-and `gates_unsupported` so callers can require a minimum number of real gates.
+Bez DB: `run_gates_on_path(path)` / CLI `--path <dir>`. `adapter_path=` / CLI
+`--adapter <file>` vloží adaptér zvenku worktree (Ship ho čte z base branche přes
+`git show`, takže agent ve worktree si brány nepřepíše); jeho `cwd` se vztahuje ke
+kontrolované cestě. `aggregate_score()` hlásí i `gates_run` (pass/warn/fail) a
+`gates_unsupported`; verdikt vyžaduje minimum reálně spuštěných bran (`sufficiency`).
 """
 from __future__ import annotations
 
@@ -64,13 +69,11 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
+from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
 
-GATES_DIR = REPO_ROOT / "data" / "handoffs"
-# Sprint 2 (per autoresearch ADR-0012):
-# - Order = fail-fast (cheap → expensive). build first kills broken stack quickly.
-# - acceptance = primary signal pro reuse (Decider written .feature scénáře).
-# - coverage = real test signal, ne placebo (current gate_tests = "1 trivial test pass").
+GATES_DIR = DATA_ROOT / "handoffs"
+# Pořadí = fail-fast (levné → drahé).
 GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "acceptance",
               "security", "a11y", "observability")
 GATE_WEIGHTS = {  # Production readiness weight
@@ -78,13 +81,20 @@ GATE_WEIGHTS = {  # Production readiness weight
     "types": 1.5,        # type errors = bugs
     "lint": 1.0,
     "tests": 2.0,        # primary safety net
-    "coverage": 1.0,     # real coverage, ne 1 trivial test
-    "acceptance": 2.5,   # Decider-written scénáře = ground truth pro reuse
+    "coverage": 1.0,
+    "acceptance": 2.5,   # Decider-written scénáře = ground truth
     "security": 2.0,     # blocker-class
     "a11y": 1.0,
     "observability": 0.5,
 }
 COVERAGE_TARGET = 60  # % branch coverage; pod tímto = warn, pod 30 = fail
+# Minimum důkazů pro verdikt "splňuje práh": aspoň MIN_GATES_RUN reálně spuštěných bran
+# (pass/warn/fail; SKIP / unsupported se nepočítají) a mezi nimi build i tests.
+MIN_GATES_RUN = 4
+REQUIRED_GATES = ("build", "tests")
+RAN_STATUSES = ("pass", "warn", "fail")
+SKIP_DIRS = {"node_modules", "dist", "build", "out", ".git", "coverage", ".venv", "venv",
+             "__pycache__", ".next", ".turbo", ".cache"}
 
 
 @dataclass
@@ -97,50 +107,37 @@ class GateResult:
 
 
 # --------------------------------------------------------------------------
-# Tool detection
+# Stack detection
 # --------------------------------------------------------------------------
 
 
-def _has(tool: str) -> bool:
-    return shutil.which(tool) is not None
+@dataclass
+class Stack:
+    path: Path
+    node: bool = False
+    python: bool = False
+    package_manager: str | None = None
+    scripts: dict[str, str] | None = None
+    deps: dict[str, str] | None = None
+    has_tsconfig: bool = False
+    needs_install: bool = False
+    other: str | None = None  # maven | gradle | dotnet | go (jen když není Node ani Python)
+
+    @property
+    def label(self) -> str:
+        parts = []
+        if self.node:
+            parts.append("node" + (f"/{self.package_manager}" if self.package_manager else ""))
+            parts.append("ts" if self.has_tsconfig else "js")
+        if self.python:
+            parts.append("python")
+        if self.other:
+            parts.append(STACK_LABELS[self.other])
+        return "+".join(parts) or "neznámý"
 
 
 def _is_node_project(path: Path) -> bool:
     return (path / "package.json").exists()
-
-
-def _ensure_node_deps(path: Path) -> bool:
-    """Auto `npm ci` (or pnpm/yarn) jednou per gate run pokud node_modules chybí.
-
-    Per autoresearch perspektiva 03 (devex): bez tohoto majority gates skipne
-    s "node_modules missing" → false-low gate_score. Lepší zaplatit ~30s
-    install než reportovat falsely-low score.
-    """
-    if (path / "node_modules").exists():
-        return True
-    if not _is_node_project(path):
-        return False
-    # Detect package manager + lockfile
-    has_lock_pnpm = (path / "pnpm-lock.yaml").exists()
-    has_lock_yarn = (path / "yarn.lock").exists()
-    has_lock_npm = (path / "package-lock.json").exists()
-
-    if has_lock_pnpm and shutil.which("pnpm"):
-        cmd = ["pnpm", "install", "--frozen-lockfile", "--reporter=silent"]
-    elif has_lock_yarn and shutil.which("yarn"):
-        cmd = ["yarn", "install", "--frozen-lockfile", "--silent"]
-    elif has_lock_npm and shutil.which("npm"):
-        cmd = ["npm", "ci", "--no-audit", "--no-fund", "--silent"]
-    elif shutil.which("npm"):
-        # No lockfile — fallback to install (creates lockfile + resolves deps)
-        cmd = ["npm", "install", "--no-audit", "--no-fund", "--silent"]
-    else:
-        return False
-    try:
-        rc = subprocess.run(cmd, cwd=path, capture_output=True, timeout=300).returncode
-        return rc == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
 
 
 def _is_python_project(path: Path) -> bool:
@@ -235,24 +232,121 @@ def _gradle_cmd(path: Path) -> list[str] | None:
     return ["gradle"] if _has("gradle") else None
 
 
-# --------------------------------------------------------------------------
-# Per-gate runners
-# --------------------------------------------------------------------------
+def detect_stack_info(path: Path) -> Stack:
+    st = Stack(path=path, scripts={}, deps={})
+    pkg = path / "package.json"
+    if pkg.exists():
+        st.node = True
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+        st.scripts = {k: str(v) for k, v in (data.get("scripts") or {}).items()}
+        st.deps = {**(data.get("dependencies") or {}), **(data.get("devDependencies") or {})}
+        pm = str(data.get("packageManager", ""))
+        if pm.startswith(("pnpm@", "yarn@", "npm@")):
+            st.package_manager = pm.split("@")[0]
+        elif (path / "pnpm-lock.yaml").exists():
+            st.package_manager = "pnpm"
+        elif (path / "yarn.lock").exists():
+            st.package_manager = "yarn"
+        else:
+            st.package_manager = "npm"
+        st.needs_install = bool(st.deps)
+    st.has_tsconfig = (path / "tsconfig.json").exists()
+    st.python = any((path / f).exists() for f in ("pyproject.toml", "setup.py", "requirements.txt"))
+    if not st.node and not st.python:
+        found = detect_stack(path)
+        st.other = found if found in OTHER_STACKS else None
+    return st
+
+
+def _has(tool: str) -> bool:
+    return shutil.which(tool) is not None
 
 
 def _run(cmd: list[str] | str, cwd: Path, timeout: int = 120) -> tuple[int, str, str]:
-    # A plain string (adapter `cmd`) runs through the shell so teams can use
-    # `&&`, env vars and wrappers; lists stay exec-style as before.
+    # Řetězec (adapter `cmd`) jde přes shell (`&&`, env proměnné, wrappery); seznam zůstává exec-style.
+    env = {**os.environ, "CI": "1", "FORCE_COLOR": "0", "NO_COLOR": "1"}
     try:
-        res = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
-            shell=isinstance(cmd, str),
-        )
+        res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                             timeout=timeout, env=env, shell=isinstance(cmd, str))
         return res.returncode, res.stdout, res.stderr
     except subprocess.TimeoutExpired:
         return 124, "", f"Timeout po {timeout}s"
     except FileNotFoundError as e:
         return 127, "", str(e)
+
+
+def prepare_deps(st: Stack) -> tuple[bool, str]:
+    """Zajisti node_modules (jen když je potřeba). Vrací (ok, důvod při selhání)."""
+    if not st.node or not st.needs_install:
+        return True, ""
+    if (st.path / "node_modules").exists():
+        return True, ""
+    pm = st.package_manager or "npm"
+    lock_npm = (st.path / "package-lock.json").exists()
+    if pm == "pnpm" and _has("pnpm"):
+        cmd = ["pnpm", "install", "--frozen-lockfile", "--reporter=silent"]
+    elif pm == "yarn" and _has("yarn"):
+        cmd = ["yarn", "install", "--frozen-lockfile", "--silent"]
+    elif _has("npm"):
+        cmd = ["npm", "ci" if lock_npm else "install", "--no-audit", "--no-fund", "--silent"]
+    else:
+        return False, f"{pm} není na PATH, závislosti nelze nainstalovat"
+    timeout = int(os.environ.get("PFLANZER_INSTALL_TIMEOUT", "300"))
+    rc, out, err = _run(cmd, st.path, timeout=timeout)
+    err = (err + out)
+    if rc == 0:
+        return True, ""
+    if rc == 124:
+        return False, f"instalace závislostí vypršela po {timeout}s ({' '.join(cmd[:2])})"
+    return False, f"instalace závislostí selhala ({' '.join(cmd[:2])}, rc={rc}): {err.strip()[-160:]}"
+
+
+@dataclass
+class Ctx:
+    path: Path
+    stack: Stack
+    deps_ok: bool
+    deps_reason: str
+
+
+def _skip(gate: str, reason: str) -> GateResult:
+    return GateResult(gate, "skipped", f"SKIP: {reason}")
+
+
+def _needs_deps(ctx: Ctx, gate: str) -> GateResult | None:
+    """SKIP s důvodem, pokud node projekt potřebuje závislosti a ty nejsou."""
+    if ctx.stack.node and ctx.stack.needs_install and not ctx.deps_ok:
+        return _skip(gate, ctx.deps_reason or "chybí node_modules")
+    return None
+
+
+def _iter_files(root: Path, suffixes: tuple[str, ...], skip: set[str] | None = None):
+    skip_dirs = SKIP_DIRS if skip is None else skip
+    for f in root.rglob("*"):
+        rel_parts = f.relative_to(root).parts
+        if any(p in skip_dirs for p in rel_parts[:-1]):
+            continue
+        if f.is_file() and f.suffix.lower() in suffixes:
+            yield f
+
+
+_TEST_FILE_RE = re.compile(r"(\.|_)(test|spec)\.[a-z]+$|^test_.*\.py$|_test\.py$")
+
+
+def _has_test_files(root: Path) -> bool:
+    for f in _iter_files(root, (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py")):
+        rel = f.relative_to(root).parts
+        if _TEST_FILE_RE.search(f.name) or any(p in ("test", "tests", "__tests__") for p in rel[:-1]):
+            return True
+    return False
+
+
+# --------------------------------------------------------------------------
+# Per-gate runners
+# --------------------------------------------------------------------------
 
 
 def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
@@ -283,85 +377,137 @@ def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
                       f"{label}: `{shown}` exit {rc}\n{(out + err)[-500:]}",
                       duration_s=duration)
 
-
-def gate_lint(path: Path) -> GateResult:
-    if _is_node_project(path):
+def gate_build(ctx: Ctx) -> GateResult:
+    st = ctx.stack
+    if st.other:
+        return _gate_other_stack("build", ctx.path, st.other)
+    if st.node:
+        if "build" not in st.scripts:
+            return _skip("build", "package.json nemá build script")
+        if (s := _needs_deps(ctx, "build")):
+            return s
         if not _has("npm"):
-            return GateResult("lint", "unsupported", "npm not on PATH")
-        # Skip lint if node_modules missing (user run npm install)
-        if not (path / "node_modules").exists():
-            return GateResult("lint", "skipped",
-                              "node_modules missing — spusť `npm install` v extracted/")
-        rc, out, err = _run(["npm", "run", "lint"], path, timeout=60)
+            return _skip("build", "npm není na PATH")
+        rc, out, err = _run(["npm", "run", "build"], ctx.path, timeout=180)
         if rc == 0:
-            return GateResult("lint", "pass", "ESLint zero warnings", metric=0)
-        # Parse warnings/errors
-        problems = len(re.findall(r"^\s+\d+:\d+", out, re.MULTILINE))
-        return GateResult(
-            "lint", "fail" if rc != 0 and problems > 0 else "warn",
-            f"ESLint reported {problems} issue(s)\n{(out + err)[-500:]}",
-            metric=problems,
-        )
-    if _is_python_project(path):
-        if not _has("ruff"):
-            return GateResult("lint", "unsupported", "ruff not on PATH")
-        rc, out, err = _run(["ruff", "check", "."], path)
-        return GateResult("lint", "pass" if rc == 0 else "fail",
-                          (out + err)[-500:] or "OK")
-    if stack := _other_stack(path):
-        return _gate_other_stack("lint", path, stack)
-    return GateResult("lint", "unsupported", "Unknown project type (no package.json or pyproject.toml)")
+            size_kb = 0
+            for d in ("dist", "build", "out"):
+                dist = ctx.path / d
+                if dist.exists():
+                    size_kb = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file()) // 1024
+                    break
+            return GateResult("build", "pass", f"Build OK, výstup {size_kb} KB", metric=size_kb)
+        return GateResult("build", "fail", (out + err)[-500:])
+    if st.python:
+        return _skip("build", "Python build není v rozsahu bran")
+    return _skip("build", "neznámý stack (bez package.json / pyproject.toml)")
 
 
-def gate_types(path: Path) -> GateResult:
-    if _is_node_project(path):
-        if not _has("npx"):
-            return GateResult("types", "unsupported", "npx not on PATH")
-        if not (path / "node_modules").exists():
-            return GateResult("types", "skipped", "node_modules missing")
-        rc, out, err = _run(["npx", "tsc", "--noEmit"], path, timeout=120)
+def gate_types(ctx: Ctx) -> GateResult:
+    st = ctx.stack
+    if st.other:
+        return _gate_other_stack("types", ctx.path, st.other)
+    if st.node:
+        if not st.has_tsconfig:
+            return _skip("types", "bez tsconfig.json - projekt není TypeScript")
+        if (s := _needs_deps(ctx, "types")):
+            return s
+        tsc = ctx.path / "node_modules" / ".bin" / "tsc"
+        if not tsc.exists() and not _has("tsc"):
+            return _skip("types", "tsconfig.json je, ale typescript není nainstalovaný")
+        cmd = [str(tsc)] if tsc.exists() else ["tsc"]
+        rc, out, err = _run(cmd + ["--noEmit"], ctx.path, timeout=120)
         if rc == 0:
-            return GateResult("types", "pass", "TypeScript strict mode passes")
+            return GateResult("types", "pass", "tsc --noEmit bez chyb", metric=0)
         errors = out.count("error TS")
-        return GateResult("types", "fail",
-                          f"{errors} TS errors\n{out[-500:]}", metric=errors)
-    if _is_python_project(path):
+        return GateResult("types", "fail", f"{errors} TS chyb\n{out[-500:]}", metric=errors)
+    if st.python:
+        configured = (ctx.path / "mypy.ini").exists() or any(
+            "mypy" in (ctx.path / f).read_text(encoding="utf-8", errors="ignore")
+            for f in ("pyproject.toml", "setup.cfg") if (ctx.path / f).exists())
+        if not configured:
+            return _skip("types", "mypy není v projektu nakonfigurovaný")
         if not _has("mypy"):
-            return GateResult("types", "unsupported", "mypy not on PATH")
-        rc, out, _ = _run(["mypy", "."], path)
-        return GateResult("types", "pass" if rc == 0 else "fail", out[-500:])
-    if stack := _other_stack(path):
-        return _gate_other_stack("types", path, stack)
-    return GateResult("types", "unsupported", "Unknown project type")
+            return _skip("types", "mypy není na PATH")
+        rc, out, _ = _run(["mypy", "."], ctx.path)
+        return GateResult("types", "pass" if rc == 0 else "fail", out[-500:] or "OK")
+    return _skip("types", "neznámý stack")
 
 
-def gate_tests(path: Path) -> GateResult:
-    if _is_node_project(path):
-        if not (path / "node_modules").exists():
-            return GateResult("tests", "skipped", "node_modules missing")
-        rc, out, err = _run(["npm", "test"], path, timeout=180)
+def gate_lint(ctx: Ctx) -> GateResult:
+    st = ctx.stack
+    if st.other:
+        return _gate_other_stack("lint", ctx.path, st.other)
+    if st.node:
+        if "lint" not in st.scripts:
+            return _skip("lint", "package.json nemá lint script")
+        if (s := _needs_deps(ctx, "lint")):
+            return s
+        rc, out, err = _run(["npm", "run", "lint"], ctx.path, timeout=120)
         if rc == 0:
-            # Extract pass count
-            m = re.search(r"(\d+)\s+pass", out)
-            count = int(m.group(1)) if m else 0
-            return GateResult("tests", "pass",
-                              f"All tests pass ({count} cases)", metric=count)
-        return GateResult("tests", "fail", (out + err)[-500:])
-    if _is_python_project(path):
+            return GateResult("lint", "pass", "lint bez nálezů", metric=0)
+        problems = len(re.findall(r"^\s+\d+:\d+", out, re.MULTILINE))
+        return GateResult("lint", "fail",
+                          f"lint hlásí chybu ({problems} nálezů)\n{(out + err)[-500:]}",
+                          metric=problems)
+    if st.python:
+        if not _has("ruff"):
+            return _skip("lint", "ruff není na PATH")
+        rc, out, err = _run(["ruff", "check", "."], ctx.path)
+        return GateResult("lint", "pass" if rc == 0 else "fail", (out + err)[-500:] or "OK")
+    return _skip("lint", "neznámý stack")
+
+
+_PLACEHOLDER_TEST = re.compile(r"no test specified", re.IGNORECASE)
+
+
+def _count_tests(output: str) -> int | None:
+    """Počet testů z výstupu node:test / vitest / jest / pytest (None = nezjištěno)."""
+    for pat in (r"^# pass (\d+)", r"^\W*pass (\d+)\s*$", r"Tests?:\s+(?:\d+ failed, )?(\d+) passed",
+                r"\b(\d+) passed", r"(\d+)\s+pass(?:ed|ing)?\b"):
+        m = re.search(pat, output, re.MULTILINE)
+        if m:
+            return int(m.group(1))
+    m = re.search(r"^# tests (\d+)", output, re.MULTILINE)
+    return int(m.group(1)) if m else None
+
+
+def gate_tests(ctx: Ctx) -> GateResult:
+    st = ctx.stack
+    if st.other:
+        return _gate_other_stack("tests", ctx.path, st.other)
+    if st.node:
+        script = st.scripts.get("test")
+        if not script or _PLACEHOLDER_TEST.search(script):
+            return GateResult("tests", "fail", "žádné testy - package.json nemá test script",
+                              metric=0)
+        if (s := _needs_deps(ctx, "tests")):
+            return s
+        rc, out, err = _run(["npm", "test"], ctx.path, timeout=180)
+        if rc != 0:
+            return GateResult("tests", "fail", (out + err)[-500:])
+        count = _count_tests(out + err)
+        if count == 0 or (count is None and not _has_test_files(ctx.path)):
+            return GateResult("tests", "fail",
+                              "žádné testy - test script proběhl, ale nenašel žádný test",
+                              metric=0)
+        note = f"{count} testů prošlo" if count is not None else "testy prošly (počet nezjištěn)"
+        return GateResult("tests", "pass", note, metric=count)
+    if st.python:
         if not _has("pytest"):
-            return GateResult("tests", "unsupported", "pytest not on PATH")
-        rc, out, _ = _run(["pytest", "-q"], path, timeout=180)
-        return GateResult("tests", "pass" if rc == 0 else "fail", out[-500:])
-    if stack := _other_stack(path):
-        return _gate_other_stack("tests", path, stack)
-    return GateResult("tests", "unsupported", "Unknown project type")
+            return _skip("tests", "pytest není na PATH")
+        rc, out, err = _run(["pytest", "-q"], ctx.path, timeout=180)
+        if rc == 5:
+            return GateResult("tests", "fail", "žádné testy - pytest žádný nenašel", metric=0)
+        count = _count_tests(out)
+        return GateResult("tests", "pass" if rc == 0 else "fail", (out + err)[-500:],
+                          metric=count)
+    return GateResult("tests", "fail", "žádné testy - neznámý stack, nic ke spuštění", metric=0)
 
 
-def gate_security(path: Path) -> GateResult:
+def gate_security(ctx: Ctx) -> GateResult:
     findings: list[str] = []
     secrets_count = 0
-
-    # Naive secret scan (žádný gitleaks dependency v MVP)
     secret_patterns = [
         (r"(?i)api[_-]?key\s*[:=]\s*['\"][^'\"]{16,}", "API key"),
         (r"(?i)secret\s*[:=]\s*['\"][^'\"]{16,}", "secret"),
@@ -370,170 +516,121 @@ def gate_security(path: Path) -> GateResult:
         (r"sk-[a-zA-Z0-9]{32,}", "OpenAI-style key"),
         (r"sk-ant-[a-zA-Z0-9_-]{32,}", "Anthropic key"),
     ]
-    skip_dirs = {"node_modules", "dist", ".git", "coverage"}
-    scan_suffixes: tuple[str, ...] = (".ts", ".tsx", ".js", ".jsx",
-                                      ".py", ".env", ".json", ".yml", ".yaml")
-    if _other_stack(path):
+    scan_suffixes: tuple[str, ...] = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py",
+                                      ".env", ".json", ".yml", ".yaml", ".toml", ".sh")
+    skip_dirs = SKIP_DIRS
+    if ctx.stack.other:
         scan_suffixes += STACK_SCAN_SUFFIXES
-        skip_dirs |= STACK_SKIP_DIRS
-    for f in path.rglob("*"):
-        if any(p in skip_dirs for p in f.parts):
-            continue
-        if not f.is_file() or f.suffix.lower() not in scan_suffixes:
-            continue
+        skip_dirs = SKIP_DIRS | STACK_SKIP_DIRS
+    for f in _iter_files(ctx.path, scan_suffixes, skip_dirs):
         try:
+            if f.stat().st_size > 1_000_000:
+                continue
             text = f.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
         for pat, label in secret_patterns:
             if re.search(pat, text):
                 secrets_count += 1
-                findings.append(f"{label} v {f.relative_to(path)}")
+                findings.append(f"{label} v {f.relative_to(ctx.path)}")
 
-    # npm audit (Node only)
+    audit_note = "npm audit nespuštěn"
     audit_findings = 0
-    if _is_node_project(path) and _has("npm") and (path / "node_modules").exists():
-        rc, out, _ = _run(["npm", "audit", "--json"], path, timeout=60)
+    st = ctx.stack
+    if st.node and _has("npm") and ((ctx.path / "node_modules").exists()
+                                    or (ctx.path / "package-lock.json").exists()):
+        rc, out, _ = _run(["npm", "audit", "--json"], ctx.path, timeout=60)
         try:
             audit_json = json.loads(out)
             audit_findings = audit_json.get("metadata", {}).get("vulnerabilities", {}).get("total", 0)
+            audit_note = f"npm audit: {audit_findings} zranitelností"
             if audit_findings:
-                findings.append(f"npm audit: {audit_findings} vulnerability(s)")
-        except (json.JSONDecodeError, KeyError):
-            pass
+                findings.append(audit_note)
+        except (json.JSONDecodeError, KeyError, AttributeError):
+            audit_note = "npm audit nedostupný (offline / bez lockfile)"
 
     if secrets_count > 0:
         return GateResult("security", "fail",
-                          f"⚠ Secret scan: {secrets_count} potential leak(s)\n"
-                          + "\n".join(findings[:10]),
+                          f"Secret scan: {secrets_count} možný únik(y)\n" + "\n".join(findings[:10]),
                           metric=secrets_count)
-    if audit_findings > 5:
-        return GateResult("security", "warn",
-                          f"npm audit: {audit_findings} vulnerabilities (> 5 = review)",
-                          metric=audit_findings)
     if audit_findings > 0:
         return GateResult("security", "warn",
-                          f"npm audit: {audit_findings} vulnerabilities (acceptable)",
+                          f"{audit_note}" + (" (> 5 = review)" if audit_findings > 5 else ""),
                           metric=audit_findings)
-    return GateResult("security", "pass",
-                      f"Žádné secrets detected, {audit_findings} npm vulnerabilities",
-                      metric=0)
+    return GateResult("security", "pass", f"Žádné secrets; {audit_note}", metric=0)
 
 
-def gate_a11y(path: Path) -> GateResult:
-    """A11y check via axe-core (pokud installed). MVP: jen smoke."""
-    if stack := _other_stack(path):
-        return _gate_other_stack("a11y", path, stack)
-    if not _is_node_project(path):
-        return GateResult("a11y", "unsupported", "Pouze Node projekty zatím")
-    if not (path / "node_modules").exists():
-        return GateResult("a11y", "skipped", "node_modules missing")
-    # Basic semantic check: hledá nějaké role/aria/alt v src/
-    src = path / "src"
-    if not src.exists():
-        return GateResult("a11y", "skipped", "src/ missing")
-    semantic_count = 0
-    issue_count = 0
-    for f in src.rglob("*.tsx"):
+def gate_a11y(ctx: Ctx) -> GateResult:
+    """Heuristika (ne náhrada axe-core): alt u img, type u button, lang u html."""
+    if ctx.stack.other:
+        return _gate_other_stack("a11y", ctx.path, ctx.stack.other)
+    files = list(_iter_files(ctx.path, (".html", ".jsx", ".tsx", ".vue", ".svelte")))
+    if not files:
+        return _skip("a11y", "projekt nemá žádné UI soubory (html/jsx/tsx/vue/svelte)")
+    semantic = issues = 0
+    for f in files:
         try:
-            text = f.read_text(encoding="utf-8")
+            text = f.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        # Naive checks
-        if re.search(r"<button(?:\s|>)", text) and "type=" not in text:
-            issue_count += 1  # button bez type → submit default = bug
-        if re.search(r"<img\b", text) and "alt=" not in text:
-            issue_count += 1
+        if re.search(r"<button(?![^>]*\btype=)", text):
+            issues += 1
+        if re.search(r"<img(?![^>]*\balt=)", text):
+            issues += 1
+        if f.suffix == ".html" and re.search(r"<html(?![^>]*\blang=)", text):
+            issues += 1
         if re.search(r'role=|aria-|alt=|<main|<nav|<header|<footer|<section', text):
-            semantic_count += 1
-    if issue_count > 0:
+            semantic += 1
+    if issues:
         return GateResult("a11y", "warn",
-                          f"{issue_count} potential a11y issue(s) — run `npx axe-core` "
-                          f"pro detail. Found {semantic_count} semantic markers.",
-                          metric=issue_count)
+                          f"{issues} možných a11y problémů v {len(files)} UI souborech "
+                          "(heuristika; pro detail `npx axe`)", metric=issues)
     return GateResult("a11y", "pass",
-                      f"Found {semantic_count} semantic markers, 0 obvious issues. "
-                      "Pro produkci doporučeno: `npm i -D @axe-core/cli && npx axe http://localhost:5173`.",
-                      metric=0)
+                      f"{len(files)} UI souborů, {semantic} se sémantickými značkami, 0 zjevných "
+                      "problémů (heuristika; pro produkci doporuč. axe)", metric=0)
 
 
-def gate_build(path: Path) -> GateResult:
-    if _is_node_project(path):
-        if not _has("npm"):
-            return GateResult("build", "unsupported", "npm not on PATH")
-        if not (path / "node_modules").exists():
-            return GateResult("build", "skipped", "node_modules missing")
-        rc, out, err = _run(["npm", "run", "build"], path, timeout=180)
-        if rc == 0:
-            dist = path / "dist"
-            size_kb = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file()) // 1024 if dist.exists() else 0
-            return GateResult("build", "pass",
-                              f"Build OK, dist size = {size_kb} KB",
-                              metric=size_kb)
-        return GateResult("build", "fail", (out + err)[-500:])
-    if _is_python_project(path):
-        # python -m build is heavy; skip in MVP
-        return GateResult("build", "skipped", "Python build not in MVP")
-    if stack := _other_stack(path):
-        return _gate_other_stack("build", path, stack)
-    return GateResult("build", "unsupported", "Unknown project type")
-
-
-def gate_coverage(path: Path) -> GateResult:
-    """Branch coverage % via Vitest --coverage. Sprint 2 ADR-0012."""
-    if stack := _other_stack(path):
-        return _gate_other_stack("coverage", path, stack)
-    if not _is_node_project(path):
-        return GateResult("coverage", "unsupported", "Pouze Node projekty zatím")
-    if not (path / "node_modules").exists():
-        return GateResult("coverage", "skipped", "node_modules missing")
-    rc, out, err = _run(["npx", "vitest", "run", "--coverage", "--reporter=verbose"],
-                        path, timeout=180)
-    # Parse "All files | xx.xx" line z istanbul/v8 reporter
+def gate_coverage(ctx: Ctx) -> GateResult:
+    if ctx.stack.other:
+        return _gate_other_stack("coverage", ctx.path, ctx.stack.other)
+    st = ctx.stack
+    has_tool = st.node and "vitest" in st.deps and any(
+        k in st.deps for k in ("@vitest/coverage-v8", "@vitest/coverage-istanbul"))
+    if not has_tool:
+        return _skip("coverage", "není nakonfigurovaný coverage nástroj (vitest + coverage-v8)")
+    if (s := _needs_deps(ctx, "coverage")):
+        return s
+    rc, out, err = _run(["npx", "--no-install", "vitest", "run", "--coverage", "--reporter=verbose"],
+                        ctx.path, timeout=180)
     m = re.search(r"All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)", out)
     if not m:
-        # Coverage report not generated — treat as warn (test ran but no coverage tool)
-        return GateResult("coverage", "warn",
-                          "No coverage report parsed (chybí @vitest/coverage-v8?)",
-                          metric=None)
+        return GateResult("coverage", "warn", "coverage report se nepodařilo přečíst", metric=None)
     branch_pct = float(m.group(2))
     if branch_pct >= COVERAGE_TARGET:
         return GateResult("coverage", "pass",
-                          f"Branch coverage {branch_pct:.1f} % (target {COVERAGE_TARGET})",
-                          metric=branch_pct)
+                          f"Branch coverage {branch_pct:.1f} % (cíl {COVERAGE_TARGET})", metric=branch_pct)
     if branch_pct >= 30:
         return GateResult("coverage", "warn",
-                          f"Branch coverage {branch_pct:.1f} % < target {COVERAGE_TARGET} %",
-                          metric=branch_pct)
+                          f"Branch coverage {branch_pct:.1f} % < cíl {COVERAGE_TARGET} %", metric=branch_pct)
     return GateResult("coverage", "fail",
-                      f"Branch coverage {branch_pct:.1f} % je critically low (< 30 %)",
-                      metric=branch_pct)
+                      f"Branch coverage {branch_pct:.1f} % je kriticky nízká (< 30 %)", metric=branch_pct)
 
 
-def gate_acceptance(path: Path) -> GateResult:
-    """Run Playwright acceptance scénáře (z tests/acceptance/).
-
-    Per autoresearch ADR-0010: Decider-written .feature scénáře jsou ground
-    truth pro reusability. Pass rate ≥ 80 % = variant je apples-to-apples
-    s ostatními a může jít do shortlistu.
-    """
-    if stack := _other_stack(path):
-        return _gate_other_stack("acceptance", path, stack)
-    if not _is_node_project(path):
-        return GateResult("acceptance", "unsupported", "Pouze Node projekty zatím")
-    acc_dir = path / "tests" / "acceptance"
+def gate_acceptance(ctx: Ctx) -> GateResult:
+    if ctx.stack.other:
+        return _gate_other_stack("acceptance", ctx.path, ctx.stack.other)
+    """Playwright acceptance scénáře z `tests/acceptance/` (zadání Deciderem při Kickoffu)."""
+    acc_dir = ctx.path / "tests" / "acceptance"
     if not acc_dir.exists():
-        return GateResult("acceptance", "skipped",
-                          "tests/acceptance/ chybí — Decider zapomněl Charter "
-                          "acceptance criteria. Per ADR-0010 mandatory pro "
-                          "pilot/production.")
-    if not (path / "node_modules").exists():
-        return GateResult("acceptance", "skipped", "node_modules missing")
-    rc, out, err = _run(["npx", "playwright", "test", "tests/acceptance",
-                         "--reporter=json"], path, timeout=300)
-    # Playwright JSON reporter writes to stdout — try parse
+        return _skip("acceptance", "tests/acceptance/ neexistuje (kritéria nejsou v kódu)")
+    st = ctx.stack
+    if not (st.node and "@playwright/test" in st.deps):
+        return _skip("acceptance", "scénáře jsou, ale chybí @playwright/test")
+    if (s := _needs_deps(ctx, "acceptance")):
+        return s
+    rc, out, err = _run(["npx", "--no-install", "playwright", "test", "tests/acceptance",
+                         "--reporter=json"], ctx.path, timeout=300)
     try:
-        # JSON může být wrapped — najdi first { a parse
         json_start = out.find("{")
         if json_start < 0:
             raise ValueError("no JSON in output")
@@ -543,57 +640,51 @@ def gate_acceptance(path: Path) -> GateResult:
         failed = stats.get("unexpected", 0)
         total = passed + failed
         if total == 0:
-            return GateResult("acceptance", "skipped",
-                              "Žádné acceptance scenarios nenalezeny")
+            return _skip("acceptance", "žádné acceptance scénáře nenalezeny")
         pass_rate = round(100 * passed / total)
         if pass_rate >= 80:
-            return GateResult("acceptance", "pass",
-                              f"{passed}/{total} scénářů ({pass_rate} %)",
+            return GateResult("acceptance", "pass", f"{passed}/{total} scénářů ({pass_rate} %)",
                               metric=pass_rate)
         if pass_rate >= 50:
             return GateResult("acceptance", "warn",
-                              f"{passed}/{total} scénářů ({pass_rate} %) "
-                              "< target 80 %", metric=pass_rate)
+                              f"{passed}/{total} scénářů ({pass_rate} %) < cíl 80 %", metric=pass_rate)
         return GateResult("acceptance", "fail",
-                          f"{passed}/{total} scénářů ({pass_rate} %) — varianta "
-                          "neimplementuje Decider's spec", metric=pass_rate)
+                          f"{passed}/{total} scénářů ({pass_rate} %) - varianta neplní zadání",
+                          metric=pass_rate)
     except (json.JSONDecodeError, ValueError, KeyError) as e:
         if rc == 0:
-            return GateResult("acceptance", "warn",
-                              f"Playwright passed ale JSON parse failed: {e}")
+            return GateResult("acceptance", "warn", f"Playwright prošel, ale výstup nešel přečíst: {e}")
         return GateResult("acceptance", "fail", (out + err)[-500:])
 
 
-def gate_observability(path: Path) -> GateResult:
-    """Production code by nemělo mít console.log / print bez context."""
-    # The scan below only understands TS; on JVM/.NET/Go it would pass vacuously.
-    if stack := _other_stack(path):
-        return _gate_other_stack("observability", path, stack)
-    if not (path / "src").exists() and not _is_python_project(path):
-        return GateResult("observability", "skipped", "No src/")
-    leaks = 0
-    targets = list((path / "src").rglob("*.tsx")) + list((path / "src").rglob("*.ts")) \
-        if (path / "src").exists() else []
-    for f in targets:
-        if "test" in f.name.lower() or "spec" in f.name.lower():
+def gate_observability(ctx: Ctx) -> GateResult:
+    """Produkční kód by neměl mít `console.*` bez kontextu (jen JS/TS)."""
+    if ctx.stack.other:
+        return _gate_other_stack("observability", ctx.path, ctx.stack.other)
+    src = ctx.path / "src"
+    root = src if src.exists() else ctx.path
+    exts = (".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx")
+    files = []
+    for f in _iter_files(root, exts):
+        rel = f.relative_to(root).parts
+        if (_TEST_FILE_RE.search(f.name) or ".config." in f.name
+                or any(p in ("test", "tests", "__tests__", "scripts") for p in rel[:-1])):
             continue
+        files.append(f)
+    if not files:
+        return _skip("observability", "žádné JS/TS zdrojové soubory")
+    leaks = 0
+    for f in files:
         try:
-            text = f.read_text(encoding="utf-8")
+            text = f.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
         leaks += len(re.findall(r"console\.(log|debug|info|warn|error)\(", text))
     if leaks == 0:
-        return GateResult("observability", "pass", "Žádný console.log v src/", metric=0)
-    if leaks <= 10:
-        return GateResult("observability", "warn",
-                          f"{leaks} console.log statements — replace with structured logger pre-prod",
-                          metric=leaks)
-    # Per K4 conflict resolution: fail jen pokud opravdu zaplaveno (>10),
-    # jinak je to lint-time concern (Biome no-console rule), ne gate concern.
+        return GateResult("observability", "pass", f"Žádný console.* v {len(files)} souborech", metric=0)
     return GateResult("observability", "warn",
-                      f"{leaks} console.log statements — high noise. "
-                      "Long-term: enforce přes lint rule (no-console).",
-                      metric=leaks)
+                      f"{leaks} console.* volání - před produkcí nahradit strukturovaným loggerem"
+                      + (" (vysoký šum)" if leaks > 10 else ""), metric=leaks)
 
 
 GATE_RUNNERS = {
@@ -673,7 +764,7 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
     if not isinstance(spec, dict):
         return GateResult(gate, "skipped", f"{name}: `{gate}` must be a mapping or a command string")
     if spec.get("builtin"):
-        return GATE_RUNNERS[gate](path)
+        return GATE_RUNNERS[gate](_make_ctx(path)[0])
 
     cmd = spec.get("cmd")
     if not isinstance(cmd, str) or not cmd.strip():
@@ -764,57 +855,53 @@ def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> lis
     ]
 
 
-def _display_path(path: Path) -> str:
-    """Path relative to the meta-repo when inside it, absolute otherwise.
-
-    Worktrees now default to `~/.pflanzer/targets/...`, outside REPO_ROOT.
-    """
-    path = Path(path).resolve()
-    try:
-        return str(path.relative_to(REPO_ROOT))
-    except ValueError:
-        return str(path)
-
-
 def describe_gate_source(path: Path, adapter_path: Path | None = None) -> str:
-    """Human-readable origin of the gate commands (adapter file or autodetect)."""
+    """Čitelný původ příkazů bran (soubor adaptéru, nebo autodetekce)."""
     if adapter_path is not None:
         adapter = Path(adapter_path)
         if not adapter.is_file():
-            return f"external adapter {_display_path(adapter)} (MISSING — all gates skipped)"
+            return f"external adapter {adapter.name} (MISSING — all gates skipped)"
         digest = hashlib.sha256(adapter.read_bytes()).hexdigest()[:12]
-        return (f"external adapter {_display_path(adapter)} (sha256 {digest}; "
+        return (f"external adapter {adapter.name} (sha256 {digest}; "
                 "supplied by caller, not read from the worktree)")
     adapter = find_gates_adapter(path)
     if adapter is None:
-        stack = detect_stack(Path(path))
-        return f"autodetect (stack: {STACK_LABELS.get(stack, 'unknown') if stack else 'unknown'})"
+        st = detect_stack_info(Path(path))
+        return f"autodetect (stack: {st.label})"
     digest = hashlib.sha256(adapter.read_bytes()).hexdigest()[:12]
-    return f"adapter {_display_path(adapter)} (sha256 {digest}; read from the checked tree)"
+    return f"adapter {adapter.name} (sha256 {digest}; read from the checked tree)"
+
+
+def _make_ctx(path: Path) -> tuple[Ctx, Stack, tuple[bool, str]]:
+    st = detect_stack_info(path)
+    deps = prepare_deps(st)
+    return Ctx(path=path, stack=st, deps_ok=deps[0], deps_reason=deps[1]), st, deps
+
+
+def evaluate_path(path: Path, adapter_path: Path | None = None,
+                  ) -> tuple[Stack, list[GateResult], dict[str, Any], tuple[bool, str]]:
+    """Bez DB: stack -> brány (adaptér, nebo autodetekce) -> skóre."""
+    path = Path(path).resolve()
+    ctx, st, deps = _make_ctx(path)
+    if adapter_path is not None:
+        results = _run_adapter(Path(adapter_path).resolve(), path, cwd_base=path)
+    else:
+        adapter = find_gates_adapter(path)
+        if adapter is not None:
+            results = _run_adapter(adapter, path)
+        else:
+            results = [GATE_RUNNERS[g](ctx) for g in GATE_TYPES]
+    return st, results, aggregate_score(results), deps
 
 
 def run_gates_on_path(path: Path, adapter_path: Path | None = None) -> list[GateResult]:
-    """Run all gates on a directory without touching the DB.
+    """Pusť všechny brány nad adresářem bez DB.
 
-    `adapter_path` given -> that adapter, `cwd` relative to `path` (used for
-    adapters loaded from the base branch). Otherwise the nearest adapter file
-    (`cwd` relative to it), else legacy autodetection. Node deps are
-    auto-installed in all cases (no-op for other stacks). Run counts come from
-    `aggregate_score()` (`gates_run`, `gates_unsupported`).
+    `adapter_path` zadán -> ten adaptér, `cwd` relativně k `path` (adaptér z base branche).
+    Jinak nejbližší adaptér ve stromu (`cwd` relativně k němu), jinak autodetekce.
+    Počty reálně spuštěných bran dává `aggregate_score()` (`gates_run`, `gates_unsupported`).
     """
-    path = Path(path).resolve()
-    # Auto-install node deps so gates don't false-skip (Sprint 2)
-    installed = _ensure_node_deps(path)
-    if not installed and _is_node_project(path):
-        print(f"[gates] warning: could not install deps in {path}; "
-              "gates may report 'skipped'", file=sys.stderr)
-
-    if adapter_path is not None:
-        return _run_adapter(Path(adapter_path).resolve(), path, cwd_base=path)
-    adapter = find_gates_adapter(path)
-    if adapter is not None:
-        return _run_adapter(adapter, path)
-    return [GATE_RUNNERS[gate](path) for gate in GATE_TYPES]
+    return evaluate_path(path, adapter_path)[1]
 
 
 # --------------------------------------------------------------------------
@@ -822,33 +909,66 @@ def run_gates_on_path(path: Path, adapter_path: Path | None = None) -> list[Gate
 # --------------------------------------------------------------------------
 
 
-STATUS_VALUES = {"pass": 1.0, "warn": 0.5, "fail": 0.0, "skipped": 0.0, "unsupported": None}
+STATUS_VALUES = {"pass": 1.0, "warn": 0.5, "fail": 0.0, "skipped": None, "unsupported": None}
+
+
+def gates_sufficiency(results: list[Any]) -> dict[str, Any]:
+    """Minimum důkazů pro verdikt: >= MIN_GATES_RUN spuštěných bran včetně build a tests.
+
+    Brány SKIP / unsupported se nepočítají. Přijímá `GateResult` i dicty `{gate, status}`.
+    """
+    ran = []
+    for r in results:
+        gate = r.gate_type if hasattr(r, "gate_type") else r.get("gate")
+        status = r.status if hasattr(r, "status") else r.get("status")
+        if status in RAN_STATUSES:
+            ran.append(gate)
+    missing = [g for g in REQUIRED_GATES if g not in ran]
+    sufficient = len(ran) >= MIN_GATES_RUN and not missing
+    detail = f"{len(ran)}/{len(GATE_TYPES)} run"
+    if missing:
+        detail += f", missing: {', '.join(missing)}"
+    elif len(ran) < MIN_GATES_RUN:
+        detail += f", min {MIN_GATES_RUN}"
+    return {
+        "gates_run": len(ran), "missing": missing, "sufficient": sufficient,
+        "blocker": None if sufficient else f"gates:insufficient ({detail})",
+    }
 
 
 def aggregate_score(results: list[GateResult]) -> dict[str, Any]:
+    """Skóre 0–100 z aplikovatelných bran (skipped / unsupported mimo jmenovatel)."""
     total_weight = 0.0
     earned = 0.0
+    applicable = 0
     counts = {"pass": 0, "warn": 0, "fail": 0, "skipped": 0, "unsupported": 0}
     for r in results:
         counts[r.status] += 1
         val = STATUS_VALUES.get(r.status)
-        if val is None:  # unsupported = exclude from denominator
+        if val is None:
             continue
         weight = GATE_WEIGHTS.get(r.gate_type, 1.0)
+        applicable += 1
         total_weight += weight
         earned += val * weight
 
     score = round(100 * earned / total_weight) if total_weight > 0 else 0
+    score = max(0, min(100, score))
+    suff = gates_sufficiency(results)
     return {
         "gate_score": score,
         "counts": counts,
-        # Gates that actually executed; unsupported ones drop out of the score
-        # denominator, so callers need this to spot a score built on 1 gate.
+        "applicable_gates": applicable,
+        "total_gates": len(results),
+        # reálně spuštěné brány (pass/warn/fail); unsupported / SKIP vypadávají ze jmenovatele
         "gates_run": counts["pass"] + counts["warn"] + counts["fail"],
         "gates_unsupported": counts["unsupported"],
         "gates_total": len(results),
-        "weighted_max": round(total_weight, 2),
-        "weighted_earned": round(earned, 2),
+        "sufficient": suff["sufficient"],
+        "sufficiency_blocker": suff["blocker"],
+        "low_confidence": not suff["sufficient"],
+        "weight_applicable": round(total_weight, 2),
+        "weight_earned": round(earned, 2),
     }
 
 
@@ -876,22 +996,20 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
 
     local_path = REPO_ROOT / ext[1] if not Path(ext[1]).is_absolute() else Path(ext[1])
     if not local_path.exists():
-        raise ValueError(f"Extracted dir missing: {local_path}")
+        raise ValueError(f"Složka s kódem varianty neexistuje: {display_path(local_path)}")
 
     project_id = int(ext[4])
     slug = ext[5]
     variant_name = ext[3]
-    target = int(ext[6] or 80)
+    target = int(ext[6]) if ext[6] is not None else 80
 
     gate_source = describe_gate_source(local_path, adapter_path)
-    results = run_gates_on_path(local_path, adapter_path)
-
-    score_info = aggregate_score(results)
+    stack, results, score_info, deps = evaluate_path(local_path, adapter_path)
+    if not deps[0]:
+        print(f"[gates] pozor: {deps[1]}; gates závislé na instalaci jsou SKIP", file=sys.stderr)
     score = score_info["gate_score"]
 
-    # Persist
     with transaction() as conn:
-        # Clear old runs for this extracted_id (idempotent re-run)
         conn.execute("DELETE FROM quality_gates WHERE extracted_id = ?", (extracted_id,))
         for r in results:
             conn.execute(
@@ -900,7 +1018,7 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
                     extracted_id, gate_type, status, details_md, metric_value, ran_by
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (extracted_id, r.gate_type, r.status, r.details, r.metric, current_actor()),
+                (extracted_id, r.gate_type, r.status, r.details[:2000], r.metric, current_actor()),
             )
         conn.execute(
             "UPDATE projects SET gate_score_latest = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -912,16 +1030,17 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
             payload={
                 "slug": slug, "variant": variant_name, "score": score,
                 "target": target, "ready": score >= target,
+                "stack": stack.label,
+                "applicable_gates": score_info["applicable_gates"],
                 "gates_run": score_info["gates_run"], "gate_source": gate_source,
             },
         )
 
-    # Write summary MD
     GATES_DIR.mkdir(parents=True, exist_ok=True)
     project_dir = GATES_DIR / slug
     project_dir.mkdir(parents=True, exist_ok=True)
     md_path = project_dir / f"quality-{variant_name}.md"
-    md_path.write_text(_render_md(slug, variant_name, results, score_info, target,
+    md_path.write_text(_render_md(slug, variant_name, results, score_info, target, stack,
                                   gate_source),
                        encoding="utf-8")
 
@@ -929,15 +1048,22 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
         "extracted_id": extracted_id,
         "slug": slug,
         "variant": variant_name,
-        "local_path": _display_path(local_path),
+        "local_path": display_path(local_path),
+        "stack": stack.label,
         "gate_score": score,
         "target": target,
-        "production_ready": score >= target,
-        "counts": score_info["counts"],
+        "score_display": f"{score}/100 (práh {target})",
+        "production_ready": score >= target and score_info["sufficient"],
+        "applicable_gates": score_info["applicable_gates"],
+        "total_gates": score_info["total_gates"],
         "gates_run": score_info["gates_run"],
         "gates_unsupported": score_info["gates_unsupported"],
         "gate_source": gate_source,
-        "summary_path": _display_path(md_path),
+        "sufficient": score_info["sufficient"],
+        "sufficiency_blocker": score_info["sufficiency_blocker"],
+        "low_confidence": score_info["low_confidence"],
+        "counts": score_info["counts"],
+        "summary_path": display_path(md_path),
         "results": [
             {"gate": r.gate_type, "status": r.status,
              "metric": r.metric, "details": r.details[:200]}
@@ -946,43 +1072,53 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
     }
 
 
+def verdict_label(score: int, target: int, low_confidence: bool = False) -> str:
+    if target <= 0:
+        return f"informativně (práh 0, throwaway), skóre {score}/100"
+    if low_confidence:
+        return (f"nelze potvrdit práh - skóre {score}/100 je jen z malého počtu aplikovatelných "
+                "bran (viz SKIP důvody)")
+    if score >= target:
+        return f"splňuje práh ({score}/100 ≥ {target})"
+    return f"pod prahem ({score}/100 < {target})"
+
+
 def _render_md(slug: str, variant: str, results: list[GateResult],
-               score_info: dict[str, Any], target: int,
+               score_info: dict[str, Any], target: int, stack: Stack,
                gate_source: str = "") -> str:
-    badges = {"pass": "✅", "warn": "⚠️", "fail": "❌",
-              "skipped": "⏭️", "unsupported": "—"}
+    badges = {"pass": "PASS", "warn": "WARN", "fail": "FAIL", "skipped": "SKIP", "unsupported": "—"}
     rows = "\n".join(
-        f"| {badges[r.status]} {r.gate_type} | `{r.status}` | "
+        f"| {r.gate_type} | `{badges[r.status]}` | "
         f"{r.metric if r.metric is not None else '—'} | "
-        f"{r.details[:120].replace(chr(10), ' ')} |"
+        f"{r.details[:140].replace(chr(10), ' ').replace('|', '/')} |"
         for r in results
     )
     score = score_info["gate_score"]
-    verdict = "**🚀 Production-ready**" if score >= target else (
-        "**⚠ Pilot-only**" if score >= target * 0.7 else "**❌ Discovery sprint needed**"
-    )
+    low = ""
+    if score_info["low_confidence"]:
+        low = (f"\n> Pozor: skóre je jen z {score_info['applicable_gates']} aplikovatelných bran - "
+               f"malá vypovídací hodnota (`{score_info['sufficiency_blocker']}`; verdikt vyžaduje "
+               f"aspoň {MIN_GATES_RUN} spuštěné brány včetně build a tests).\n")
+    return f"""{BRAND}
 
-    return f"""# Quality gates — {slug} / variant {variant}
+# Quality gates — {slug} / varianta {variant}
 
-> Score: **{score}/100** (target: {target}) · Verdict: {verdict}
-> Counts: {score_info['counts']}
-> Gates run: {score_info['gates_run']}/{score_info['gates_total']} (unsupported: {score_info['gates_unsupported']})
-> Gate source: {gate_source or 'autodetect'}
-
-| Gate | Status | Metric | Details |
-|------|--------|--------|---------|
+> Skóre: **{score}/100** (práh {target}) · {verdict_label(score, target, score_info['low_confidence'])}
+> Stack: `{stack.label}` · Aplikovatelné brány: {score_info['applicable_gates']} z {score_info['total_gates']} · {score_info['counts']}
+> Zdroj příkazů: {gate_source or 'autodetekce'}
+{low}
+| Gate | Stav | Metrika | Detail |
+|------|------|---------|--------|
 {rows}
 
-## Co dál
+## Jak číst
 
-- ✅ pass = ready for production
-- ⚠ warn = ship to pilot, fix mid-sprint
-- ❌ fail = block před promote-to-prod
-- ⏭ skipped = run `npm install` v extracted/{slug}/{variant}/ a re-run gates
-- — unsupported = nástroj chybí na PATH nebo gate není definovaný
-  v `pflanzer.gates.yml` (info, ne blocker)
+- PASS = v pořádku, WARN = do pilotu, opravit v dalším sprintu, FAIL = blokuje.
+- SKIP = brána pro tento stack nedává smysl nebo nejde spustit (důvod v detailu);
+  do skóre se nepočítá. Skóre = body z aplikovatelných bran / max aplikovatelných × 100.
+- Váhy: acceptance 2,5 · testy 2,0 · security 2,0 · build 1,5 · typy 1,5 · ostatní 0,5–1,0.
 
-Pro re-run: `python3 tool/cli/quality_gates.py --extracted-id <id>`
+Opakování: `pflanzer quality_gates --slug {slug} --variant {variant}`
 """
 
 
@@ -992,20 +1128,19 @@ def main() -> None:
     p.add_argument("--slug", default=None)
     p.add_argument("--variant", default=None)
     p.add_argument("--path", default=None,
-                   help="Run gates on a directory without the DB (prints JSON, persists nothing)")
+                   help="Pusť brány nad adresářem bez DB (vypíše JSON, nic neukládá)")
     p.add_argument("--adapter", default=None,
-                   help="Use this pflanzer.gates.yml/.json instead of searching the tree "
-                        "(cwd resolves against the checked path)")
+                   help="Použij tento pflanzer.gates.yml/.json místo hledání ve stromu "
+                        "(cwd se vztahuje ke kontrolované cestě)")
     args = p.parse_args()
     adapter_path = Path(args.adapter).resolve() if args.adapter else None
 
     if args.path:
         target_dir = Path(args.path).resolve()
         if not target_dir.is_dir():
-            p.error(f"--path {target_dir} is not a directory")
+            p.error(f"--path {target_dir} není adresář")
         source = describe_gate_source(target_dir, adapter_path)
-        results = run_gates_on_path(target_dir, adapter_path)
-        score_info = aggregate_score(results)
+        _st, results, score_info, _deps = evaluate_path(target_dir, adapter_path)
         print(json.dumps({
             "path": str(target_dir),
             "gate_source": source,
@@ -1037,7 +1172,7 @@ def main() -> None:
             ).fetchone()
             if not row:
                 sys.exit(f"No extracted_code for {args.slug}/{args.variant}. "
-                         f"Run extract.py first.")
+                         f"Spusť nejdřív `pflanzer extract --slug {args.slug} --variant {args.variant}`.")
             args.extracted_id = int(row[0])
 
     print(json.dumps(run_all(args.extracted_id, adapter_path),

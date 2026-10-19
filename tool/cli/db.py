@@ -18,28 +18,67 @@ SCHEMA_PATH = REPO_ROOT / "tool" / "db" / "schema.sql"
 DORA_RETENTION = timedelta(days=365 * 7 + 2)  # 7 years + leap days buffer
 
 
-def _resolve_db_path() -> Path:
-    """Resolve DB location.
+def _resolve_data_root() -> Path:
+    """Resolve the single data folder (DB + charters + feedback + quick + ...).
 
     Order:
-    1. PFLANZER_DB env var (explicit override)
-    2. ~/.pflanzer/pflanzer.db if that *file* exists (installed plugin path)
-    3. <repo>/data/pflanzer.db (dev mode — running from cloned source)
+    1. PFLANZER_DATA env var (explicit override of the whole data dir)
+    2. ~/.pflanzer/ if ~/.pflanzer/pflanzer.db exists (installed plugin)
+    3. <repo>/data (dev mode — running from cloned source)
 
-    The decision keys on the DB file, not on the ~/.pflanzer/ directory:
+    The decision keys on the DB *file*, not on the ~/.pflanzer/ directory:
     `worktree.py setup` creates ~/.pflanzer/targets/ as a clone cache, which
     must not silently move a dev-mode DB away from data/pflanzer.db.
+    (PFLANZER_DB overrides just the DB file, see `_resolve_db_path`.)
     """
+    import os
+    if env := os.environ.get("PFLANZER_DATA"):
+        return Path(env).expanduser()
+    user_dir = Path.home() / ".pflanzer"
+    if (user_dir / "pflanzer.db").is_file():
+        return user_dir
+    return REPO_ROOT / "data"
+
+
+def _resolve_db_path() -> Path:
+    """Resolve DB location: PFLANZER_DB env override, else DATA_ROOT/pflanzer.db."""
     import os
     if env := os.environ.get("PFLANZER_DB"):
         return Path(env).expanduser()
-    user_db = Path.home() / ".pflanzer" / "pflanzer.db"
-    if user_db.is_file():
-        return user_db
-    return REPO_ROOT / "data" / "pflanzer.db"
+    return _resolve_data_root() / "pflanzer.db"
 
 
+DATA_ROOT = _resolve_data_root()
 DB_PATH = _resolve_db_path()
+
+
+def load_project_toml(start: Path | None = None) -> dict[str, str]:
+    """Read `[project]` defaults from `.pflanzer/project.toml` (written by `pflanzer init`).
+
+    Looks in `start` (default cwd = the target repo). Placeholder values
+    like `<@github-handle>` are skipped.
+    """
+    path = (start or Path.cwd()) / ".pflanzer" / "project.toml"
+    if not path.is_file():
+        return {}
+    out: dict[str, str] = {}
+    in_project = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line.startswith("["):
+            in_project = line == "[project]"
+        elif in_project and "=" in line:
+            key, val = (x.strip() for x in line.split("=", 1))
+            val = val.strip('"')
+            if val and not val.startswith("<"):
+                out[key] = val
+    return out
+
+
+def display_path(path: Path) -> str:
+    """Repo-relative path when inside the method repo, else absolute (e.g. ~/.pflanzer/targets/)."""
+    path = Path(path).resolve()
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
 
 
 def get_connection() -> sqlite3.Connection:

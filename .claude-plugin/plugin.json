@@ -1,0 +1,12 @@
+{
+  "name": "pflanzer",
+  "description": "Pflanzer Method — malá skupina, celá cesta: 3 funkční varianty s AI, rozhodnutí nad běžícím kódem, vítěz do produkce. Vstup: /pm.",
+  "version": "0.5.0",
+  "author": {
+    "name": "Tomáš Pflanzer"
+  },
+  "homepage": "https://pflanzer.cz/method",
+  "repository": "https://github.com/gizmax/PflanzerMethod",
+  "license": "MIT",
+  "commands": "./.claude/commands/"
+}

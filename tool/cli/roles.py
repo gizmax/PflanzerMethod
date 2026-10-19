@@ -1,15 +1,15 @@
-"""Slice 2 — Role selection wizard backend.
+"""Výběr rolí (zástupců kroků cesty) — backend.
 
-Decision tree per `02-role-catalog.md` § Decision tree (15 kroků). Resolves
-which roles from the 18-position catalog apply to a given project, and
-persists role rows to the database.
+Role catalog (18 pozic) je v v0.5 *seznam, kdo může krok cesty zastoupit*,
+ne seznam lidí v místnosti (ADR-0021). Decision tree z `02-role-catalog.md`
+vybere role pro projekt a uloží je do DB. Jádro je 3–4 lidé, max 5 naráz.
 
-The wizard's interactive flow lives in `.claude/commands/pflanzer-roles.md`;
-this module handles the deterministic resolution logic + DB persistence.
+Interaktivní průvodce je v `.claude/commands/pflanzer-roles.md`; tento
+modul řeší deterministické rozhodování + uložení do DB.
 
-It also renders one-page role cards (audit N15) from the `card` section of
-the catalog: `roles.py cards --all` (static set in docs) or
-`roles.py cards --slug S` (per-project cards with names, Decider, tier).
+Dále generuje jednostránkové role cards (audit N15) ze sekce `card`
+katalogu: `roles.py cards --all` (statická sada v docs) nebo
+`roles.py cards --slug S` (karty projektu se jmény, Deciderem, stupněm).
 """
 from __future__ import annotations
 
@@ -25,16 +25,18 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, transaction  # noqa: E402
+from tool.cli.db import DATA_ROOT, audit, transaction  # noqa: E402
 from tool.cli.tier import infer_tier  # noqa: E402
 
 CATALOG_PATH = REPO_ROOT / "tool" / "data" / "role_catalog.json"
-SUMMARY_DIR = REPO_ROOT / "data" / "charters"
-CARDS_DIR = REPO_ROOT / "data" / "role-cards"
+SUMMARY_DIR = DATA_ROOT / "charters"
+CARDS_DIR = DATA_ROOT / "role-cards"
 STATIC_CARDS_DIR = REPO_ROOT / "docs" / "methodology" / "role-cards"
 
-BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
+BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"  # role cards (první řádek, test_role_cards)
+BRAND_LINE_MD = f"**{BRAND_LINE}**"  # souhrn zástupců (markdown)
 TIERS = ("quick", "lean", "full")
+MAX_PEOPLE = 5  # ADR-0021: nikdy víc než 5 lidí naráz
 
 
 @dataclass
@@ -125,9 +127,15 @@ def resolve_roles(answers: RoleAnswers) -> list[dict[str, Any]]:
             include = bool(triggers.get(trigger, False))
             status = "optional" if include else "excluded"
 
+        owners = answers.owners or {}
+        owner = owners.get(idx, owners.get(str(idx), ""))
+        if not include and owner:
+            # Zadaný owner se nesmí tiše zahodit (dřív zmizel, pokud trigger
+            # roli vyloučil): role vstoupí jako nepovinná, rozhodnutí zůstane na týmu.
+            include = True
+            status = "optional"
+            role = {**role, "_owner_forced": True}
         if include:
-            owners = answers.owners or {}
-            owner = owners.get(idx, owners.get(str(idx), ""))
             selected.append(
                 {
                     "catalog_idx": idx,
@@ -144,6 +152,8 @@ def resolve_roles(answers: RoleAnswers) -> list[dict[str, Any]]:
 
 
 def _rationale(role: dict[str, Any], triggers: dict[str, bool], answers: RoleAnswers) -> str:
+    if role.get("_owner_forced"):
+        return "Owner zadán ručně — role přidána, i když ji rozhodovací strom nevyžadoval."
     if role["trigger"] == "always":
         return "Always-on (povinná v každém Pflanzer cyklu)."
     if role.get("mandatory_if_triggered") and triggers.get(role["trigger"]):
@@ -154,18 +164,31 @@ def _rationale(role: dict[str, Any], triggers: dict[str, bool], answers: RoleAns
 
 
 def sanity_check(selected: list[dict[str, Any]], profile: str) -> list[str]:
-    """Return list of warnings."""
+    """Return list of warnings (v0.5: od >5 lidí naráz, ADR-0021)."""
     warnings: list[str] = []
-    if len(selected) > 10:
+    people = {
+        r["human_owner"].strip().casefold()
+        for r in selected if r.get("human_owner") and r["human_owner"].strip()
+    }
+    count = len(people) if people else len(selected)
+    unit = "lidí" if people else "rolí"
+    if count > MAX_PEOPLE:
         warnings.append(
-            f"⚠ {len(selected)} rolí v místnosti — přesahuje sanity check 10. "
-            "Návrh: zúžit scope nebo federovaný model (per docs/methodology/"
-            "08-edge-cases-a-rizika.md edge case 7)."
+            f"⚠ {count} {unit} — víc než {MAX_PEOPLE} lidí naráz (ADR-0021). "
+            "Zúž scope nebo přesuň zástupce na okna (Checkpoint / Rozhodnutí), "
+            "ne do jádra."
+        )
+    unnamed = [r["catalog_label"] for r in selected
+               if r["status"] == "mandatory" and not (r.get("human_owner") or "").strip()]
+    if unnamed:
+        warnings.append(
+            "⚠ Povinné role bez jména: " + ", ".join(unnamed)
+            + ". Kickoff nesvolávat, dokud každý krok cesty nemá jméno."
         )
     if profile == "audit-grade":
         warnings.append(
-            "⚠ Audit-grade profil — co-facilitator SHOULD (devil's advocate "
-            "Útok 10). Single facilitator závislý na sponzoringu = paper authority."
+            "⚠ Audit-grade profil — co-facilitator SHOULD. Jeden facilitátor "
+            "závislý na sponzoringu = papírová autorita."
         )
     return warnings
 
@@ -180,18 +203,21 @@ def render_summary_md(slug: str, project_id: int, profile: str, selected: list[d
         "\n## Sanity warnings\n\n" + "\n".join(f"- {w}" for w in warnings) + "\n"
         if warnings else ""
     )
-    return f"""# Role selection — {slug}
+    return f"""{BRAND_LINE_MD}
 
-> Project ID: {project_id} · Profil: `{profile}` · Rolí v místnosti: **{len(selected)}**
-> Per `docs/methodology/02-role-catalog.md` v0.2 + `synthesis/03-role-catalog-updates.md`.
+# Zástupci kroků cesty — {slug}
+
+> Project ID: {project_id} · Profil: `{profile}` · Rolí celkem: **{len(selected)}**
+> Role catalog = kdo může krok zastoupit, ne kdo sedí v místnosti (ADR-0021).
+> Jádro 3–4 lidé, nikdy víc než 5 naráz; ostatní přicházejí na okna.
 
 | # | Role | Status | AI proxy mode | Human owner | Rationale |
 |---|------|--------|---------------|-------------|-----------|
 {rows}
 {warn_block}
-## Next step
+## Další krok
 
-`/pflanzer-triage {slug}` — pre-flight Discovery + Security/Legal/Platform triage.
+`/pm build` — Build (3 varianty); Checkpoint Bezpečnost & právo do 48 h po Buildu.
 """
 
 
@@ -200,7 +226,7 @@ def persist_roles(slug: str, profile: str, selected: list[dict[str, Any]]) -> di
     with transaction() as conn:
         row = conn.execute("SELECT id, status FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not row:
-            raise ValueError(f"Project '{slug}' not found. Run /pflanzer-charter first.")
+            raise ValueError(f"Project '{slug}' not found. Založ ho přes /pm start (Kickoff).")
         project_id = int(row[0])
 
         conn.execute("DELETE FROM roles WHERE project_id = ?", (project_id,))

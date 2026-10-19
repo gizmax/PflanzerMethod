@@ -2,90 +2,95 @@
 
 **Pflanzer Method | [pflanzer.cz/method](https://pflanzer.cz/method)**
 
-> Univerzální corporate framework pro zrychlení agentního vývoje od nápadu po
-> produkční deploy — všechny zainteresované role (**včetně programátora od minuty 0**)
-> se sejdou v jedné místnosti s AI co-pilotem a společně provibe-kódují 1–3 funkční
-> produkční-ready varianty. Default Track P (~80 % case-ů) → produkt rovnou do prod.
-> Fallback Track S (~20 % s 4 hard triggers, ne preferovaný) → precision spec
-> ≥ 80/100 + 5-stage handoff ritual. Viz ADR-0020.
+> **Malá skupina, ve které je zastoupena celá cesta** od nápadu do produkce
+> (byznys → produkt → design → vývoj → bezpečnost & právo → provoz),
+> postaví s AI co-pilotem 3 funkční varianty, rozhodne nad běžícím kódem
+> a vítěz jde rovnou do produkce. Jádro 3–4 lidí je u toho celou dobu,
+> ostatní zástupci přijdou na krátké okno. Nikdy víc než 5 lidí naráz.
+> Viz ADR-0021.
 
-## Začni tady (default profil — ~80 % use casů)
+## Začni tady
 
-- **`docs/methodology/00-lean-pflanzer.md`** — 1-pager pro default profil (~6 lidí, 2 sezení, ~14 dní, ~10 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
-- **`docs/case-studies/eshop-2026.md`** — reálný průběh e-shop pilotu (3h vibe, 3 weby, ship to prod).
-- Quick start níže (`/pflanzer ...` commands).
+- **`docs/zacni.md`** — **chceš to vyzkoušet?** Co zařídit s lidmi, co nainstalovat, checklist ke Kickoffu.
+- **`docs/postup.md`** — postup v 5 krocích + diagram průběhu (1 obrazovka).
+- **`docs/methodology/00-lean-pflanzer.md`** — 1-pager: kdo, kdy, co (~8 dní, ~6–8 PD). **Tohle čti, pokud chceš metodu použít, ne studovat.**
+- **`docs/decisions/0021-mala-skupina-cela-cesta.md`** — proč malá skupina + evidence.
 
-**Audit-grade overhead** (Method Steward, pre-registration, compliance score, AI Act Fáze A/B/C, DORA prompt audit pipeline) → relevantní jen pro regulated industries (banky, pojišťovny EU, AI Act High-risk). Viz `method-charter.md` + ADR-0011/0012/0013/0014. Běžný e-shop projekt tohle **nepotřebuje**.
+**Regulované prostředí** (banky, pojišťovny EU, AI Act High-risk, rollout metody napříč organizací) → `docs/governance/`. Běžný projekt to **nepotřebuje**.
 
 ## Co řeší
 
-V korporátu typicky cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
-s produktem, produkt s vývojem, schvalovací kola, security audit, atd. Metoda to
-zkracuje na **2 sezení + Ship gate** — tým se sejde, společně provibe-koduje 2–3 varianty,
-rozhodne, kód projde production gates, ven jde **PR připravený k mergi**.
+V korporátu cesta od nápadu k funkční fíčuře trvá měsíce: zadavatel pinká
+s produktem, produkt s vývojem, schvalovací kola, security audit… Každé
+předání ztrácí kontext. Metoda dá zástupce každého kroku cesty k jednomu
+artefaktu — běžícímu kódu — a rozhodne za ~týden. Ven jde **PR připravený
+k mergi**, ne specifikace k re-implementaci.
 
-**Většina kódu z vibe-coding session je použitelná**, ne jen reference pro re-implementaci.
+## Quick start
 
-## Quick start (2 sezení + Ship gate = ship to production)
-
-**Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu pozná,
-kde v cyklu projekt je, a nabídne další krok. (Dlouhé `/pflanzer-*` commandy
-žijí dál jako implementace pod kapotou.)
-
-Délka Session 1 závisí na zvoleném **stupni** (Quick 60–90 min / Lean 3 h /
-Full 5–6 h) — jediná autoritativní tabulka je v
-[`docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody](docs/methodology/00-lean-pflanzer.md#tři-stupně-jedné-metody).
-
-```
-Session 1: Explore (in-room, délka podle stupně Quick / Lean / Full)
-  /pm live "chceme zlepšit onboarding"   # Quick, 60–90 min
-  /pm build <slug>                       # Lean (default Track P) / Full
-  → 3 paralelní varianty (3× Claude Code ve worktrees target repa)
-  → silent voting + Decider's shortlist
-  → 1-page handoff MD
-
-Session 2: Decide (3 h)
-  /pm feedback <slug>     # async feedback od stakeholderů
-  /pm decide <slug>       # Decider's Go/Iterate/Kill
-
-Ship gate (pipeline po Session 2 GO, pouští dev pár — není to setkání)
-  /pm ship <slug>         # quality gates → score 0-100 + SHIP.md
-  /pm handoff <slug>      # PR-ready package s odkazy na soubory
+```bash
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # 1. install
+pflanzer init            # 2. v repu produktu: INTEGRATION_GUIDE + CONSTITUTION
+pflanzer doctor          # 3. je repo připravené ke Kickoffu?
+git add -A && git commit -m "chore(pflanzer): init" && git push   # 4. push
+/pm start                # 5. v Claude Code: Kickoff, 15 min
 ```
 
-**Po Ship gate dostane tým**:
-- Funkční kód v `extracted/<slug>/<winner>/` (Vite + React + TS, ESLint, Vitest)
-- Quality gate score (lint + types + tests + security + a11y + build + observability)
-- Per-role handoff balíčky s **odkazy na skutečné soubory** (ne TBD placeholders)
-- Open-PR-ready commit message do `target_repo_url` z Charteru
+**Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu
+(nebo `/pm status`) řekne, kde projekt je, a nabídne jeden další krok.
 
-Cílem je `gate_score >= 80/100` = většina kódu se dá použít v produkci.
+```
+Kickoff    /pm start     15 min, Decider + jádro    zadání na 1 stránku + jména 6 kroků
+Build      /pm build     3 h, jádro                 3 varianty paralelně, kontroly průběžně,
+                                                    checkpoint bezpečnost & právo 20 min
+Async      /pm feedback  3–5 dní, všichni           klikání na preview URL
+Rozhodnutí /pm decide    60–90 min, Decider + jádro Go / Iterate (max 1×) / Kill
+Ship       /pm ship      1–2 dny, vývojáři + provoz gates jen na vítěze, pak /pm handoff
+```
 
-Pod kapotou: Charter (ADR-0004) + 18-position role catalog + builder decision
-optimalizovaná na exportable code + preference matrix s AI-only deflation +
-audit log s DORA 7-letou retencí. **Sofistikovanost zachovaná, UX zjednodušeno.**
+Tři pravidla: každý krok cesty má jméno · max 5 lidí naráz · co umí automat,
+nepotřebuje člověka v místnosti.
+
+**Stupně pod povrchem.** Výchozí je **Lean** (výše: Build 3 h, Async 3–5 dní).
+`/pm live` je **Quick** (Kickoff + Build v jednom, 60–90 min, okno 3 dny)
+a **Full** je governance / regulované (rozšířená agenda 5–6 h, okno 5–7 dní,
+role cards a triage). Autoritativní tabulka:
+[`docs/methodology/00-lean-pflanzer.md` § Tři stupně](docs/methodology/00-lean-pflanzer.md),
+[ADR-0017](docs/decisions/0017-mezi-session-okno-per-stupen.md). Po Shipu
+`/pm retro` změří, kolik kódu vítěze opravdu žije v produkci (T+7/30/60/90).
+
+Ven jde **PR vítěze** s gate score (pilot ≥ 80 / production ≥ 85 ze 100),
+decision log v `.pflanzer/decisions/` a metriky pilotu.
+
+## Čím se liší
+
+Žádná jiná nalezená metoda nespojuje celý cyklus: malá skupina → 3 soutěžní
+varianty na reálném repu → async feedback → rozhodnutí → vítěz přes gates
+jako PR. Srovnání s AI-DLC, Spec Kit, Kiro, BMAD, Atlassian, Uber a dalšími
+(včetně toho, co jsme převzali a co ne):
+[`docs/research/srovnani-metod-2026.md`](docs/research/srovnani-metod-2026.md),
+rozhodnutí [ADR-0022](docs/decisions/0022-inspirace-z-trhu.md).
 
 ## Volba builderu — Claude Code default, hosted SaaS opt-in
 
 **Standardně používej Claude Code** (nebo Codex CLI, podle preference týmu).
 3× CC v 3 git worktrees, paralelně. Bolt/v0/Lovable jen na **explicit
-opt-in** přes `--prefer-hosted`.
+opt-in** (greenfield bez repa, throw-away demo).
 
 ### In-room protocol (default)
 
 ```bash
 # 1. Facilitátor (1 minuta):
 SLUG=<your-slug>
-git worktree add ../proto-${SLUG}-A -b feat/${SLUG}-A
-git worktree add ../proto-${SLUG}-B -b feat/${SLUG}-B
-git worktree add ../proto-${SLUG}-C -b feat/${SLUG}-C
+pflanzer worktree setup --slug ${SLUG}   # větve pflanzer/${SLUG}-A|B|C
 
 # 2. Tým se rozdělí po dvojicích, každá v jednom worktree:
-cd ../proto-${SLUG}-X && claude
-# Vloží prompt (z `quick_session.py prompts` output) → 30 min koduje
-# → npm test && npm run lint && npm run build → commit
+# (cesty worktrees vypíše setup; X = A/B/C)
+claude
+# Vloží prompt (z `pflanzer quick_session prompts`) → koduje, průběžně
+# npm test && npm run lint && npm run build → commit
 
-# 3. Po skončení: 3 feature branche v repu, gate-scored přes Ship gate (/pm ship)
+# 3. Po skončení: 3 větve v repu → preview URL; vítěz projde gates v /pm ship
 ```
 
 Diversity skrz **3 různé prompty** (happy-path / multi-step / smart defaults),
@@ -95,7 +100,7 @@ ne skrz 3 různé builders. Tým má všechny konvence repa, žádný extract st
 ### Kdy opt-in pro hosted SaaS
 
 ```bash
-python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --prefer-hosted
+pflanzer quick_session prompts --slug <slug> --hook "<hook>" --prefer-hosted
 ```
 
 Použij **jen** v jednom z těchto případů:
@@ -120,27 +125,32 @@ V opt-in módu dostane shortlist mix: `claude-code + codex-cli + v0`
 | Non-tech stakeholder UX showcase | ❌ vyžaduje terminál | ✅ klikni-vidíš |
 | Production code defaults | ✅ testy, strict types, lint | ⚠ často chybí |
 
-## Plný flow (pokud potřebuješ celé)
+## Plný flow (regulované / větší projekty)
 
-Pro audit-grade projekty (regulated SDLC, AI Act high-risk, multi-team scope):
+Pro audit-grade projekty (regulated SDLC, AI Act high-risk) — stejný model
+malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
 
 ```
 /pm start <slug>      # Plný Charter wizard (XYZ, kapacita, Decider mandate, …)
-/pm roles <slug>      # Decision tree pro 18 rolí
+/pm roles <slug>      # Kdo zastupuje který krok cesty (z 18 rolí catalogu)
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
-/pm build <slug>      # Session 1 orchestrator (délka podle stupně Quick/Lean/Full)
-# … mezi-session 3–7 prac. dní podle stupně (web hub, ADR-0021) …
-/pm decide <slug>     # Session 2 (decisional, 3 h)
+/pm build <slug>      # Build (orchestrator s AI expert sub-agenty)
+# … async: Lean 3–5 dní, Full 5–7 dní (pflanzer hub nebo pflanzer feedback add) …
+/pm decide <slug>     # Rozhodnutí (Go / Iterate / Kill)
+/pm ship <slug>       # Quality gates (pflanzer.gates.yml) na vítěze
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
+/pm retro <slug>      # Měření outcome: % LOC v produkci, T+7/30/60/90
 ```
 
-## Klíčový pilíř — role catalog
+## Klíčový pilíř — 6 kroků cesty, každý se jménem
 
-Místo fixní sady stakeholderů má metoda **knihovnu 18 rolí**. Před každým
-projektem si tým vybere relevantní podmnožinu (decision tree). AI panel pak
-v session zapojí právě tyhle role — žádný overhead, žádné chybějící vstupy.
+Každý projekt má zástupce pro **byznys, produkt, design, vývoj, bezpečnost
+& právo a provoz**. Jeden člověk může krýt víc kroků; žádný krok nesmí
+zůstat bez jména. Kdo může který krok zastoupit, říká **role catalog
+(18 rolí)** — knihovna zástupců, ne seznam pozvánek. Perspektivy rolí,
+které nejsou u stavby, může dodat AI expert sub-agent (jako vstup, ne hlas).
 
-Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog.md).
+Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog.md). Jednostránkové **role cards** (co zástupce kroku přinese do svého okna) jsou v [`docs/methodology/role-cards/`](docs/methodology/role-cards/README.md).
 
 ## Status
 
@@ -156,13 +166,17 @@ Detail: [`docs/methodology/02-role-catalog.md`](docs/methodology/02-role-catalog
 - Slice 8 ✅ Handoff package generator (8 per-role artefakty)
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
 - **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
-  → kód po 2 sezeních + Ship gate ready k mergi (gate_score 0-100)
+  → kód po Ship ready k mergi (gate_score 0-100)
+- **Testy a CI** ✅ — `tests/` (pytest, hermetické), ruff, GitHub Actions
+  (`.github/workflows/ci.yml`); viz „Testy a CI" níže
+- **Měření** ✅ — `/pm retro` (outcome T+7/30/60/90), AI provenance v SHIP.md, AI náklady
 
 ## Struktura repa
 
 ```
 docs/
-├── methodology/         # finální metoda v češtině (9 dokumentů)
+├── methodology/         # metoda v češtině (start: 00-lean-pflanzer.md)
+├── governance/          # audit-grade vrstva (jen regulované / multi-pilot)
 ├── research/
 │   ├── baseline/        # adjacent metody, vibe-coding tools, change-mgmt
 │   ├── perspectives/    # raw výstupy expertního panelu (1 .md / role)
@@ -177,7 +191,7 @@ tool/
 
 .claude/
 ├── commands/            # slash commands (/pm router + /pflanzer-* implementace)
-└── agents/              # 23 sub-agentů (1 facilitator + 17 role experts + 5 triage)
+└── agents/              # 24 sub-agentů (facilitator, role experts, triage, helpers)
 ```
 
 ## Install — co si tým musí stáhnout
@@ -189,10 +203,14 @@ curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.
 ```
 
 Co se stane:
-1. Naclonuje plugin do `~/.claude/plugins/pflanzer/` (slash commands + agents + tool/cli)
+1. Naclonuje metodu do `~/.claude/plugins/pflanzer/` (slash commands + agents + tool/cli)
 2. Vytvoří `~/.pflanzer/` runtime dir + sdílenou SQLite DB (audit log per všechny tvoje projekty)
-3. Symlink `pflanzer` do `~/.local/bin/` (CLI wrapper pro `pflanzer init`, `pflanzer extract`, …)
-4. Ověří: `git`, `python3.10+`, `node 20+`, `claude` v PATH
+3. Symlink `pflanzer` do `~/.local/bin/` (CLI wrapper: `pflanzer init`, `pflanzer root`, `pflanzer db`, …)
+4. Zaregistruje plugin v Claude Code (`claude plugin marketplace add` + `claude plugin install pflanzer@pflanzer-method`) → `/pm` je dostupné z **libovolného** repa
+5. Ověří: `git`, `python3.10+`, `node 20+`, `claude` v PATH
+
+> Jen `/plugin install` v Claude Code nestačí — slash commandy volají CLI
+> `pflanzer`, které instaluje skript.
 
 ### Pro každý cílový repo (one-time, ~1 minuta)
 
@@ -207,11 +225,13 @@ Co se stane:
 3. Vytvoří `tests/acceptance/` složku (Charter wizard tam píše `.feature` soubory per session).
 4. Update `.gitignore` (`extracted/`, `.pflanzer/local/`).
 
-**Pak commit oba soubory** a tým je ready. V Claude Code:
+**Pak commit oba soubory**, restartuj Claude Code v tom repu a spusť:
 
 ```
-/pm live "co dnes řešíme"
+/pm start            # Kickoff (nebo /pm live "co dnes řešíme" = Kickoff + Build v jednom)
 ```
+
+Průvodce prvním pilotem (lidi, okna, preview, checklist): `docs/zacni.md`.
 
 ### Co vlastně tým stahuje?
 
@@ -232,7 +252,8 @@ Co se stane:
 ### Update / Uninstall
 
 ```bash
-pflanzer update    # = git pull v ~/.claude/plugins/pflanzer/
+pflanzer update    # git pull + DB migrace + claude plugin update
+claude plugin uninstall pflanzer@pflanzer-method
 rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
 ```
 
@@ -242,9 +263,9 @@ rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
 git clone https://github.com/gizmax/PflanzerMethod
 cd PflanzerMethod
 python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
-# Web hub (volitelně, pro async feedback dev):
-PFLANZER_HUB_AUTH_MODE=dev uvicorn backend.main:app --app-dir tool/web --reload --port 8000 &
-cd tool/web/frontend && npm install && npm run dev
+# Web hub (async feedback) — venv + build frontendu se připraví samy:
+tool/bin/pflanzer hub            # http://localhost:8000/method/
+# vývoj frontendu s hot reloadem: cd tool/web/frontend && npm install && npm run dev
 ```
 
 > DB lokace: pokud existuje soubor `~/.pflanzer/pflanzer.db` (vytvoří ho

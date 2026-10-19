@@ -1,8 +1,12 @@
 ---
-description: Pflanzer Method — jediný vstupní bod. Bez argumentu detekuje stav projektu a nabídne další krok; se slovesem (start/build/review/decide/ship/…) deleguje na příslušný pflanzer-* command.
+description: Pflanzer Method — jediný vstupní bod. Bez argumentu detekuje stav projektu a nabídne další krok; se slovesem (status/doctor/start/build/decide/ship/…) deleguje na příslušný pflanzer-* command.
 ---
 
 # /pm — Pflanzer Method router (single entry point)
+
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
 
 > **Branding:** Každý user-facing výstup tohoto commandu (úvodní hláška,
 > souhrny, status report) začíná brand line:
@@ -16,70 +20,95 @@ Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
 
 ## Proč tento command existuje
 
-`/pflanzer-*` commandy jsou implementace jednotlivých kroků; jejich názvy
-jsou ale dlouhé a příjmení Pflanzer se špatně píše. `/pm` je tenký router:
-uživatel si nemusí pamatovat nic než `/pm` — router pozná, kde v cyklu
-projekt je, a nabídne další krok.
+Uživatel si pamatuje jen `/pm`. Router zjistí, kde projekt je (`pflanzer
+status`), a řekne **jeden** další krok. Detail (DB, gates, hub) je schovaný
+v toolu `pflanzer`; `pflanzer-*` commandy jsou interní implementace kroků.
 
-## Subcommandy (slovesa, ne čísla sessions)
+## Sloveso (tabulka je záměrně krátká)
 
 | Sloveso | Deleguje na | Kdy |
 |---------|-------------|-----|
-| `start` | `/pflanzer-charter` | Nový projekt — Charter wizard (Den 0) |
-| `roles` | `/pflanzer-roles` | Výběr rolí po Charteru + role cards (1 strana per člověk) k rozeslání |
-| `triage` | `/pflanzer-triage` | Pre-flight gate před Session 1 |
-| `build` | `/pflanzer-session-1` | Session 1 (Lean/Full stupeň) |
-| `feedback` | `/pflanzer-feedback-pull` | Stažení mezi-session feedbacku z hubu |
-| `decide` | `/pflanzer-session-2` | Rozhodovací session — Go/Iterate/Kill |
-| `ship` | `/pflanzer-session-3` | Ship gate — quality gates + SHIP.md (po Session 2 GO) |
-| `handoff` | `/pflanzer-handoff` | Per-role handoff package |
-| `retro` | `/pflanzer-retro` | Měření outcome: % LOC merged, days-to-prod, T+7/30/60/90 readouty |
-| `live` | `/pflanzer` | Quick stupeň, 60–90 min (vše v jednom) |
-| `status` | — (řeší router sám) | Přehled stavu projektu/ů |
+| *(žádné)* | — (`pflanzer status`) | stav + jeden další krok |
+| `status` | — | totéž, výslovně |
+| `doctor` | — (`pflanzer doctor`) | je repo připravené ke Kickoffu? |
+| `start` | `pflanzer-charter` | **Kickoff** 15 min — zadání + jména 6 kroků |
+| `build` | `pflanzer-session-1` | **Build** 3 h (Lean) — 3 varianty paralelně |
+| `live` | `pflanzer` | Kickoff + Build v jednom (**Quick**, 60–90 min; malý interní tool) |
+| `feedback` | `pflanzer-feedback-pull` | **Async** 3–5 dní — feedback zástupců |
+| `decide` | `pflanzer-session-2` | **Rozhodnutí** 60–90 min — Go / Iterate / Kill |
+| `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu, SHIP.md |
+| `handoff` | `pflanzer-handoff` | balíček per role + metriky pilotu |
+| `retro` | `pflanzer-retro` | **Retro** — měření outcome: % LOC vítěze v produkci, days-to-prod, T+7/30/60/90 |
 
-**Delegace = přečti `.claude/commands/pflanzer-<cíl>.md` přes Read a postupuj
-přesně podle něj** (s `$ARGUMENTS` = slug). Nikdy nereimplementuj logiku
-cílového commandu po svém.
+Pokročilé (mimo hlavní cestu, jen regulované/větší projekty — stupeň Full):
+`roles` (`pflanzer-roles`; vedle výběru rolí rozešle role cards), `triage`
+(`pflanzer-triage`).
+
+**Delegace = přečti `.claude/commands/<cíl>.md` přes Read a postupuj přesně
+podle něj** (s `$ARGUMENTS` = slug). Nikdy nereimplementuj logiku cílového
+commandu po svém.
+
+## Model účasti (ADR-0021) — připomínej ho v každém kroku
+
+- **6 kroků cesty**, každý s pojmenovaným zástupcem: byznys (Decider),
+  produkt, design, vývoj, bezpečnost & právo, provoz. Krok bez jména →
+  upozorni a nabídni doplnění, než pustíš `build`.
+- **Jádro 3–4 lidé** (PdM, 1–2 vývojáři, designér) celou dobu; ostatní
+  na **okna**: Decider na Kickoff (15 min) + Rozhodnutí; bezpečnost & právo
+  checkpoint 20 min během/po Buildu; provoz checkpoint 20 min u Ship.
+- **3 pravidla:** každý krok má jméno · max 5 lidí naráz · co umí automat,
+  nepotřebuje člověka v místnosti.
+- **Max 5 lidí naráz.** Víc → navrhni zúžit scope nebo rozdělit.
+- V hlášení dalšího kroku uváděj, **kdo má přijít** (např. „Další krok:
+  `/pm decide demo-widget` — přizvi Decidera, 60–90 min").
 
 ## Jak postupuj
 
 ### 1. Parsuj `$ARGUMENTS`
 
 - První token = sloveso (pokud odpovídá tabulce výše), zbytek = slug.
-- Neznámé sloveso → ukaž tabulku subcommandů a zeptej se přes AskUserQuestion.
-- Sloveso bez slugu, ale v DB je víc projektů → AskUserQuestion, který projekt.
+- Neznámé sloveso → ukaž tabulku sloves a zeptej se přes AskUserQuestion.
+- Sloveso bez slugu, ale `pflanzer status` hlásí víc projektů → AskUserQuestion, který projekt.
 
-### 2. Bez argumentů (nebo `status`): autodetekce stavu
-
-Načti projekty:
+### 2. Bez argumentů (nebo `status`)
 
 ```bash
-sqlite3 data/pflanzer.db "SELECT slug, name, status, tier FROM projects ORDER BY updated_at DESC"
+pflanzer status            # všechny projekty (vč. stupně Quick / Lean / Full)
+pflanzer status --slug S   # jeden projekt
 ```
 
-- **Žádný projekt** → nabídni `start` (nový projekt) nebo `live`
-  (in-room session bez příprav).
-- **Jeden projekt** → urči další krok podle stavu (tabulka níže) a potvrď
-  přes AskUserQuestion („Projekt X je ve stavu Y → další krok je Z. Spustit?").
-- **Víc projektů** → vypiš tabulku (slug / název / stav / další krok)
-  a nech uživatele vybrat.
+Výstup = fáze projektu + **jeden doporučený další krok** (`/pm …`). Ukaž ho
+doslova, doplň, **kdo má přijít** (okno), a zeptej se přes AskUserQuestion,
+jestli krok spustit. Víc projektů → tabulka (slug / fáze / další krok)
+a výběr. Žádný projekt → `pflanzer doctor` (je repo připravené?), pak
+`/pm start`; pro malý interní tool `/pm live`.
 
-| `projects.status` | Další krok | Poznámka |
-|-------------------|-----------|----------|
-| `draft` | `start` | Charter nedokončen |
-| `charter` | `roles` (pokud `SELECT COUNT(*) FROM roles WHERE project_id=…` = 0), jinak `triage` | |
-| `triage` | `build` | Pre-flight prošel |
-| `session_1` | `feedback` (pokud `data/feedback/<slug>-summary.md` neexistuje), jinak `decide` | |
-| `session_2` | `decide` | Iterate kolo |
-| `handoff` | `ship` (pokud `data/production_reports/<slug>-readiness.md` neexistuje), jinak `handoff` | |
-| `handoff` + existuje `data/handoffs/<slug>/SHIP.md` | nabídni `retro` (vedle `handoff`) | Po merge winner PR `measure`, hned `reminders`, pak T+7/30/60/90 readouty |
-| `killed` | — | Jen oznám; nový projekt = `start` |
+Neodvozuj stav sám z DB (žádné ruční `sqlite3`) — jediný zdroj pravdy je
+`pflanzer status`.
+
+Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
+`draft` → `start` · `charter` → `build` (Full: nejdřív `roles` + `triage`) ·
+`session_1` → `feedback`, po zápisu feedbacku `decide` · `session_2` (Iterate)
+→ `decide` · `handoff` → `ship`, pak `handoff`. Existuje-li
+`data/handoffs/<slug>/SHIP.md`, nabídni vedle `handoff` i `retro`
+(po merge vítěze `measure`, hned `reminders`, pak T+7/30/60/90 readouty).
+`killed` → jen oznám; nový projekt = `start`.
+
+### 2b. `doctor`
+
+```bash
+pflanzer doctor            # v aktuálním repu; volitelně --target DIR, --json
+```
+
+Ukaž checklist a „připraveno ke Kickoffu: ano/ne". Při „ne" vypiš, co chybí
+a jak to opravit (viz `docs/zacni.md` § Je repo připravené?). Další krok:
+při „ano" `/pm start`, jinak oprava a znovu `/pm doctor`.
 
 ### 3. Deleguj
 
-Přečti cílový command file a proveď ho. Po dokončení připomeň uživateli
-další krok v cyklu **vždy ve tvaru `/pm <sloveso> <slug>`** (ne dlouhým
-`/pflanzer-*` názvem) — např. „Další krok: `/pm build demo-widget`".
+Přečti cílový command file a proveď ho. Po dokončení ukaž **jeden** další
+krok ve tvaru `/pm <sloveso> <slug>` (nikdy ne `/pflanzer-*`) a kdo má
+přijít — např. „Další krok: `/pm build demo-widget` — jádro, 3 h".
 
 ## Co NEDĚLAT
 
@@ -91,7 +120,10 @@ další krok v cyklu **vždy ve tvaru `/pm <sloveso> <slug>`** (ne dlouhým
 
 ## Reference
 
-- `.claude/commands/pflanzer*.md` — implementace kroků
+- `.claude/commands/pflanzer*.md` — implementace kroků (interní)
 - `docs/methodology/00-lean-pflanzer.md` — default profil průběhu
-- `docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody — autoritativní tabulka Quick / Lean / Full (délka Session 1, kola buildu, triage, mezi-session okno)
+- `docs/decisions/0021-mala-skupina-cela-cesta.md` — model účasti
+- `docs/decisions/0022-inspirace-z-trhu.md` — constitution, doctor, kontroly, měření
+- `docs/decisions/0017-mezi-session-okno-per-stupen.md` — stupně Quick / Lean / Full
+- `docs/methodology/00-lean-pflanzer.md` § Tři stupně jedné metody — autoritativní tabulka stupňů (default **Lean**)
 - `README.md` § Quick start

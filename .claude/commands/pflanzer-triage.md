@@ -1,12 +1,18 @@
 ---
-description: Spustí 4 paralelní pre-flight triage sub-agents (Discovery + Security + Legal + Platform) a aggregeguje gate decision. Slice 3.
+description: Spustí 4 paralelní pre-flight triage sub-agents (Discovery + Security + Legal + Platform) a aggregeguje gate decision.
 ---
 
-# /pflanzer-triage — Pre-flight Triage (Slice 3)
+> **Pokročilé / volitelné.** Není součást hlavní cesty (`/pm` + 5 kroků + 3 pravidla). Použij u regulovaných nebo větších projektů; pro běžný pilot stačí jména zástupců na Kickoffu (`/pm start`).
+
+# Triage — pre-flight (pokročilé)
+
+> **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
+> (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
+> (funguje z libovolného adresáře), DB je na `pflanzer db`.
 
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá `projects.status='charter'`
-(= proběhl `/pflanzer-charter`) a alespoň 1 row v `roles` (= proběhl
-`/pflanzer-roles`).
+(= proběhl Kickoff (`/pm start`)) a alespoň 1 row v `roles` (= proběhl
+`/pm roles`).
 
 ## Co tento command dělá
 
@@ -37,7 +43,7 @@ Agent(subagent_type="platform-triage", prompt="Run Platform Triage for slug=$ARG
 3. **Sestav JSON spec** s 4 výsledky a předej do `tool/cli/triage.py`:
 
 ```bash
-python3 tool/cli/triage.py --spec /tmp/<slug>-triage-spec.json
+pflanzer triage --spec /tmp/<slug>-triage-spec.json
 ```
 
 JSON spec format:
@@ -68,7 +74,7 @@ JSON spec format:
 6. **Souhrn pro uživatele**:
    - Tabulka 4 tracks × status.
    - Blockers + warnings.
-   - Next krok: `/pflanzer-session-1 <slug>` (jen pokud ok).
+   - Next krok: `/pm build <slug>` (jen pokud ok).
 
 ## Co NEDĚLAT
 

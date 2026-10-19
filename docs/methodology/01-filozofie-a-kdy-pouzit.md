@@ -1,5 +1,7 @@
 # Filozofie a kdy Pflanzerovu metodu použít
 
+> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Fit / no-fit kritéria níže platí dál; sestava a délky v textu jsou rozšířená reference pro větší / regulované projekty; kde se liší, platí 1-pager.
+
 > Cílový čtenář: praktikant (PdM, EM, Tech Lead, facilitátor), který zvažuje
 > konkrétní zadání a potřebuje fit/no-fit rozhodnutí dřív, než svolá místnost.
 

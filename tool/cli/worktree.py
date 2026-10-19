@@ -1,15 +1,15 @@
-"""Worktree setup pro Pflanzer in-room session — KRITICKÝ P0 FIX.
+"""Worktree setup pro Build — `pflanzer worktree setup|verify|…`.
 
-Před tímto fixem `pflanzer.md` doporučoval `git worktree add` z PflanzerMethod
-meta-repu. Důsledek: Claude Code kódoval **uvnitř meta-toolu**, ne uvnitř
-target zákazníkova repa. Reuse byl z definice 0 % (per autoresearch
-perspektiva 05 brownfield-integration § P0).
+Buildeři kódují **uvnitř target repa** (ne v meta-repu metody), jinak je
+reuse z definice 0 %. Worktrees se klonují z originu: co není pushnuté,
+ve worktrees nebude (`pflanzer doctor` to hlídá; Kickoff vstupy nepushnuté
+v cwd se do worktrees zkopírují, viz `_copy_kickoff_inputs`).
 
-Po fixu (Sprint 1, ADR-0009) + audit 2026-09 (N8, N9, N11, N13, N14):
+Postup (ADR-0009) + audit 2026-09 (N8, N9, N11, N13, N14):
 1. Pro každý repo z `projects.target_repos` (FE / BE / monorepo workspace;
    fallback = jediný `target_repo_url`) cached full clone
    v `~/.pflanzer/targets/<repo-slug>/` (override: `PFLANZER_TARGETS_DIR`).
-2. Worktrees A/B/C (nebo 1× mob) per repo, branch `pflanzer/<slug>-<X>` ve
+2. Worktrees A/B/C (nebo 1× mob, max 5 lidí u monitoru, ADR-0016) per repo, branch `pflanzer/<slug>-<X>` ve
    všech repech. Primární repo: `<targets>/<slug>-<X>`, další repa:
    `<targets>/<slug>-<X>-<role>`.
 3. Per worktree git config (`pflanzer.variant/session/builder`) +
@@ -117,8 +117,17 @@ _REPO_URL_RE = re.compile(
 
 
 def validate_repo_url(url: str | None) -> bool:
-    """Accept https/ssh/scp-like/file git URLs with at least `<owner>/<repo>`."""
-    return bool(url) and bool(_REPO_URL_RE.match(url.strip()))
+    """Accept https/ssh/scp-like/file git URLs with at least `<owner>/<repo>`.
+
+    An absolute path to an existing local repo (on-prem mirror, `git remote` set to a
+    path) is accepted too — git clones it the same way as `file://`.
+    """
+    if not url:
+        return False
+    url = url.strip()
+    if url.startswith("/") and Path(url).is_dir():
+        return True
+    return bool(_REPO_URL_RE.match(url))
 
 
 def _slugify_repo(url: str) -> str:
@@ -380,7 +389,7 @@ def _create_worktrees(
     """Create worktrees per mode.
 
     - parallel (default): 3 worktrees A/B/C as siblings.
-    - mob (per ADR-0011): 1 worktree '<slug>-mob', single shared branch.
+    - mob (per ADR-0016): 1 worktree '<slug>-mob', single shared branch.
     """
     repo = repo or TargetRepo(role="app", url="", branch=base_branch)
     _git(target_clone, "worktree", "prune")
@@ -1003,9 +1012,32 @@ def _init_missing(clone: Path, base_ref: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
+def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
+    """Copy Kickoff inputs from the cwd target repo into worktrees if not yet pushed.
+
+    Worktrees are cloned from origin, so a freshly generated acceptance .feature
+    (or an unpushed CONSTITUTION) would otherwise be missing for the AI builder.
+    """
+    cwd = Path.cwd()
+    if not (cwd / ".pflanzer").is_dir():
+        return
+    for rel in (f"tests/acceptance/{slug}.feature", ".pflanzer/CONSTITUTION.md",
+                "docs/INTEGRATION_GUIDE.md"):
+        src = cwd / rel
+        if not src.is_file():
+            continue
+        for wt in worktrees:
+            dst = Path(wt) / rel
+            if not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(src.read_bytes())
+                print(f"[setup] copied {rel} → {Path(wt).name} (není v originu — commitni ho)",
+                      file=sys.stderr)
+
+
 def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
           run_guard: bool = True, fix_gitignore: bool = True) -> WorktreeSetup:
-    """Setup worktrees for in-room session pro `slug` projekt.
+    """Setup worktrees pro Build projektu `slug`.
 
     Args:
         slug: project slug.
@@ -1021,8 +1053,10 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     if not repos:
         raise ValueError(
             f"Project '{slug}' has no target_repo_url / target_repos set. "
-            "Mandatory pro pilot/production profil — re-run /pflanzer wizard "
-            "(KROK 3: Target repo(s)) nebo nastav `projects.target_repos`."
+            "Povinné pro pilot/production. Spusť `pflanzer init` v target repu "
+            "(vyplní .pflanzer/project.toml) a založ projekt znovu přes `/pm start`, "
+            "nebo nastav `projects.target_repos`. Stav projektů: `pflanzer status`; "
+            "cesta k DB: `pflanzer db`."
         )
 
     builders = _variant_builders(int(proj["id"]))
@@ -1037,6 +1071,8 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
               f"{', workspace ' + repo.workspace if repo.workspace else ''})", file=sys.stderr)
         clone = _ensure_target_clone(repo.url, repo.branch)
         wts = _create_worktrees(clone, slug, repo.branch, mode=mode, repo=repo, primary=primary)
+        if primary:
+            _copy_kickoff_inputs(slug, wts)
         claude_md: dict[str, str] = {}
         for variant, wt in zip(variants, wts):
             builder = builders.get(variant) or (next(iter(builders.values()), None)
@@ -1461,7 +1497,7 @@ def verify_cwd_in_target(slug: str, cwd: Path) -> tuple[bool, str]:
     expected = ", ".join(r.url for r in repos)
     return False, (
         f"Wrong repo: cwd remote = {actual}, expected {expected}. "
-        "Run `python tool/cli/worktree.py setup --slug X` first."
+        "Spusť nejdřív `pflanzer worktree setup --slug X`."
     )
 
 
@@ -1500,7 +1536,7 @@ def render_setup(s: WorktreeSetup) -> str:
         lines += ["", "### Data leakage guard", "", render_guard_table(s.guard)]
     lines += ["", "### Další kroky", ""]
     if s.mode == "mob":
-        lines.append(f"- `cd {s.worktrees[0]} && claude` — MOB session, všichni u 1 monitoru (ADR-0011); "
+        lines.append(f"- `cd {s.worktrees[0]} && claude` — MOB Build, max 5 lidí u 1 monitoru (ADR-0016); "
                      "driver/navigator rotace 8 min, hard break 25 min")
     else:
         primary, others = s.repos[0], s.repos[1:]
@@ -1508,6 +1544,8 @@ def render_setup(s: WorktreeSetup) -> str:
             extra = "".join(f" --add-dir {o['worktrees'][v]}" for o in others if v in o["worktrees"])
             roles = "+".join(r["role"] for r in s.repos)
             lines.append(f"- `cd {p} && claude{extra}`  # varianta {v} ({roles})")
+    lines.append(f"- Po Buildu: zapiš varianty do toolu a spusť `/pm feedback` "
+                 f"(stav kdykoli: `pflanzer status --slug {s.slug}`)")
     notes = sorted({f"{r['role']}: install {x['status']} — {x['reason']}"
                     for r in s.repos for x in r["install_results"] if x.get("reason")})
     notes += [f"{r['role']}: install failed v {x['path']} (`{x.get('cmd')}`)"
@@ -1517,7 +1555,7 @@ def render_setup(s: WorktreeSetup) -> str:
     if s.init_missing:
         miss = "; ".join(f"{m['repo']}: {', '.join(m['missing'])}" for m in s.init_missing)
         lines += ["", f"> Připomínka (N14): target repo nemá AI-readiness soubory ({miss}). "
-                      f"Spusť `python tool/cli/worktree.py init-pr --slug {s.slug}` — první PR pilotu."]
+                      f"Spusť `pflanzer worktree init-pr --slug {s.slug}` — první PR pilotu."]
     return "\n".join(lines)
 
 
@@ -1537,13 +1575,13 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_setup = sub.add_parser("setup", help="Clone target repo(s) + create worktrees + hook + guard")
+    p_setup = sub.add_parser("setup", help="Naklonuje target repo(y), vytvoří worktrees + hook + guard")
     p_setup.add_argument("--slug", required=True)
     p_setup.add_argument("--mode", choices=["parallel", "mob"], default=None,
-                         help="parallel = 3 worktrees A/B/C; mob = 1 worktree (ADR-0011). "
+                         help="parallel = 3 worktrees A/B/C; mob = 1 worktree, max 5 lidí (ADR-0016). "
                               "Default: projects.session_mode, jinak parallel")
     p_setup.add_argument("--no-install", "--skip-install", dest="no_install", action="store_true",
-                         help="Skip package-manager install (faster, ale gates skipnou)")
+                         help="Přeskočí install závislostí (rychlejší, ale brány v Ship se přeskočí)")
     p_setup.add_argument("--no-guard", action="store_true", help="Přeskočit data leakage guard")
     p_setup.add_argument("--strict", action="store_true", help="Nenulový exit při nálezu guardu")
     p_setup.add_argument("--json", action="store_true", help="Strojový JSON výstup místo tabulek")
