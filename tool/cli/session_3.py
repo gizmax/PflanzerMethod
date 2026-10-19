@@ -337,7 +337,7 @@ def _render_triage_md(triage_gate: dict[str, Any], slug: str) -> tuple[str, str]
 {override_note}"""
     top = ""
     if triage_gate["blocked_by"]:
-        top = f"""> ## BLOKOVÁNO: spusť `/pm triage {slug}`
+        top = f"""> ## BLOKOVÁNO: chybí podepsané checkpointy (`pflanzer checkpoint --slug {slug} --list`)
 >
 > production_ready = **false** bez ohledu na skóre.
 > Důvod: {', '.join(f'`{b}`' for b in triage_gate['blocked_by'])}.
@@ -447,6 +447,15 @@ def _render_report(
             f"## Verdikt: informativně (throwaway, práh 0)\n\n"
             f"Skóre **{w_score}/100** nic neblokuje; kód nejde do produkce.\n"
         )
+    elif w_score >= target:
+        # Skóre stačí, ale blokuje něco jiného (triage / málo spuštěných gates) —
+        # nehlásit „pod prahem", jen odkázat na skutečný blokátor.
+        verdict_block = (
+            f"## Skóre splňuje práh ({w_score}/100 ≥ {target})\n\n"
+            f"Ship blokuje: {', '.join(blocked_by) or 'málo spuštěných gates (min. 4 vč. build + tests)'}. "
+            f"Okna podepiš přes `pflanzer checkpoint --slug {slug} bezpecnost|provoz …` "
+            f"(viz blok výše), pak znovu `/pm ship {slug}`.\n"
+        )
     else:
         verdict_block = (
             f"## Verdikt: pod prahem\n\n"
@@ -481,7 +490,7 @@ def _render_report(
             f"## Verdikt: BLOKOVÁNO triage\n\n"
             f"Vítěz **{w['variant']}** má **{w_score}/100** (práh {target}), ale risk profil "
             f"`{triage_gate['risk_profile']}` vyžaduje podepsaný triage ve všech 4 trackách. "
-            f"Spusť `/pm triage {slug}` a pak Ship znovu.\n"
+            f"Podepiš okna: `pflanzer checkpoint --slug {slug} bezpecnost --by … --note …` a `… provoz …` (zadání podepisuje Kickoff), pak Ship znovu. Plný triage (`/pm triage`) jen pro regulované projekty.\n"
         ) + ("\n" + verdict_block if not meets else "")
 
     return f"""{BRAND}

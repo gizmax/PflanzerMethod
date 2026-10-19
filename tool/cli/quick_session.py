@@ -373,8 +373,14 @@ def bootstrap(
         if "víc než 5 lidí" not in w:
             warnings.append(w.lstrip("⚠ ").strip())
 
-    # 3. Triage — deferred (Checkpoint Bezpečnost & právo zbývá)
+    # 3. Triage — deferred; okna ho podepisují (`pflanzer checkpoint`).
     _set_triage_deferred(project_id, profile)
+    if metric and (kill_criteria or profile.get("kill_criteria")) and owners_by_step:
+        # Zadání z Kickoffu (problém + metrika + kill + jména 6 kroků) = discovery checkpoint.
+        from tool.cli.checkpoint import sign as sign_checkpoint
+        sign_checkpoint(slug, "zadani", by=decider_name,
+                        note=f"Kickoff: {hook} · metrika: {metric} · kill: "
+                             f"{kill_criteria or profile.get('kill_criteria')}")
 
     # 4. Production-path fields
     primary_branch = repos[0].branch if repos else (target_branch or None)

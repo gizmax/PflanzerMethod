@@ -94,7 +94,15 @@ variantami a diffem:
   i síť stroje; secrets mimo worktree, agent s minimem práv
 - [ ] Právo: osobní údaje, licence závislostí, tvrzení v UI
 
-Výsledek (OK / podmínky / veto) zapiš do zápisu Buildu. Veto = varianta
+Výsledek podepiš (podepsané okno = triage pro Ship gate, bez něj Ship
+pilotu neprojde):
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS bezpecnost --by "<jméno z Kickoffu>" \
+  --note "<co ověřeno / podmínky>"            # veto: přidej --blocked
+```
+
+Výsledek (OK / podmínky / veto) zapiš i do zápisu Buildu. Veto = varianta
 nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
 `doctor` a gates jen doplňují, nenahrazují.
 

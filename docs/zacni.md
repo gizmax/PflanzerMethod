@@ -123,6 +123,10 @@ vědomě nepřijmeš jako riziko.
 | Rozhodnutí | demo, top 3 spory, tiché hlasování, Decider poslední → Go / Iterate / Kill | `/pm decide` |
 | Ship | quality gates jen na vítěze: pilot ≥ 80 / production ≥ 85 ze 100, checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |
 
+**Okna se podepisují** jedním příkazem — `pflanzer checkpoint --slug <slug>
+bezpecnost|provoz --by "<jméno>" --note "…"`. Bez podpisu Ship pilotu
+neprojde (zadání podepisuje Kickoff sám).
+
 **Kde jste?** `/pm` (nebo `/pm status`) řekne fázi a jeden další krok.
 Rozhodnutí se zapisují do repa: `.pflanzer/decisions/<slug>.md` — commitni je.
 

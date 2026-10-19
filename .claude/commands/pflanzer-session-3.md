@@ -67,7 +67,15 @@ Pod povrchem:
 ## Krok 3 — Checkpoint provozu (20 min)
 
 Zástupce kroku Provoz potvrdí: deploy plán, monitoring, kdo drží on-call,
-rollback, strop nákladů. Zapiš do decision logu v target repu (commit).
+rollback, strop nákladů. Podepiš (zapíše se i do decision logu v target repu):
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
+pflanzer checkpoint --slug $ARGUMENTS --list    # stav všech oken
+```
+
+Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
+(zadání podepisuje Kickoff sám). Plný triage (`/pm triage`) jen regulované.
 
 ## Krok 4 — PR a další krok
 
