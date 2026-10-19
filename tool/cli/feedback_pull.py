@@ -45,13 +45,16 @@ def aggregate(slug: str) -> dict[str, Any]:
         project_id, name, status = int(proj[0]), proj[1], proj[2]
 
         # Feedback ke všem variantám projektu (i po Iterate)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
+        resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
         rows = conn.execute(
-            """
+            f"""
             SELECT f.id, f.variant_id, v.name AS variant_name, v.builder,
                    f.role_id, r.catalog_label AS role_label,
                    f.severity, f.department, f.category,
                    f.score, f.rationale, f.ai_act_dimension, f.wcag_level,
-                   f.is_ai_only, f.submitted_by, f.submitted_at
+                   f.is_ai_only, f.submitted_by, f.submitted_at,
+                   {resolved} AS resolved_at
             FROM feedback f
             JOIN variants v ON v.id = f.variant_id
             JOIN sessions s ON s.id = v.session_id
@@ -82,7 +85,7 @@ def aggregate(slug: str) -> dict[str, Any]:
             ai_only_ratio_data["total"] += 1
             if fb["is_ai_only"]:
                 ai_only_ratio_data["ai_only"] += 1
-            if fb["severity"] == "critical":
+            if fb["severity"] == "critical" and not fb["resolved_at"]:
                 critical_flags.append({
                     "id": fb["id"],
                     "variant": v,
@@ -105,7 +108,8 @@ def aggregate(slug: str) -> dict[str, Any]:
             scores = data["scores"]
             data["avg_score"] = round(sum(scores) / len(scores), 3) if scores else 0.0
             data["criticals"] = sum(1 for fb in feedback
-                                    if fb["variant_name"] == v and fb["severity"] == "critical")
+                                    if fb["variant_name"] == v and fb["severity"] == "critical"
+                                    and not fb["resolved_at"])
             del data["scores"]  # don't dump raw
 
         ai_only_ratio = (

@@ -6,7 +6,7 @@ The CC side (tool/cli/*.py) writes most rows; the web hub adds variants
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlmodel import Field, SQLModel, create_engine
@@ -34,6 +34,11 @@ def _resolve_db_path() -> Path:
 DB_PATH = _resolve_db_path()
 
 
+def utcnow() -> datetime:
+    """Timezone-aware UTC now (sqlmodel ≥ 0.0.25 rejects naive datetimes)."""
+    return datetime.now(timezone.utc)
+
+
 class Project(SQLModel, table=True):
     __tablename__ = "projects"  # type: ignore[assignment]
 
@@ -41,8 +46,8 @@ class Project(SQLModel, table=True):
     slug: str = Field(unique=True, index=True)
     name: str
     charter_md: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     status: str = "draft"
     decider_name: str | None = None
     decider_mandate_from: str | None = None
@@ -89,7 +94,7 @@ class Triage(SQLModel, table=True):
     artefact_md: str
     signed_by: str | None = None
     signed_at: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Session(SQLModel, table=True):
@@ -116,7 +121,7 @@ class Variant(SQLModel, table=True):
     prototype_url: str
     description_md: str | None = None
     preference_score: float | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Feedback(SQLModel, table=True):
@@ -134,14 +139,14 @@ class Feedback(SQLModel, table=True):
     wcag_level: str | None = None
     is_ai_only: bool = False
     submitted_by: str
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: datetime = Field(default_factory=utcnow)
 
 
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"  # type: ignore[assignment]
 
     id: int | None = Field(default=None, primary_key=True)
-    ts: datetime = Field(default_factory=datetime.utcnow)
+    ts: datetime = Field(default_factory=utcnow)
     actor: str
     action: str
     target_type: str | None = None

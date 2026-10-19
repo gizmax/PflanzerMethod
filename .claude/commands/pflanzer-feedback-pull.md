@@ -14,9 +14,18 @@ Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
 Kdo: všichni zástupci 6 kroků, ~15 min denně na preview URL variant.
 Builder zapracovává připomínky.
 
-## Krok 1 — Feedback bez hubu (offline)
+## Krok 1 — Kde se feedback sbírá
 
-Web hub není povinný. Kdo klikal na preview a feedback nezadal v hubu,
+**Web hub** (jedním příkazem, sdílí DB s CLI):
+
+```bash
+pflanzer hub                    # http://localhost:8000/method/
+pflanzer hub --host 0.0.0.0     # dostupné kolegům ve firemní síti
+```
+
+Zástupci tam u každé varianty kliknou na preview a zapíšou feedback.
+
+**Bez hubu (offline)** — hub není povinný. Kdo klikal na preview a feedback nezadal v hubu,
 zapíše ho přímo (ty to můžeš udělat za něj podle jeho slov):
 
 ```bash

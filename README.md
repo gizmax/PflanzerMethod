@@ -128,7 +128,7 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
 /pm roles <slug>      # Kdo zastupuje který krok cesty (z 18 rolí catalogu)
 /pm triage <slug>     # 4 paralelní triage tracks (Discovery + Security + Legal + Platform)
 /pm build <slug>      # Build (orchestrator s AI expert sub-agenty)
-# … async 3–5 dní (web hub) …
+# … async 3–5 dní (pflanzer hub nebo pflanzer feedback add) …
 /pm decide <slug>     # Rozhodnutí (Go / Iterate / Kill)
 /pm ship <slug>       # Quality gates
 /pm handoff <slug>    # Handoff package (BE/FE/QA/Platform)
@@ -253,9 +253,9 @@ rm -rf ~/.claude/plugins/pflanzer ~/.pflanzer ~/.local/bin/pflanzer
 git clone https://github.com/gizmax/PflanzerMethod
 cd PflanzerMethod
 python3 tool/db/migrate.py    # použije ./data/pflanzer.db (dev mode)
-# Web hub (volitelně, pro async feedback dev):
-cd tool/web/backend && uvicorn main:app --reload --port 8000 &
-cd tool/web/frontend && npm install && npm run dev
+# Web hub (async feedback) — venv + build frontendu se připraví samy:
+tool/bin/pflanzer hub            # http://localhost:8000/method/
+# vývoj frontendu s hot reloadem: cd tool/web/frontend && npm install && npm run dev
 ```
 
 > DB lokace: pokud `~/.pflanzer/` existuje, použije se `~/.pflanzer/pflanzer.db`

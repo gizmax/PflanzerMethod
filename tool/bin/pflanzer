@@ -35,6 +35,7 @@ case "$SUB" in
     echo "  pflanzer db        # cesta k SQLite DB"
     echo "  pflanzer data      # datová složka (DB, charters, feedback, ...)"
     echo "  pflanzer update    # git pull + migrace + update pluginu"
+    echo "  pflanzer hub       # web hub pro feedback (http://localhost:8000/method/)"
     ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^__' -e '^db$' | sed 's/^/  pflanzer /' ;;
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"

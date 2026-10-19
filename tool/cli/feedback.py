@@ -143,9 +143,12 @@ def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]
         proj = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not proj:
             raise ValueError(f"Projekt '{slug}' neexistuje (zkus `pflanzer status`).")
-        sql = """
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
+        resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
+        sql = f"""
             SELECT f.id, v.name AS variant, f.department, f.severity, f.score,
-                   f.rationale, f.is_ai_only, f.submitted_by, f.submitted_at
+                   f.rationale, f.is_ai_only, f.submitted_by, f.submitted_at,
+                   {resolved} AS resolved_at
             FROM feedback f
             JOIN variants v ON v.id = f.variant_id
             JOIN sessions s ON s.id = v.session_id
@@ -211,11 +214,13 @@ def main() -> None:
             print("|---|-----|----------|----------|-------|-------|------|")
             for r in rows:
                 txt = r["rationale"].replace("\n", " ").replace("|", "/")
-                print(f"| {r['id']} | {r['variant']} | {r['department']} | {r['severity']} "
+                sev = r["severity"] + (" ✓ vyřešeno" if r.get("resolved_at") else "")
+                print(f"| {r['id']} | {r['variant']} | {r['department']} | {sev} "
                       f"| {r['score']:.2f} | {r['submitted_by']} | {txt[:80]} |")
-            crit = sum(1 for r in rows if r["severity"] == "critical")
+            crit = sum(1 for r in rows if r["severity"] == "critical" and not r.get("resolved_at"))
             if crit:
-                print(f"\n⚠ Critical: {crit} — vyřeš před Rozhodnutím.")
+                print(f"\n⚠ Otevřený critical: {crit} — na vítězi blokuje Go "
+                      "(`pflanzer session_2 resolve` nebo Iterate).")
     except ValueError as e:
         print(f"CHYBA: {e}", file=sys.stderr)
         sys.exit(2)
