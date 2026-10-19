@@ -101,8 +101,9 @@ Prakticky:
 - Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,
   preview namespace v Kubernetes, review apps v GitLabu). Dohodne se na
   Kickoffu se zástupcem provozu; nic nového se nestaví.
-- Odkazy na 3 URL + feedback sbírá web hub (`http://localhost:8000/<slug>`
-  nebo sdílená instance). Lidé klikají na URL, ne na notebook buildera.
+- Odkazy na 3 URL + feedback sbírá web hub — `pflanzer hub`
+  (`http://localhost:8000/method/`, pro kolegy `--host 0.0.0.0`), nebo
+  offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
 - Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
   bezpečnosti & práva.
 
