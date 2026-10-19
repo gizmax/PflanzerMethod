@@ -71,7 +71,7 @@ gantt
    Vývojář zapracovává.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,
    tiché hlasování, Decider poslední → **Go / Iterate / Kill**.
-   Iterate = ještě jeden Build, pak už jen Go nebo Kill. Otevřený
+   Iterate (s výběrem variant `--variants A,B`) = ještě jeden Build, pak už jen Go nebo Kill. Po Kill tool vypíše úklid (náhled, worktrees). Otevřený
    critical na vítězi blokuje Go. Decision log jde do repa
    (`.pflanzer/decisions/<slug>.md`).
 5. **Ship (1–2 dny)** — vývojáři + provoz. Quality gates jen na vítěze,

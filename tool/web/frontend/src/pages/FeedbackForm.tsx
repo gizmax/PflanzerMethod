@@ -10,7 +10,9 @@ import { vocative } from "../lib/identity";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
-const WCAG = ["N/A", "A", "AA", "AAA"] as const;
+const WCAG: [string, string][] = [
+  ["N/A", "Netýká se"], ["A", "Základní (A)"], ["AA", "Standardní (AA)"], ["AAA", "Nejvyšší (AAA)"],
+];
 const AREAS: [string, string][] = [
   ["general", "Obecné"], ["ux", "Použitelnost"], ["security", "Bezpečnost"],
   ["legal", "Právo a soukromí"], ["tech", "Technika"], ["a11y", "Přístupnost"],
@@ -58,6 +60,15 @@ export default function FeedbackForm() {
   if (!detail) return <Loading />;
   if (!variant) {
     return <ErrorScreenMissing back={back} />;
+  }
+  if (detail.project.status === "killed") {
+    return (
+      <div className="pf-card max-w-xl space-y-3">
+        <h1>Projekt byl ukončen</h1>
+        <p className="text-muted">Feedback se u něj už nesbírá.</p>
+        <Link to={`/${slug}`} className="pf-button-secondary">Zpět na projekt</Link>
+      </div>
+    );
   }
   if (!identity) {
     return (
@@ -163,7 +174,7 @@ export default function FeedbackForm() {
             onChange={(e) => setRationale(e.target.value)}
             aria-invalid={!!errors.rationale}
             aria-describedby={errors.rationale ? "rationale-err howto" : "howto"}
-            placeholder={feedbackExample(identity.step)} />
+            placeholder={feedbackExample(identity.step, variant.name)} />
           {errors.rationale && <p id="rationale-err" role="alert" className="pf-error">{errors.rationale}</p>}
         </div>
 
@@ -176,7 +187,7 @@ export default function FeedbackForm() {
                 onChange={(e) => setRoleId(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">— podle vašeho kroku ({identity.step}) —</option>
                 {detail.roles.map((r) => (
-                  <option key={r.id} value={r.id}>#{r.catalog_idx} {r.catalog_label} ({r.ai_proxy_mode})</option>
+                  <option key={r.id} value={r.id} title={`technický kód: ${r.ai_proxy_mode}`}>{r.catalog_label}</option>
                 ))}
               </select>
             </div>
@@ -187,15 +198,15 @@ export default function FeedbackForm() {
               </select>
             </div>
             <div>
-              <label htmlFor="adv-ai" className="pf-label">Dimenze AI Act (volitelné)</label>
+              <label htmlFor="adv-ai" className="pf-label">Právní nebo etická oblast (volitelné)</label>
               <input id="adv-ai" className="pf-input" value={aiActDim} onChange={(e) => setAiActDim(e.target.value)}
-                placeholder="např. transparentnost, lidský dohled" />
+                placeholder="např. transparentnost, lidský dohled (pojem z AI Act)" />
             </div>
             <div>
-              <label htmlFor="adv-wcag" className="pf-label">Úroveň WCAG (jen u přístupnosti)</label>
+              <label htmlFor="adv-wcag" className="pf-label">Úroveň přístupnosti (jen u problémů s přístupností)</label>
               <select id="adv-wcag" className="pf-input" value={wcagLevel ?? "N/A"}
                 onChange={(e) => setWcagLevel(e.target.value as Feedback["wcag_level"])}>
-                {WCAG.map((w) => <option key={w} value={w}>{w}</option>)}
+                {WCAG.map(([w, l]) => <option key={w} value={w} title={`technický kód: WCAG ${w}`}>{l}</option>)}
               </select>
             </div>
             <label htmlFor="adv-aionly" className="flex min-h-[44px] items-center gap-3">

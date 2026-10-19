@@ -58,7 +58,7 @@ Petra přes týdenní dashboard.“
 ```bash
 pflanzer session_2 decide --slug <slug> go --winner A --rationale "<1–2 věty>"   # u mob mode: --winner mob
 pflanzer session_2 decide --slug <slug> go --winner A --rationale "…" --override-critical "<důvod>"
-pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "<co změnit>"   # max 1×
+pflanzer session_2 decide --slug <slug> iterate --variants A,B --rationale "…" --iterate-focus "<co změnit>"   # max 1×
 pflanzer session_2 decide --slug <slug> kill --rationale "…"
 # critical vyřešen jinak než overridem (--by a --note jsou povinné):
 pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note "<jak>"
@@ -69,6 +69,10 @@ pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
 - **Mob mode** (jedna společná varianta `mob`): není co porovnávat, `prep` to řekne
   lidsky; Decider rozhoduje jen Go (`--winner mob`) / Iterate / Kill. `--winner`
   bere skutečné varianty projektu z Buildu, ne natvrdo A/B/C.
+- **Iterate**: AskUserQuestion se vždy ptá, **které varianty jdou do druhého kola**
+  (`--variants A,B`; tool ověří, že existují). Ostatní skončí; status i hub
+  ukazují jen varianty ve hře, vypadlé jen jako informace. Bez `--variants`
+  platí shortlist z hlasování Buildu.
 - **Iterate** = jedno další Build kolo (max 1×). Druhý Iterate tool
   odmítne — problém je špatně zadaný, zpět na Kickoff.
 - Decider nemůže rozhodnout → eskalace dle ADR-0001.
@@ -88,7 +92,9 @@ dřív, než PR vítěze projde.
 
 - Go → `/pm ship <slug>` — vývojáři + provoz (checkpoint 20 min)
 - Iterate → `/pm build <slug>` — jádro, jen to, co se mění
-- Kill → poděkuj týmu nahlas a veď k poučením:
+- Kill → tool vypíše i **úklid** (zastavit náhled s heslem
+  `pflanzer preview down --slug <slug>`, smazat worktrees přes `git worktree remove`);
+  projdi ho s vývojářem. Poděkuj týmu nahlas a veď k poučením:
   `pflanzer retro lesson --slug <slug> --text "<poučení>"` (1–3 poučení,
   jedna věta každé); pak hotovo
 

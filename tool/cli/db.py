@@ -119,17 +119,15 @@ def _schema_version() -> int:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Po aktualizaci toolu dorovnej existující DB (bez ručního `pflanzer update`)."""
+    """Založ novou DB / dorovnej existující po aktualizaci toolu (bez ručního zásahu)."""
     key = str(DB_PATH)
     if key in _SCHEMA_CHECKED:
         return
     _SCHEMA_CHECKED.add(key)
     want = _schema_version()
     have = conn.execute("PRAGMA user_version").fetchone()[0]
-    has_tables = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='projects'").fetchone()
-    if have == want or not has_tables:
-        return  # aktuální, nebo prázdná DB (tu zakládá migrate/fixture)
+    if have == want:
+        return  # aktuální
     import contextlib
     import io
 

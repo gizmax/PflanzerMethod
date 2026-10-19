@@ -113,16 +113,38 @@ export function buildTask(
   }
 }
 
-/** Placeholder příkladu feedbacku podle role. */
-export function feedbackExample(step: string | undefined): string {
+/** Placeholder příkladu feedbacku podle role; `variant` je varianta, ke které se píše. */
+export function feedbackExample(step: string | undefined, variant = "A"): string {
   switch (stepKey(step)) {
     case "bezpecnost":
-      return "Varianta A posílá e-mail zákazníka do analytiky bez souhlasu → riziko GDPR → odeslat až po souhlasu; API klíč je v kódu → přesunout do prostředí";
+      return `Varianta ${variant} posílá e-mail zákazníka do analytiky bez souhlasu → riziko GDPR → odeslat až po souhlasu; API klíč je v kódu → přesunout do prostředí`;
     case "provoz":
-      return "Varianta B nemá jak vrátit nasazení zpět ani alarm při výpadku platební brány → přidat feature flag a monitoring";
+      return `Varianta ${variant} nemá jak vrátit nasazení zpět ani alarm při výpadku platební brány → přidat feature flag a monitoring`;
     case "design":
-      return "U varianty C není jasné, co tlačítko Objednat udělá → uživatel váhá → přepsat popisek na „Zaplatit 1 290 Kč“";
+      return `U varianty ${variant} není jasné, co tlačítko Objednat udělá → uživatel váhá → přepsat popisek na „Zaplatit 1 290 Kč“`;
     default:
-      return "U varianty A jsem zkusil dokončit objednávku → po kliknutí se nic nestalo → čekal jsem potvrzení → přidat zprávu o úspěchu";
+      return `U varianty ${variant} jsem zkusil dokončit objednávku → po kliknutí se nic nestalo → čekal jsem potvrzení → přidat zprávu o úspěchu`;
   }
+}
+
+/** Jak se přihlásit k náhledu (odkazy jinak vedou na přihlašovací okno prohlížeče). */
+export function previewLoginText(detail: ProjectDetail): string | null {
+  const l = detail.preview_login;
+  if (!l) return null;
+  if (l.password) return `Náhled se otevře po přihlášení: uživatel ${l.user}, heslo ${l.password}.`;
+  const who = detail.pm_name ? `Heslo vám pošle ${detail.pm_name}` : "Heslo vám pošle produktový vlastník";
+  return `Náhled je chráněný heslem (uživatel ${l.user}). ${who}.`;
+}
+
+const PROFILE_LINE: Record<string, string> = {
+  throwaway: "Zkušební prototyp pro interní demo, nejde do produkce.",
+  pilot: "Pilot s omezenou skupinou reálných uživatelů.",
+  production: "Ostré nasazení pro všechny uživatele, přísnější kontroly.",
+};
+
+/** Hypotéza bez věty o rozsahu (ta je v textu zadání napevno) + rozsah podle profilu projektu. */
+export function splitHypothesis(text: string, profile?: string): { text: string; scope: string | null } {
+  const cleaned = text.replace(
+    /\s*(?:Throwaway prototyp|Pilot s|Ostré nasazení)[^.]*\.?\s*$/i, "").trim();
+  return { text: cleaned, scope: profile ? PROFILE_LINE[profile] ?? null : null };
 }

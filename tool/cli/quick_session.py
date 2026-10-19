@@ -28,6 +28,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli import apprun  # noqa: E402
 from tool.cli import worktree as _worktree_mod  # noqa: E402
 from tool.cli.builder_decision import recommend_for_slug  # noqa: E402
 from tool.cli.charter import (  # noqa: E402
@@ -1069,7 +1070,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         "variants_in_play": [p.name for p in prompts] if plan else None,
         "diversity_hint": rec.get("diversity_hint", ""),
         "keyboard": keyboard,
-        "stack": stack.stack, "check_commands": stack.commands or [],
+        "stack": stack.stack, "stack_label": stack.label or None,
+        "check_commands": stack.commands or [],
         "acceptance_feature": f"tests/acceptance/{slug}.feature" if has_feature else None,
         "acceptance_feature_repo": (
             feature_repo if feature_repo != "."
@@ -1154,6 +1156,13 @@ class StackProfile:
     run_cmd: str | None = None          # jak spustit náhled
     js_frontend: bool = False
     acceptance_glob: str | None = None  # např. tests/acceptance/*.test.ts(x)
+    nextjs: bool = False
+
+    @property
+    def label(self) -> str:
+        """Lidský popis stacku do promptů a výpisů („Next.js (App Router, TS)“, jinak `stack`)."""
+        return self.detail or self.stack or ""
+    detail: str | None = None
 
     @property
     def check_text(self) -> str:
@@ -1170,10 +1179,22 @@ class StackProfile:
 _JS_UI_DEPS = ("react", "vue", "svelte", "next", "nuxt", "@angular/core", "solid-js", "preact")
 
 
+def _next_label(path: Path) -> str:
+    ts = (path / "tsconfig.json").is_file()
+    router = ("App Router" if any((path / d).is_dir() for d in ("app", "src/app"))
+              else "Pages Router" if any((path / d).is_dir() for d in ("pages", "src/pages"))
+              else "App Router")
+    return f"Next.js ({router}, {'TS' if ts else 'JS'})"
+
+
 def _node_acceptance_glob(path: Path, scripts: dict[str, Any], deps: dict[str, Any]) -> str:
-    """Přípona akceptačních testů podle runneru: vitest/jest -> .test.ts(x) u TS, jinak .test.js."""
+    """Přípona akceptačních testů podle runneru: vitest/jest -> .test.ts(x) u TS, jinak .test.js
+    (TS projekt s `node --test` -> .test.ts, Node >= 22.6 si poradí sám)."""
     runner = any(d in deps for d in ("vitest", "jest", "@jest/core", "ts-jest"))
     node_test = "node --test" in str(scripts.get("test", ""))
+    if not runner and (path / "tsconfig.json").is_file() and (
+            node_test or "typescript" in deps):
+        return "tests/acceptance/*.test.ts"
     if runner or not node_test:
         ts = "typescript" in deps or (path / "tsconfig.json").is_file()
         if runner and ts:
@@ -1205,8 +1226,10 @@ def stack_profile(path: Path | None) -> StackProfile:
         cmds = [c for key, c in (("lint", "npm run lint"), ("test", "npm test"),
                                  ("build", "npm run build")) if key in scripts]
         run = "npm run dev" if "dev" in scripts else ("npm start" if "start" in scripts else None)
+        nextjs = apprun.is_nextjs(path)
         return StackProfile("node", cmds, run, js_frontend=any(d in deps for d in _JS_UI_DEPS),
-                            acceptance_glob=_node_acceptance_glob(path, scripts, deps))
+                            acceptance_glob=_node_acceptance_glob(path, scripts, deps),
+                            nextjs=nextjs, detail=_next_label(path) if nextjs else None)
     if stack == "python":
         cmds = ["make test" if "test" in targets else "python3 -m pytest"]
         if "lint" in targets:
@@ -1265,7 +1288,9 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
     feature_line = (
         f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
         "implementace musí projít všemi scénáři. Akceptační testy k nim napiš do "
-        f"`{acc_file}`{acc_note} (běžný test runner projektu) — Ship je spustí jako bránu acceptance.\n"
+        f"`{acc_file}`{acc_note} (běžný test runner projektu"
+        f"{'; v TS projektu .test.ts, ne .js' if acc_file.endswith('.ts') or acc_file.endswith('.ts(x)') else ''}"
+        ") — Ship je spustí jako bránu acceptance.\n"
         if has_feature else ""
     )
     n = 4 if has_feature else 3
@@ -1273,6 +1298,14 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
     checks = (f"kontroly repa, ve kterém jsi měnil kód (příkazy jsou u každého repa v seznamu "
               f"repozitářů výše; primární repo: {stack.check_text})" if multi_repo
               else stack.check_text)
+    next_rules = ""
+    if stack.nextjs:
+        next_rules = (
+            f"\n{n + 7}. Stack: {stack.label}. `next build` (i `npm run build`) přepíše `.next` pod "
+            "běžícím `next dev` a preview pak vrací 500: neběž ho, když preview této varianty "
+            f"běží; pokud ho potřebuješ, hned po něm spusť `pflanzer preview restart --slug "
+            f"{slug} --variants {'<VARIANTA>' if mob else variant}`. Dev odznak Next překrývá "
+            "rohy UI (CTA): v `next.config` nastav `devIndicators: false`.")
     return f"""POVINNÝ POSTUP (NEKÓDUJ, DOKUD KROKY 1–{n} NEJSOU HOTOVÉ):
 1. Přečti `.pflanzer/CONSTITUTION.md` a drž se jí (nepřekročitelná pravidla).
 2. Přečti `docs/INTEGRATION_GUIDE.md` a drž se jeho konvencí (auth, API klient,
@@ -1290,7 +1323,7 @@ PAK kóduj:
 {n + 5}. Nová funkce musí být dosažitelná odkazem z `/` a zapnutá v preview
    (preview běží s `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; flag nesmí být default OFF).
 {n + 6}. Při rozporu má přednost zadání z Kickoffu (Charter, .feature) před
-   CONSTITUTION / INTEGRATION_GUIDE; rozpor napiš do commit message a nezastavuj se."""
+   CONSTITUTION / INTEGRATION_GUIDE; rozpor napiš do commit message a nezastavuj se.{next_rules}"""
 
 
 BE_CONTRACT_FIRST = (
@@ -1645,7 +1678,6 @@ def _dead_local_url_warning(url: str, slug: str) -> str | None:
         return None
     if parts.scheme not in ("http", "https") or host not in ("localhost", "127.0.0.1", "0.0.0.0"):
         return None
-    from tool.cli import apprun
     if apprun.http_get(url, timeout=2.0) is not None:
         return None
     return f"URL {url} neodpovídá — preview neběží? `pflanzer preview up --slug {slug}`"
@@ -2024,7 +2056,7 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
     if out.get("keyboard"):
         lines.append(f"U klávesnice: {out['keyboard']} (zástupce kroku Vývoj)")
     if out.get("stack"):
-        lines.append(f"Stack target repa: {out['stack']}; kontroly po každém kroku: "
+        lines.append(f"Stack target repa: {out.get('stack_label') or out['stack']}; kontroly po každém kroku: "
                      f"{', '.join(out['check_commands']) or 'viz README'}")
     emit(out, title="Prompty pro buildery", lines=lines,
          next_step=("setup worktrees (jednou), pak dvojice: `cd` do své varianty a do AI "

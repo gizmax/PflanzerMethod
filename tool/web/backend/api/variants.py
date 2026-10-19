@@ -47,6 +47,11 @@ def list_variants(
     variants = list(
         db.exec(select(Variant).where(Variant.session_id.in_(session_ids)).order_by(Variant.id)).all()
     )
+    from .projects import variants_in_play
+    in_play = variants_in_play(db, project)
+    if in_play:
+        latest = {v.name: v for v in variants if v.name in in_play}   # nový řádek přebíjí starý
+        variants = sorted(latest.values(), key=lambda v: v.id)
     out: list[dict] = []
     for v in variants:
         fbs = db.exec(select(Feedback).where(Feedback.variant_id == v.id)).all()

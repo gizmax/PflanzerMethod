@@ -85,4 +85,13 @@ export type ProjectDetail = {
   core?: string[];
   shortlist?: string[];
   async_deadline?: string | null;
+  /** po Iterate: varianty druhého kola (prázdné = všechny) */
+  variants_in_play?: string[];
+  /** po Iterate: varianty, které vypadly (jen informace) */
+  variants_dropped?: string[];
+  /** přihlášení k náhledu; heslo je null, pokud ho hub nesmí ukázat */
+  preview_login?: { user: string; password: string | null } | null;
+  /** zabitý projekt: důvod a poučení */
+  kill?: { reason: string | null; lessons: { text: string; by: string | null }[] } | null;
+  risk_profile?: "throwaway" | "pilot" | "production";
 };

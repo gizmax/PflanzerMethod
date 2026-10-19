@@ -531,6 +531,19 @@ def _python_build(ctx: Ctx) -> GateResult:
                       duration_s=dur)
 
 
+def _dir_kb(root: Path, skip: tuple[str, ...] = ()) -> int:
+    """Velikost adresáře v KB; podadresáře z `skip` (první úroveň) se nepočítají."""
+    total = 0
+    for f in root.rglob("*"):
+        try:
+            rel = f.relative_to(root).parts
+            if f.is_file() and not (rel and rel[0] in skip):
+                total += f.stat().st_size
+        except OSError:
+            continue
+    return total // 1024
+
+
 def gate_build(ctx: Ctx) -> GateResult:
     st = ctx.stack
     if st.other:
@@ -543,7 +556,22 @@ def gate_build(ctx: Ctx) -> GateResult:
         if not _has("npm"):
             return _skip("build", "npm není na PATH")
         rc, out, err = _run(["npm", "run", "build"], ctx.path, timeout=180)
+        nextjs = apprun.is_nextjs(ctx.path)
+        note = ""
+        if nextjs:
+            # `next build` přepsal .next pod případným běžícím `next dev` (preview by dávalo 500)
+            try:
+                from tool.cli import preview as _preview
+                msg = _preview.restart_for_worktree(ctx.path)
+                note = f"; {msg}" if msg else ""
+            except Exception:  # noqa: BLE001 — advisory only
+                pass
         if rc == 0:
+            if nextjs and (ctx.path / ".next").is_dir():
+                size_kb = _dir_kb(ctx.path / ".next", skip=("cache",))
+                return GateResult("build", "pass",
+                                  f"Build OK (Next.js), .next {size_kb} KB bez cache{note}",
+                                  metric=size_kb)
             size_kb = 0
             for base in [ctx.path, *st.workspaces]:  # monorepo: výstup leží v balíčcích
                 for d in ("dist", "build", "out"):
@@ -1084,6 +1112,24 @@ def _runner_counts(output: str) -> tuple[Any, Any]:
     return (re.search(r"(\d+) passed", line), re.search(r"(\d+) failed", line))
 
 
+def _node_strip_flag(node: str) -> str | None:
+    """Příznak pro spuštění .ts testů v `node --test`: "" nic netřeba (Node >= 22.18 / 23.6),
+    `--experimental-strip-types` (22.6+), None = Node to neumí / není zjistitelný."""
+    try:
+        r = subprocess.run([node, "--version"], capture_output=True, text=True, timeout=10)
+        m = re.match(r"v(\d+)\.(\d+)", r.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if not m:
+        return None
+    ver = (int(m.group(1)), int(m.group(2)))
+    if ver >= (24, 0) or (23, 6) <= ver < (24, 0) or (22, 18) <= ver < (23, 0):
+        return ""
+    if ver >= (22, 6):
+        return "--experimental-strip-types"
+    return None
+
+
 def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
     """Akceptační testy v běžném test runneru projektu (node --test / pytest) — tak je
     buildeři píší nejčastěji. None = žádné takové testy (zkusí se Playwright)."""
@@ -1103,16 +1149,30 @@ def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
             rc, out, err = _run(cmd, ctx.path, timeout=300)
             m_pass, m_fail = _runner_counts(out + "\n" + err)
         else:
-            js = [f for f in files if re.search(r"\.test\.[cm]?js$", f)]
-            if not js:
-                return _unverified("acceptance", "testy .ts/.tsx bez vitest/jest",
-                                   "v tests/acceptance/ jsou TypeScript testy, ale projekt nemá "
-                                   "vitest ani jest — přidejte `npm i -D vitest`")
-            files = js
-            rc, out, err = _run([os.environ.get("PFLANZER_NODE", "node"), "--test", *files],
-                                ctx.path, timeout=300)
-            m_pass = re.search(r"^# pass (\d+)", out, re.M)
-            m_fail = re.search(r"^# fail (\d+)", out, re.M)
+            node = os.environ.get("PFLANZER_NODE", "node")
+            script = (getattr(st, "scripts", None) or {}).get("test", "")
+            runnable = [f for f in files if re.search(r"\.test\.(?:[cm]?js|[cm]?ts)$", f)]
+            if re.search(r"\bnode\b[^&|;]*--test", script) and re.search(
+                    r"acceptance|tests?/\*\*", script) and _has("npm"):
+                # `npm test` projektu je node --test a pokrývá tests/acceptance -> spustit jím
+                files = runnable or files
+                rc, out, err = _run(["npm", "test", "--silent"], ctx.path, timeout=300)
+            else:
+                if not runnable:
+                    return _unverified("acceptance", "testy .tsx bez vitest/jest",
+                                       "v tests/acceptance/ jsou jen .tsx testy, které node "
+                                       "neumí spustit — přidejte `npm i -D vitest`")
+                flag = _node_strip_flag(node)
+                if any(re.search(r"\.[cm]?ts$", f) for f in runnable) and flag is None:
+                    return _unverified("acceptance", "testy .ts bez vitest/jest a Node < 22.6",
+                                       "v tests/acceptance/ jsou TypeScript testy; potřebují "
+                                       "Node >= 22.6 (`--experimental-strip-types`) nebo "
+                                       "`npm i -D vitest`")
+                files = runnable
+                rc, out, err = _run([node, "--test", *([flag] if flag else []), *files],
+                                    ctx.path, timeout=300)
+            m_pass = re.search(r"^(?:#|ℹ) pass (\d+)", out, re.M)
+            m_fail = re.search(r"^(?:#|ℹ) fail (\d+)", out, re.M)
     elif st.python:
         files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("test_*.py"))
         if not files:

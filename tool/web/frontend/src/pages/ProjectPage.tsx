@@ -6,7 +6,7 @@ import { ErrorScreen, Loading } from "../components/StateScreen";
 import { IdentityPicker } from "../components/IdentityPicker";
 import { Md, formatDate, ownerLabel, phaseLabel } from "../lib/text";
 import { PATH_STEPS } from "../lib/identity";
-import { buildTask, firstName } from "../lib/task";
+import { buildTask, firstName, previewLoginText, splitHypothesis } from "../lib/task";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
 export default function ProjectPage() {
@@ -40,6 +40,9 @@ export default function ProjectPage() {
   const task = buildTask(data, identity, range,
     data.async_deadline ? formatDate(data.async_deadline) : null, project.slug);
   const confirmer = firstName(data.pm_name);
+  const killed = project.status === "killed";
+  const login = previewLoginText(data);
+  const hyp = project.xyz_hypothesis ? splitHypothesis(project.xyz_hypothesis, data.risk_profile) : null;
 
   return (
     <div className="space-y-6">
@@ -59,6 +62,20 @@ export default function ProjectPage() {
         </p>
       )}
 
+      {killed && (
+        <section className="pf-card border-sev-critical space-y-2" aria-labelledby="kill-h">
+          <h2 id="kill-h">Projekt byl ukončen</h2>
+          <p>Feedback se už nesbírá.{data.kill?.reason ? <> Důvod: <Md text={data.kill.reason} /></> : null}</p>
+          {data.kill && data.kill.lessons.length > 0 ? (
+            <div>
+              <h3 className="mb-1">Poučení</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {data.kill.lessons.map((l, i) => <li key={i}>{l.text}{l.by ? <span className="text-muted"> — {l.by}</span> : null}</li>)}
+              </ul>
+            </div>
+          ) : <p className="text-sm text-muted">Poučení zatím není zapsané.</p>}
+        </section>
+      )}
       {inAsync && (
         <section className="pf-card border-accent space-y-3" aria-labelledby="task-h">
           <h2 id="task-h">Vaše úloha</h2>
@@ -77,17 +94,24 @@ export default function ProjectPage() {
               Váš feedback: odesláno k {done} z {variants.length} variant.
             </p>
           )}
+          {login && <p className="rounded-md bg-soft p-3 text-sm">{login}</p>}
           <Link to={`/${slug}/compare`} className="pf-button w-full sm:w-auto">Otevřít varianty</Link>
         </section>
       )}
-      {!inAsync && variants.length > 0 && (
+      {(data.variants_dropped?.length ?? 0) > 0 && (
+        <p className="text-sm text-muted">
+          Po Iterate pokračují varianty {(data.variants_in_play ?? []).join(", ")};
+          varianta {data.variants_dropped!.join(", ")} vypadla (jen pro informaci).
+        </p>
+      )}
+      {!inAsync && !killed && variants.length > 0 && (
         <Link to={`/${slug}/compare`} className="pf-button-secondary w-full sm:w-auto">Zobrazit varianty</Link>
       )}
 
-      {project.xyz_hypothesis && (
+      {hyp && (
         <section className="pf-card space-y-1" aria-labelledby="hyp-h">
           <h2 id="hyp-h">Co chceme ověřit</h2>
-          <p className="whitespace-pre-line"><Md text={project.xyz_hypothesis} /></p>
+          <p className="whitespace-pre-line"><Md text={hyp.text} />{hyp.scope ? <> {hyp.scope}</> : null}</p>
           {project.primary_lagging_metric && (
             <p className="text-sm text-muted">Podle čeho poznáme úspěch: <Md text={project.primary_lagging_metric} /></p>
           )}
