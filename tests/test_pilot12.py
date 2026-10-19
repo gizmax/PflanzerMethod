@@ -156,7 +156,7 @@ def test_prep_view_resolved_critical_label() -> None:
 
 def test_build_running_next_step_is_not_build() -> None:
     phase, nxt = status._phase("triage", "none", 0, 0, build_running=True)
-    assert phase == "Build běží" and "/pm build" not in nxt and "session --spec" in nxt
+    assert phase == "Build běží" and "/pm build" not in nxt and "vote --spec" in nxt
     assert status._phase("triage", "none", 0, 0)[1] == "/pm build"
     assert status._phase("handoff", "none", 2, 0)[1] == "/pm ship"
 

@@ -77,7 +77,9 @@ pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
   odmítne — problém je špatně zadaný, zpět na Kickoff.
 - Decider nemůže rozhodnout → eskalace dle ADR-0001.
 - Tool zapíše **decision log do target repa** `.pflanzer/decisions/<slug>.md`
-  — **commitni ho** (kdo, kdy, co, proč zůstane v gitu).
+  — tool ho NEcommituje ani nepushuje; vypíše přesné příkazy (`git add` → `git commit` →
+  `git push -u origin HEAD`), které spustí člověk. Do originu se log (i podpisy oken)
+  dostane až tak; `SHIP.md` na ten krok znovu upozorní.
 
 ## Krok 5 — Výstup a další krok
 
@@ -102,7 +104,7 @@ dřív, než PR vítěze projde.
 
 - Nepřebíjej Decidera; nezapomeň rationale (audit).
 - Nedovol druhý Iterate; druhé `decide` po Go jen s `--force` a `--rationale`.
-- Nezapomeň commitnout decision log.
+- Nezapomeň decision log commitnout a pushnout (příkazy vypíše tool); sám nic nepushuj bez pokynu člověka.
 
 ## Reference
 

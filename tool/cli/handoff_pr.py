@@ -237,6 +237,23 @@ def _git(cwd: Path, *args: str) -> tuple[int, str]:
     return res.returncode, res.stdout
 
 
+def origin_branch_state(wt: Path | None, branch: str) -> str:
+    """Stav větve na originu podle LOKÁLNÍCH referencí (bez sítě); nikdy netvrdí víc, než ví."""
+    if wt is None or not Path(wt).is_dir():
+        return "stav na originu neověřen (worktree není k dispozici)"
+    rc, out = _git(Path(wt), "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}")
+    if rc == 0 and out.strip():
+        return "větev má na originu referenci (podle lokální kopie; `git ls-remote` ověří živě)"
+    return "větev zatím není na originu (podle lokální kopie) — pushne ji krok níže"
+
+
+def decision_log_lines(slug: str) -> str:
+    """Příkaz commit + push decision logu (+ podpisů oken); tool sám nepushuje."""
+    return (f"git add .pflanzer/decisions/{slug}.md && git commit -m "
+            f"\"docs({slug}): decision log a podpisy oken\" && git push -u origin HEAD"
+            "   # 0. z repa, kde běželo Rozhodnutí; jinak se log do originu nedostane\n")
+
+
 def check_provenance(
     *, slug: str, variant: str, builder: str, target_branch: str, worktree: Path | None,
 ) -> dict[str, Any]:
@@ -1073,6 +1090,11 @@ a v těle se odkazují jako „Související PR v <repo> repu“. Autor commitu 
 AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně
 (`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl. Mergujte společně.
 
+### 0. Decision log
+
+```bash
+{decision_log_lines(slug)}```
+
 {chr(10).join(blocks)}
 ### {len(repos) + 1}. Provázání
 
@@ -1104,7 +1126,7 @@ Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (je
 Reviewera přidejte ručně (`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl.
 
 ```bash
-cd {wb['work_dir']}
+{decision_log_lines(slug)}cd {wb['work_dir']}
 git add -A -- . ':(exclude)*.egg-info/*'
 git diff --cached --quiet || git commit -F - <<'COMMITMSG'
 {commit_msg}
@@ -1276,7 +1298,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
-- **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} v `{parts['target_repo']}`
+- **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} (target repo `{parts['target_repo']}`) — {origin_branch_state(wb['wt'], pr['branch'])}
 {f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or str(score) + '/100'} (práh {target}) - {verdict}
 
 ### Automatické kontroly ({pr['applicable']} z {pr['total']} aplikovatelných)
@@ -1321,7 +1343,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 ## Záznam rozhodnutí
 
 - Audit log a decision log jsou v DB toolu (retence 7 let nastavená v nástroji); cesta: `pflanzer db`.
-- Decision log pro git: `.pflanzer/decisions/{p[2]}.md` v target repu (commitnutý při Rozhodnutí).
+- Decision log pro git: `.pflanzer/decisions/{p[2]}.md` v target repu (zapsaný při Rozhodnutí; do originu ho dostane krok 0 v sekci „Otevři PR“ v `SHIP.md`).
 - AI Act: pokud `tier=high`, Annex IV technická dokumentace před produkcí.
 - GDPR: pokud `data_class=L3+`, aktualizace RoPA a DPIA.
 

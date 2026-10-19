@@ -554,7 +554,7 @@ shadow_pm = "<jméno PdM>"
         "next_steps": [
             "1. Vyplň `docs/INTEGRATION_GUIDE.md` (auth, API, state, logger, "
             "feature flags, folder layout, test runner) a `.pflanzer/CONSTITUTION.md` "
-            "(sekce „Doplň pro svůj repo“). Cca 30 minut.",
+            "(sekce „Doplň pro svůj repo“). Přes Claude Code cca 5 minut (AI vyplní podle repa, ty zkontroluješ), ručně cca 30 minut.",
             "2. Zkontroluj `.pflanzer/project.toml` (target_branch_owner = GitHub handle).",
             "3. Ověř připravenost: `pflanzer doctor`",
             "4. Commit + PUSH (worktrees se klonují z originu, nepushnuté soubory v nich nebudou): "
@@ -612,7 +612,7 @@ def main() -> None:
     emit(out, title="Repo je připravené na Pflanzer Method",
          lines=[_short_action(a) for a in out["actions"][:6]],
          next_step="vyplň `docs/INTEGRATION_GUIDE.md` a `.pflanzer/CONSTITUTION.md` "
-                   "(30 minut), pak `pflanzer doctor` — a commit + push",
+                   "(přes Claude Code cca 5 minut, ručně cca 30), pak `pflanzer doctor` — a commit + push",
          tips=tips_for("init"),
          warnings=[n for n in out["next_steps"] if "gates-template" in n],
          as_json=args.json)

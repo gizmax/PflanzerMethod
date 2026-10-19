@@ -1302,6 +1302,7 @@ def _dispatch(args: argparse.Namespace) -> None:
                  next_step=f"`pflanzer preview up --slug {slug}`", as_json=args.json)
             return
         lines = []
+        play = in_play(slug)
         for n, v in res["variants"].items():
             dead = [k for k, a in v["alive"].items() if not a]
             if v["ok"]:
@@ -1310,21 +1311,35 @@ def _dispatch(args: argparse.Namespace) -> None:
                 state = "NEBĚŽÍ (" + ", ".join(dead) + " spadl)"
             else:
                 state = f"neodpovídá (status {v['http_status']})"
-            lines.append(f"Varianta {n}: {state} — {v['url']}")
+            out_of_play = bool(play) and n.upper() not in play
+            lines.append(f"Varianta {n}: {state} — {v['url']}"
+                         + (" — NENÍ ve hře (po Iterate skončila)" if out_of_play else ""))
             for role, r in (v.get("repos") or {}).items():
                 lines.append(f"  repo {role}: {'běží' if r['alive'] else 'NEBĚŽÍ'} "
                              f"(port {r['port']})")
         lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
+        if play:
+            lines.append("Ve hře: " + ", ".join(play))
+            gone = [n for n in res["variants"] if n.upper() not in play]
+            if gone:
+                lines.append(f"Zastav, co není ve hře: `pflanzer preview down --slug {slug} "
+                             f"--variants {','.join(gone)}`")
         emit(res, title="Stav preview", lines=lines,
              next_step=(f"`pflanzer preview down --slug {slug}`" if res["running"]
                         else f"`pflanzer preview down --slug {slug}` a znovu `up`"),
              as_json=args.json)
     else:
         res = down(slug, variants=parse_variants(args.variants))
+        nxt = _status_next(slug) if res["was_running"] else None
+        left = [n for n in (load_state(slug) or {}).get("variants", {})
+                if n not in res["stopped"]]
+        if nxt and parse_variants(args.variants) and left:
+            nxt = (f"zbývá spuštěný náhled varianty {', '.join(left)} — stav: "
+                   f"`pflanzer preview status --slug {slug}` (ukáže i to, které varianty nejsou "
+                   f"ve hře); dál podle projektu: {nxt}")
         emit(res, title="Preview zastaveno" if res["was_running"] else "Nic nebylo spuštěno",
              lines=[f"Ukončeno: {', '.join(res['stopped']) or 'nic'}"],
-             next_step=_status_next(slug) if res["was_running"] else None,
-             as_json=args.json)
+             next_step=nxt, as_json=args.json)
 
 
 if __name__ == "__main__":

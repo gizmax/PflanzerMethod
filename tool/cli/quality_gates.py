@@ -1495,8 +1495,12 @@ def load_gates_adapter(adapter: Path) -> dict[str, Any]:
         try:
             import yaml  # optional: PyYAML is not a hard dependency
         except ImportError as e:
-            raise ValueError(f"{adapter.name} potřebuje PyYAML: nainstaluj ho "
-                             "(`pip install pyyaml`) nebo použij pflanzer.gates.json") from e
+            raise ValueError(
+                f"{adapter.name} je YAML a PyYAML není nainstalovaný. Nejjednodušší: převeď "
+                "adaptér na JSON (pflanzer.gates.json; vzor: `pflanzer init gates-template "
+                "--format json`, pak smaž pflanzer.gates.yml). Nebo doinstaluj PyYAML do "
+                "prostředí, kde běží pflanzer (`python3 -m venv ~/.pflanzer/venv && "
+                "~/.pflanzer/venv/bin/pip install pyyaml`, případně `pipx inject`)") from e
         try:
             data = yaml.safe_load(text)
         except yaml.YAMLError as e:

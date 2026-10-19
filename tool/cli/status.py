@@ -70,17 +70,33 @@ def _override_deadline(reason: str) -> str | None:
     return m.group(1).strip(" ,;") if m else None
 
 
+def _local_date(ts: Any) -> str:
+    """Datum z DB časové značky (SQLite CURRENT_TIMESTAMP je UTC) v lokálním čase; jinak prvních 10 znaků."""
+    from datetime import datetime, timezone
+    raw = str(ts)
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone().strftime("%Y-%m-%d")
+    except ValueError:
+        return raw[:10]
+
+
 def _phase(status: str, ship: str, feedback_count: int, critical: int,
-           build_running: bool = False) -> tuple[str, str]:
+           build_running: bool = False, missing_preview: bool = False) -> tuple[str, str]:
     """Return (phase in words, next step). `ship` = none | failed | done | handed_off."""
     if status in ("draft", "charter"):
         return "Kickoff rozpracovaný", "/pm start"
     if status == "triage":
         if build_running:  # worktrees jsou, Build se ještě nezapsal do toolu → zapsat, ne stavět znovu
-            return "Build běží", "pflanzer session --spec .pflanzer/specs/<slug>-session.json"
+            return "Build běží", "pflanzer vote --spec .pflanzer/specs/<slug>-vote.json"
         return "Kickoff hotový", "/pm build"
     if status == "session_1":
         if feedback_count == 0:
+            if missing_preview:   # zástupci bez odkazu nic neuvidí → nejdřív preview
+                return ("Build hotový — varianty bez preview URL",
+                        "pflanzer preview up --slug <slug>")
             return "Build hotový — čeká se na Async", "/pm feedback"
         if critical:
             return f"Async — {critical}× kritické otevřené", "/pm feedback"
@@ -164,6 +180,62 @@ def iterate_plan(slug: str) -> dict[str, Any] | None:
     variants = sorted(dict.fromkeys(chosen)) or sorted(dict.fromkeys(shortlist)) or names
     return {"variants": variants, "focus": focus or None, "explicit": bool(chosen),
             "dropped": [n for n in dict.fromkeys(names) if n not in variants]}
+
+
+_GOAL_MARK = re.compile(
+    r"(?:(?<=^)|(?<=[\s;,.(]))(?:[Vv]arianta\s+|[Vv]ariantu\s+)?"
+    r"([A-C](?:\s*(?:,|\+|/|&|a)\s*[A-C])*)\s*[:\u2013\u2014]\s+")
+
+
+def split_iterate_focus(focus: str | None, variants: list[str]) -> tuple[str, dict[str, str]]:
+    """Rozdělí text Iterate na společný cíl a cíle po variantách („B: …; C: …“).
+
+    Vrací (společný text, {varianta: její cíl}). Bez rozlišení variant je celý text společný
+    a slovník prázdný — každá varianta pak dostane jen svůj cíl, nikdy blok cizích cílů.
+    """
+    text = (focus or "").strip()
+    if not text:
+        return "", {}
+    marks = []
+    for m in _GOAL_MARK.finditer(text):
+        letters = re.findall(r"[A-C]", m.group(1))
+        if letters and all(x in variants for x in letters):
+            marks.append((m.start(), m.end(), letters))
+    if not marks:
+        return text, {}
+    common = text[:marks[0][0]].strip(" ;,.\n")
+    goals: dict[str, str] = {}
+    for i, (_, end, letters) in enumerate(marks):
+        stop = marks[i + 1][0] if i + 1 < len(marks) else len(text)
+        goal = text[end:stop].strip(" ;,\n").rstrip(".").strip()
+        for ltr in letters:
+            if goal:
+                goals[ltr] = (goals[ltr] + "; " + goal) if ltr in goals else goal
+    return common, goals
+
+
+def variant_findings(slug: str, name: str, limit: int = 8) -> list[str]:
+    """Nálezy (feedback) k variantě pro prompt druhého kola: nejdřív critical, bez vyřešených."""
+    try:
+        with transaction() as conn:
+            fcols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)").fetchall()}
+            open_ = "AND f.resolved_at IS NULL " if "resolved_at" in fcols else ""
+            rows = conn.execute(
+                "SELECT f.severity, f.category, f.rationale FROM feedback f "
+                "JOIN variants v ON v.id = f.variant_id JOIN sessions s ON s.id = v.session_id "
+                "JOIN projects p ON p.id = s.project_id "
+                f"WHERE p.slug = ? AND v.name = ? {open_}"
+                "ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 "
+                "WHEN 'medium' THEN 2 ELSE 3 END, f.id", (slug, name)).fetchall()
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+    out = []
+    for sev, cat, why in rows[:limit]:
+        text = " ".join(str(why or "").split())
+        out.append(f"[{sev}] {cat}: {text[:200]}")
+    if len(rows) > limit:
+        out.append(f"… a dalších {len(rows) - limit} (viz `pflanzer feedback_pull`)")
+    return out
 
 
 def variants_in_play(slug: str) -> list[str]:
@@ -303,7 +375,8 @@ def project_detail(slug: str) -> dict[str, Any]:
         vcols = {r[1] for r in conn.execute("PRAGMA table_info(variants)").fetchall()}
         branch_sel = "v.branch" if "branch" in vcols else "NULL"
         variants = conn.execute(
-            f"SELECT v.id, v.name, v.builder, v.preference_score, {branch_sel} AS branch "
+            f"SELECT v.id, v.name, v.builder, v.preference_score, {branch_sel} AS branch, "
+            "v.prototype_url AS url "
             "FROM variants v JOIN sessions s ON s.id = v.session_id "
             "WHERE s.project_id = ? ORDER BY v.name, v.id", (pid,),
         ).fetchall()
@@ -373,8 +446,13 @@ def project_detail(slug: str) -> dict[str, Any]:
     critical = sum(len(crit_by_variant.get(v, [])) for v in blocking_variants)
     critical_info = {v: w for v, w in crit_by_variant.items() if v not in blocking_variants}
 
+    latest_url: dict[str, str] = {}
+    for v in variants:      # ORDER BY name, id → poslední řádek varianty vyhrává
+        latest_url[v["name"]] = v["url"] or ""
+    missing_preview = any((not u or "sandbox.invalid" in u) for n, u in latest_url.items()
+                          if not in_play or n in in_play)
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
-                        build_running=evidence["build_running"])
+                        build_running=evidence["build_running"], missing_preview=missing_preview)
     nxt = _with_slug(nxt, slug).replace("<slug>", slug)
     if (tier == "full" and p["status"] in ("draft", "charter", "triage")
             and not evidence["build_running"] and not evidence.get("triage_run")):
@@ -395,7 +473,7 @@ def project_detail(slug: str) -> dict[str, Any]:
             or next((s["decision_ts"] for s in reversed(sessions)
                      if s["decision"] == "kill" and s["decision_ts"]), None) \
             or (p["updated_at"] if "updated_at" in cols else None)
-        killed_at = str(kill_ts)[:10] if kill_ts else None
+        killed_at = _local_date(kill_ts) if kill_ts else None
         phase = "Ukončeno (Kill)" + (f" — {killed_at}" if killed_at else "")
         nxt = "—" if evidence["lesson"] else f'pflanzer retro lesson --slug {slug} --text "…"'
         crit_by_variant, critical, critical_total, blocking_variants = {}, 0, 0, []

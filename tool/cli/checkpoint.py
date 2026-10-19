@@ -241,7 +241,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                          '(PdM): --by "<jméno>" --note "co jste zkontrolovali".')
     label = WINDOWS[window]["label"]
     step = WINDOW_STEP[window]
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     warnings: list[str] = []
     countersigned = False
     with transaction() as conn:
@@ -402,6 +402,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
     designated = _designated(window, owner, owners, risk, signers, core)
     log = _append_decision_log(slug, label, who, status, note, now, kind=kind,
                                agent=agent_name, signer=designated)
+    charter_updated = _stamp_charter(slug, window, who, status)
     next_step = _next_step(slug, window, status, owner, owners, risk, by=who, signers=signers,
                            core=core)
     return {"slug": slug, "window": window, "label": label, "status": status,
@@ -409,6 +410,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             "signed_by_role": kind, "ai_agent": agent_name,
             "ai_draft": status == "pending", "ai": ai,
             "countersigned_ai_draft": countersigned,
+            "charter_updated": charter_updated,
             "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
 
 
@@ -464,6 +466,44 @@ def _next_step(slug: str, window: str, status: str, owner: str | None,
                 f'`pflanzer checkpoint --slug {slug} {window} --by "{signer}" --note "co jsem ověřil"`')
     from tool.cli.status import project_detail
     return str(project_detail(slug)["next_step"])
+
+
+CHARTER_SIGN_LINES = {
+    "zadani": "- Decider podpis (datum + jméno):",
+    "bezpecnost": "- Checkpoint Bezpečnost & právo",
+    "provoz": "- Checkpoint Provoz",
+}
+
+
+def _stamp_charter(slug: str, window: str, who: str, status: str) -> bool:
+    """Přepíše řádek okna v sekci Sign-off charteru (`PENDING` → jméno + datum).
+
+    Jen pro okna, jejichž řádek charter má; ostatní text zůstane. Vrací True, když se soubor změnil.
+    BLOKOVÁNO se do charteru nezapisuje jako podpis (řádek zůstane čekající).
+    """
+    prefix = CHARTER_SIGN_LINES.get(window)
+    if not prefix or status == "blocked":
+        return False
+    from tool.cli import charter as _charter
+    path = Path(_charter.CHARTER_DIR) / f"{slug}.md"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    day = datetime.now().astimezone().strftime("%Y-%m-%d")
+    mark = f"podepsáno: {who}, {day}" if status == "ok" else \
+        f"AI draft ({who}, {day}) — čeká na podpis člověka"
+    out, changed = [], False
+    for line in text.split("\n"):
+        if line.startswith(prefix):
+            head = line.split(":", 1)[0]
+            new = f"{head}: {mark}"
+            if new != line:
+                line, changed = new, True
+        out.append(line)
+    if changed:
+        path.write_text("\n".join(out), encoding="utf-8")
+    return changed
 
 
 def _append_decision_log(slug: str, label: str, by: str, status: str, note: str,

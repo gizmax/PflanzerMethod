@@ -59,7 +59,8 @@ if python3 -c 'import yaml' >/dev/null 2>&1; then
 elif python3 -m pip install --user --quiet pyyaml >/dev/null 2>&1; then
   ok "PyYAML nainstalován (pip --user)"
 else
-  warn "PyYAML se nepodařilo nainstalovat — pflanzer.gates.yml nepůjde číst; 'pflanzer init gates-template' proto vygeneruje pflanzer.gates.json (nebo: pip install pyyaml)"
+  ok "PyYAML není potřeba: adaptér bran funguje i jako JSON (pflanzer.gates.json; 'pflanzer init gates-template' ho bez PyYAML vygeneruje sám)"
+  echo "    YAML (pflanzer.gates.yml) čtení volitelně doinstaluješ do venv: python3 -m venv ~/.pflanzer/venv && ~/.pflanzer/venv/bin/pip install pyyaml  (nebo pipx)"
 fi
 
 if command -v claude >/dev/null; then
