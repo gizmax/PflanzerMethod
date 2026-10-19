@@ -92,6 +92,7 @@ GENERIC_GATE_EXAMPLES: dict[str, dict[str, Any]] = {
     "coverage": {"cmd": "<command printing e.g. 'Branch coverage: 72.4%'>",
                  "parse": r"regex:Branch coverage: (?P<metric>[\d.]+)%",
                  **COVERAGE_THRESHOLDS},
+    "smoke": {"builtin": True},  # needs `[preview] command` in .pflanzer/project.toml
     "acceptance": {"cmd": "<acceptance test command over tests/acceptance/>"},
     "security": {"cmd": "<dependency / SCA scan command>"},
     "a11y": {"cmd": "npx @axe-core/cli http://localhost:8080 --exit"},
@@ -113,6 +114,7 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "coverage": {"cmd": "npx vitest run --coverage",
                          "parse": r"regex:All files\s*\|\s*[\d.]+\s*\|\s*(?P<metric>[\d.]+)",
                          **COVERAGE_THRESHOLDS},
+            "smoke": {"builtin": True},
             "acceptance": {"cmd": "npx playwright test tests/acceptance"},
             **security,
             "#security": {"cmd": "npm audit --audit-level=high"},
@@ -125,6 +127,7 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "types": {"cmd": "mypy ."},
             "lint": {"cmd": "ruff check ."},
             "tests": {"cmd": "python3 -m pytest -q"},
+            "#smoke": {"builtin": True},  # po doplnění [preview] command v .pflanzer/project.toml
             "#coverage": {"cmd": "python3 -m pytest -q --cov --cov-branch --cov-report=term",
                           "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
                           **COVERAGE_THRESHOLDS},
@@ -300,6 +303,12 @@ default_risk_profile = "pilot"  # throwaway | pilot | production
 # Owner GitHub handles (pre-populated do SHIP.md gh pr create --reviewer)
 target_branch_owner = "<@github-handle>"
 shadow_pm = "<jméno PdM>"
+
+# Spuštění aplikace pro `pflanzer preview up` a bránu `smoke` ({{port}} dosadí tool).
+# Bez tohoto bloku se zkusí autodetekce (npm run dev / start, make run, python -m …).
+# [preview]
+# command = "npm run dev -- --port {{port}}"
+# smoke_paths = ["/", "/rezervace"]
 
 # Vygenerováno: {date.today().isoformat()}
 """, encoding="utf-8")

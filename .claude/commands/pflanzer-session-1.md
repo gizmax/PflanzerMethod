@@ -179,8 +179,15 @@ preview namespace). Bez produkčních dat. Na každém preview viditelný štít
 **„Varianta X — k rozhodnutí, ne produkt“** + 1 věta, jaký problém řeší.
 Chybí-li preview deploy, navrhni konkrétního člověka (zástupce provozu
 z projektu) a termín, ne „domluvte s provozem“.
-Odkazy (tabulka varianta / URL) pošli všem zástupcům. Nemá-li firma preview
-deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
+Odkazy (tabulka varianta / URL) pošli všem zástupcům. Interní GitHub často
+nejde napojit na Vercel a kód nemá opouštět firmu — pak po pushi spusť
+**`pflanzer preview up --slug <slug>`**: spustí aplikaci z worktrees A/B/C,
+dá před každou heslo (uživatel `pflanzer`) a štítek „Varianta X k rozhodnutí“,
+přes `cloudflared` (je-li v PATH) i veřejnou URL, zapíše URL k variantám a
+vypíše hotovou zprávu k přeposlání zástupcům (`--deadline "pátek 17:00"`).
+Počítač musí zůstat zapnutý po dobu Asyncu; konec: `pflanzer preview down
+--slug <slug>`. Tunel = provoz jde přes Cloudflare — zmiň to na checkpointu
+bezpečnosti. Nemá-li firma preview deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
 <slug>` založí **draft PR per varianta** (preview URL z PR checks; push do
 remote vyžaduje potvrzení), `--mode playwright` nahraje průchod
 acceptance scénáři jako video + trace (`docs/postup.md`

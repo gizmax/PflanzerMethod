@@ -256,8 +256,12 @@ stačí jednoduchý běh lint + test + build na každé větvi.
 Určete konkrétního člověka (zástupce provozu) a termín, kdy preview
 zprovozní; „domluvíme s provozem“ nestačí.
 
-Build jede lokálně (3 dev servery), ale Async tak nemá na co klikat. Zkuste
-draft PR s preview nebo nahrávku průchodu (`pflanzer worktree preview`,
+Build jede lokálně (3 dev servery), ale Async tak nemá na co klikat. Nejrychlejší
+je `pflanzer preview up --slug <slug>`: spustí varianty s heslem, přes
+`cloudflared` i s veřejnou URL, a vypíše zprávu k přeposlání zástupcům (kód
+neopouští firmu; provoz přes tunel jde přes Cloudflare — řekněte to
+bezpečnosti). Vercel? Volitelné, ne default; interní GitHub se na něj často
+napojit nedá. Další možnost: draft PR s preview nebo nahrávku průchodu (`pflanzer worktree preview`,
 viz [`postup.md`](postup.md#kde-varianty-fyzicky-jsou)). Jinak pilot posuňte.
 
 ### …možnost sejít se (Build online)

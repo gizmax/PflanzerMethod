@@ -380,7 +380,7 @@ def test_doctor_stack_specific_advice(tmp_path: Path) -> None:
     node = tmp_path / "node"
     node.mkdir()
     (node / "package.json").write_text("{}", encoding="utf-8")
-    assert "npm run dev" in doctor.check_preview(node)["advice"]
+    assert "pflanzer preview up" in doctor.check_preview(node)["advice"]
 
 
 def test_doctor_guide_needs_most_sections_filled(tmp_path: Path) -> None:

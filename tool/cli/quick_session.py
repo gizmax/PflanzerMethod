@@ -107,7 +107,7 @@ RISK_PROFILES: dict[str, dict[str, Any]] = {
         "production_readiness_target": 80,  # dokumentace: Ship brány ≥ 80/100
     },
     "production": {
-        "label": "Production launch (ošetřená data, regulated)",
+        "label": "Ostré nasazení pro všechny uživatele (přísnější brány)",
         "ai_act_tier": "limited",
         "data_class": "L3",
         "throwaway_or_evolve": "evolve",
@@ -1373,15 +1373,14 @@ def record_voting(
 
     spec_variants = []
     warnings: list[str] = []
+    missing_urls: list[str] = []
     for v in votes:
         name = v.get("name") or v["variant"]
         url = real_urls.get(name) or v.get("prototype_url")
         if not url:
             kept = existing.get(name)
             if not kept or _is_no_url(kept):
-                warnings.append(f"varianta {name} nemá preview URL — zástupci v Asyncu ji neuvidí "
-                                f"(doplň: `pflanzer worktree set-url --slug {slug} "
-                                f"--variant {name} --url <odkaz>`)")
+                missing_urls.append(name)
             url = ""  # „bez URL“: DB sloupec je NOT NULL, proto prázdný řetězec (ne vymyšlená adresa)
         spec_variants.append({
             "name": name,
@@ -1392,6 +1391,9 @@ def record_voting(
             "role_preferences": v["role_preferences"],
         })
 
+    for name in missing_urls:
+        warnings.append(f"varianta {name} nemá preview URL — zástupci v Asyncu ji neuvidí "
+                        f"(spusťte `pflanzer preview up --slug {slug}`: odkazy + heslo)")
     spec = {
         "slug": slug,
         "facilitator": facilitator,

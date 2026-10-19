@@ -122,12 +122,24 @@ Prakticky:
 
 **Možnosti, jak varianty zpřístupnit** (od nejjednoduššího):
 
-1. **Preview deploy firmy** — push branchí, preview URL z CI (výše).
-2. **Draft PR per varianta** — `pflanzer worktree preview --slug <slug>`
+1. **Lokální preview s heslem** — `pflanzer preview up --slug <slug>`
+   spustí aplikaci z worktrees A/B/C, před každou postaví malý proxy s heslem
+   (uživatel `pflanzer`) a štítkem „Varianta X k rozhodnutí — není to hotový
+   produkt“ a vypíše 3 URL + hotovou zprávu zástupcům. S `cloudflared` v PATH
+   (`--tunnel auto`) dostane každá varianta veřejnou `https://*.trycloudflare.com`
+   URL, jinak jen lokální / LAN (`--host 0.0.0.0`). Kód nikam neodchází; provoz
+   přes tunel ale jde přes Cloudflare (zapsat na checkpointu bezpečnosti).
+   Příkaz aplikace: `.pflanzer/project.toml` → `[preview] command = "… {port}"`,
+   jinak autodetekce (`npm run dev`/`npm start`, `make run`, `python -m`).
+   Počítač buildera musí běžet po dobu Asyncu; `pflanzer preview status|down`.
+   Vhodné, když interní GitHub nejde napojit na Vercel a kód nemá opustit firmu.
+2. **Preview deploy firmy** — push branchí, preview URL z CI (výše). Vercel
+   a podobné jsou volitelné, ne default.
+3. **Draft PR per varianta** — `pflanzer worktree preview --slug <slug>`
    založí draft PR každé větve; preview URL se vezme z checků PR (Vercel /
    Netlify) a uloží k variantě. Push do remote target repa tool nejdřív
    vypíše a chce potvrzení.
-3. **Playwright záznam** — `pflanzer worktree preview --slug <slug> --mode playwright`
+4. **Playwright záznam** — `pflanzer worktree preview --slug <slug> --mode playwright`
    nahraje průchod acceptance scénáři (video + trace); pro zástupce, kteří
    nemají kde klikat, nebo když firma preview deploy nemá.
 

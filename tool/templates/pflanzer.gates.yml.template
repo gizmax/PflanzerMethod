@@ -41,6 +41,10 @@
 # Target 60 % (warn below), fail below 30 % (weight 1.0).
 {{gate:coverage}}
 
+# smoke — starts the winner's app (`[preview] command` in .pflanzer/project.toml)
+# and checks GET / (+ `smoke_paths`) answers < 400 (weight 1.5).
+{{gate:smoke}}
+
 # acceptance — Decider-written acceptance scenarios from tests/acceptance/
 # (ADR-0010). Primary reuse signal (weight 2.5).
 {{gate:acceptance}}

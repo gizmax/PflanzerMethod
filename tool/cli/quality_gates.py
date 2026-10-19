@@ -1,11 +1,13 @@
 """Quality gates (Ship, v0.5) — automatické brány místo lidí v místnosti.
 
-Pro worktree / adresář vítězné varianty spustí až 9 gates:
+Pro worktree / adresář vítězné varianty spustí až 10 gates:
 - **build**         `npm run build` (jen pokud je build script)
 - **types**         `tsc --noEmit` (jen s tsconfig.json) / mypy (jen s konfigurací)
 - **lint**          `npm run lint` (jen pokud je lint script) / ruff
 - **tests**         `npm test` / pytest; žádné nalezené testy = FAIL ("žádné testy")
 - **coverage**      vitest --coverage (jen pokud je coverage nástroj)
+- **smoke**         spustí aplikaci vítěze (`[preview] command` / autodetekce) a ověří GET `/`
+                    (+ `[preview] smoke_paths`) < 400; bez příkazu = NEOVĚŘENO
 - **acceptance**    Playwright scénáře z `tests/acceptance/` (jen pokud existují)
 - **security**      secret scan + `npm audit` (vždy)
 - **a11y**          heuristika nad HTML/JSX/TSX/Vue/Svelte (jen pokud UI soubory jsou)
@@ -60,6 +62,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,13 +71,14 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli import apprun  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 GATES_DIR = DATA_ROOT / "handoffs"
 # Pořadí = fail-fast (levné → drahé).
-GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "acceptance",
+GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "smoke", "acceptance",
               "security", "a11y", "observability")
 GATE_WEIGHTS = {  # Production readiness weight
     "build": 1.5,        # bez buildu se nešipuje
@@ -82,6 +86,7 @@ GATE_WEIGHTS = {  # Production readiness weight
     "lint": 1.0,
     "tests": 2.0,        # primary safety net
     "coverage": 1.0,
+    "smoke": 1.5,        # aplikace vítěze vůbec naběhne a odpoví
     "acceptance": 2.5,   # Decider-written scénáře = ground truth
     "security": 2.0,     # blocker-class
     "a11y": 1.0,
@@ -895,6 +900,43 @@ def gate_coverage(ctx: Ctx) -> GateResult:
                       f"Branch coverage {branch_pct:.1f} % je kriticky nízká (< 30 %)", metric=branch_pct)
 
 
+def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
+    """Akceptační testy v běžném test runneru projektu (node --test / pytest) — tak je
+    buildeři píší nejčastěji. None = žádné takové testy (zkusí se Playwright)."""
+    st = ctx.stack
+    if st.node:
+        files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("*.test.*js"))
+        if not files:
+            return None
+        rc, out, err = _run([os.environ.get("PFLANZER_NODE", "node"), "--test", *files],
+                            ctx.path, timeout=300)
+        m_pass = re.search(r"^# pass (\d+)", out, re.M)
+        m_fail = re.search(r"^# fail (\d+)", out, re.M)
+    elif st.python:
+        files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("test_*.py"))
+        if not files:
+            return None
+        rc, out, err = _run([_python_cmd(ctx.path), "-m", "pytest", "-q", *files],
+                            ctx.path, timeout=300)
+        m_pass = re.search(r"(\d+) passed", out)
+        m_fail = re.search(r"(\d+) failed", out)
+    else:
+        return None
+    passed = int(m_pass.group(1)) if m_pass else 0
+    failed = int(m_fail.group(1)) if m_fail else (0 if rc == 0 else 1)
+    total = passed + failed
+    if total == 0:
+        return _skip("acceptance", "v tests/acceptance/ nejsou žádné spustitelné testy")
+    rate = round(100 * passed / total)
+    label = f"{passed}/{total} akceptačních testů ({rate} %, {len(files)} soubor/ů)"
+    if rate >= 80 and rc == 0:
+        return GateResult("acceptance", "pass", label, metric=rate)
+    if rate >= 50:
+        return GateResult("acceptance", "warn", f"{label} < cíl 80 %", metric=rate)
+    return GateResult("acceptance", "fail", f"{label} — varianta neplní zadání\n"
+                      + (out + err)[-400:], metric=rate)
+
+
 def gate_acceptance(ctx: Ctx) -> GateResult:
     if ctx.stack.other:
         return _gate_other_stack("acceptance", ctx.path, ctx.stack.other)
@@ -903,6 +945,9 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
     if not acc_dir.exists():
         return _skip("acceptance", "tests/acceptance/ neexistuje (kritéria nejsou v kódu)")
     st = ctx.stack
+    native = _native_acceptance(ctx, acc_dir)
+    if native is not None and not (st.node and "@playwright/test" in st.deps):
+        return native
     if not (st.node and "@playwright/test" in st.deps):
         if st.python and not st.node:
             return _skip("acceptance", "scénáře v tests/acceptance/ jsou, ale automaticky se "
@@ -974,12 +1019,55 @@ def gate_observability(ctx: Ctx) -> GateResult:
                       + (" (vysoký šum)" if leaks > 10 else ""), metric=leaks)
 
 
+def gate_smoke(ctx: Ctx) -> GateResult:
+    """Aplikace vítěze naběhne a `/` (a `smoke_paths`) odpoví < 400; potom se ukončí."""
+    if ctx.stack.other and not apprun.read_preview_config(ctx.path).get("command"):
+        return _unverified("smoke", "chybí příkaz pro spuštění",
+                           "doplňte `[preview] command` do .pflanzer/project.toml")
+    paths = apprun.read_preview_config(ctx.path).get("smoke_paths")
+    paths = [str(p) for p in paths if str(p).strip()] if isinstance(paths, list) else []
+    paths = [p if p.startswith("/") else "/" + p for p in paths] or ["/"]
+    port = apprun.free_port()
+    spec = apprun.detect_run(ctx.path, port)
+    if spec is None:
+        return _unverified("smoke", "chybí příkaz pro spuštění",
+                           "doplňte `[preview] command = \"… {port}\"` do .pflanzer/project.toml "
+                           "v target repu")
+    if (missing := _needs_deps(ctx, "smoke")) is not None:
+        return missing
+    started = time.monotonic()
+    timeout = float(os.environ.get("PFLANZER_SMOKE_TIMEOUT", "60"))
+    with tempfile.TemporaryDirectory(prefix="pflanzer-smoke-") as tmp:
+        log = Path(tmp) / "app.log"
+        proc = apprun.start_app(spec, log)
+        try:
+            base = f"http://127.0.0.1:{port}"
+            up, _ = apprun.wait_http(base + paths[0], timeout=timeout, proc=proc,
+                                     ok=lambda _s: True)
+            if not up:
+                why = ("aplikace skončila" if proc.poll() is not None
+                       else f"aplikace do {int(timeout)} s neodpověděla")
+                return GateResult("smoke", "fail",
+                                  f"smoke: {why} (`{spec.command}`)\n{apprun.tail(log, 8)}",
+                                  duration_s=round(time.monotonic() - started, 2))
+            seen = [(p, apprun.http_get(base + p, timeout=10)) for p in paths]
+        finally:
+            apprun.kill_group(proc.pid)
+    bad = [(p, st) for p, st in seen if st is None or st >= 400]
+    text = ", ".join(f"{p} odpovídá {st if st is not None else 'nic'}" for p, st in seen)
+    dur = round(time.monotonic() - started, 2)
+    if bad:
+        return GateResult("smoke", "fail", f"smoke: {text}", metric=len(bad), duration_s=dur)
+    return GateResult("smoke", "pass", f"smoke: {text}", metric=0, duration_s=dur)
+
+
 GATE_RUNNERS = {
     "build": gate_build,
     "types": gate_types,
     "lint": gate_lint,
     "tests": gate_tests,
     "coverage": gate_coverage,
+    "smoke": gate_smoke,
     "acceptance": gate_acceptance,
     "security": gate_security,
     "a11y": gate_a11y,
@@ -1542,6 +1630,9 @@ def _first_line(text: str, limit: int = 110) -> str:
 def human_gate_lines(summary_line: str, results: list[dict[str, Any]], limit: int = 5) -> list[str]:
     """Řádky pro lidský výstup: souhrn + nejdřív selhané, pak varování (max `limit`)."""
     lines = [summary_line]
+    for r in results:
+        if r["gate"] == "smoke" and r["status"] == "pass":
+            lines.append(_first_line(r.get("details", "")))  # „smoke: / odpovídá 200“
     problems = [r for r in results if r["status"] == "fail"] + \
                [r for r in results if r["status"] == "warn"]
     for r in problems[: limit - 1]:

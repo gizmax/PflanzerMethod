@@ -330,7 +330,8 @@ def hardening_run(
         warnings.append(
             f"Neověřeno: {what} — skóre o tom nic neříká."
             + (" U production to Ship blokuje: doplň nástroj a spusť znovu."
-               if unverified_blocks else " U pilotu je to varování."))
+               if unverified_blocks else
+               " Ship to neblokuje (blokuje jen neověřená acceptance u production)."))
     ncheck = winner.get("new_code_check")
     if ncheck and ncheck["missing_tests"]:
         warnings.append(

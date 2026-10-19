@@ -315,12 +315,10 @@ def check_preview(repo: Path) -> dict[str, str]:
                 break
     if found:
         return _check(name, OK, ", ".join(found))
-    local = ("počítej se spuštěním lokálně (`npm run dev`) + port-forward, nebo přidej "
-             "Vercel/Netlify preview" if _is_node(repo) else
-             "domluv s provozem sdílený náhled (staging, tunel nebo nahrávka obrazovky)")
-    return _check(name, WARN, "žádná indikace preview deploye",
-                  f"Bez preview URL zástupci v Asyncu varianty neuvidí; {local}.",
-                  "pilot půjde, ale zástupci v Asyncu nebudou mít na co kliknout")
+    return _check(name, OK, "žádný preview deploy — stačí `pflanzer preview up`",
+                  "Po Buildu `pflanzer preview up --slug <slug>` spustí 3 varianty za heslem "
+                  "(lokálně, v síti `--host 0.0.0.0`, odkudkoli s cloudflared). Firemní preview "
+                  "deploy je volitelný.")
 
 
 def _git_add_command(repo: Path) -> str:

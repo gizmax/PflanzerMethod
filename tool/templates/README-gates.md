@@ -1,6 +1,6 @@
 # Quality gates mimo Node/Python — `pflanzer.gates.yml`
 
-**Adaptér.** Soubor `pflanzer.gates.yml` (bez PyYAML `pflanzer.gates.json`) v kořeni target repa říká `tool/cli/quality_gates.py`, jakým příkazem spustit který gate (`build`, `types`, `lint`, `tests`, `coverage`, `acceptance`, `security`, `a11y`, `observability`). Hledá se v kontrolovaném adresáři a v rodičích až po git root; nejbližší vyhrává. Pokud existuje, **úplně nahrazuje autodetekci**.
+**Adaptér.** Soubor `pflanzer.gates.yml` (bez PyYAML `pflanzer.gates.json`) v kořeni target repa říká `tool/cli/quality_gates.py`, jakým příkazem spustit který gate (`build`, `types`, `lint`, `tests`, `coverage`, `smoke`, `acceptance`, `security`, `a11y`, `observability`). Hledá se v kontrolovaném adresáři a v rodičích až po git root; nejbližší vyhrává. Pokud existuje, **úplně nahrazuje autodetekci**.
 
 ```yaml
 build:    {cmd: "mvn -q -DskipTests compile"}          # parse: exit_code (default)
