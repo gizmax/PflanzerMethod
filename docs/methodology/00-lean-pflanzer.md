@@ -14,7 +14,7 @@ a vítěz jde rovnou do produkce. Žádné sériové předávání zadavatel →
 produkt → vývoj → security → provoz; každý krok cesty je u toho, ale jen
 tak dlouho, jak je potřeba.
 
-Tři pravidla:
+Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 
 1. **Celá cesta je zastoupena.** Každý ze 6 kroků cesty má jednoho
    pojmenovaného zástupce s mandátem. Krok bez jména = nesvolávat.
@@ -42,6 +42,8 @@ je **knihovna zástupců**, ne seznam pozvánek.
 ## Průběh (~8 dní, ~6–8 PD)
 
 ```
+Před     pflanzer doctor — repo připravené? (testy, CI, preview, CONSTITUTION)
+
 Den 0    KICKOFF        15 min     Decider + jádro
          → zadání na 1 stránku: problém (1 věta), metrika úspěchu,
            kill kritérium, jména zástupců všech 6 kroků, zabookovaná okna
@@ -51,11 +53,13 @@ Den 1–5  BUILD          3 h        jádro
          → AI staví 3 varianty paralelně (Claude Code ve 3 worktrees
            target repa); jádro sedí u jedné obrazovky a směruje
          → v posledních 30 min: CHECKPOINT bezpečnost & právo (20 min)
-           nad datovým tokem a data classification
+           nad datovým tokem, data classification, egress limitem, stropem
+           tokenů/nákladů a rizikem prompt injection (worktree není izolace)
          /pm live  nebo  /pm build
 
          ASYNC          3–5 dní    všichni zástupci
-         → klikají na sandbox URL, komentují; builder zapracovává
+         → klikají na preview URL (štítek „k rozhodnutí, ne produkt"),
+           komentují; builder zapracovává
          /pm feedback
 
 Den ~7   ROZHODNUTÍ     60–90 min  Decider + jádro
@@ -64,7 +68,8 @@ Den ~7   ROZHODNUTÍ     60–90 min  Decider + jádro
          /pm decide
 
 Den ~8   SHIP           1–2 dny    vývojáři + provoz
-         → quality gates ≥ 80/100, CHECKPOINT provozu (20 min), PR do
+         → quality gates jen na vítěze, práh pilot 80 / production 85,
+           CHECKPOINT provozu (20 min), PR do
            target repa, deploy, monitoring
          /pm ship  →  /pm handoff
 ```
@@ -78,8 +83,9 @@ Den ~8   SHIP           1–2 dny    vývojáři + provoz
 
 - **3 funkční varianty** (ne mockupy) na sandbox URL, každý zástupce
   je vidí ve svém prohlížeči.
-- **Winner kód** s gate score ≥ 80/100 jako PR do target repa.
-- **Decision log** — kdo co rozhodl a proč, včetně checkpointů.
+- **Winner kód** s gate score ≥ 80 (pilot) / 85 (production) jako PR do target repa.
+- **Decision log** v target repu (`.pflanzer/decisions/<slug>.md`) — kdo co
+  rozhodl a proč, včetně checkpointů.
 
 ## Proč malá skupina
 

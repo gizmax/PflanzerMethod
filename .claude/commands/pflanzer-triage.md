@@ -1,16 +1,18 @@
 ---
-description: Spustí 4 paralelní pre-flight triage sub-agents (Discovery + Security + Legal + Platform) a aggregeguje gate decision. Slice 3.
+description: Spustí 4 paralelní pre-flight triage sub-agents (Discovery + Security + Legal + Platform) a aggregeguje gate decision.
 ---
 
-# /pflanzer-triage — Pre-flight Triage (Slice 3)
+> **Pokročilé / volitelné.** Není součást hlavní cesty (`/pm` + 5 kroků + 3 pravidla). Použij u regulovaných nebo větších projektů; pro běžný pilot stačí jména zástupců na Kickoffu (`/pm start`).
+
+# Triage — pre-flight (pokročilé)
 
 > **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
 > (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
 > (funguje z libovolného adresáře), DB je na `pflanzer db`.
 
 Argumenty: `$ARGUMENTS` = projekt slug. Předpokládá `projects.status='charter'`
-(= proběhl `/pflanzer-charter`) a alespoň 1 row v `roles` (= proběhl
-`/pflanzer-roles`).
+(= proběhl Kickoff (`/pm start`)) a alespoň 1 row v `roles` (= proběhl
+`/pm roles`).
 
 ## Co tento command dělá
 

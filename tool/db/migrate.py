@@ -33,6 +33,30 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("shadow_pm", "TEXT"),
         # Mob mode autoresearch (Sprint 4 — ADR-0011)
         ("session_mode", "TEXT DEFAULT 'parallel'"),
+        # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
+        ("path_owners_json", "TEXT"),
+        ("core_json", "TEXT"),
+    ],
+    # v0.5 Rozhodnutí: vítěz + override critical (session_2.py)
+    "sessions": [
+        ("winner_variant", "TEXT"),
+        ("override_critical_reason", "TEXT"),
+    ],
+    # v0.5 Build/Ship: větev a HEAD SHA varianty z worktree (session.py / extract.py)
+    "variants": [
+        ("branch", "TEXT"),
+        ("head_sha", "TEXT"),
+    ],
+    # v0.5 Ship: velikost diffu vítěze proti základní větvi (metriky pilotu)
+    "extracted_code": [
+        ("diff_loc_added", "INTEGER"),
+        ("diff_loc_removed", "INTEGER"),
+        ("diff_files", "INTEGER"),
+    ],
+    # v0.5 Async: vyřešený critical feedback už neblokuje Rozhodnutí
+    "feedback": [
+        ("resolved_at", "TIMESTAMP"),
+        ("resolved_note", "TEXT"),
     ],
 }
 

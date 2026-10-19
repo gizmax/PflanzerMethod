@@ -1,15 +1,15 @@
-"""Worktree setup pro Pflanzer in-room session — KRITICKÝ P0 FIX.
+"""Worktree setup pro Build — `pflanzer worktree setup|verify`.
 
-Před tímto fixem `pflanzer.md` doporučoval `git worktree add` z PflanzerMethod
-meta-repu. Důsledek: Claude Code kódoval **uvnitř meta-toolu**, ne uvnitř
-target zákazníkova repa. Reuse byl z definice 0 % (per autoresearch
-perspektiva 05 brownfield-integration § P0).
+Buildeři kódují **uvnitř target repa** (ne v meta-repu metody), jinak je
+reuse z definice 0 %. Worktrees se klonují z originu: co není pushnuté,
+ve worktrees nebude (`pflanzer doctor` to hlídá).
 
-Po fixu (Sprint 1):
+Postup:
 1. Naclonujeme `projects.target_repo_url` do `~/.pflanzer/targets/<repo-slug>/`
    (cached, full clone — ne shallow, AI potřebuje history pro context).
 2. Vytvoříme 3 worktree z target clonu:
    `git worktree add <target-clone>/../<slug>-A -b pflanzer/<slug>-A origin/main`
+   (mob: jeden worktree `<slug>-mob`, max 5 lidí u monitoru)
 3. Per worktree spustíme package-manager install (pnpm/yarn/npm dle
    `packageManager` field v target `package.json`).
 4. Pre-flight check: každý worktree má `git remote get-url origin == target_repo_url`.
@@ -187,7 +187,7 @@ def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]
 
 def setup(slug: str, *, install_deps: bool = True,
           mode: str = "parallel") -> WorktreeSetup:
-    """Setup worktrees for in-room session pro `slug` projekt.
+    """Setup worktrees pro Build projektu `slug`.
 
     Args:
         slug: project slug.
@@ -213,11 +213,9 @@ def setup(slug: str, *, install_deps: bool = True,
     if not target_url:
         raise ValueError(
             f"Project '{slug}' has no target_repo_url set. "
-            "Mandatory pro pilot/production profil. "
-            "Spusť `python -c \"import sqlite3; sqlite3.connect('data/pflanzer.db')"
-            f".execute('UPDATE projects SET target_repo_url=? WHERE slug=?', "
-            f"('https://github.com/...', '{slug}'))\"` "
-            "nebo re-run /pflanzer wizard."
+            "Povinné pro pilot/production. Spusť `pflanzer init` v target repu "
+            "(vyplní .pflanzer/project.toml) a založ projekt znovu přes `/pm start`. "
+            "Stav projektů: `pflanzer status`; cesta k DB: `pflanzer db`."
         )
 
     print(f"[setup] target_repo_url = {target_url}", file=sys.stderr)
@@ -283,7 +281,7 @@ def verify_cwd_in_target(slug: str, cwd: Path) -> tuple[bool, str]:
     if norm(actual) != norm(expected):
         return False, (
             f"Wrong repo: cwd remote = {actual}, expected {expected}. "
-            "Run `python tool/cli/worktree.py setup --slug X` first."
+            "Spusť nejdřív `pflanzer worktree setup --slug X`."
         )
     return True, "OK"
 
@@ -292,12 +290,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_setup = sub.add_parser("setup", help="Clone target + create worktrees")
+    p_setup = sub.add_parser("setup", help="Naklonuje target repo a vytvoří worktrees")
     p_setup.add_argument("--slug", required=True)
     p_setup.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
-                         help="parallel = 3 worktrees A/B/C (default); mob = 1 worktree (per ADR-0011)")
+                         help="parallel = 3 worktrees A/B/C (default); mob = 1 worktree, max 5 lidí (ADR-0011)")
     p_setup.add_argument("--no-install", action="store_true",
-                         help="Skip package-manager install (faster, ale gates skipnou)")
+                         help="Přeskočí install závislostí (rychlejší, ale brány v Ship se přeskočí)")
 
     p_verify = sub.add_parser("verify", help="Verify cwd is in target repo")
     p_verify.add_argument("--slug", required=True)
@@ -309,18 +307,21 @@ def main() -> None:
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode)
         if args.mode == "mob":
             next_steps = [
-                f"cd {s.worktrees[0]} && claude  # MOB session — všech 6 lidí "
+                f"cd {s.worktrees[0]} && claude  # MOB Build — max 5 lidí "
                 "u 1 monitoru (per ADR-0011)",
                 "Driver/navigator rotation: 8 min cycle, 25 min hard break",
-                "Iteration timing: 25 min iter1 + 25 min iter2 + 15 min "
-                "review/decide (90 min cap)",
+                "Timing: 25 min iter1 + 25 min iter2 + 15 min zápis do toolu "
+                "(90 min cap); pak /pm feedback",
             ]
         else:
             next_steps = [
                 f"cd {w} && claude  # variant {chr(ord('A')+i)}"
                 for i, w in enumerate(s.worktrees)
             ]
+        next_steps.append("Po Buildu: zapiš varianty do toolu a spusť /pm feedback "
+                          "(stav kdykoli: `pflanzer status --slug %s`)" % s.slug)
         print(json.dumps({
+            "brand": "Pflanzer Method | pflanzer.cz/method",
             "slug": s.slug,
             "mode": args.mode,
             "target_repo_url": s.target_repo_url,

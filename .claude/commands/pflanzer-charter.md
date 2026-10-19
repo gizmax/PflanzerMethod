@@ -1,128 +1,101 @@
 ---
-description: Vede tým interaktivním wizardem, vyplní Pflanzer Business Charter (ADR-0004) a persistne projekt do DB.
+description: Kickoff (/pm start, 15 min) — zadání na 1 stránku + jména zástupců 6 kroků cesty. Jediná cesta založení projektu.
 ---
 
-# /pflanzer-charter — Charter wizard (Slice 1)
+# Kickoff (`/pm start`) — 15 minut
 
 > **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
 > (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`
-> (funguje z libovolného adresáře), DB je na `pflanzer db`.
+> (funguje z libovolného adresáře).
 
-Argumenty: `$ARGUMENTS` = projekt slug (kebab-case, např. `demo-widget`).
-Pokud nezadáno, ptej se uživatele přes AskUserQuestion.
+**Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-## Co tento command dělá
+Argumenty: `$ARGUMENTS` = volitelně problém v 1 větě. Kickoff vede Decider
++ jádro (ADR-0021). Cíl: **zadání na 1 stránku + jména pro všech 6 kroků
+cesty + zabookovaná okna**. Žádný dlouhý wizard.
 
-Vyplníš s uživatelem **Pflanzer Business Charter** podle ADR-0004 a persistneš
-projektový záznam do Pflanzer DB (`pflanzer db`) + Charter markdown do
-`data/charters/<slug>.md`.
-
-## Jak postupuj
-
-1. **Pokud uživatel nezadal slug v `$ARGUMENTS`**, použij AskUserQuestion:
-   `Question: Jaký je slug projektu? (kebab-case, např. demo-widget, 'investbot-forecast')`
-
-2. **Zkontroluj DB** — pokud projekt s tímto slugem už existuje, zeptej se
-   uživatele:
-   - **Update** existující Charter (úprava)
-   - **Smazat a začít znovu** (potvrď destruktivně)
-   - **Zvolit jiný slug**
-
-3. **Načti referenční dokumenty** (musíš znát strukturu):
-   - `docs/decisions/0001-decider-model.md` (kanonický eskalační protokol)
-   - `docs/decisions/0004-charter-as-mandatory-input.md` (Charter template)
-   - `docs/decisions/0008-tool-form-factor.md` (capacity profil)
-
-4. **Veď wizard přes AskUserQuestion** — v tomto pořadí:
-
-   **A) Identifikace:**
-   - Project name (lidsky čitelný název projektu)
-   - XYZ hypotéza — formát: *„Věříme, že [persona] s [JTBD] potřebuje [řešení],
-     což měříme růstem [metric] o [delta] během [time window]."*
-     Pokud uživatel s formulací bojuje, **delegujt sub-agenta `zadavatel-helper`**
-     pro pomoc s draftem.
-
-   **B) Decider + eskalace (ADR-0001):**
-   - Decider name (jméno + role)
-   - Decider mandate from (kdo a kdy podepsal mandát; např. „CPO Anna Nováková, 2026-04-15")
-   - CPO/sponzor eskalační kontakt
-   - Sponsor name
-   - Backup Decider (volitelné, automatická delegace při PTO)
-
-   **C) Success threshold:**
-   - Primary lagging metric (např. „MAU +15 % T+90")
-   - Leading metric (proxy, měřitelné T+7 nebo T+30)
-   - Guardrail metric (co nesmí regredovat)
-
-   **D) Kill criteria:**
-   - Multi-line text: kdy projekt zrušíme (např. „Pokud T+30 leading metric
-     nedosáhne X, escalation. Pokud T+90 lagging < Y, kill.")
-
-   **E) Kapacitní commit (ADR-0008 + devil's advocate Útok 1):**
-   - Capacity profile: `default` | `regulated` | `audit-grade`
-     - default = greenfield low-risk, ~10 PD per cyklus
-     - regulated = data/integrace/AI Act limited, ~14 PD
-     - audit-grade = high-risk AI Act, regulated SDLC, ~18–22 PD
-   - Person-days commit (číslo) — připomeň reálný range pro vybraný profil
-
-   **F) Risk profile:**
-   - AI Act risk-tier: `minimal` | `limited` | `high` | `unacceptable`
-     **Pozor**: označ jako *provisional, re-assessed v Session 2*
-     (devil's advocate Útok 4).
-   - Data class: `L1` | `L2` | `L3` | `L4` (per `docs/methodology/02-role-catalog.md`)
-   - **Pokud `unacceptable` nebo `L4`** → **STOP**: session se nekoná.
-     Zaznamenej do decision logu a nepokračuj.
-
-   **G) Throw-away vs evolve (ADR-0005):**
-   - Default: `throwaway`
-   - Pokud uživatel chce `evolve`, ptej se na 6 podmínek z ADR-0005 a vyžaduj
-     splnění všech:
-       1. Tým, který bude v produkci, je v Session 1 přítomen v plné síle.
-       2. Stack v session = stack v produkci.
-       3. Code review aplikuje se i na vibe-generated code.
-       4. Design system compliance ≥ 90 %.
-       5. Test pyramide split předem stanoven.
-       6. Promote-to-prod gate checklist projde.
-     Ulož pole splněných podmínek do `evolve_conditions_met`.
-
-   **H) Reinforcement track (ADR-0004 + devil's advocate Útok 11):**
-   - T+7: kdo měří co
-   - T+30: kdo měří co
-   - T+60: kdo měří co
-   - T+90: kdo měří co + Go/Iterate/Kill review
-   - **Reinforcement budget commit (PD)**: musí být explicit číslo, ne 0.
-
-5. **Sestav JSON spec** z odpovědí a předej do `tool/cli/charter.py`:
+## Krok 0 — Readiness
 
 ```bash
-pflanzer charter --spec /tmp/<slug>-spec.json
+pflanzer doctor
 ```
 
-Output bude JSON s `{ project_id, charter_path, slug }`.
+Pokud „připraveno ke Kickoffu: ne" → vypiš, co chybí (origin, vyplněný
+`INTEGRATION_GUIDE`, `CONSTITUTION`, test/lint/build, CI, preview deploy,
+pushnutý init), a zeptej se přes AskUserQuestion:
+*Opravit teď / Pokračovat vědomě (uveď riziko) / Zastavit.* Bez preview
+deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 
-6. **Verifikuj výstup**:
-   - Otevři vygenerovaný Charter (`data/charters/<slug>.md`) přes Read.
-   - Ujisti se, že žádné pole nezůstalo `_PENDING_` nepatřičně.
-   - Zaznamenej audit log entry úspěchu.
+## Krok 1 — Sběr (AskUserQuestion, max 3 bloky)
 
-7. **Souhrn pro uživatele**:
-   - Slug + project_id
-   - Path k Charter souboru
-   - Status: `charter` (next krok = `/pm roles <slug>`).
-   - Připomeň pre-flight checklist z `docs/methodology/03-pre-session-priprava.md`
-     — Charter je krok 1; než se spouští Session 1, musí být hotové
-     `/pflanzer-roles` + `/pflanzer-triage`.
+1. **Zadání:** problém v 1 větě · jedna metrika úspěchu · kill kritérium
+   („kdy to zabalíme"; volitelně `metric`, `kill_criteria` ve specu).
+2. **Lidé:** Decider (jméno + mandát říct Go i Kill) · **jméno ke každému ze
+   6 kroků cesty** — byznys, produkt, design, vývoj, bezpečnost & právo,
+   provoz · které z nich je **jádro** (3–4 lidé, celou dobu) a které **okno**.
+3. **Rámec:** risk profile `throwaway | pilot | production` · zabookovaná okna
+   (Build 3 h, checkpoint B&P 20 min, Rozhodnutí 60–90 min, checkpoint
+   provozu 20 min).
+
+Pravidla (vynucuj):
+- **Krok bez jména → STOP.** Nabídni, kdo ho může zastoupit (jeden člověk
+  smí krýt víc kroků; kdo — viz `docs/methodology/02-role-catalog.md`).
+  Bez jmen projekt nezakládej.
+- **Jádro > 5** (nebo kdokoli naráz > 5) → navrhni zúžit scope nebo přesunout
+  někoho na okno.
+- Zástupce bez mandátu rozhodnout v okně není zástupce.
+- `pilot`/`production`: repo musí mít origin (`doctor`); `target_repo_url`
+  se čte z `.pflanzer/project.toml`, neptej se na něj znovu.
+- Zákaz pokračovat při datech L4 nebo AI Act „unacceptable" — zapiš
+  do decision logu a zastav. Regulované projekty: `docs/governance/`.
+
+## Krok 2 — Založení (jediná cesta)
+
+Sestav spec (např. `/tmp/<slug>-kickoff.json`):
+
+```json
+{
+  "hook": "<problém v 1 větě>",
+  "decider_name": "<jméno>",
+  "room_role_idx": [1, 2, 6, 4, 7, 15],
+  "risk_profile": "pilot",
+  "role_owners": {"1": "Honza", "2": "Petra"},
+  "metric": "<metrika>",
+  "kill_criteria": "<kdy zabalit>",
+  "path_owners": {"byznys": "", "produkt": "", "design": "", "vyvoj": "", "bezpecnost": "", "provoz": ""},
+  "core": ["Petra", "Jan", "Eva"]
+}
+```
+
+```bash
+pflanzer quick_session bootstrap --spec /tmp/<slug>-kickoff.json
+```
+
+Chyba „krok bez jména" nebo warning „jádro > 5" → vrať se ke Kroku 1, nic
+neobcházej. Výstup obsahuje `slug`.
+
+## Krok 3 — Výstup
+
+Ukaž (s brand line):
+
+- **Zadání na 1 stránku:** problém · metrika · kill kritérium · Decider.
+- Tabulka: krok cesty → jméno → jádro/okno → termín okna.
+- Rizika z `doctor` (pokud jsme pokračovali vědomě).
+
+Na konci **jeden** další krok:
+
+> Další krok: `/pm build <slug>` — jádro, 3 h (Decider u stavby není).
 
 ## Co NEDĚLAT
 
-- Nezačínej Session 1 work — to je jiný command (`/pflanzer-session-1`).
-- Nepřeskakuj žádné z polí A-H (kompletní Charter je MUST per devil's advocate Útok 11).
-- Nesplš `unacceptable` AI Act tier nebo `L4` data class — to je hard STOP.
+- Neptej se na víc než výše — detail (triage, roles, plný Charter) je
+  volitelný a patří do regulovaných projektů (`/pm roles`, `/pm triage`).
+- Nezaváděj Sessions, Slices ani jiné výrazy; terminologie: Kickoff, Build,
+  Async, Rozhodnutí, Ship.
+- Nezakládej projekt mimo `pflanzer quick_session bootstrap`.
 
 ## Reference
 
-- `docs/decisions/0004-charter-as-mandatory-input.md`
-- `docs/decisions/0001-decider-model.md`
-- `docs/decisions/0005-throwaway-vs-evolve-prototype.md`
-- `docs/decisions/0008-tool-form-factor.md`
-- `docs/methodology/03-pre-session-priprava.md`
+- `docs/decisions/0021-mala-skupina-cela-cesta.md`
+- `docs/decisions/0022-inspirace-z-trhu.md`
+- `docs/zacni.md` § Je repo připravené?

@@ -1,0 +1,14 @@
+## Změř po 30 dnech
+
+Nikdo na trhu nemá data o tom, jestli kód z AI-asistovaného vývoje přežije. Změř to.
+Termín: **30 dní po merge** (nastav si připomínku). Výsledek zapiš do decision logu
+v target repu a do `method-metrics.json` (pole `after_30d`).
+
+| Co změřit | Jak | Hodnota | Cíl |
+|-----------|-----|---------|-----|
+| Kolik kódu vítěze přežilo v `main` | podíl řádků z PR (`{branch}` @ `{head_sha_short}`, {loc_added} přidaných řádků), které jsou v `main` stále beze změny: `git blame -w -C -C` nad soubory z PR | _vyplnit_ % | _stanov při Rozhodnutí_ |
+| Incidenty způsobené změnou | počet P1/P2 incidentů, rollbacků a hotfixů za 30 dní | _vyplnit_ | _0 P1_ |
+| Metrika úspěchu vs. cíl | {metric_primary} | _vyplnit_ | _cíl z Kickoffu_ |
+| Guardrail | {guardrail} | _vyplnit_ | bez porušení |
+
+Kill kritérium (z Kickoffu): {kill}

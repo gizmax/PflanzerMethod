@@ -1,11 +1,11 @@
-"""Slice 5 — Builder decision (recommend vibe-coding tool per project).
+"""Builder decision (recommend vibe-coding tool per project).
 
 Inputs come from Charter (data_class, ai_act_tier, throwaway_or_evolve) and
 Platform Triage (sandbox URL + approved runtime list). Output is a ranked
 shortlist of approved AI builders per `02-role-catalog.md` § Approved AI Tool
 list and devil's advocate Útok 8 (sandbox + prompt audit).
 
-Used by `/pflanzer-session-1` to seed the 1-3 paralelní variants. The
+Used by `/pm build` to seed the 1-3 paralelní variants. The
 facilitator agent picks 1-3 from the shortlist (different builders =
 different aesthetic / interaction biases per `04-session-1.md`).
 
@@ -124,7 +124,7 @@ class DecisionInput:
     has_sandbox: bool          # from platform triage
     stack_hint: str | None = None  # "react", "nextjs", "vue", "node-fastapi", ...
     customer_facing: bool = False
-    production_target: int = 0  # 0..100; >0 = optimize pro reusable code (Slice production-path)
+    production_target: int = 0  # 0..100; >0 = optimize pro reusable code (práh gates)
     prefer_hosted_preview: bool = False  # opt-in: tým chce Bolt/v0/Lovable (greenfield, designer-led)
 
 
@@ -253,13 +253,13 @@ def recommend(di: DecisionInput, top_n: int = 3) -> dict[str, Any]:
         diversity_hint = (
             "Hosted SaaS opt-in mode. Vyber 1-3 builders s rozdílným stylem "
             "(např. v0 + bolt + lovable) — různé aesthetic/interaction biasy. "
-            "Po session 1: Push to GitHub → /pflanzer-session-3 extract."
+            "Po Buildu: Push to GitHub, pak `/pm ship` (extract + gates)."
         )
     else:
         diversity_hint = (
             "In-repo CLI mode (default). 3× ten samý builder (claude-code) "
             "s **3 různými angles** (happy-path / multi-step / smart defaults). "
-            "Tým otevře 3 git worktrees + 3 paralelní CC sessions. Žádný extract step."
+            "Tým otevře 3 git worktrees + 3 paralelní CC sessions; kód zůstává ve větvích, Ship ho jen zaregistruje."
         )
 
     return {

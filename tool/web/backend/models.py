@@ -12,7 +12,26 @@ from pathlib import Path
 from sqlmodel import Field, SQLModel, create_engine
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DB_PATH = REPO_ROOT / "data" / "pflanzer.db"
+
+
+def _resolve_db_path() -> Path:
+    """Same resolver as tool/cli/db.py, so the hub and the CLI share ONE database.
+
+    PFLANZER_DB env -> $PFLANZER_DATA/pflanzer.db -> ~/.pflanzer/pflanzer.db
+    (if ~/.pflanzer exists) -> <repo>/data/pflanzer.db.
+    """
+    import os
+    if env := os.environ.get("PFLANZER_DB"):
+        return Path(env).expanduser()
+    if env := os.environ.get("PFLANZER_DATA"):
+        return Path(env).expanduser() / "pflanzer.db"
+    user_dir = Path.home() / ".pflanzer"
+    if user_dir.exists():
+        return user_dir / "pflanzer.db"
+    return REPO_ROOT / "data" / "pflanzer.db"
+
+
+DB_PATH = _resolve_db_path()
 
 
 class Project(SQLModel, table=True):

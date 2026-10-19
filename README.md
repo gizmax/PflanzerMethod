@@ -29,58 +29,61 @@ k mergi**, ne specifikace k re-implementaci.
 
 ## Quick start
 
-**Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu pozná,
-kde v cyklu projekt je, a nabídne další krok.
-
-```
-Kickoff      (15 min, Decider + jádro)
-  /pm start            # zadání na 1 stránku + jména zástupců 6 kroků cesty
-                       # (nebo rovnou /pm live = kickoff + build v jednom)
-
-Build        (3 h, jádro; checkpoint bezpečnost & právo 20 min)
-  /pm live "chceme zlepšit onboarding"
-  → 3 varianty paralelně (Claude Code ve 3 worktrees target repa)
-
-Async        (3–5 dní, všichni zástupci)
-  /pm feedback <slug>  # agregace komentářů ze sandbox URL
-
-Rozhodnutí   (60–90 min, Decider + jádro)
-  /pm decide <slug>    # Go / Iterate / Kill, Decider hlasuje poslední
-
-Ship         (1–2 dny, vývojáři + checkpoint provozu 20 min)
-  /pm ship <slug>      # 7 quality gates → score 0–100
-  /pm handoff <slug>   # PR-ready package s odkazy na soubory
+```bash
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # 1. install
+pflanzer init            # 2. v repu produktu: INTEGRATION_GUIDE + CONSTITUTION
+pflanzer doctor          # 3. je repo připravené ke Kickoffu?
+git add -A && git commit -m "chore(pflanzer): init" && git push   # 4. push
+/pm start                # 5. v Claude Code: Kickoff, 15 min
 ```
 
-**Po Ship tým má**:
-- Funkční kód jako feature branch v target repu (ESLint, typy, testy)
-- Quality gate score (lint + types + tests + security + a11y + build + observability)
-- Decision log včetně checkpointů bezpečnosti a provozu
-- Open-PR-ready commit do `target_repo_url`
+**Jediný command, který si musíš pamatovat: `/pm`** — bez argumentu
+(nebo `/pm status`) řekne, kde projekt je, a nabídne jeden další krok.
 
-Cílem je `gate_score >= 80/100` = většina kódu se dá použít v produkci.
+```
+Kickoff    /pm start     15 min, Decider + jádro    zadání na 1 stránku + jména 6 kroků
+Build      /pm build     3 h, jádro                 3 varianty paralelně, kontroly průběžně,
+                                                    checkpoint bezpečnost & právo 20 min
+Async      /pm feedback  3–5 dní, všichni           klikání na preview URL
+Rozhodnutí /pm decide    60–90 min, Decider + jádro Go / Iterate (max 1×) / Kill
+Ship       /pm ship      1–2 dny, vývojáři + provoz gates jen na vítěze, pak /pm handoff
+```
+
+Tři pravidla: každý krok cesty má jméno · max 5 lidí naráz · co umí automat,
+nepotřebuje člověka v místnosti.
+
+Ven jde **PR vítěze** s gate score (pilot ≥ 80 / production ≥ 85 ze 100),
+decision log v `.pflanzer/decisions/` a metriky pilotu.
+
+## Čím se liší
+
+Žádná jiná nalezená metoda nespojuje celý cyklus: malá skupina → 3 soutěžní
+varianty na reálném repu → async feedback → rozhodnutí → vítěz přes gates
+jako PR. Srovnání s AI-DLC, Spec Kit, Kiro, BMAD, Atlassian, Uber a dalšími
+(včetně toho, co jsme převzali a co ne):
+[`docs/research/srovnani-metod-2026.md`](docs/research/srovnani-metod-2026.md),
+rozhodnutí [ADR-0022](docs/decisions/0022-inspirace-z-trhu.md).
 
 ## Volba builderu — Claude Code default, hosted SaaS opt-in
 
 **Standardně používej Claude Code** (nebo Codex CLI, podle preference týmu).
 3× CC v 3 git worktrees, paralelně. Bolt/v0/Lovable jen na **explicit
-opt-in** přes `--prefer-hosted`.
+opt-in** (greenfield bez repa, throw-away demo).
 
 ### In-room protocol (default)
 
 ```bash
 # 1. Facilitátor (1 minuta):
 SLUG=<your-slug>
-git worktree add ../proto-${SLUG}-A -b feat/${SLUG}-A
-git worktree add ../proto-${SLUG}-B -b feat/${SLUG}-B
-git worktree add ../proto-${SLUG}-C -b feat/${SLUG}-C
+pflanzer worktree setup --slug ${SLUG}   # větve pflanzer/${SLUG}-A|B|C
 
 # 2. Tým se rozdělí po dvojicích, každá v jednom worktree:
-cd ../proto-${SLUG}-X && claude
-# Vloží prompt (z `quick_session.py prompts` output) → 30 min koduje
-# → npm test && npm run lint && npm run build → commit
+# (cesty worktrees vypíše setup; X = A/B/C)
+claude
+# Vloží prompt (z `pflanzer quick_session prompts`) → koduje, průběžně
+# npm test && npm run lint && npm run build → commit
 
-# 3. Po skončení: 3 feature branche v repu, gate-scored přes /pm ship
+# 3. Po skončení: 3 větve v repu → preview URL; vítěz projde gates v /pm ship
 ```
 
 Diversity skrz **3 různé prompty** (happy-path / multi-step / smart defaults),
@@ -90,7 +93,7 @@ ne skrz 3 různé builders. Tým má všechny konvence repa, žádný extract st
 ### Kdy opt-in pro hosted SaaS
 
 ```bash
-python3 tool/cli/quick_session.py prompts --slug <slug> --hook "<hook>" --prefer-hosted
+pflanzer quick_session prompts --slug <slug> --hook "<hook>" --prefer-hosted
 ```
 
 Použij **jen** v jednom z těchto případů:
