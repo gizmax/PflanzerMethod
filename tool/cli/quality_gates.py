@@ -72,7 +72,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli import a11y_html, apprun  # noqa: E402
+from tool.cli import a11y_html, apprun, render  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
@@ -575,7 +575,8 @@ _PLACEHOLDER_TEST = re.compile(r"no test specified", re.IGNORECASE)
 
 def _count_tests(output: str) -> int | None:
     """Počet testů z výstupu node:test / vitest / jest / pytest (None = nezjištěno)."""
-    for pat in (r"^# pass (\d+)", r"^\W*pass (\d+)\s*$", r"Tests?:\s+(?:\d+ failed, )?(\d+) passed",
+    for pat in (r"^\s*Tests\s+(?:\d+ failed \| )?(\d+) passed",  # vitest: Tests  8 passed (8)
+                r"^# pass (\d+)", r"^\W*pass (\d+)\s*$", r"Tests?:\s+(?:\d+ failed, )?(\d+) passed",
                 r"\b(\d+) passed", r"(\d+)\s+pass(?:ed|ing)?\b"):
         m = re.search(pat, output, re.MULTILINE)
         if m:
@@ -866,6 +867,20 @@ def _a11y_heuristic(ctx: Ctx, files: list[Path]) -> GateResult:
                       metric=0)
 
 
+def _a11y_spa(run: AppRun) -> GateResult:
+    """SPA: statická kontrola jen nad vyrenderovaným DOM; bez prohlížeče NEOVĚŘENO."""
+    if run.render is None:
+        return _unverified("a11y", "SPA — bez headless prohlížeče nelze ověřit",
+                           f"{render.INSTALL_HINT} (a11y nad prázdnou kostrou by nic neověřila)"
+                           + (f"; {run.render_why}" if run.render_why else ""))
+    pages = [(p.path, p.status, p.html, "text/html") for p in run.render.pages if not p.broken]
+    res = _a11y_from_pages(replace(run, pages=pages)) if pages else None
+    if res is None:
+        return GateResult("a11y", "fail", "a11y: SPA se nevyrenderovala, nebylo co zkontrolovat",
+                          duration_s=run.duration_s)
+    return replace(res, details="SPA, vyrenderovaný DOM — " + res.details)
+
+
 def _a11y_from_pages(run: AppRun) -> GateResult | None:
     """Statická kontrola HTML stránek běžící aplikace; None = žádná HTML stránka."""
     findings: list[tuple[str, str, str]] = []
@@ -896,6 +911,8 @@ def gate_a11y(ctx: Ctx) -> GateResult:
         return _gate_other_stack("a11y", ctx.path, ctx.stack.other)
     files = list(_iter_files(ctx.path, (".html", ".jsx", ".tsx", ".vue", ".svelte")))
     run = _app_run(ctx)
+    if run.state == "ok" and run.spa:
+        return _a11y_spa(run)
     if run.state == "ok":
         res = _a11y_from_pages(run)
         if res is not None:
@@ -962,18 +979,42 @@ def _tests_fail_phrase(n: int) -> str:
     return f"{n} test padá" if n == 1 else f"{n} testy padají" if 2 <= n <= 4 else f"{n} testů padá"
 
 
+def _runner_counts(output: str) -> tuple[Any, Any]:
+    """(match passed, match failed) z řádku Tests vitestu / jestu (jinak None, None)."""
+    m = re.search(r"^\s*Tests:?\s+(.*)$", output, re.M)
+    line = m.group(1) if m else ""
+    return (re.search(r"(\d+) passed", line), re.search(r"(\d+) failed", line))
+
+
 def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
     """Akceptační testy v běžném test runneru projektu (node --test / pytest) — tak je
     buildeři píší nejčastěji. None = žádné takové testy (zkusí se Playwright)."""
     st = ctx.stack
     if st.node:
-        files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("*.test.*js"))
+        files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("*")
+                       if f.is_file() and re.search(r"\.test\.[cm]?[jt]sx?$", f.name))
         if not files:
             return None
-        rc, out, err = _run([os.environ.get("PFLANZER_NODE", "node"), "--test", *files],
-                            ctx.path, timeout=300)
-        m_pass = re.search(r"^# pass (\d+)", out, re.M)
-        m_fail = re.search(r"^# fail (\d+)", out, re.M)
+        deps = st.deps or {}
+        if "vitest" in deps or "jest" in deps:
+            runner = "vitest" if "vitest" in deps else "jest"
+            if (missing := _needs_deps(ctx, "acceptance")):
+                return missing
+            cmd = ["npx", "--no-install", runner] + (["run"] if runner == "vitest" else []) \
+                + ["tests/acceptance"]
+            rc, out, err = _run(cmd, ctx.path, timeout=300)
+            m_pass, m_fail = _runner_counts(out + "\n" + err)
+        else:
+            js = [f for f in files if re.search(r"\.test\.[cm]?js$", f)]
+            if not js:
+                return _unverified("acceptance", "testy .ts/.tsx bez vitest/jest",
+                                   "v tests/acceptance/ jsou TypeScript testy, ale projekt nemá "
+                                   "vitest ani jest — přidejte `npm i -D vitest`")
+            files = js
+            rc, out, err = _run([os.environ.get("PFLANZER_NODE", "node"), "--test", *files],
+                                ctx.path, timeout=300)
+            m_pass = re.search(r"^# pass (\d+)", out, re.M)
+            m_fail = re.search(r"^# fail (\d+)", out, re.M)
     elif st.python:
         files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("test_*.py"))
         if not files:
@@ -1013,7 +1054,8 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
         return _skip("acceptance", "tests/acceptance/ neexistuje (kritéria nejsou v kódu)")
     st = ctx.stack
     native = _native_acceptance(ctx, acc_dir)
-    if native is not None and not (st.node and "@playwright/test" in st.deps):
+    runner_deps = bool(st.node and {"vitest", "jest"} & set(st.deps or {}))
+    if native is not None and (runner_deps or not (st.node and "@playwright/test" in st.deps)):
         return native
     if not (st.node and "@playwright/test" in st.deps):
         if st.python and not st.node:
@@ -1022,8 +1064,8 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
                                "spustitelné testy — napište je do tests/acceptance/test_*.py")
         return _unverified("acceptance", "chybí akceptační testy",
                            "scénáře v tests/acceptance/*.feature jsou, ale chybí k nim "
-                           "spustitelné testy — napište je do tests/acceptance/*.test.js "
-                           "(node --test), nebo použijte @playwright/test")
+                           "spustitelné testy — napište je do tests/acceptance/*.test.{js,ts,tsx} "
+                           "(node --test / vitest / jest), nebo použijte @playwright/test")
     if (s := _needs_deps(ctx, "acceptance")):
         return s
     rc, out, err = _run(["npx", "--no-install", "playwright", "test", "tests/acceptance",
@@ -1099,6 +1141,10 @@ class AppRun:
     pages: list[tuple[str, int | None, str, str]] = field(default_factory=list)
     smoke_paths: list[str] = field(default_factory=list)
     duration_s: float = 0.0
+    spa: bool = False                # `/` je prázdná kostra SPA (obsah staví až JS)
+    bundles: list[tuple[str, int | None]] = field(default_factory=list)  # (url skriptu, status)
+    render: "render.RenderResult | None" = None  # None = nerenderováno (bez Playwrightu)
+    render_why: str = ""             # proč se renderovat nepovedlo / nešlo
 
 
 A11Y_MAX_PAGES = 5
@@ -1141,7 +1187,20 @@ def _do_app_run(ctx: Ctx) -> AppRun:
                               duration_s=round(time.monotonic() - started, 2))
             pages = [(p, *apprun.http_fetch(base + p)) for p in paths]
             first = next((pg for pg in pages if pg[1] is not None and pg[1] < 400 and pg[2]), None)
-            if first is not None and len(pages) < A11Y_MAX_PAGES:
+            spa = first is not None and render.is_spa(first[2])
+            bundles: list[tuple[str, int | None]] = []
+            rendered = None
+            render_why = ""
+            if spa and first is not None:
+                bundles = [(u, apprun.http_get(u)) for u in
+                           render.script_urls(first[2], base + first[0])]
+                pw = render.find_playwright(ctx.path)
+                if pw is None:
+                    render_why = "Playwright není nainstalovaný"
+                else:
+                    rr = render.render_pages(base, paths[:A11Y_MAX_PAGES], pw)
+                    rendered, render_why = (rr, "") if rr.ok else (None, rr.why)
+            elif first is not None and len(pages) < A11Y_MAX_PAGES:
                 for extra in a11y_html.same_host_links(first[2], base + first[0]):
                     if len(pages) >= A11Y_MAX_PAGES:
                         break
@@ -1150,7 +1209,8 @@ def _do_app_run(ctx: Ctx) -> AppRun:
         finally:
             apprun.kill_group(proc.pid)
     return AppRun("ok", spec.command, smoke_paths=paths, pages=pages,
-                  duration_s=round(time.monotonic() - started, 2))
+                  duration_s=round(time.monotonic() - started, 2), spa=spa, bundles=bundles,
+                  render=rendered, render_why=render_why)
 
 
 def gate_smoke(ctx: Ctx) -> GateResult:
@@ -1171,7 +1231,37 @@ def gate_smoke(ctx: Ctx) -> GateResult:
     if bad:
         return GateResult("smoke", "fail", f"smoke: {text}", metric=len(bad),
                           duration_s=run.duration_s)
+    if run.spa:
+        return _smoke_spa(run)
     return GateResult("smoke", "pass", f"smoke: {text}", metric=0, duration_s=run.duration_s)
+
+
+def _smoke_spa(run: AppRun) -> GateResult:
+    """SPA: surové HTML je jen kostra; plný pass jen s renderem, jinak pass s poznámkou."""
+    bad_b = [(u, st) for u, st in run.bundles if st is None or st >= 400]
+    if bad_b:
+        u, st = bad_b[0]
+        return GateResult("smoke", "fail", f"smoke: SPA — JS bundle {u} odpovídá "
+                          f"{st if st is not None else 'nic'}", metric=len(bad_b),
+                          duration_s=run.duration_s)
+    if run.render is not None:
+        pgs = run.render.pages
+        bad = [p for p in pgs if p.broken]
+        if bad:
+            p = bad[0]
+            why = (f"uncaught chyba: {p.errors[0]}" if p.errors else
+                   "prázdný root (SPA se nevykreslila)" if p.root_empty else f"status {p.status}")
+            return GateResult("smoke", "fail", f"smoke: SPA se nevyrenderovala — {p.path}: {why}",
+                              metric=len(bad), duration_s=run.duration_s)
+        n_con = sum(len(p.console_errors) for p in pgs)
+        extra = f", {n_con}× console.error" if n_con else ""
+        return GateResult("smoke", "pass", f"smoke: SPA vyrenderována v prohlížeči ({len(pgs)} "
+                          f"stránek, root neprázdný, 0 uncaught chyb{extra})", metric=0,
+                          duration_s=run.duration_s)
+    ok_b = f" + JS bundle 200 ({len(run.bundles)})" if run.bundles else ""
+    why = f" ({run.render_why})" if run.render_why else ""
+    return GateResult("smoke", "pass", f"smoke: SPA — HTML kostra 200{ok_b}, render neověřen"
+                      f"{why}", metric=0, duration_s=run.duration_s)
 
 
 GATE_RUNNERS = {
@@ -1647,6 +1737,26 @@ def gates_summary_line(score: int, results: list[Any], reasons: bool = False) ->
     if unv_txt:
         line += f" · {unv_txt}"
     return line
+
+
+def spa_line(results: list[Any]) -> str:
+    """Řádek do souhrnu Shipu u SPA: co ověřil render a co ne (prázdný řetězec = ne-SPA)."""
+    def details(r: Any) -> str:
+        return (r.details if hasattr(r, "details") else r.get("details", "")) or ""
+
+    def gate(r: Any) -> str:
+        return r.gate_type if hasattr(r, "gate_type") else r.get("gate", "")
+
+    smoke = next((r for r in results if gate(r) == "smoke"), None)
+    if smoke is None or "SPA" not in details(smoke):
+        return ""
+    if "vyrenderována" in details(smoke):
+        return ("SPA: ověřeno renderem v prohlížeči — smoke (stránka se vykreslila, bez uncaught "
+                "chyb) a a11y (statická kontrola nad DOM)")
+    if "render neověřen" not in details(smoke):
+        return ""
+    return ("SPA: render neověřen — smoke je jen HTML kostra + JS bundle, a11y NEOVĚŘENO "
+            f"({render.INSTALL_HINT})")
 
 
 def skip_reasons(results: list[Any]) -> list[str]:

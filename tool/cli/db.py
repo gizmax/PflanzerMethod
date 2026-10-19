@@ -6,6 +6,7 @@ honor DORA 7-year retention requirements (devil's advocate Útok 8).
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import subprocess
 from contextlib import contextmanager
@@ -52,6 +53,27 @@ DATA_ROOT = _resolve_data_root()
 DB_PATH = _resolve_db_path()
 
 
+def resolve_local_repo_url(url: str | None, base: Path | None = None) -> str | None:
+    """Relativní cesta k lokálnímu repu (`../origin.git`) -> absolutní (vůči `base`, default cwd).
+
+    URL se schématem, scp-like ssh (`git@host:org/repo`) i absolutní cesty zůstávají beze změny.
+    Relativní cesta se převede jen když existuje (jinak ji necháme, ať validace hlásí chybu).
+    """
+    if not url:
+        return url
+    u = url.strip()
+    if "://" in u or re.match(r"^[\w.-]+@[\w.-]+:", u) or u.startswith(("/", "<", "file:")):
+        return u
+    cand = Path(u).expanduser()
+    if not cand.is_absolute():
+        cand = (base or Path.cwd()) / cand
+    try:
+        cand = cand.resolve()
+    except OSError:
+        return u
+    return str(cand) if cand.is_dir() else u
+
+
 def load_project_toml(start: Path | None = None) -> dict[str, str]:
     """Read `[project]` defaults from `.pflanzer/project.toml` (written by `pflanzer init`).
 
@@ -72,6 +94,9 @@ def load_project_toml(start: Path | None = None) -> dict[str, str]:
             val = val.strip('"')
             if val and not val.startswith("<"):
                 out[key] = val
+    if "target_repo_url" in out:
+        out["target_repo_url"] = resolve_local_repo_url(
+            out["target_repo_url"], path.parent.parent) or out["target_repo_url"]
     return out
 
 

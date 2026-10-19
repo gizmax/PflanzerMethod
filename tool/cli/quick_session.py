@@ -49,6 +49,7 @@ from tool.cli.db import (  # noqa: E402
     current_actor,
     display_path,
     load_project_toml,
+    resolve_local_repo_url,
     transaction,
 )
 from tool.cli.roles import persist_roles  # noqa: E402
@@ -664,6 +665,7 @@ def _resolve_target_repos(
     - Only `target_repo_url`: a plain URL → single repo; wizard-style text
       (`role=url#branch:workspace, ...`) is accepted there too.
     """
+    target_repo_url = resolve_local_repo_url(target_repo_url) if target_repo_url else target_repo_url
     if not target_repos and target_repo_url and re.search(r"[,=#\s]", target_repo_url.strip()):
         target_repos, target_repo_url = target_repo_url, None
     if target_repos:
@@ -819,6 +821,20 @@ def recommend_mode(
         "Default paralelní — 3 angles dají Decideri exploration breadth. "
         "Mob opt-in pro narrow case (új tým, single-stake decision, ≤ 5 lidí)."
     )
+
+
+def _hook_from_project(slug: str) -> str:
+    """Hook projektu z DB (xyz_hypothesis „Problém k vyřešení: **…**“, jinak název)."""
+    with transaction() as conn:
+        row = conn.execute("SELECT xyz_hypothesis, name FROM projects WHERE slug = ?",
+                           (slug,)).fetchone()
+    if not row:
+        raise ValueError(project_not_found_message(slug))
+    m = re.search(r"\*\*(.+?)\*\*", row[0] or "", re.S)
+    hook = (m.group(1) if m else row[1] or "").strip()
+    if not hook:
+        raise ValueError("Projekt nemá uložený hook — zadej ho: `--hook \"jedna věta\"`.")
+    return hook
 
 
 def builder_prompts(slug: str, hook: str, n_variants: int = 3,
@@ -994,6 +1010,7 @@ class StackProfile:
     commands: list[str] | None = None   # kontroly po každém kroku (lint/test/build)
     run_cmd: str | None = None          # jak spustit náhled
     js_frontend: bool = False
+    acceptance_glob: str | None = None  # např. tests/acceptance/*.test.ts(x)
 
     @property
     def check_text(self) -> str:
@@ -1008,6 +1025,18 @@ class StackProfile:
 
 
 _JS_UI_DEPS = ("react", "vue", "svelte", "next", "nuxt", "@angular/core", "solid-js", "preact")
+
+
+def _node_acceptance_glob(path: Path, scripts: dict[str, Any], deps: dict[str, Any]) -> str:
+    """Přípona akceptačních testů podle runneru: vitest/jest -> .test.ts(x) u TS, jinak .test.js."""
+    runner = any(d in deps for d in ("vitest", "jest", "@jest/core", "ts-jest"))
+    node_test = "node --test" in str(scripts.get("test", ""))
+    if runner or not node_test:
+        ts = "typescript" in deps or (path / "tsconfig.json").is_file()
+        if runner and ts:
+            react = any(d in deps for d in ("react", "react-dom", "preact", "solid-js"))
+            return "tests/acceptance/*.test.ts(x)" if react else "tests/acceptance/*.test.ts"
+    return "tests/acceptance/*.test.js"
 
 
 def stack_profile(path: Path | None) -> StackProfile:
@@ -1033,7 +1062,8 @@ def stack_profile(path: Path | None) -> StackProfile:
         cmds = [c for key, c in (("lint", "npm run lint"), ("test", "npm test"),
                                  ("build", "npm run build")) if key in scripts]
         run = "npm run dev" if "dev" in scripts else ("npm start" if "start" in scripts else None)
-        return StackProfile("node", cmds, run, js_frontend=any(d in deps for d in _JS_UI_DEPS))
+        return StackProfile("node", cmds, run, js_frontend=any(d in deps for d in _JS_UI_DEPS),
+                            acceptance_glob=_node_acceptance_glob(path, scripts, deps))
     if stack == "python":
         cmds = ["make test" if "test" in targets else "python3 -m pytest"]
         if "lint" in targets:
@@ -1074,7 +1104,7 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
     """Společná pravidla pro AI buildera (v0.5): constitution, kontroly v Buildu, štítek."""
     stack = stack or StackProfile()
     acc_file = ("tests/acceptance/test_*.py" if stack.stack == "python"
-                else "tests/acceptance/*.test.js")
+                else stack.acceptance_glob or "tests/acceptance/*.test.js")
     feature_line = (
         f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
         "implementace musí projít všemi scénáři. Akceptační testy k nim napiš do "
@@ -1786,11 +1816,26 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
         print(f"\n{out['push_hint']}")
 
 
+def _tie_lines(variants: list[dict[str, Any]]) -> list[str]:
+    """Shoda na čele (rozdíl do 0,01): hlasování nerozhodlo, rozhodne diskuse / Decider."""
+    scored = [(v["name"], float(v["preference_score"])) for v in variants
+              if v.get("preference_score") is not None]
+    if len(scored) < 2:
+        return []
+    top = max(sc for _n, sc in scored)
+    names = sorted(n for n, sc in scored if top - sc <= 0.01)
+    if len(names) < 2:
+        return []
+    joined = ", ".join(names[:-1]) + f" a {names[-1]}"
+    return [f"{joined} mají stejné skóre — rozhodne diskuse/Decider."]
+
+
 def _render_vote(out: dict[str, Any], as_json: bool, slug: str) -> None:
     lines = []
     for v in sorted(out["variants"], key=lambda x: -(x["preference_score"] or 0)):
         url = v.get("prototype_url") or "bez preview URL"
         lines.append(f"Varianta {v['name']}: skóre {v['preference_score']:.2f} — {url}")
+    lines.extend(_tie_lines(out["variants"]))
     emit(out, title="Hlasování zapsáno", lines=lines, next_step=out["next_step"],
          tips=([] if as_json else tips_for_project(slug, "after_vote", limit=2)),
          warnings=out.get("warnings"), as_json=as_json)
@@ -1814,7 +1859,8 @@ def main() -> None:
 
     p_prompts = sub.add_parser("prompts", help="Prompty pro buildery (Build)")
     p_prompts.add_argument("--slug", required=True)
-    p_prompts.add_argument("--hook", required=True)
+    p_prompts.add_argument("--hook", default=None,
+                           help="Problem statement; bez něj se vezme z projektu (Kickoff)")
     p_prompts.add_argument("--n", type=int, default=3)
     p_prompts.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
                            help="parallel = 3 angles paralelně; mob = sequential iterations (per ADR-0016)")
@@ -1839,7 +1885,8 @@ def main() -> None:
             out = _bootstrap_from_spec(spec)
             _render_bootstrap(out, args.json, spec)
         elif args.cmd == "prompts":
-            out = builder_prompts(args.slug, args.hook, args.n,
+            hook = args.hook or _hook_from_project(args.slug)
+            out = builder_prompts(args.slug, hook, args.n,
                                   prefer_hosted=args.prefer_hosted,
                                   mode=args.mode)
             _render_prompts(out, args.json)

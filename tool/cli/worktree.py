@@ -42,7 +42,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402,F401
+from tool.cli.db import audit, current_actor, resolve_local_repo_url, transaction  # noqa: E402,F401
 from tool.cli.ux import CzechArgumentParser, die, emit, project_not_found_message, tips_for_project  # noqa: E402
 
 
@@ -139,7 +139,11 @@ def validate_repo_url(url: str | None) -> bool:
     url = url.strip()
     if url.startswith("/") and Path(url).is_dir():
         return True
-    return bool(_REPO_URL_RE.match(url))
+    if _REPO_URL_RE.match(url):
+        return True
+    # relativní existující cesta (`../origin.git`) — po resolvu vůči cwd jako absolutní
+    resolved = resolve_local_repo_url(url)
+    return bool(resolved and resolved != url and Path(resolved).is_dir())
 
 
 def _slugify_repo(url: str) -> str:
@@ -242,7 +246,7 @@ def normalize_target_repos(
     for i, it in enumerate(items):
         if not isinstance(it, dict) or not it.get("url"):
             raise ValueError(f"target_repos[{i}]: chybí 'url' ({it!r}).")
-        url = str(it["url"]).strip()
+        url = resolve_local_repo_url(str(it["url"]).strip()) or ""
         if not validate_repo_url(url):
             raise ValueError(
                 f"target_repos[{i}]: '{url}' není platná git URL "
