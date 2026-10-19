@@ -22,6 +22,9 @@ Aplikuje **Krok 0 + 0a** z `docs/methodology/03-pre-session-priprava.md`:
 
 Pokud kterýkoliv track = `blocked` → Session 1 nestartuje, vrátí důvod.
 Pokud všechny `ok` nebo `deferred` → status projektu posune na `triage`.
+Track, který AI subagent vrátil jako `ok` bez lidského `signed_by`, se zapíše jako
+`pending` (čeká na podpis <jméno>) — výstup i `_summary.md` to ukážou; Build smí běžet,
+Ship ale bez podpisu (`pflanzer checkpoint …`) neprojde.
 
 ## Jak postupuj
 
@@ -62,6 +65,8 @@ JSON spec format:
 4. **Verifikuj output**:
    - Read `data/triage/<slug>/_summary.md`.
    - Pokud overall='blocked', shrň důvody uživateli a navrhni nápravu.
+   - Pokud overall='pending', vypiš, kdo má které okno podepsat (warnings v `_summary.md`).
+   - Pokud discovery vrátilo opt-out, ukaž ho a zdůvodnění (zapsáno do audit logu).
    - Pokud overall='ok', připomeň pre-flight checklist
      (`docs/methodology/03-pre-session-priprava.md` § Checklist před Kickoffem).
 

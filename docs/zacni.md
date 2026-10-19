@@ -171,7 +171,7 @@ chybějící věc vědomě nepřijmete jako riziko.
 |-----|-----------|--------|
 | Kickoff | zadání na 1 stránku: problém, metrika, kill kritérium, jména 6 kroků | `/pm start` |
 | Build | AI staví 3 varianty ve 3 oddělených kopiích vašeho repa (nebo jednu společnou variantu `mob`, pokud ji zvolíte v Kickoffu), průběžně lint/testy/build; jádro u jedné obrazovky směruje; checkpoint bezpečnost & právo | `/pm live` nebo `/pm build` |
-| po Buildu | builder pushne 3 branche → preview URL (se štítkem „k rozhodnutí, ne produkt") → pošle odkazy všem | — |
+| po Buildu | builder pushne 3 branche (z klonů `data/targets/<slug>-<X>`, ne z hlavního repa) → preview URL (se štítkem „k rozhodnutí, ne produkt") → pošle odkazy všem | — |
 | Async | zástupci klikají a komentují (`pflanzer hub`), builder zapracovává | `/pm feedback` |
 | Rozhodnutí | demo, top 3 spory, tiché hlasování, Decider poslední → Go / Iterate / Kill | `/pm decide` |
 | Ship | automatické kontroly jen na vítěze: pilot ≥ 80 / production ≥ 85 ze 100, checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |

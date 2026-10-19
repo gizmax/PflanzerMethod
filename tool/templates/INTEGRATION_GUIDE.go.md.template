@@ -1,0 +1,98 @@
+# INTEGRATION_GUIDE.md — pro vibe-coding session v tomto repu (Go)
+
+> **Tento soubor čte Claude Code / Codex CLI jako PRVNÍ věc** v každé Pflanzer
+> session. Bez něj AI píše kód pro generic Go projekt, ne podle
+> konvencí tohoto repa. Updatuj při velkých změnách architektury.
+
+## Stack a prostředí
+
+- Go: <1.22 | 1.23 | 1.24> (`go.mod`, modul `<cesta/modulu>`)
+- Závislosti: <jen stdlib | chi | gin | echo> (`go mod tidy`, `go.sum` se commituje, jakmile má `go.mod` nějaký `require`)
+- Web: <net/http + html/template | chi | gin | žádný (CLI / knihovna)>
+- Spuštění lokálně: `<make run | go run .>` — port čti z proměnné prostředí `PORT`
+
+```go
+// PŘÍKLAD — nahraď realitou tohoto repa
+mux := http.NewServeMux()
+mux.HandleFunc("GET /", handleIndex)
+log.Fatal(http.ListenAndServe(":"+port, mux))
+```
+
+## Auth pattern
+
+- Provider: <OIDC / OAuth2 | session cookie | API klíč | žádná auth>
+- Kde se ověřuje: <middleware `func(http.Handler) http.Handler` | handler wrapper>
+- Chráněný endpoint: `<mux.Handle("/admin", requireUser(h))>`
+
+## API a datová vrstva
+
+- Routing: `<http.ServeMux (Go 1.22 vzory "GET /x/{id}") | chi>`
+- Šablony: <html/template v `templates/` | embed.FS>
+- Validace vstupu: <ručně v handleru | go-playground/validator>
+- Chyby API: <RFC 7807 Problem Details | vlastní formát>
+- DB: <database/sql + sqlite/postgres | sqlc | žádná (paměť / soubor)>
+- **Vibe-coded varianty NESMÍ generovat migrace** — změny schématu jdou do samostatného PR s labelem `db-migration`.
+
+## Logger / observability
+
+- Logger: <log/slog | zap | zerolog> — žádné `fmt.Println` v produkčním kódu
+- Strukturované logy: `slog.Info("user.login", "user_id", id)`
+- Tracing / metriky: <OpenTelemetry | žádné>
+
+## Feature flags
+
+- Provider: <LaunchDarkly | Unleash | proměnná prostředí | žádné>
+- Nová funkce za flagem: `<enabled("nazev-flagu")>` — vypnutí = rollback bez deploye.
+- **V preview a Buildu jsou flagy vždy ZAPNUTÉ**: Pflanzer spouští aplikaci s
+  `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; flag musí při `PFLANZER_PREVIEW=1`
+  vracet true. Default OFF platí až pro produkci po Shipu.
+- Nová funkce musí být dosažitelná odkazem z `/`.
+
+## Struktura repa
+
+```
+main.go              # vstup, routing
+internal/            # byznys logika, handlery
+templates/           # html/template
+tests/acceptance/    # akceptační testy *_test.go (package acceptance)
+Makefile             # test / lint / build / run
+go.mod
+```
+
+## Testy
+
+- Test runner: `go test ./...` (nebo `make test`)
+- Akceptační testy: `tests/acceptance/*_test.go` (`go test ./tests/acceptance/...`);
+  alternativně testy `TestAcceptance*` kdekoli v repu
+- Pokrytí: `go test -cover ./...` | žádný práh
+- Nový kód bez testu se nemerguje; Builder po každém kroku pustí testy a commituje jen zelené.
+
+## Lint, typy, formát
+
+- Lint: `go vet ./...` <+ golangci-lint> ; formát: `gofmt -l .`
+- Typy kontroluje kompilátor (`go build ./...`)
+- Pre-commit: <pre-commit | žádný>
+
+## CI
+
+- CI: <GitHub Actions | GitLab CI | jiné> — build + vet + test musí projít před mergem do `main`.
+- Preview prostředí: <Fly.io | Render | staging | lokálně + port-forward>
+
+## AI code provenance
+
+- Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
+  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: Claude` trailer.
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: objednavka-A`,
+  `Pflanzer-Session: 1` (1 = Build, 2 = Rozhodnutí, ship = Ship), `AI-Assisted: claude-code` (nebo codex-cli, cursor).
+- PR labely: `ai-generated` + `pflanzer:objednavka`; PR body má sekci „AI provenance".
+- Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
+  jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
+- Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
+- **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická
+  data dle Data Classification (`<L1 | L2 | L3>`).
+
+## Folder for Pflanzer artefakty
+
+Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/objednavka/` (název = slug projektu),
+ne v root. Kód varianty v `internal/objednavka/`. Po Rozhodnutí winner branche
+se merguje, ostatní se mažou.

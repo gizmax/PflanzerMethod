@@ -548,7 +548,8 @@ def main() -> None:
               "slug": inp.slug}
     emit(result, title=f"Charter uložen — {inp.name}",
          lines=[f"Zadání je v `{result['charter_path']}`.", f"Decider: {inp.decider_name}"],
-         next_step=f"/pm build {inp.slug}", tips=[] if args.json else tips_for_project(inp.slug, "kickoff"), as_json=args.json)
+         next_step=(f"/pm triage {inp.slug}" if inp.tier == "full" else f"/pm build {inp.slug}"),
+         tips=[] if args.json else tips_for_project(inp.slug, "kickoff"), as_json=args.json)
 
 
 if __name__ == "__main__":

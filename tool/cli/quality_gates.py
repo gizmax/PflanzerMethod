@@ -46,7 +46,8 @@ generátor: `pflanzer init gates-template --path <repo>`.
 
 Bez adaptéru se autodetekuje Node a Python; jiné stacky jen jako fallback (adresář není
 Node ani Python): Maven (`pom.xml`), Gradle, .NET (`*.sln`/`*.csproj`), Go (`go.mod`)
--> build/tests (+ lint pro .NET a Go), zbytek 'unsupported'.
+-> build/tests (+ lint pro .NET a Go, acceptance pro Go: tests/acceptance/*_test.go nebo
+testy *Acceptance*), zbytek 'unsupported'; acceptance bez příkazu je vždy NEOVĚŘENO.
 
 Bez DB: `run_gates_on_path(path)` / CLI `--path <dir>`. `adapter_path=` / CLI
 `--adapter <file>` vloží adaptér zvenku worktree (Ship ho čte z base branche přes
@@ -376,24 +377,81 @@ def _has_test_files(root: Path) -> bool:
 # --------------------------------------------------------------------------
 
 
+def _unavailable(gate: str, text: str, advice: str = "") -> GateResult:
+    """Brána nemá z čeho běžet. Acceptance je vždy NEOVĚŘENO (nikdy tichý průchod u production),
+    ostatní brány zůstávají „unsupported“ (mimo jmenovatel skóre)."""
+    if gate == "acceptance":
+        return _unverified("acceptance", text, advice)
+    return GateResult(gate, "unsupported", text + (f" — {advice}" if advice else ""))
+
+
+GO_ACCEPTANCE_HINT = (
+    "napište akceptační testy do tests/acceptance/*_test.go (package acceptance; "
+    "spustí se `go test ./tests/acceptance/...`), nebo pojmenujte testy TestAcceptance* "
+    "(`go test -run Acceptance ./...`)")
+
+
+def _go_acceptance(path: Path) -> GateResult:
+    """Go: `tests/acceptance/*_test.go`, jinak testy s `Acceptance` v názvu funkce / `*_acceptance_test.go`."""
+    if not _has("go"):
+        return _unverified("acceptance", "go není na PATH", "nainstalujte Go (https://go.dev/dl)")
+    acc_dir = path / "tests" / "acceptance"
+    if acc_dir.is_dir() and any(acc_dir.rglob("*_test.go")):
+        cmd = ["go", "test", "-v", "./tests/acceptance/..."]
+        where = "tests/acceptance"
+    else:
+        named = [f for f in _iter_files(path, (".go",), SKIP_DIRS | STACK_SKIP_DIRS)
+                 if f.name.endswith("_test.go")
+                 and (f.name.endswith("_acceptance_test.go")
+                      or re.search(r"^func Test\w*Acceptance\w*\(", f.read_text(
+                          encoding="utf-8", errors="ignore"), re.M))]
+        if not named:
+            return _unverified("acceptance", "chybí akceptační testy", GO_ACCEPTANCE_HINT)
+        cmd = ["go", "test", "-v", "-run", "Acceptance", "./..."]
+        where = "testy *Acceptance*"
+    started = time.monotonic()
+    rc, out, err = _run(cmd, path, timeout=STACK_TIMEOUT)
+    duration = round(time.monotonic() - started, 2)
+    passed = len(re.findall(r"^--- PASS", out, re.M))
+    failed = len(re.findall(r"^--- FAIL", out, re.M))
+    total = passed + failed
+    if total == 0:
+        if rc == 0:
+            return _unverified("acceptance", "žádné akceptační testy neběžely", GO_ACCEPTANCE_HINT)
+        return GateResult("acceptance", "fail",
+                          f"Go: `{' '.join(cmd)}` exit {rc} (nezkompilovalo se?)\n"
+                          + _tail(out + err, 400), metric=0, duration_s=duration)
+    rate = round(100 * passed / total)
+    label = f"Go: {passed}/{total} akceptačních testů ({rate} %, {where})"
+    if rate >= 80 and rc == 0:
+        return GateResult("acceptance", "pass", label, metric=rate, duration_s=duration)
+    status = "warn" if rate >= 50 else "fail"
+    tail = _tail(out + err, 400)
+    suffix = " < cíl 80 %" if rate < 80 else f" — {_tests_fail_phrase(failed or 1)}"
+    return GateResult("acceptance", status, label + suffix + "\n" + tail,
+                      metric=rate, duration_s=duration)
+
+
 def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
     """Run the autodetected command for a Maven/Gradle/.NET/Go gate."""
     label = STACK_LABELS[stack]
+    if gate == "acceptance" and stack == "go":
+        return _go_acceptance(path)
     args = STACK_COMMANDS[stack].get(gate)
     if args is None:
-        hint = ("type check is part of the build gate (compiled language)"
-                if gate == "types" else "no autodetected command")
-        return GateResult(gate, "unsupported",
-                          f"{label}: {hint} — doplň do pflanzer.gates.yml")
+        if gate == "types":
+            return _skip("types", "typy kontroluje kompilátor (brána build)")
+        return _unavailable(gate, f"{label}: žádný autodetekovaný příkaz",
+                            "definuj ho v pflanzer.gates.json (`pflanzer init gates-template`)")
     if stack == "gradle":
         base = _gradle_cmd(path)
         if base is None:
-            return GateResult(gate, "unsupported", "gradlew / gradle not on PATH")
+            return _unavailable(gate, "gradlew / gradle není na PATH")
         cmd = base + args
     else:
         cmd = args
         if not _has(cmd[0]):
-            return GateResult(gate, "unsupported", f"{cmd[0]} not on PATH")
+            return _unavailable(gate, f"{cmd[0]} není na PATH")
     started = time.monotonic()
     rc, out, err = _run(cmd, path, timeout=STACK_TIMEOUT)
     duration = round(time.monotonic() - started, 2)
@@ -1069,7 +1127,7 @@ def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
     failed = int(m_fail.group(1)) if m_fail else (0 if rc == 0 else 1)
     total = passed + failed
     if total == 0:
-        return _skip("acceptance", "v tests/acceptance/ nejsou žádné spustitelné testy")
+        return _unverified("acceptance", "v tests/acceptance/ nejsou žádné spustitelné testy")
     rate = round(100 * passed / total)
     label = f"{passed}/{total} akceptačních testů ({rate} %, {len(files)} soubor/ů)"
     if rate >= 80 and rc == 0:
@@ -1091,7 +1149,8 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
     """Playwright acceptance scénáře z `tests/acceptance/` (zadání Deciderem při Kickoffu)."""
     acc_dir = ctx.path / "tests" / "acceptance"
     if not acc_dir.exists():
-        return _skip("acceptance", "tests/acceptance/ neexistuje (kritéria nejsou v kódu)")
+        return _unverified("acceptance", "tests/acceptance/ neexistuje",
+                           "kritéria nejsou v kódu jako spustitelné testy")
     st = ctx.stack
     native = _native_acceptance(ctx, acc_dir)
     runner_deps = bool(st.node and {"vitest", "jest"} & set(st.deps or {}))
@@ -1120,7 +1179,7 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
         failed = stats.get("unexpected", 0)
         total = passed + failed
         if total == 0:
-            return _skip("acceptance", "žádné acceptance scénáře nenalezeny")
+            return _unverified("acceptance", "žádné acceptance scénáře nenalezeny")
         pass_rate = round(100 * passed / total)
         if pass_rate >= 80:
             return GateResult("acceptance", "pass", f"{passed}/{total} scénářů ({pass_rate} %)",
@@ -1397,7 +1456,7 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
     """
     name = adapter.name
     if spec is None or spec is False:
-        return GateResult(gate, "unsupported", f"vypnuto v {name}")
+        return _unavailable(gate, f"vypnuto v {name}")
     if isinstance(spec, str):
         spec = {"cmd": spec}
     if not isinstance(spec, dict):
@@ -1445,8 +1504,9 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
     tail = _tail(out + err, 500)
     shown = f"`{cmd}`"
     if rc == 127:  # shell: command not found -> same rule as a missing binary
-        return GateResult(gate, "unsupported", f"{shown}: příkaz nenalezen\n{tail}",
-                          duration_s=duration)
+        res = _unavailable(gate, f"{shown}: příkaz nenalezen", tail)
+        res.duration_s = duration
+        return res
 
     metric: float | None = None
     if pattern is not None:
@@ -1489,7 +1549,9 @@ def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> lis
               f"known: {list(GATE_TYPES)}", file=sys.stderr)
     return [
         _run_adapter_gate(g, specs[g], adapter, path, cwd_base) if g in specs
-        else GateResult(g, "unsupported", f"není definovaná — doplň ji do {adapter.name}")
+        else (_skip("types", "typy kontroluje kompilátor (brána build)")
+              if g == "types" and _other_stack(path) else
+              _unavailable(g, "není definovaná", f"doplň ji do {adapter.name}"))
         for g in GATE_TYPES
     ]
 
@@ -2035,9 +2097,25 @@ def _first_line(text: str, limit: int = 110) -> str:
     return ""
 
 
-def human_gate_lines(summary_line: str, results: list[dict[str, Any]], limit: int = 5) -> list[str]:
-    """Řádky pro lidský výstup: souhrn + nejdřív selhané, pak varování (max `limit`)."""
+_GATE_LABEL = {"pass": "PASS", "warn": "WARN", "fail": "FAIL", "skipped": "SKIP", "unsupported": "—"}
+
+
+def human_gate_lines(summary_line: str, results: list[dict[str, Any]], limit: int = 5,
+                     per_gate: bool = False) -> list[str]:
+    """Řádky pro lidský výstup: souhrn + nejdřív selhané, pak varování (max `limit`).
+
+    `per_gate=True` vypíše řádek pro každou bránu (stav + první řádek detailu).
+    """
     lines = [summary_line]
+    if per_gate:
+        for r in results:
+            text = skip_reason(r) if r["status"] in ("skipped", "unsupported") \
+                else _first_line(r.get("details", ""))
+            label = _GATE_LABEL[r["status"]]
+            if r["status"] == "skipped" and (r.get("details") or "").startswith(UNVERIFIED_PREFIX):
+                label = "NEOVĚŘENO"
+            lines.append(f"{r['gate']}: {label}" + (f" — {text[:110]}" if text else ""))
+        return lines
     for r in results:
         if r["gate"] == "smoke" and r["status"] == "pass":
             lines.append(_first_line(r.get("details", "")))  # „smoke: / odpovídá 200“
@@ -2093,7 +2171,7 @@ def main() -> None:
         }
         failing = [r["gate"] for r in rows if r["status"] == "fail"]
         emit(out, title=f"Kontrola bran: {target_dir.name}",
-             lines=human_gate_lines(out["summary_line"], rows),
+             lines=human_gate_lines(out["summary_line"], rows, per_gate=True),
              next_step=(f"oprav {', '.join(failing)} a spusť znovu: "
                         f"`pflanzer quality_gates --path {args.path}`" if failing
                         else "bez blokace; pro Ship vítěze: `pflanzer session_3 --slug <slug>`"),

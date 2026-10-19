@@ -221,6 +221,8 @@ def _make_handler(app_port: int, password: str, variant: str) -> type:
                 self.send_response(resp.status)
                 for k, v in out:
                     kl = k.lower()
+                    if kl in ("date", "server"):
+                        continue  # send_response() je přidá sám; backendová kopie by je zdvojila
                     if kl == "location":
                         v = self._rewrite_location(v)
                     if data is not None and kl == "content-length":
@@ -810,6 +812,10 @@ _ROUTE_RES = (
     re.compile(r"""\b(?:app|router|server|api)\.(?:get|post|put|all|use)\(\s*['"`](/[^'"`:*?]*)['"`]"""),
     re.compile(r"""@\w+\.(?:get|post|route|api_route)\(\s*['"](/[^'"{<:]*)['"]"""),
     re.compile(r"""\bpath\(\s*r?['"]([\w\-/]+)['"]"""),
+    # Go: http.HandleFunc("/x", ...), mux.Handle("/x", ...), Go 1.22 vzory "GET /x/{id}"
+    re.compile(r"""\.Handle(?:Func)?\(\s*"(?:[A-Z]+\s+)?(?:[\w.\-]+)?(/[^"{\s]*)"""),
+    # Go routery (chi/gin/echo): r.Get("/x", ...), e.GET("/x", ...)
+    re.compile(r"""\b\w+\.(?:Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE)\(\s*"(/[^"{:*\s]*)\""""),
 )
 _SPA_ROUTE_RES = (
     re.compile(r"""\bpath\s*:\s*['"`](/[\w\-/]*)['"`]"""),
@@ -873,7 +879,7 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
                 if not r.startswith("/"):
                     r = "/" + r
                 r = r.rstrip("/") or "/"
-                if r == "/api" or r.startswith("/api/"):
+                if r == "/api" or r.startswith("/api/") or r.startswith("/static"):
                     continue  # API trasa není stránka, na kterou by vedl odkaz
                 if r != "/" and r not in routes:
                     routes.append(r)

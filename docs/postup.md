@@ -109,6 +109,9 @@ flowchart LR
 
 Prakticky:
 
+- Větve `pflanzer/<slug>-A/B/C` jsou v klonu target repa pod
+  `data/targets/<slug>-<X>` (ne v hlavním repu) — pushuje se odtamtud:
+  `cd data/targets/<slug>-A && git push origin pflanzer/<slug>-A`.
 - Kód **nikdy nežije mimo repo produktu** — proto vítěz jde rovnou do PR,
   nic se nepřepisuje.
 - Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,

@@ -39,8 +39,14 @@ Per varianta (1–3) odhad:
 Vyber z org-approved runtime list:
 - Node.js 20+ / Bun (FE prototypes)
 - Python 3.12+ (BE prototypes)
+- Go 1.22+ (BE služby, CLI; `go test ./...`, `go vet`)
 - Static (S3 + CloudFront / nginx)
 - Custom runtime → vyžaduje sign-off (delay 1–2 dny)
+
+**Neznámý runtime není tiché OK.** Pokud stack projektu (Charter, repo:
+`go.mod`, `Cargo.toml`, `pom.xml`, `Gemfile`…) v seznamu není, nezapisuj
+`ok` — polož otázku „Je <runtime> v org-approved seznamu? Kdo to potvrdí?“
+a vrať `status='deferred'` s warningem, dokud odpověď nepřijde.
 
 ### 4. Observability contract
 
@@ -96,6 +102,8 @@ Není to gate teď, ale checklist co bude třeba **před production deploy**:
 - **GitOps od minuty 0** — žádné manuální `kubectl`, ArgoCD do sandbox namespace.
 - **Custom runtime = delay** — 1–2 dny review. Pokud uživatel vyžaduje
   custom, navrhni alternative z approved list, nebo `status='deferred'`.
+- **Runtime mimo seznam (Rust, Java, .NET, Ruby…) = otázka na člověka**, ne
+  automatické `ok` ani tiché přeskočení.
 
 ## Reference
 

@@ -169,10 +169,18 @@ def guidance_core(window: str, owners: dict[str, str], risk: str) -> str:
         return f"{role} ({who})" if who else role
 
     if risk == "production":
-        who_can = f"{named('Decider', decider)} nebo DPO/právník"
+        if window == "pravo":
+            who_can = f"{named('Decider', decider)} nebo DPO/právník"
+        elif window == "provoz":
+            who_can = f"{named('Decider', decider)} nebo člověk odpovědný za provoz"
+        elif window == "bezpecnost":
+            who_can = f"{named('Decider', decider)} nebo člověk odpovědný za bezpečnost"
+        else:
+            who_can = named("Decider", decider)
+        no_dev = f"; ne autor kódu{f' ({dev})' if dev else ''}"
     else:
         who_can = f"{named('Decider', decider)} nebo {named('PdM', pdm)}"
-    no_dev = f"; ne autor kódu{f' ({dev})' if dev else ''}, pokud jde o osobní data"
+        no_dev = f"; ne autor kódu{f' ({dev})' if dev else ''}, pokud jde o osobní data"
     when = "u production" if risk == "production" else "u pilotu"
     return f"{when} může podepsat {who_can}{no_dev}"
 
@@ -184,12 +192,19 @@ def signer_guidance(window: str, owners: dict[str, str], risk: str) -> str:
 
 
 def _designated(window: str, owner: str | None, owners: dict[str, str], risk: str,
-                signers: dict[str, str] | None = None) -> str | None:
-    """Člověk, který je pro okno určen k podpisu (None = nikdo nebyl určen)."""
+                signers: dict[str, str] | None = None,
+                core: list[str] | None = None) -> str | None:
+    """Člověk, který je pro okno určen k podpisu (None = nikdo nebyl určen).
+
+    U production nepodepisuje AI náhradu autor kódu (ADR-0023: podepisuje člověk odpovědný
+    za oblast / Decider) — takový „určený“ se ignoruje.
+    """
     if _human(owner):
         return owner
     named = _human((signers or {}).get(WINDOW_STEP[window]))
     if named and is_ai_owner(owner):
+        if risk == "production" and window != "design" and _is_code_author(named, owners, core or []):
+            return None
         return named          # tým výslovně určil, kdo AI draft podepíše (ai_signers)
     if window == "provoz" and risk == "pilot" and _human(owners.get("vyvoj")):
         return owners["vyvoj"]
@@ -255,7 +270,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             lg = conn.execute("SELECT signed_by FROM triage WHERE project_id = ? AND "
                               "track = 'legal'", (pid,)).fetchone()
             named = re.sub(r"\s*\(.*$", "", (lg[0] if lg and lg[0] else "")).strip()
-            if named and not re.search(r"(?i)pending|agent", named):
+            if _human(named) and not re.search(r"(?i)pending|agent", named):
                 owner = named
         risk = load_risk_profile(conn, pid)
         if window == "design" and not is_ai_owner(owner):
@@ -277,7 +292,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             if status == "pending":
                 warnings.append(f"{label}: AI draft není podpis — Ship dál blokuje, dokud ho "
                                 "nepotvrdí člověk (`--by <jméno>`).")
-                if not _designated(window, owner, owners, risk, signers):
+                if not _designated(window, owner, owners, risk, signers, core):
                     warnings.append(signer_guidance(window, owners, risk))
         else:
             who = by.strip()
@@ -303,8 +318,17 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                 warnings.append(
                     f"Za {label} (AI náhrada) je určený podepisující {named}, "
                     f"podepsal {who} — podpis zapsán jako zástup.")
+        if (not ai and not blocked and risk == "production" and window != "design"
+                and (is_ai_owner(owner) or countersigned)
+                and _is_code_author(who, owners, core)):
+            raise ValueError(
+                f"U production nesmí AI náhradu okna {label} potvrdit autor kódu ({who}) — "
+                "podepisuje člověk odpovědný za oblast nebo Decider (ADR-0023). "
+                f"{guidance_core(window, owners, risk).capitalize()}.\n"
+                f'Příklad: pflanzer checkpoint --slug {slug} {window} --by "<jméno>" '
+                '--note "co jsem ověřil"')
         kind = _signer_kind(window, who, owner, owners, core, ai=ai,
-                            designated=_designated(window, owner, owners, risk, signers))
+                            designated=_designated(window, owner, owners, risk, signers, core))
         if kind == "autor kódu" and not blocked:
             head = "OK — potvrdil autor kódu"
             if risk == "production":
@@ -350,7 +374,15 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                 warnings.append(
                     "Právo zůstává odložené z triage (např. DPIA) — podepisuje se zvlášť: "
                     f'`pflanzer checkpoint --slug {slug} pravo --by "<DPO>" --note "DPIA hotová"`.')
+        if window == "bezpecnost" and "legal" in tracks and "pravo" in _last_audit(conn, pid):
+            lg2 = conn.execute("SELECT status FROM triage WHERE project_id = ? AND track = 'legal'",
+                               (pid,)).fetchone()
+            if lg2 and lg2[0] in ("ok", "blocked"):
+                tracks = [t for t in tracks if t != "legal"]   # DPIA podpis okna Právo zůstává
         for track in tracks:
+            prev = conn.execute("SELECT artefact_md FROM triage WHERE project_id = ? AND track = ?",
+                                (pid, track)).fetchone()
+            merged = merge_artefact(prev[0] if prev else "", window, label, artefact)
             conn.execute(
                 """
                 INSERT INTO triage (project_id, track, status, artefact_md, signed_by, signed_at)
@@ -359,7 +391,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                   status = excluded.status, artefact_md = excluded.artefact_md,
                   signed_by = excluded.signed_by, signed_at = excluded.signed_at
                 """,
-                (pid, track, status, artefact, who),
+                (pid, track, status, merged, who),
             )
         audit(conn, action=f"checkpoint.{window}", target_type="project", target_id=pid,
               actor=current_actor(),
@@ -367,16 +399,32 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                        "signed_by_role": kind, "ai_agent": agent_name,
                        "countersigned_ai_draft": countersigned,
                        "tracks": tracks})
-    designated = _designated(window, owner, owners, risk, signers)
+    designated = _designated(window, owner, owners, risk, signers, core)
     log = _append_decision_log(slug, label, who, status, note, now, kind=kind,
                                agent=agent_name, signer=designated)
-    next_step = _next_step(slug, window, status, owner, owners, risk, by=who, signers=signers)
+    next_step = _next_step(slug, window, status, owner, owners, risk, by=who, signers=signers,
+                           core=core)
     return {"slug": slug, "window": window, "label": label, "status": status,
             "tracks": tracks, "signed_by": who,
             "signed_by_role": kind, "ai_agent": agent_name,
             "ai_draft": status == "pending", "ai": ai,
             "countersigned_ai_draft": countersigned,
             "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
+
+
+def merge_artefact(previous: str | None, window: str, label: str, block: str) -> str:
+    """Poznámku okna PŘIPOJÍ k artefaktu stopy (jméno + datum jsou v bloku); nepřepisuje cizí text.
+
+    Dřívější blok téhož okna (re-sign) se nahradí; artefakt triage a bloky jiných oken zůstanou.
+    """
+    marker = f"<!-- cp:{window} -->"
+    prev = (previous or "").strip()
+    if prev:
+        prev = re.sub(re.escape(marker) + r".*?(?=<!-- cp:|\Z)", "", prev, flags=re.S).strip()
+        if prev.startswith(f"**Checkpoint {label}**") and "<!-- cp:" not in prev:
+            prev = ""        # starý jednoblokový zápis téhož okna
+    body = f"{marker}\n{block.strip()}\n"
+    return f"{prev}\n\n{body}" if prev else body
 
 
 def _clip(text: str | None, n: int = 120) -> str:
@@ -393,8 +441,9 @@ def _critical_resolved(conn: Any, fid: int) -> bool:
 
 
 def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: str,
-                signers: dict[str, str] | None = None) -> str:
-    designated = _designated(window, owner, owners, risk, signers)
+                signers: dict[str, str] | None = None,
+                core: list[str] | None = None) -> str:
+    designated = _designated(window, owner, owners, risk, signers, core)
     if designated:
         return designated
     decider = owners.get("byznys")      # krok bez člověka: určí Decider
@@ -403,8 +452,9 @@ def _signer_for(window: str, owner: str | None, owners: dict[str, str], risk: st
 
 def _next_step(slug: str, window: str, status: str, owner: str | None,
                owners: dict[str, str], risk: str, by: str = "",
-               signers: dict[str, str] | None = None) -> str:
-    signer = _signer_for(window, owner, owners, risk, signers)
+               signers: dict[str, str] | None = None,
+               core: list[str] | None = None) -> str:
+    signer = _signer_for(window, owner, owners, risk, signers, core)
     label = WINDOWS[window]["label"]
     if status == "blocked":
         return (f"{label} je zablokované — odblokuje {signer}. Až bude opraveno: "
@@ -470,6 +520,7 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
         pid = int(proj[0])
         owners = _load_owners(conn, pid)
         signers = _load_signers(conn, pid)
+        core = _load_core(conn, pid)
         risk = load_risk_profile(conn, pid)
         last = _last_audit(conn, pid)
         rows = {r[0]: r for r in conn.execute(
@@ -488,8 +539,10 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
         else:
             if key == "pravo":
                 lg, sec = rows.get("legal"), rows.get("security")
-                # Okno právo ukazuj jen, když se právo od bezpečnosti odpojilo (odložené DPIA).
-                if not lg or (sec and lg[1] == sec[1] and lg[2] == sec[2]) or lg[1] == "čeká":
+                # Okno právo ukazuj, když se právo od bezpečnosti odpojilo (odložené DPIA)
+                # nebo když už bylo samostatně podepsáno (i stejným člověkem jako bezpečnost).
+                if "pravo" not in last and (
+                        not lg or (sec and lg[1] == sec[1] and lg[2] == sec[2]) or lg[1] == "čeká"):
                     continue
             tracks = [rows.get(t) for t in w["tracks"]]
             statuses = {r[1] if r else "missing" for r in tracks}
@@ -500,8 +553,8 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                           None)
         out.append({"window": key, "label": w["label"], "state": state, "signed_by": signer,
                     "owner": owner_display(owner, WINDOW_STEP[key]) or None,
-                    "signer": _signer_for(key, owner, owners, risk, signers),
-                    "designated": _designated(key, owner, owners, risk, signers),
+                    "signer": _signer_for(key, owner, owners, risk, signers, core),
+                    "designated": _designated(key, owner, owners, risk, signers, core),
                     "ai_signer": (signers.get(WINDOW_STEP[key]) if is_ai_owner(owner) else None),
                     "note": (last.get(key) or {}).get("note") if state == "blocked" else None,
                     "ai_agent": ai_agent(owner, WINDOW_STEP[key]) if is_ai_owner(owner) else None,

@@ -52,7 +52,7 @@ case "$SUB" in
   prompts)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" prompts "$@" ;;
   build)
-    echo "Pflanzer Method | pflanzer.cz/method"
+    echo "**Pflanzer Method | pflanzer.cz/method**"
     echo ""
     echo "Build nemá jeden příkaz — vede ho /pm build (Claude Code). Kroky v terminálu:"
     echo "  pflanzer worktree setup --slug S     # worktrees A/B/C (+ další repa projektu)"

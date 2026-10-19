@@ -59,7 +59,7 @@ if python3 -c 'import yaml' >/dev/null 2>&1; then
 elif python3 -m pip install --user --quiet pyyaml >/dev/null 2>&1; then
   ok "PyYAML nainstalován (pip --user)"
 else
-  warn "PyYAML se nepodařilo nainstalovat — pflanzer.gates.yml nepůjde číst; použij pflanzer.gates.json nebo 'pip install pyyaml'"
+  warn "PyYAML se nepodařilo nainstalovat — pflanzer.gates.yml nepůjde číst; 'pflanzer init gates-template' proto vygeneruje pflanzer.gates.json (nebo: pip install pyyaml)"
 fi
 
 if command -v claude >/dev/null; then

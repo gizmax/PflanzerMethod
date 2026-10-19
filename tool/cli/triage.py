@@ -35,6 +35,11 @@ TRIAGE_DIR = DATA_ROOT / "triage"
 EXPECTED_TRACKS = ("discovery", "security", "legal", "platform")
 
 
+def _clip_text(text: str, n: int) -> str:
+    t = " ".join(text.split())
+    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+
+
 def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     """Persist 4 triage outputs + gate decision.
 
@@ -51,16 +56,56 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     if missing:
         raise ValueError("Chybí výsledky triage pro: " + ", ".join(sorted(missing)) + ".")
 
+    # Návrh AI subagenta není podpis (ADR-0023): `ok` bez lidského podpisu = `pending`.
+    # Převod děláme PŘED agregací, aby výstup i _summary.md ukázaly skutečný stav.
+    normalized: list[dict[str, Any]] = []
+    for r in results:
+        signer = str(r.get("signed_by") or "")
+        if r["status"] == "ok" and (not signer.strip()
+                                    or re.search(r"(?i)pending|agent|\bAI\b", signer)):
+            r = {**r, "status": "pending",
+                 "rationale": (str(r.get("rationale") or "").strip()
+                               + " (čeká na podpis člověka)").strip(),
+                 "signed_by": signer or "pending"}
+        normalized.append(r)
+    results = normalized
+
     # Aggregate
     blockers: list[str] = []
     warnings: list[str] = []
+    by_track = {r["track"]: r for r in results}
     for r in results:
         if r["status"] == "blocked":
             blockers.append(f"[{r['track']}] {r.get('rationale', 'no rationale')}")
         if r.get("warnings"):
             warnings.extend(f"[{r['track']}] {w}" for w in r["warnings"])
 
-    overall = "blocked" if blockers else "ok"
+    pending = [r["track"] for r in results if r["status"] == "pending"]
+    for t in pending:
+        who = _human_name(by_track[t].get("signed_by")) or "<jméno>"
+        warnings.append(f"[{t}] čeká na podpis {who} — AI návrh není podpis (ADR-0023); "
+                        f"`pflanzer checkpoint --slug {slug} <okno> --by \"{who}\" --note …`")
+    # Dvě DPIA triggery + odložené právo: nesmí vypadat jako „v pořádku“ bez varování.
+    legal = by_track.get("legal") or {}
+    dpia_hits = len(re.findall(r"(?i)dpia", str(legal.get("artefact_md") or ""))) \
+        + len(legal.get("dpia_triggers") or [])
+    dpia_n = len(legal.get("dpia_triggers") or []) or (2 if dpia_hits >= 2 else 0)
+    if legal.get("status") == "deferred" and (dpia_n >= 2 or dpia_hits >= 2):
+        warnings.append("[legal] DPIA odložena i přes více triggerů — před Shipem musí DPO "
+                        "DPIA dokončit a podepsat okno `pravo`.")
+    elif legal.get("status") == "deferred":
+        warnings.append("[legal] právo odloženo — Ship ho bez podpisu nepustí.")
+    disc = by_track.get("discovery") or {}
+    disc_text = f"{disc.get('rationale') or ''} {disc.get('artefact_md') or ''}"
+    if re.search(r"(?i)opt-?out", disc_text) and disc.get("status") in ("ok", "deferred", "pending"):
+        why = _clip_text(str(disc.get("rationale") or disc_text), 160)
+        warnings.append(f"[discovery] opt-out z discovery (justifikace: {why}) — zapsáno do "
+                        "audit logu; discovery debt zůstává.")
+        opt_out_discovery = True
+    else:
+        opt_out_discovery = False
+
+    overall = "blocked" if blockers else ("pending" if pending else "ok")
 
     # Persist
     TRIAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,11 +121,16 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         for r in results:
             track = r["track"]
             artefact_md = r.get("artefact_md", "")
+            if track == "discovery" and r["status"] != "ok":
+                # Podpis Kickoffu (Zadání) nepřepisujeme návrhem/opt-outem z triage.
+                kept = conn.execute(
+                    "SELECT status, artefact_md FROM triage WHERE project_id = ? "
+                    "AND track = 'discovery'", (project_id,)).fetchone()
+                if kept and kept[0] == "ok" and "Kickoff" in (kept[1] or "")[:80]:
+                    warnings.append("[discovery] podpis Zadání z Kickoffu zůstává; triage "
+                                    "discovery ho nepřepsal.")
+                    continue
             signer = str(r.get("signed_by") or "")
-            if r["status"] == "ok" and (not signer.strip()
-                                        or re.search(r"(?i)pending|agent|\bAI\b", signer)):
-                # Návrh AI subagenta není podpis — okno čeká na člověka (ADR-0023).
-                r = {**r, "status": "pending"}
             (project_dir / f"{track}.md").write_text(artefact_md, encoding="utf-8")
 
             conn.execute(
@@ -97,7 +147,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
             )
 
         # Gate decision: update project status if all clear
-        new_status = "triage" if overall == "ok" else "charter"
+        new_status = "charter" if overall == "blocked" else "triage"
         conn.execute(
             "UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (new_status, project_id),
@@ -108,8 +158,14 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
             action="triage.aggregate",
             target_type="project",
             target_id=project_id,
-            payload={"overall": overall, "blockers": blockers, "warnings": warnings},
+            payload={"overall": overall, "blockers": blockers, "warnings": warnings,
+                     "pending": pending, "opt_out_discovery": opt_out_discovery},
         )
+        if opt_out_discovery:
+            audit(conn, action="triage.discovery_opt_out", target_type="project",
+                  target_id=project_id,
+                  payload={"slug": slug, "status": disc.get("status"),
+                           "rationale": str(disc.get("rationale") or "")[:400]})
 
     summary_md = render_summary_md(slug, project_id, overall, results, blockers, warnings)
     summary_path = project_dir / "_summary.md"
@@ -122,6 +178,8 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         "blockers": blockers,
         "warnings": warnings,
         "summary_path": str(summary_path),
+        "pending": pending,
+        "opt_out_discovery": opt_out_discovery,
         "tracks": {r["track"]: r["status"] for r in results},
     }
 
@@ -141,8 +199,14 @@ def render_summary_md(
     if warnings:
         warn_section = "\n## Warnings\n\n" + "\n".join(f"- {w}" for w in warnings) + "\n"
 
+    pend = [r for r in results if r["status"] == "pending"]
+    pend_note = ""
+    if pend:
+        pend_note = ("\n> Čeká na podpis: " + ", ".join(
+            f"{r['track']} ({_human_name(r.get('signed_by')) or '<jméno>'})" for r in pend)
+            + " — AI návrh není podpis; Ship je bez podpisů blokovaný.\n")
     next_step = (
-        "`/pm build " + slug + "` — Build (3 varianty paralelně)." if overall == "ok"
+        "`/pm build " + slug + "` — Build (3 varianty paralelně)." if overall in ("ok", "pending")
         else "**Build odložen.** Vyřešte blockers a spusťte triage pro `" + slug + "` znovu."
     )
 
@@ -152,7 +216,7 @@ def render_summary_md(
 
 > Project ID: {project_id} · Overall: **{overall.upper()}**
 > Per ADR-0002 (Pre-flight triage tracks).
-
+{pend_note}
 | Track | Status | Signed by | Rationale |
 |-------|--------|-----------|-----------|
 {rows}
@@ -259,7 +323,7 @@ def path_owners(conn: sqlite3.Connection, project_id: int) -> dict[str, str]:
 def _human_name(value: str | None) -> str | None:
     """Jméno člověka; „AI“ (náhrada kroku) není podpis."""
     v = (value or "").strip()
-    return None if not v or v.upper().startswith("AI") else v
+    return None if not v or v.upper().startswith("AI") or v.lower() == "pending" else v
 
 
 def triage_windows(conn: sqlite3.Connection, project_id: int,
@@ -498,10 +562,13 @@ def main() -> None:
         die(str(e) if isinstance(e, ValueError) else f"V specu chybí klíč {e}.",
             TRIAGE_SPEC_EXAMPLE)
     slug = out["slug"]
-    ok = out["overall_status"] == "ok"
-    emit(out, title=f"Triage {slug}: {'v pořádku' if ok else 'blokováno'}",
+    ok = out["overall_status"] in ("ok", "pending")
+    title = ("blokováno" if not ok else
+             "čeká na podpis (" + ", ".join(out["pending"]) + ")" if out["pending"]
+             else "v pořádku")
+    emit(out, title=f"Triage {slug}: {title}",
          lines=[f"{t}: {st}" for t, st in out["tracks"].items()] + out["blockers"][:2],
-         warnings=out["warnings"][:2],
+         warnings=out["warnings"][:4],
          next_step=(f"`/pm build {slug}`" if ok
                     else "vyřeš blokace a spusť triage znovu; okna podepisuje "
                          f"`pflanzer checkpoint --slug {slug} bezpecnost --by JMÉNO --note …`"),

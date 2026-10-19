@@ -5,6 +5,7 @@ Pořadí zjištění příkazu:
 2. Node: `npm run dev` / `npm start` (env PORT; u Vite se přidá `--port`)
 3. Python: Makefile cíl `run` (env PORT), `python -m uvicorn modul:app`, nebo
    `python -m <balíček>` s `__main__.py` (env PORT).
+4. Makefile cíl `run` (Go i další, env PORT), jinak Go `go run .` / `go run ./cmd/<app>`.
 Interpreter: `PFLANZER_PYTHON` > `.venv/bin/python` / `venv/bin/python` > `python3`.
 
 Jen stdlib. Žádný příkaz nenašel = `detect_run` vrací None (volající řekne lidsky,
@@ -184,13 +185,33 @@ def _detect_python(wt: Path, port: int) -> RunSpec | None:
     return None
 
 
+def _detect_make_go(wt: Path, port: int) -> RunSpec | None:
+    """Makefile s cílem `run` (Go, Rust, cokoli; env PORT), jinak Go: `go run .` / `go run ./cmd/<app>`."""
+    env = {"PORT": str(port)}
+    if _has_make_target(wt, "run") and shutil.which("make"):
+        return RunSpec("make run", ["make", "run"], env, wt, "Makefile (run)")
+    if (wt / "go.mod").is_file() and shutil.which("go"):
+        target = None
+        if any(f.suffix == ".go" and not f.name.endswith("_test.go") and
+               re.search(r"^package main\b", _read(f), re.MULTILINE) for f in wt.glob("*.go")):
+            target = "."
+        else:
+            mains = sorted(d for d in wt.glob("cmd/*") if (d / "main.go").is_file())
+            if mains:
+                target = f"./cmd/{mains[0].name}"
+        if target:
+            argv = ["go", "run", target]
+            return RunSpec(" ".join(argv), argv, env, wt, f"go run {target}")
+    return None
+
+
 def detect_run(wt: Path, port: int, role: str | None = None,
                config_wt: Path | None = None, api_port: int | None = None) -> RunSpec | None:
     """Příkaz ke spuštění aplikace ve worktree na daném portu; None = nenašel se.
 
     `role` (multi-repo, sekundární repo): hledá se `[preview.<role>] command` v project.toml
     primárního repa (`config_wt`) a pak v samotném repu (`[preview.<role>]`, `[preview]`);
-    jinak autodetekce podle obsahu repa (Node / Python).
+    jinak autodetekce podle obsahu repa (Node / Python / Makefile `run` / Go).
 
     V `command` se `{port}` nahradí portem aplikace a `{api_port}` portem API části monorepa
     (`api_port`, jinak port+1001); oba jdou i do env (`PORT`, `API_PORT`)."""
@@ -211,7 +232,7 @@ def detect_run(wt: Path, port: int, role: str | None = None,
             if "{api_port}" in cmd:
                 env["API_PORT"] = env["PFLANZER_API_PORT"] = str(aport)
             return RunSpec(full, full, env, wt, src)
-    return _detect_node(wt, port) or _detect_python(wt, port)
+    return _detect_node(wt, port) or _detect_python(wt, port) or _detect_make_go(wt, port)
 
 
 # --------------------------------------------------------------------------

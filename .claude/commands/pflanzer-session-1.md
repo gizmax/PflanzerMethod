@@ -178,8 +178,15 @@ nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
 ## Krok 4 — Push a preview
 
 ```bash
-git push origin pflanzer/<slug>-A pflanzer/<slug>-B pflanzer/<slug>-C
+# každou větev pushni z jejího worktree (klon pod data/targets/<slug>-<X>)
+cd data/targets/<slug>-A && git push origin pflanzer/<slug>-A
+cd data/targets/<slug>-B && git push origin pflanzer/<slug>-B
+cd data/targets/<slug>-C && git push origin pflanzer/<slug>-C
 ```
+
+Větve `pflanzer/<slug>-A/B/C` žijí v klonu target repa pod `data/targets/<slug>-<X>` (přesná cesta je ve výstupu `pflanzer worktree setup`), **ne v hlavním repu**. Pushuj odtamtud: `cd data/targets/<slug>-A && git push origin pflanzer/<slug>-A` (totéž pro B a C).
+V hlavním repu produktu tyto větve nejsou — `git push origin pflanzer/<slug>-A`
+tam skončí chybou „src refspec does not match“.
 
 **Připomeň: bez pushe nejsou preview URL a Async nemá na co klikat.**
 Preview URL = to, co firma už má (Vercel/Netlify preview, review apps,
