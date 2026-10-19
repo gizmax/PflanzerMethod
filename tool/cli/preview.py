@@ -919,6 +919,7 @@ def _is_spa_dir(wt: Path) -> bool:
 _COMPONENT_DIRS = ("components", "component", "ui", "hooks", "lib", "utils", "shared",
                    "layouts", "features", "modules", "widgets")  # .tsx/.vue tady je komponenta, ne stránka
 _COMPONENT_EXTS = (".tsx", ".jsx", ".vue", ".svelte")
+_TEMPLATE_DIRS = ("templates", "template")  # Jinja/Django šablony nejsou trasy
 _SKIP_PARTS = ("test", "spec", "docs/", "node_modules", ".pflanzer", "fixtures", "__tests__")
 
 
@@ -958,6 +959,71 @@ def next_route_for(rel: str) -> str | None:
     return None
 
 
+_PY_DECOR_RE = re.compile(
+    r"""^\s*@(\w+)\.(?:get|post|route|api_route)\(\s*(?:path\s*=\s*)?['"]([^'"]*)['"]""")
+_PY_ROUTER_RE = re.compile(r"""\b(\w+)\s*=\s*(?:\w+\.)*(?:APIRouter|Blueprint)\(([^)]*)\)""")
+_PY_INCLUDE_RE = re.compile(
+    r"""\.(?:include_router|register_blueprint)\(\s*(?:(\w+)\.)?(\w+)\s*(?:,([^)]*))?\)""")
+_PY_PREFIX_RE = re.compile(r"""\b(?:url_)?prefix\s*=\s*['"]([^'"]*)['"]""")
+_PY_SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", "site-packages", "build",
+                 "dist", ".tox", ".mypy_cache"}
+
+
+def _py_files(wt: Path, limit: int = 400) -> list[Path]:
+    out: list[Path] = []
+    for root, dirs, files in os.walk(wt):
+        dirs[:] = [d for d in dirs if d not in _PY_SKIP_DIRS and not d.endswith(".egg-info")]
+        for f in files:
+            if f.endswith(".py"):
+                out.append(Path(root) / f)
+                if len(out) >= limit:
+                    return out
+    return out
+
+
+def _py_prefix_maps(wt: Path, file: Path) -> tuple[dict[str, str], dict[tuple[str | None, str], str]]:
+    """(prefixy routerů definované v `file`, prefixy z include_router/register_blueprint v repu)."""
+    own: dict[str, str] = {}
+    try:
+        for m in _PY_ROUTER_RE.finditer(file.read_text(encoding="utf-8", errors="replace")):
+            pm = _PY_PREFIX_RE.search(m.group(2))
+            own[m.group(1)] = pm.group(1) if pm else ""
+    except OSError:
+        pass
+    incl: dict[tuple[str | None, str], str] = {}
+    for f in _py_files(wt):
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in _PY_INCLUDE_RE.finditer(text):
+            pm = _PY_PREFIX_RE.search(m.group(3) or "")
+            if pm:
+                incl[(m.group(1), m.group(2))] = pm.group(1)
+    return own, incl
+
+
+def _py_route_path(wt: Path, rel: str, added: list[str]) -> list[str]:
+    """Trasy FastAPI/Flask z přidaných řádků souboru včetně prefixu routeru / include / blueprintu."""
+    file = wt / rel
+    own, incl = _py_prefix_maps(wt, file)
+    stem = file.stem
+    out: list[str] = []
+    for ln in added:
+        m = _PY_DECOR_RE.match(ln)
+        if not m:
+            continue
+        var, path = m.group(1), m.group(2)
+        pre = own.get(var, "")
+        outer = incl.get((stem, var), incl.get((None, var), ""))
+        # `app.include_router(orders.router, prefix=...)` → klíč (modul, proměnná); modul = stem souboru
+        full = (outer.rstrip("/") + "/" + pre.strip("/") + "/" + path.strip("/")).replace("//", "/")
+        full = re.sub(r"<(?:\w+:)?(\w+)>", r"{\1}", full)
+        full = "/" + full.strip("/")
+        out.append(full)
+    return out
+
+
 def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
     """Statické cesty, které varianta přidala proti mainu (z diffu: route definice + nové soubory)."""
     base = None
@@ -982,26 +1048,46 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
                 routes.append(r)
         return routes
     spa = is_spa(wt) if spa is None else spa
+    cur = ""
+    py_added: dict[str, list[str]] = {}
+    candidates: list[str] = []
     for ln in diff.splitlines():
-        if not ln.startswith("+") or ln.startswith("+++"):
+        if ln.startswith("+++ "):
+            cur = ln[6:] if ln.startswith("+++ b/") else ""
             continue
-        for rx in (_SPA_ROUTE_RES if spa else _ROUTE_RES):
+        if not ln.startswith("+"):
+            continue
+        is_py = cur.endswith(".py") and not spa
+        if is_py:
+            py_added.setdefault(cur, []).append(ln[1:])
+        for i, rx in enumerate(_SPA_ROUTE_RES if spa else _ROUTE_RES):
+            if is_py and i == 1:
+                continue  # dekorátory v Pythonu řeší _py_route_path (prefix routeru)
             for m in rx.finditer(ln):
-                r = m.group(1)
-                if not r.startswith("/"):
-                    r = "/" + r
-                r = r.rstrip("/") or "/"
-                if r == "/api" or r.startswith("/api/") or r.startswith("/static"):
-                    continue  # API trasa není stránka, na kterou by vedl odkaz
-                if r != "/" and r not in routes:
-                    routes.append(r)
+                candidates.append(m.group(1))
+    for rel, lines in py_added.items():
+        try:
+            candidates.extend(_py_route_path(wt, rel, lines))
+        except Exception:  # noqa: BLE001 — advisory
+            pass
+    for r in candidates:
+        if not r.startswith("/"):
+            r = "/" + r
+        r = r.rstrip("/") or "/"
+        if r == "/api" or r.startswith("/api/") or r.startswith("/static"):
+            continue  # API trasa není stránka, na kterou by vedl odkaz
+        if r.startswith("/{"):
+            continue  # čistě parametrická trasa bez statického prefixu nejde ověřit
+        if r != "/" and r not in routes:
+            routes.append(r)
     if spa:  # nové .tsx/.jsx soubory jsou komponenty, ne cesty
         return routes
     names = subprocess.run(["git", "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD"],
                            cwd=wt, capture_output=True, text=True, timeout=30).stdout.split()
     for n in names:
         low = n.lower()
-        if any(p in low for p in _SKIP_PARTS) or not low.endswith(
+        if any(p in low for p in _SKIP_PARTS) or Path(low).stem.startswith("_") or any(
+                part in _TEMPLATE_DIRS for part in Path(low).parts[:-1]) or not low.endswith(
                 (".html", ".ejs", ".pug", ".hbs", ".njk", ".jinja", ".jinja2", ".tsx", ".jsx",
                  ".vue", ".svelte")):
             continue
@@ -1035,8 +1121,8 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
                  for h in re.findall(r"""(?:href|action)\s*=\s*['"]([^'"]+)['"]""", body, re.I)]
         hrefs = [re.sub(r"^https?://[^/]+", "", h) for h in hrefs]
         def _is_linked(r: str) -> bool:
-            if "[" in r:  # dynamická trasa (/kvetiny/[id]): stačí odkaz pod statickým prefixem
-                pre = r.split("[", 1)[0].rstrip("/")
+            if "[" in r or "{" in r:  # dynamická trasa (/kvetiny/[id], /objednavka/{id}): stačí odkaz pod prefixem
+                pre = re.split(r"[\[{]", r, maxsplit=1)[0].rstrip("/")
                 return any(h.startswith(pre + "/") for h in hrefs if pre)
             return any(h == r or h.endswith(r) or h == r.lstrip("/") for h in hrefs)
 

@@ -570,6 +570,12 @@ def _install_python(wt: Path) -> dict[str, Any]:
         if rc != 0:
             return {**res, "status": "failed", "details": (out + err)[-300:],
                     "cmd": ".venv/bin/python -m pip install " + " ".join(cmd[len(pip):])}
+    # `pip install -e .` nechá `<pkg>.egg-info/` v repu; do PR nepatří (lokální exclude, nic necommituje).
+    for pat in ("*.egg-info/", "/.venv/"):
+        try:
+            _exclude_locally(wt, pat)
+        except (OSError, RuntimeError):  # není git worktree → nic k vyloučení
+            pass
     out_res: dict[str, Any] = {**res, "status": "ok", "cmd": "python3 -m venv .venv"}
     if missing:
         out_res["dev_tools_missing"] = missing

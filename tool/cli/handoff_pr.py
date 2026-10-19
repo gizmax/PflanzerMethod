@@ -676,7 +676,15 @@ def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
 
 def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None) -> list[str]:
     """Sekce „Co se mění“: hook, metrika úspěchu a vítěz s popisem (ne boilerplate o metodě)."""
-    lines = [real(p[4]) or name]
+    hook = real(p[4]) or name
+    try:  # starší projekty mají v hypotéze připojený label risk profilu — to není zadání uživatele
+        from tool.cli.quick_session import RISK_PROFILES
+        for prof in RISK_PROFILES.values():
+            hook = hook.replace(f" {prof['label']}.", "").replace(prof["label"], "")
+        hook = hook.strip() or name
+    except (ImportError, AttributeError, KeyError, TypeError):
+        pass
+    lines = [hook]
     if metric_primary:
         lines.append(f"Metrika úspěchu: {metric_primary}")
     if w:
@@ -1037,7 +1045,7 @@ def _pr_command_multi_md(slug: str, parts: dict[str, Any]) -> str:
 
 ```bash
 cd {wd}
-git add -A
+git add -A -- . ':(exclude)*.egg-info/*'
 git diff --cached --quiet || git commit -F - <<'COMMITMSG'
 {title}
 
@@ -1097,7 +1105,7 @@ Reviewera přidejte ručně (`--reviewer <github-handle>`): někoho, kdo u Build
 
 ```bash
 cd {wb['work_dir']}
-git add -A
+git add -A -- . ':(exclude)*.egg-info/*'
 git diff --cached --quiet || git commit -F - <<'COMMITMSG'
 {commit_msg}
 COMMITMSG

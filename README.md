@@ -33,7 +33,7 @@ Test 30 sekund je na začátku [`docs/zacni.md`](docs/zacni.md).
 curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # 1. instalace
 pflanzer init            # 2. v repu produktu: INTEGRATION_GUIDE + CONSTITUTION
 pflanzer doctor          # 3. je repo připravené ke Kickoffu? (řekne i co opravit)
-git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push   # 4. push
+git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push   # 4. push
 /pm start                # 5. v Claude Code: Kickoff, 15 min
 ```
 

@@ -146,7 +146,7 @@ Co se stane:
 3. Vytvoří `tests/acceptance/` složku (Charter wizard tam píše `.feature` soubory per session).
 4. Update `.gitignore` (`extracted/`, `.pflanzer/local/`).
 
-**Pak commit všeho najednou** (`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push`), restartuj Claude Code v tom repu a spusť:
+**Pak commit všeho najednou** (`git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push`), restartuj Claude Code v tom repu a spusť:
 
 ```
 /pm start            # Kickoff (nebo /pm live "co dnes řešíme" = Kickoff + Build v jednom)

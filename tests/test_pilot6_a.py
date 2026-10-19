@@ -36,8 +36,7 @@ def test_guide_says_flags_on_in_preview(name: str) -> None:
 def test_guide_trailers_have_no_placeholders(name: str) -> None:
     text = (TEMPLATES / name).read_text(encoding="utf-8")
     assert "<AI>" not in text
-    assert "<slug>" not in text
-    assert "Pflanzer-Variant: objednavka-A" in text
+    assert "Pflanzer-Variant: <slug>-A" in text  # pilot 12: placeholder
 
 
 def test_start_app_sets_preview_env(tmp_path: Path) -> None:

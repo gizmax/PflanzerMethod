@@ -9,7 +9,7 @@ Mapování `projects.status` (DB) na fáze v0.5 (ADR-0021):
 | status            | fáze                          | další krok                    |
 |-------------------|-------------------------------|-------------------------------|
 | draft / charter   | Kickoff rozpracovaný          | /pm start                     |
-| triage            | Kickoff hotový / Build běží   | /pm build                     |
+| triage            | Kickoff hotový / Build běží   | /pm build / zápis Buildu      |
 | session_1         | Build hotový (Async běží)     | /pm feedback  (pak /pm decide)|
 | session_2         | Iterate -> další Build kolo   | /pm build                     |
 | handoff (před Ship)| Rozhodnutí: Go               | checkpoint … / /pm ship       |
@@ -76,7 +76,9 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
     if status in ("draft", "charter"):
         return "Kickoff rozpracovaný", "/pm start"
     if status == "triage":
-        return ("Build běží", "/pm build") if build_running else ("Kickoff hotový", "/pm build")
+        if build_running:  # worktrees jsou, Build se ještě nezapsal do toolu → zapsat, ne stavět znovu
+            return "Build běží", "pflanzer session --spec .pflanzer/specs/<slug>-session.json"
+        return "Kickoff hotový", "/pm build"
     if status == "session_1":
         if feedback_count == 0:
             return "Build hotový — čeká se na Async", "/pm feedback"
@@ -314,6 +316,12 @@ def project_detail(slug: str) -> dict[str, Any]:
             f"WHERE s.project_id = ? AND {resolved} GROUP BY f.severity", (pid,),
         ).fetchall()
         sev = {r["severity"]: int(r["n"]) for r in fb}
+        n_resolved = 0
+        if "resolved_at" in fcols:
+            n_resolved = int(conn.execute(
+                "SELECT COUNT(*) FROM feedback f JOIN variants v ON v.id = f.variant_id "
+                "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? "
+                "AND f.severity = 'critical' AND f.resolved_at IS NOT NULL", (pid,)).fetchone()[0])
         crit_rows = conn.execute(
             "SELECT v.name AS variant, f.submitted_by AS who FROM feedback f "
             "JOIN variants v ON v.id = f.variant_id JOIN sessions s ON s.id = v.session_id "
@@ -345,7 +353,7 @@ def project_detail(slug: str) -> dict[str, Any]:
     decision_row = next((s for s in reversed(sessions) if s["type"] == 2), None)
     decision = decision_row["decision"] if decision_row else None
     iterate_rounds = sum(1 for s in sessions if s["type"] == 3)
-    fcount = sum(sev.values())
+    fcount = sum(sev.values()) + n_resolved  # i vyřešená kritická jsou feedback
     gate = int(p["gate_score_latest"] or 0)
     target = p["production_readiness_target"]
 
@@ -367,7 +375,7 @@ def project_detail(slug: str) -> dict[str, Any]:
 
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
                         build_running=evidence["build_running"])
-    nxt = _with_slug(nxt, slug)
+    nxt = _with_slug(nxt, slug).replace("<slug>", slug)
     if (tier == "full" and p["status"] in ("draft", "charter", "triage")
             and not evidence["build_running"] and not evidence.get("triage_run")):
         # Full stupeň jde přes roles + plný triage; rovnou Build by je přeskočil.
@@ -499,7 +507,7 @@ def project_detail(slug: str) -> dict[str, Any]:
         "variants": [v for v in seen.values() if not in_play or v["name"] in in_play],
         "variants_dropped": [n for n in seen if in_play and n not in in_play],
         "winner": winner,
-        "feedback": {"total": fcount, "critical": critical, "critical_total": critical_total,
+        "feedback": {"total": fcount, "resolved": n_resolved, "critical": critical, "critical_total": critical_total,
                      "critical_informational": {v: len(w) for v, w in critical_info.items()},
                      "by_severity": sev},
         "checkpoints": cps, "blockers": blockers, "info": info,
@@ -606,7 +614,8 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
             lines.append("Úklid po Kill:")
             lines += [f"  - {x}" for x in d["cleanup"]]
         return lines
-    lines.append(f"Feedback: {fb['total']} (kritické otevřené: {fb['critical']}){dec}{win}")
+    res = f", vyřešených {fb['resolved']}" if fb.get("resolved") else ""
+    lines.append(f"Feedback: {fb['total']} (kritické otevřené: {fb['critical']}{res}){dec}{win}")
     cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
     lines.append("Podpisy: " + " · ".join(f"{c['label']} — {c['state_text']}" for c in cps))
     lines += d.get("info", [])

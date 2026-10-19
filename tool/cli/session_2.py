@@ -307,6 +307,7 @@ def prep(slug: str) -> dict[str, Any]:
                 ).fetchall()
                 commitments = [int(c[0]) for c in commit_rows]
         criticals = open_criticals(conn, project_id)
+        resolved_crit = resolved_criticals(conn, project_id)
         iterate_used = conn.execute(
             "SELECT COUNT(*) FROM sessions WHERE project_id = ? AND type = 3",
             (project_id,),
@@ -341,6 +342,7 @@ def prep(slug: str) -> dict[str, Any]:
             "ai_only_ratio": agg["ai_only_ratio"],
             "critical_flags": len(agg["critical_flags"]),
             "open_critical": len(criticals),
+            "resolved_critical": len(resolved_crit),
         },
         "open_critical": criticals,
         "focus_variants": focus,
@@ -763,7 +765,16 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         lines.append("Mob mode: stavěla se jedna společná varianta, takže není co porovnávat. "
                      "Decider rozhoduje, jestli výsledek jde do Shipu (Go), nebo se doladí (Iterate).")
     fb = out["feedback_summary"]
-    sev = ", ".join(f"{severity_label(k)}: {n}" for k, n in
+    n_open, n_res = fb.get("open_critical", 0), fb.get("resolved_critical", 0)
+
+    def _sev_item(k: str, n: int) -> str:
+        if k == "critical" and n_res:
+            note = ("vyřešeno" if not n_open else
+                    f"otevřených {n_open}, vyřešeno {n_res}")
+            return f"{severity_label(k)}: {n} ({note})"
+        return f"{severity_label(k)}: {n}"
+
+    sev = ", ".join(_sev_item(k, n) for k, n in
                     sorted(fb["by_severity"].items(), key=lambda kv: ["critical", "high", "medium",
                                                                        "low"].index(kv[0])
                            if kv[0] in ("critical", "high", "medium", "low") else 9))

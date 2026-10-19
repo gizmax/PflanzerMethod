@@ -294,6 +294,17 @@ def check_scripts(repo: Path) -> list[dict[str, str]]:
                               ("build", "Build skript", WARN)):
         if key in found:
             rows.append(_check(label, OK, f"{found[key]} ({stack})"))
+        elif key == "build" and (repo / "Makefile").is_file():
+            is_py = (repo / "pyproject.toml").is_file() or (repo / "requirements.txt").is_file()
+            if is_py:  # shodně s quality_gates._python_build: bez cíle `build` běží compileall
+                rows.append(_check(label, OK, "Makefile bez cíle `build` (Python: build není "
+                                   "nutný, Ship zkontroluje syntaxi přes compileall)"))
+            else:
+                rows.append(_check(
+                    label, WARN, "Makefile bez cíle `build`",
+                    "Přidej do Makefile cíl `build` (např. `build:` a příkaz buildu), "
+                    "nebo nastav build gate v pflanzer.gates.yml.",
+                    "pilot půjde, ale AI nebude mít čím po kroku ověřit build (kontroly až v Ship)"))
         else:
             lvl = level if stack != "neznámý stack" or key != "test" else WARN
             rows.append(_check(
