@@ -65,9 +65,9 @@ a doplň příkazy pro build / tests / lint / acceptance.
 
 - Autor commitu = dev u klávesnice, ručí za kód jako za vlastní. AI nikdy jako autor —
   žádný `Co-Authored-By: Claude` trailer.
-- PR labely: `ai-generated` + `pflanzer:objednavka`; PR body má sekci „AI provenance".
+- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
 - **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická data.
 
 ## Folder for Pflanzer artefakty
 
-Artefakty Pflanzer Method drží v `docs/pflanzer/objednavka/` (název = slug projektu).
+Artefakty Pflanzer Method drží v `docs/pflanzer/<slug>/` (název = slug projektu).

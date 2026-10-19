@@ -59,14 +59,27 @@ def guide_template_for(path: Path) -> Path:
     return TEMPLATE_PATH
 
 
-def git_add_command(target_repo: Path) -> str:
-    """`git add` jen pro soubory, které existují (.gitignore nemusí v repu být)."""
+# Python artefakty, které `pip install -e .` / pytest / build vyrábí a které nepatří do PR.
+PYTHON_IGNORES = ("*.egg-info/", "__pycache__/", ".pytest_cache/", ".ruff_cache/",
+                  ".coverage", "htmlcov/", "dist/", "build/")
+
+
+def git_add_command(target_repo: Path | None = None) -> str:
+    """Jediný zdroj pravdy pro init commit: `git add` jen pro cesty, které existují.
+
+    Bez `target_repo` vrací kanonický tvar pro dokumentaci (všechny cesty včetně `.claude`).
+    """
     paths = ["docs", ".pflanzer", "tests"]
+    if target_repo is None:
+        return f"git add -A {' '.join(paths + CANONICAL_EXTRA)}"
     if (target_repo / ".gitignore").exists():
         paths.append(".gitignore")
     if (target_repo / ".claude" / "settings.json").exists():
         paths.append(".claude/settings.json")
     return f"git add -A {' '.join(paths)}"
+
+
+CANONICAL_EXTRA = [".gitignore", ".claude/settings.json"]
 
 
 def _git_origin(cwd: Path) -> str | None:
@@ -511,7 +524,7 @@ shadow_pm = "<jméno PdM>"
             if extra:
                 additions.append("\n# Node (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
         if stack_now == "python":
-            extra = _missing(".venv/", "__pycache__/")
+            extra = _missing(".venv/", *PYTHON_IGNORES)
             if extra:
                 additions.append("\n# Python (nikdy do commitu)\n" + "".join(f"{e}\n" for e in extra))
         if additions and text and not text.endswith("\n"):

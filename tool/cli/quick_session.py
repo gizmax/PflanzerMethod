@@ -535,8 +535,9 @@ def bootstrap(
              "třech funkčních variantách, mezi kterými se rozhodne")
     xyz = (
         f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na {built} "
-        f"nad běžícím kódem. {profile['label']}."
-    )
+        f"nad běžícím kódem."
+        + (f" Měřítko úspěchu: {metric.strip().rstrip('.')}." if (metric or "").strip() else "")
+    )  # risk profil (profile["label"]) patří jen do metadat, ne do tvrzení o tom, co se mění
     charter = CharterInput(
         slug=slug,
         name=name,

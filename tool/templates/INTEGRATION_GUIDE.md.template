@@ -69,7 +69,7 @@ src/
 ├── components/      # shared UI primitives (Button, Input, Modal)
 │   └── ui/          # design system components — re-use, neopisovat!
 ├── features/        # feature-scoped code
-│   └── objednavka/  # Pflanzer variants land HERE
+│   └── <slug>/  # Pflanzer variants land HERE
 │       ├── components/
 │       ├── hooks/
 │       ├── api/
@@ -110,9 +110,9 @@ src/
 
 - Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
   za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: Claude` trailer.
-- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: objednavka-A`,
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: <slug>-A`,
   `Pflanzer-Session: 1` (1 = Build, 2 = Rozhodnutí, ship = Ship), `AI-Assisted: claude-code` (nebo codex-cli, cursor).
-- PR labely: `ai-generated` + `pflanzer:objednavka`; PR body má sekci „AI provenance".
+- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
 - Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
   jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
 - Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
@@ -121,6 +121,6 @@ src/
 
 ## Folder for Pflanzer artefakty
 
-Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/objednavka/` (název = slug projektu),
-ne v root. Kód varianty v `src/features/objednavka/`. Po Rozhodnutí winner branche
+Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/<slug>/` (název = slug projektu),
+ne v root. Kód varianty v `src/features/<slug>/`. Po Rozhodnutí winner branche
 se merguje, ostatní se mažou.
