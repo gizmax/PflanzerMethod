@@ -18,6 +18,20 @@ description: Pflanzer Method — jediný vstupní bod. Bez argumentu detekuje st
 
 Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
 
+## Jak mluvit s uživatelem (platí pro všechny `/pm …`)
+
+- Každý příkaz `pflanzer` vypisuje **lidský výstup**: co se stalo → jeden
+  další krok → **Doporučení**. Ukaž ho uživateli (nepřepisuj do vlastních
+  slov) a **předej jeho „Doporučení“** doslova. `--json` použij jen tam,
+  kde z výstupu čteš pole (např. `slug`).
+- Vždy **jeden** další krok ve tvaru `/pm <sloveso> <slug>` + kdo má přijít.
+- Spec do toolu předávej přes `--spec -` a heredoc (žádný soubor v `/tmp`):
+  `pflanzer quick_session bootstrap --spec - <<'EOF' … EOF`.
+- Žargon (worktree, quality gate, checkpoint) při prvním použití v jedné
+  větě vysvětli: oddělená kopie repa · automatická kontrola · 20min okno
+  s podpisem.
+- Nenajde-li uživatel `/pm`, zkus `/pflanzer:pm`.
+
 ## Proč tento command existuje
 
 Uživatel si pamatuje jen `/pm`. Router zjistí, kde projekt je (`pflanzer
@@ -52,7 +66,10 @@ commandu po svém.
 
 - **6 kroků cesty**, každý s pojmenovaným zástupcem: byznys (Decider),
   produkt, design, vývoj, bezpečnost & právo, provoz. Krok bez jména →
-  upozorni a nabídni doplnění, než pustíš `build`.
+  upozorni a nabídni doplnění, než pustíš `build`. Místo jména smí stát
+  **AI náhrada** jen tam, kde to dovoluje ADR-0023 (design; předkontrola
+  bezpečnosti & práva a provozu; produkt jen Quick / throwaway) — **nikdy**
+  byznys a vývoj. Podepisuje vždy člověk.
 - **Jádro 3–4 lidé** (PdM, 1–2 vývojáři, designér) celou dobu; ostatní
   na **okna**: Decider na Kickoff (15 min) + Rozhodnutí; bezpečnost & právo
   checkpoint 20 min během/po Buildu; provoz checkpoint 20 min u Ship.
@@ -77,11 +94,22 @@ pflanzer status            # všechny projekty (vč. stupně Quick / Lean / Full
 pflanzer status --slug S   # jeden projekt
 ```
 
-Výstup = fáze projektu + **jeden doporučený další krok** (`/pm …`). Ukaž ho
-doslova, doplň, **kdo má přijít** (okno), a zeptej se přes AskUserQuestion,
-jestli krok spustit. Víc projektů → tabulka (slug / fáze / další krok)
-a výběr. Žádný projekt → `pflanzer doctor` (je repo připravené?), pak
-`/pm start`; pro malý interní tool `/pm live`.
+Výstup = fáze projektu + **jeden doporučený další krok** (`/pm …`) +
+Doporučení. Ukaž ho doslova, doplň, **kdo má přijít** (okno), a zeptej se
+přes AskUserQuestion, jestli krok spustit. Víc projektů → tabulka (slug /
+fáze / další krok) a výběr.
+
+**Žádný projekt:** nic se neptej na možnosti. Rovnou spusť `pflanzer doctor`
+a podle výsledku doporuč **jediný** krok:
+
+- „připraveno ke Kickoffu: ano“ → „Další krok: `/pm start` — Decider + jádro,
+  15 min.“ (Pro malý interní tool v jednom sezení zmiň `/pm live` jednou
+  větou, ne jako rovnocennou volbu.)
+- „ne“ → vypiš, co chybí a jak to opravit (doctor to říká), a krok „oprav a
+  spusť znovu `/pm`“.
+
+Jsou-li u projektu kroky s AI náhradou (`pflanzer status` je uvádí), připomeň,
+kdo je podepíše.
 
 Neodvozuj stav sám z DB (žádné ruční `sqlite3`) — jediný zdroj pravdy je
 `pflanzer status`.
@@ -100,9 +128,12 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
 pflanzer doctor            # v aktuálním repu; volitelně --target DIR, --json
 ```
 
-Ukaž checklist a „připraveno ke Kickoffu: ano/ne". Při „ne" vypiš, co chybí
-a jak to opravit (viz `docs/zacni.md` § Je repo připravené?). Další krok:
-při „ano" `/pm start`, jinak oprava a znovu `/pm doctor`.
+Ukaž checklist a „připraveno ke Kickoffu: ano/ne" a Doporučení z výstupu.
+Při „ne" vypiš, co chybí a jak to opravit (viz `docs/zacni.md` § Je repo
+připravené?; INTEGRATION_GUIDE vývojář nechá vyplnit v Claude Code a
+zkontroluje, 5 min). Další krok: při „ano“ `/pm start`, jinak oprava a znovu
+`/pm doctor`. Commit všeho najednou, když chybí push:
+`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push`.
 
 ### 3. Deleguj
 

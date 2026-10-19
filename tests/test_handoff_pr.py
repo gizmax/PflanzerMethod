@@ -80,3 +80,59 @@ def test_check_provenance_flags_missing_trailers(shipped: dict[str, Any]) -> Non
     )
     assert any("Pflanzer-Variant" in w for w in prov["warnings"])
     assert any("AI-Assisted" in w for w in prov["warnings"])
+
+
+# --- PR / SHIP.md bez placeholderů ------------------------------------------------------
+
+PLACEHOLDERS = ("doplň", "doplnit", "nezadán", "nezadáno", "YOUR-GH-HANDLE",
+                "Instrumentace hotová", "sandbox.invalid")
+
+
+def test_pr_body_and_ship_have_no_placeholders(shipped: dict[str, Any]) -> None:
+    slug = shipped["slug"]
+    pr = handoff_pr.build_pr(slug)
+    md = handoff_pr.render_ship_md(slug)
+    for text in (pr["body"], md):
+        for ph in PLACEHOLDERS:
+            assert ph not in text, f"placeholder {ph!r} v textu určeném lidem"
+    assert "Brány:" in pr["body"] and "/100" in pr["body"]
+    assert "z " in pr["gates_summary"] and "bran" in pr["gates_summary"]
+    assert "neběžely:" in pr["gates_summary"]
+
+
+def test_shadow_pdm_falls_back_to_path_owner(shipped: dict[str, Any]) -> None:
+    from tool.cli.db import transaction
+
+    slug = shipped["slug"]
+    with transaction() as conn:
+        conn.execute("UPDATE projects SET shadow_pm = NULL, path_owners_json = ? WHERE slug = ?",
+                     ('{"produkt": "Eva Produktová"}', slug))
+    md = handoff_pr.render_ship_md(slug)
+    assert "Shadow PdM" in md and "Eva Produktová" in md
+
+
+def test_open_critical_on_losing_variant_is_informative(shipped: dict[str, Any]) -> None:
+    from tool.cli.db import transaction
+
+    slug = shipped["slug"]
+    with transaction() as conn:
+        vid = conn.execute(
+            "SELECT v.id FROM variants v JOIN sessions s ON s.id = v.session_id "
+            "JOIN projects p ON p.id = s.project_id WHERE p.slug = ? AND v.name = 'B'",
+            (slug,)).fetchone()[0]
+        conn.execute(
+            "INSERT INTO feedback (variant_id, severity, department, category, score, rationale, "
+            "submitted_by) VALUES (?, 'critical', 'Bezpečnost & právo', 'auth', 0.1, "
+            "'B posílá hesla v URL', 'Lucie')", (vid,))
+    body = handoff_pr.build_pr(slug)["body"]
+    assert "Informativně, poražená varianta" in body and "Lucie" in body
+
+
+def test_trim_words_and_failure_line() -> None:
+    long = "Rychlejší objednávkový proces pro firemní zákazníky s mnoha pobočkami a schvalováním"
+    cut = handoff_pr.trim_words(long, 40)
+    assert len(cut) <= 40 and long.startswith(cut) and not cut.endswith(" ")
+    assert cut.split()[-1] in long.split()  # nekončí uprostřed slova
+    out = ("tests/test_x.py:12: in test_total\n    assert total() == 5\n"
+           "E   assert 4 == 5\nE    +  where 4 = total()\n")
+    assert handoff_pr.failure_line(out) == "assert 4 == 5"

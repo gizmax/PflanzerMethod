@@ -40,7 +40,7 @@ Ship (audit N3) — method selection order:
 from __future__ import annotations
 
 import argparse
-import json
+import os
 import re
 import shutil
 import subprocess
@@ -178,6 +178,49 @@ def diff_stats(wt: Path, base_branch: str = "main") -> dict[str, int | None]:
         if parts[1].isdigit():
             removed += int(parts[1])
     return {"added": added, "removed": removed, "files": files}
+
+
+_CODE_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".vue", ".svelte",
+                  ".go", ".java", ".kt", ".cs", ".rb", ".php", ".rs", ".swift")
+_TEST_NAME_RE = re.compile(r"(\.|_)(test|spec)\.[a-z]+$|^test_.*\.py$|_test\.(py|go)$")
+_TEST_DIRS = {"test", "tests", "__tests__", "spec", "e2e"}
+
+
+def _is_test_path(rel: str) -> bool:
+    parts = rel.split("/")
+    return bool(_TEST_NAME_RE.search(parts[-1])) or any(d in _TEST_DIRS for d in parts[:-1])
+
+
+def code_without_tests(wt: Path, base_branch: str = "main") -> dict[str, Any] | None:
+    """Přidal vítěz nové zdrojové soubory bez jediného nového/změněného testu?
+
+    Porovnává pracovní strom s merge-base proti base větvi (commity i necommitnuté změny,
+    včetně nových souborů). None = nejde zjistit (bez gitu / bez base větve).
+    """
+    base = None
+    for ref in (f"origin/{base_branch}", base_branch):
+        rc, mb = _git(wt, "merge-base", "HEAD", ref)
+        if rc == 0 and mb:
+            base = mb
+            break
+    if not base:
+        return None
+    rc, out = _git(wt, "diff", "--name-status", "--no-renames", base, timeout=60)
+    if rc != 0:
+        return None
+    changed: dict[str, str] = {}
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            changed[parts[-1]] = parts[0][:1]
+    rc, untracked = _git(wt, "ls-files", "--others", "--exclude-standard")
+    for rel in untracked.splitlines() if rc == 0 else []:
+        changed.setdefault(rel, "A")
+    new_src = [f for f, st in changed.items()
+               if st == "A" and f.lower().endswith(_CODE_SUFFIXES) and not _is_test_path(f)]
+    tests = [f for f, st in changed.items() if st in ("A", "M") and _is_test_path(f)]
+    return {"new_source_files": len(new_src), "test_files_changed": len(tests),
+            "examples": new_src[:3], "missing_tests": bool(new_src) and not tests}
 
 
 # --------------------------------------------------------------------------
@@ -767,6 +810,13 @@ def base_gates_adapter(worktree: Path, target_branch: str) -> dict[str, Any]:
     out: dict[str, Any] = {"adapter_path": None, "base_ref": None, "name": None,
                            "tmp_dir": None, "warnings": []}
     base_content: bytes | None = None
+    # Best effort: čerstvá base branch (lokální origin/<branch> může být pozadu); bez sítě nevadí.
+    try:
+        subprocess.run(["git", "-C", str(worktree), "fetch", "--quiet", "origin", target_branch],
+                       capture_output=True, timeout=20,
+                       env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+    except (OSError, subprocess.TimeoutExpired):
+        pass
     for ref in (f"origin/{target_branch}", target_branch):
         rc, _ = _git_out(worktree, "rev-parse", "--verify", "--quiet", ref)
         if rc != 0:
@@ -1022,8 +1072,10 @@ def main() -> None:
                    help="Force specific extraction method (default: worktree autodetect)")
     p.add_argument("--force", action="store_true",
                    help="Overwrite existing extracted dir (DELETES node_modules + edits)")
+    p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
 
+    from tool.cli.ux import die, emit  # lazy: ux nepatří k jádru extrakce
     try:
         out = extract(
             slug=args.slug, variant_name=args.variant,
@@ -1031,10 +1083,14 @@ def main() -> None:
             method_override=args.method, force=args.force,
         )
     except (ExtractionError, ValueError) as exc:
-        print(f"Pflanzer Method | pflanzer.cz/method\n\n✖ {exc}", file=sys.stderr)
-        sys.exit(2)
-    print(json.dumps(out, ensure_ascii=False, indent=2))
-
+        die(str(exc), f"pflanzer extract --slug {args.slug} --variant {args.variant}")
+    lines = [f"Varianta {args.variant}: kód načten ({out.get('method')}), "
+             f"{out.get('files_count', '?')} souborů"]
+    if out.get("branch"):
+        lines.append(f"Větev {out['branch']}")
+    emit(out, title=f"Kód varianty {args.variant} načten: {args.slug}", lines=lines,
+         next_step=f"`pflanzer quality_gates --slug {args.slug} --variant {args.variant}`",
+         as_json=args.json)
 
 if __name__ == "__main__":
     main()

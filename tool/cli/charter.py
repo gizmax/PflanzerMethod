@@ -50,6 +50,144 @@ THROWAWAY_USE_CASES = (
 )
 
 
+# --------------------------------------------------------------------------
+# AI náhrada chybějícího zástupce kroku (ADR-0023)
+# --------------------------------------------------------------------------
+
+# Výchozí AI agent per krok (.claude/agents/<agent>.md).
+STEP_AGENTS = {"produkt": "pm-expert", "design": "ux-expert",
+               "bezpecnost": "security-expert", "provoz": "devops-platform-expert"}
+# Kroky, které AI nikdy nezastoupí, a proč.
+AI_FORBIDDEN = {
+    "byznys": "Byznys (Decider) nemůže zastoupit AI — bez člověka s mandátem říct Go/Kill "
+              "se Kickoff nesvolává. Napiš jméno Decidera.",
+    "vyvoj": "Vývoj nemůže zastoupit AI — u klávesnice sedí vývojář (Track P). "
+             "Napiš jméno vývojáře.",
+}
+
+
+def is_ai_owner(value: str | None) -> bool:
+    """True for `AI` and `AI:<agent>` (case-insensitive)."""
+    v = (value or "").strip().lower()
+    return v == "ai" or v.startswith("ai:")
+
+
+def ai_agent(value: str | None, step: str) -> str:
+    """Agent behind an AI owner value (default per step)."""
+    v = (value or "").strip()
+    if ":" in v and v.split(":", 1)[1].strip():
+        return v.split(":", 1)[1].strip()
+    return STEP_AGENTS.get(step, "claude")
+
+
+def owner_display(value: str | None, step: str = "") -> str:
+    """Human display of a path owner: `AI (ux-expert)` for AI stand-ins."""
+    if not value:
+        return ""
+    if is_ai_owner(value):
+        return f"AI ({ai_agent(value, step)})"
+    return value
+
+
+def _norm_owner(value: str | None) -> str:
+    return "AI" if is_ai_owner(value) else (value or "").strip()
+
+
+def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
+                          tier: str | None) -> tuple[list[dict[str, str]], list[str]]:
+    """Check which steps a stand-in AI may cover (ADR-0023 table).
+
+    Returns (ai_stand_ins, warnings); raises ValueError with a human sentence
+    for forbidden steps.
+    """
+    stand_ins: list[dict[str, str]] = []
+    warnings: list[str] = []
+    for step, value in path_owners.items():
+        if not is_ai_owner(value):
+            continue
+        if step in AI_FORBIDDEN:
+            raise ValueError(AI_FORBIDDEN[step])
+        label = PATH_STEPS[step]
+        if step == "produkt" and not (tier == "quick" or risk_profile == "throwaway"):
+            raise ValueError(
+                "Produkt smí zastoupit AI jen ve stupni Quick nebo u throwaway prototypu. "
+                "Tady napiš jméno PdM (nebo Decidera, který scope drží sám)."
+            )
+        agent = ai_agent(value, step)
+        signer = {
+            "produkt": path_owners.get("byznys", "Decider"),
+            "design": (path_owners.get("produkt") if not is_ai_owner(path_owners.get("produkt"))
+                       else path_owners.get("byznys")) or "PdM",
+            "bezpecnost": ("AI pre-check stačí" if risk_profile == "throwaway"
+                           else "člověk do 48 h"),
+            "provoz": ("AI pre-check stačí" if risk_profile == "throwaway"
+                       else (path_owners.get("vyvoj") if risk_profile == "pilot"
+                             else "člověk z provozu")),
+        }[step]
+        stand_ins.append({"step": step, "label": label, "agent": agent, "signer": str(signer)})
+        if step == "design" and risk_profile == "production":
+            warnings.append(
+                "Design zastupuje AI u production projektu — pokud je aplikace pro "
+                "zákazníky, potřeba člověk před Ship."
+            )
+        if step in ("bezpecnost", "provoz") and risk_profile != "throwaway":
+            warnings.append(
+                f"{label}: AI připraví jen draft; podpis člověka je nutný před Ship "
+                f"({'do 48 h' if step == 'bezpecnost' else 'vývojář z jádra stačí u pilotu'})."
+            )
+    return stand_ins, warnings
+
+
+# --------------------------------------------------------------------------
+# Kolik lidí je naráz v místnosti (ADR-0021: max 5) — počítají se LIDÉ, ne role
+# --------------------------------------------------------------------------
+
+MAX_PEOPLE = 5
+# Okno -> kroky cesty, jejichž zástupce do okna přichází navíc k jádru.
+WINDOW_STEPS: dict[str, tuple[str, ...]] = {
+    "Build": (),
+    "Rozhodnutí": ("byznys",),
+    "Checkpoint Bezpečnost & právo": ("bezpecnost",),
+    "Checkpoint Provoz": ("provoz",),
+}
+
+
+def _people(names: list[str | None]) -> dict[str, str]:
+    """casefolded key -> display name; AI and blanks are not people."""
+    out: dict[str, str] = {}
+    for n in names:
+        if n and n.strip() and not is_ai_owner(n):
+            out.setdefault(n.strip().casefold(), n.strip())
+    return out
+
+
+def people_check(core: list[str] | None, path_owners: dict[str, str] | None) -> list[str]:
+    """Warnings for too many humans: core > 5, or one window > 5.
+
+    Without an explicit core the builders (Vývoj, Produkt, Design) form it.
+    """
+    owners = path_owners or {}
+    core_people = _people(list(core or []) or
+                          [owners.get("vyvoj"), owners.get("produkt"), owners.get("design")])
+    warnings: list[str] = []
+    if len(core_people) > MAX_PEOPLE:
+        warnings.append(
+            f"Jádro má {len(core_people)} lidí ({', '.join(core_people.values())}) — víc než "
+            f"{MAX_PEOPLE} naráz nefunguje. Nech stálou účast jen 3–4 lidem, ostatní zvi "
+            "jen na jejich okno."
+        )
+    for window, steps in WINDOW_STEPS.items():
+        guests = _people([owners.get(s) for s in steps])
+        room = {**core_people, **guests}
+        if len(room) > MAX_PEOPLE:
+            who = ", ".join(v for k, v in guests.items() if k not in core_people) or "hosté"
+            warnings.append(
+                f"V okně {window} by bylo {len(room)} lidí — víc než {MAX_PEOPLE} naráz. "
+                f"Ať na okno přijde jen {who} a nikdo další ze stálé účasti."
+            )
+    return warnings
+
+
 @dataclass
 class CharterInput:
     """Kickoff inputs — must mirror the `/pm start` fields."""
@@ -61,9 +199,9 @@ class CharterInput:
     decider_mandate_from: str
     cpo_escalation_contact: str
     sponsor_name: str
-    primary_lagging_metric: str
-    leading_metric: str
-    guardrail_metric: str
+    primary_lagging_metric: str | None
+    leading_metric: str | None
+    guardrail_metric: str | None
     kill_criteria: str
     capacity_profile: str  # default | regulated | audit-grade
     capacity_person_days: int
@@ -127,7 +265,7 @@ def render_charter_md(c: CharterInput) -> str:
     path_block = ""
     if c.path_owners:
         rows = "\n".join(
-            f"| {label} | {c.path_owners.get(key) or '**— BEZ JMÉNA —**'} |"
+            f"| {label} | {owner_display(c.path_owners.get(key)) or '**— BEZ JMÉNA —**'} |"
             for key, label in PATH_STEPS.items()
         )
         path_block = f"""
@@ -145,6 +283,12 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
             + "\n".join(f"- {n}" for n in c.core) + "\n"
         )
     repo_line = f"\n- **Target repo**: {c.target_repo_url}" if c.target_repo_url else ""
+    metrics = [(label, val) for label, val in (
+        ("Primary lagging metric", c.primary_lagging_metric),
+        ("Leading metric", c.leading_metric),
+        ("Guardrail metric", c.guardrail_metric)) if val and str(val).strip()]
+    metrics_block = ("\n".join(f"- **{label}**: {val}" for label, val in metrics) + "\n"
+                     if metrics else "- _Metrika zatím není stanovená — zafixuje se při Rozhodnutí._\n")
 
     return f"""{BRAND_LINE}
 
@@ -166,10 +310,7 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
   neduplikuje, jen odkazuje.
 {path_block}{core_block}
 ## Metrika úspěchu
-- **Primary lagging metric**: {c.primary_lagging_metric}
-- **Leading metric**: {c.leading_metric}
-- **Guardrail metric**: {c.guardrail_metric}
-
+{metrics_block}
 ## Kill kritéria
 {c.kill_criteria}
 
@@ -314,12 +455,32 @@ def run_from_json(path: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--spec", type=Path, required=True,
-                        help="JSON se vstupy Charteru (target_repo_url se doplní z .pflanzer/project.toml). "
-                             "Doporučená cesta je /pm start (quick_session bootstrap).")
+    parser.add_argument("--spec", required=True,
+                        help="JSON se vstupy Charteru, nebo `-` pro stdin (target_repo_url se doplní "
+                             "z .pflanzer/project.toml). Doporučená cesta je /pm start "
+                             "(quick_session bootstrap).")
+    parser.add_argument("--json", action="store_true", help="Strojový výstup")
     args = parser.parse_args()
-    result = run_from_json(args.spec)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    from tool.cli.ux import die, emit, read_spec, tips_for
+    try:
+        spec = read_spec(args.spec)
+        if not spec.get("target_repo_url"):
+            spec["target_repo_url"] = load_project_toml().get("target_repo_url")
+        inp = CharterInput(**spec)
+        md = render_charter_md(inp)
+        pid = persist_charter(inp, md)
+    except TypeError as exc:
+        die(f"Spec nesedí na Charter: {exc}. Doporučená cesta je `pflanzer quick_session "
+            "bootstrap --spec -` (viz /pm start).")
+        return
+    except ValueError as exc:
+        die(str(exc))
+        return
+    result = {"project_id": pid, "charter_path": str(CHARTER_DIR / f"{inp.slug}.md"),
+              "slug": inp.slug}
+    emit(result, title=f"Charter uložen — {inp.name}",
+         lines=[f"Zadání je v `{result['charter_path']}`.", f"Decider: {inp.decider_name}"],
+         next_step=f"/pm build {inp.slug}", tips=tips_for("kickoff"), as_json=args.json)
 
 
 if __name__ == "__main__":

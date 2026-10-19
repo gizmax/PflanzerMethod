@@ -35,6 +35,7 @@ GATES_FILENAME = "pflanzer.gates.yml"
 
 sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
+from tool.cli.ux import die, emit, tips_for  # noqa: E402
 
 
 def _git_origin(cwd: Path) -> str | None:
@@ -106,8 +107,8 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "#build": {"cmd": "python -m build"},
             "types": {"cmd": "mypy ."},
             "lint": {"cmd": "ruff check ."},
-            "tests": {"cmd": "pytest -q"},
-            "#coverage": {"cmd": "pytest -q --cov --cov-branch --cov-report=term",
+            "tests": {"cmd": "python3 -m pytest -q"},
+            "#coverage": {"cmd": "python3 -m pytest -q --cov --cov-branch --cov-report=term",
                           "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
                           **COVERAGE_THRESHOLDS},
             **security,
@@ -322,17 +323,23 @@ shadow_pm = "<jméno PdM>"
             "2. Zkontroluj `.pflanzer/project.toml` (target_branch_owner = GitHub handle).",
             "3. Ověř připravenost: `pflanzer doctor`",
             "4. Commit + PUSH (worktrees se klonují z originu, nepushnuté soubory v nich nebudou): "
-            "`git add docs/INTEGRATION_GUIDE.md .pflanzer/ tests/acceptance .gitignore "
-            "&& git commit -m 'chore(pflanzer): init' && git push`",
+            "`git add -A docs .pflanzer tests .gitignore "
+            "&& git commit -m \"chore(pflanzer): init\" && git push`",
             "5. Restartuj Claude Code v tomto repu a spusť: `/pm start`",
         ] + gates_hint,
     }
 
 
+def _short_action(action: str) -> str:
+    """One short human line per action ("napsáno: docs/X (vyplň…)" → "napsáno: docs/X")."""
+    return re.sub(r"\s*\(.*$", "", action).strip()
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(prog="pflanzer init", description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Target repo path (default: cwd)")
     p.add_argument("--force", action="store_true", help="Přepíše existující soubory")
+    p.add_argument("--json", action="store_true", help="Strojový výstup")
     sub = p.add_subparsers(dest="command")
     gt = sub.add_parser(
         "gates-template",
@@ -340,16 +347,37 @@ def main() -> None:
     )
     gt.add_argument("--path", default=".", help="Target repo path (default: cwd)")
     gt.add_argument("--force", action="store_true", help="Overwrite existing pflanzer.gates.yml")
+    gt.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args()
 
     if args.command == "gates-template":
         out = write_gates_template(Path(args.path), force=args.force)
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-        sys.exit(0 if out.get("ok") else 1)
+        if not out.get("ok"):
+            if args.json:
+                print(json.dumps(out, ensure_ascii=False, indent=2))
+                sys.exit(1)
+            die(out["reason"])
+        emit(out, title="Gate adaptér vytvořen",
+             lines=[f"Soubor `{out['path']}` (stack: {out['stack']}).",
+                    f"Aktivní kontroly: {', '.join(out['active_gates']) or '—'}.",
+                    "Nepodporované kontroly (zatím): " + (", ".join(out["unsupported_gates"]) or "žádné")],
+             next_step="projdi soubor, odkomentuj, co tým umí měřit, a commitni ho do main",
+             tips=[], as_json=args.json)
+        return
 
     out = init(Path(args.target), force=args.force)
-    print(json.dumps(out, ensure_ascii=False, indent=2))
-    sys.exit(0 if out.get("ok") else 1)
+    if not out.get("ok"):
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+            sys.exit(2)
+        die(out["reason"])
+    emit(out, title="Repo je připravené na Pflanzer Method",
+         lines=[_short_action(a) for a in out["actions"][:6]],
+         next_step="vyplň `docs/INTEGRATION_GUIDE.md` a `.pflanzer/CONSTITUTION.md` "
+                   "(30 minut), pak `pflanzer doctor` — a commit + push",
+         tips=tips_for("init"),
+         warnings=[n for n in out["next_steps"] if "gates-template" in n],
+         as_json=args.json)
 
 
 if __name__ == "__main__":

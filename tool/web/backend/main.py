@@ -11,14 +11,19 @@ Auth modes (env PFLANZER_HUB_AUTH_MODE, see tool/web/README-auth.md):
 """
 from __future__ import annotations
 
+import base64
+import binascii
+import hmac
 import logging
 import os
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import unquote
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from .api import feedback as feedback_router
@@ -33,6 +38,7 @@ log = logging.getLogger("pflanzer.web_hub")
 AUTH_MODE_ENV = "PFLANZER_HUB_AUTH_MODE"
 AUTH_MODE_DEV = "dev"
 AUTH_MODE_OIDC = "oidc"
+PASSWORD_ENV = "PFLANZER_HUB_PASSWORD"
 DEV_ANONYMOUS_ACTOR = "anonymous@web-hub"
 MISSING_IDENTITY_DETAIL = (
     "identity header missing — hub must run behind oauth2-proxy "
@@ -65,7 +71,8 @@ def get_actor(request: Request) -> str:
         if value:
             return value
     if get_auth_mode() == AUTH_MODE_DEV:
-        return request.headers.get("X-User", "").strip() or DEV_ANONYMOUS_ACTOR
+        # klient posílá jméno percent-encoded (hlavičky jsou Latin-1, jména mají diakritiku)
+        return unquote(request.headers.get("X-User", "")).strip() or DEV_ANONYMOUS_ACTOR
     raise HTTPException(status_code=401, detail=MISSING_IDENTITY_DETAIL)
 
 
@@ -95,6 +102,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def shared_password(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Volitelná jednoduchá ochrana (HTTP Basic, sdílené heslo) pro `pflanzer hub --host 0.0.0.0`.
+
+    Zapíná se env PFLANZER_HUB_PASSWORD; /api/health zůstává otevřený. Uživatelské jméno
+    se ignoruje (identitu řeší X-User v dev módu).
+    """
+    password = os.environ.get(PASSWORD_ENV, "")
+    if password and request.url.path != "/api/health" and request.method != "OPTIONS":
+        supplied = ""
+        auth = request.headers.get("Authorization", "")
+        if auth.lower().startswith("basic "):
+            try:
+                supplied = base64.b64decode(auth[6:]).decode("utf-8").partition(":")[2]
+            except (binascii.Error, UnicodeDecodeError):
+                supplied = ""
+        if not hmac.compare_digest(supplied.encode(), password.encode()):
+            return JSONResponse(
+                {"detail": "Nejste přihlášeni — zadejte sdílené heslo hubu."},
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Pflanzer Method", charset="UTF-8"'},
+            )
+    return await call_next(request)
+
 
 # Every data endpoint requires an identity (reads included: feedback rationale is
 # internal). /api/health, /api and /api/docs stay open.

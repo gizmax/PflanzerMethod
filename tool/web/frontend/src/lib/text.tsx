@@ -1,0 +1,52 @@
+import type { ReactNode } from "react";
+
+/** Minimální render markdownu z DB: **tučné**, jinak prostý text bez značek. */
+export function Md({ text }: { text: string }): ReactNode {
+  const clean = text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "• ");
+  const parts = clean.split(/\*\*(.+?)\*\*/g);
+  return (
+    <>
+      {parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : <span key={i}>{p}</span>))}
+    </>
+  );
+}
+
+export function stripMd(text: string): string {
+  return text.replace(/\*\*|__|`|^#{1,6}\s+/gm, "").trim();
+}
+
+/** Fáze projektu lidsky (status v DB je interní). */
+export function phaseLabel(status: string): string {
+  switch (status) {
+    case "draft":
+    case "charter":
+      return "Kickoff — zadání se připravuje";
+    case "triage":
+      return "Kickoff hotový — čeká se na Build";
+    case "session_1":
+      return "Async — čekáme na váš feedback";
+    case "session_2":
+      return "Rozhodnutí — vyhodnocuje se feedback";
+    case "handoff":
+      return "Předání — varianta byla vybrána";
+    case "killed":
+      return "Ukončeno";
+    default:
+      return status;
+  }
+}
+
+export const SEVERITY: Record<string, { label: string; hint: string }> = {
+  critical: { label: "Kritické", hint: "Nesmí se nasadit (právo, bezpečnost, data, rozbitý hlavní tok)" },
+  high: { label: "Vysoké", hint: "Opravit před spuštěním" },
+  medium: { label: "Střední", hint: "Oprava v dalším kole" },
+  low: { label: "Nízké", hint: "Kosmetika" },
+};
+
+export function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("cs-CZ");
+}

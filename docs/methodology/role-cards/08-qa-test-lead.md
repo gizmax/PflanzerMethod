@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #8 — QA / Test lead
 
-> Jakmile padne „produkce“ nebo „pilot“, hlídáš, že varianty mají testovatelné chování, ne jen UI.
+> Za 20 minut v Asyncu potvrdíš, že varianty mají testovatelné chování, ne jen UI, a které scénáře se nesmí rozbít.
 
 **Krok cesty:** Vývoj (kvalita) · **Kde jsi:** jádro nebo okno — Build (scénáře) a Ship (gates)
 
 Status v catalogu: **povinná při triggeru** · Kdy se zve: Jakákoli zmínka 'produkce' nebo 'pilot' v output?
 
 ## Přines do svého okna
-- Test strategy a regression inventory
-- Kritické flows, které se nesmí rozbít
-- Contract test framework (Pact) a automation framework
-- Seed akceptačních scénářů `tests/acceptance/<slug>.feature`
+- Kritické průchody, které se nesmí rozbít
+- 3–5 akceptačních scénářů s aspoň jednou chybovou cestou na variantu
+- Lidskou kontrolu každého scénáře, který napsala AI
+- Pro hlubší kontrolu (stupeň Full): test strategy a regression inventory, contract test (Pact), P2P checklist o 9 položkách
 
 ## Podepisuješ
 - 3–5 BDD / Gherkin scénářů s ≥ 1 negative path per varianta
@@ -35,7 +35,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - AI testuje implementaci místo chování
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ AI generuje testy, každý scénář ale před CI reviewuje člověk. Sub-agent: `.claude/agents/qa-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); perspektivu dodá QA expert jako vstup a každý scénář zkontroluje člověk před CI. Sub-agent: `.claude/agents/qa-expert.md`.
 
 ---
 

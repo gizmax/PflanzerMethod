@@ -25,8 +25,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli.charter import is_ai_owner, people_check  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, transaction  # noqa: E402
 from tool.cli.tier import infer_tier  # noqa: E402
+from tool.cli.ux import die, emit, read_spec, tips_for  # noqa: E402
 
 CATALOG_PATH = REPO_ROOT / "tool" / "data" / "role_catalog.json"
 SUMMARY_DIR = DATA_ROOT / "charters"
@@ -163,21 +165,43 @@ def _rationale(role: dict[str, Any], triggers: dict[str, bool], answers: RoleAns
     return f"Triggered by: {role.get('trigger_question', role['trigger'])}"
 
 
-def sanity_check(selected: list[dict[str, Any]], profile: str) -> list[str]:
-    """Return list of warnings (v0.5: od >5 lidí naráz, ADR-0021)."""
+def _project_people(slug: str | None) -> tuple[list[str] | None, dict[str, str] | None]:
+    """(core, path_owners) of a persisted project, or (None, None)."""
+    if not slug:
+        return None, None
+    with transaction() as conn:
+        row = conn.execute("SELECT core_json, path_owners_json FROM projects WHERE slug = ?",
+                           (slug,)).fetchone()
+    if not row:
+        return None, None
+    return (json.loads(row[0]) if row[0] else None,
+            json.loads(row[1]) if row[1] else None)
+
+
+def sanity_check(selected: list[dict[str, Any]], profile: str,
+                 slug: str | None = None) -> list[str]:
+    """Return list of warnings (v0.5: počítají se LIDÉ, ne role, ADR-0021).
+
+    Víc než 5 lidí = jádro > 5 nebo naráz v jednom okně > 5. Bez znalosti
+    jádra a kroků cesty (starý projekt) se počítají unikátní jména vlastníků.
+    """
     warnings: list[str] = []
-    people = {
-        r["human_owner"].strip().casefold()
-        for r in selected if r.get("human_owner") and r["human_owner"].strip()
-    }
-    count = len(people) if people else len(selected)
-    unit = "lidí" if people else "rolí"
-    if count > MAX_PEOPLE:
-        warnings.append(
-            f"⚠ {count} {unit} — víc než {MAX_PEOPLE} lidí naráz (ADR-0021). "
-            "Zúž scope nebo přesuň zástupce na okna (Checkpoint / Rozhodnutí), "
-            "ne do jádra."
-        )
+    core, owners = _project_people(slug)
+    if owners:
+        warnings += [f"⚠ {w}" for w in people_check(core, owners)]
+    else:
+        people = {
+            r["human_owner"].strip().casefold()
+            for r in selected
+            if r.get("human_owner") and r["human_owner"].strip()
+            and not is_ai_owner(r["human_owner"])
+        }
+        if len(people) > MAX_PEOPLE:
+            warnings.append(
+                f"⚠ {len(people)} lidí — víc než {MAX_PEOPLE} naráz nefunguje (ADR-0021). "
+                "Stálá účast jen 3–4 lidem, ostatní zvi jen na jejich okno "
+                "(Checkpoint / Rozhodnutí)."
+            )
     unnamed = [r["catalog_label"] for r in selected
                if r["status"] == "mandatory" and not (r.get("human_owner") or "").strip()]
     if unnamed:
@@ -259,7 +283,7 @@ def persist_roles(slug: str, profile: str, selected: list[dict[str, Any]]) -> di
 
     SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = SUMMARY_DIR / f"{slug}-roles.md"
-    warnings = sanity_check(selected, profile)
+    warnings = sanity_check(selected, profile, slug)
     summary_path.write_text(
         render_summary_md(slug, project_id, profile, selected, warnings),
         encoding="utf-8",
@@ -573,8 +597,9 @@ def generate_cards(
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--spec", type=Path, help="JSON spec with role wizard answers")
+    parser = argparse.ArgumentParser(prog="pflanzer roles", description=__doc__.split("\n")[0])
+    parser.add_argument("--spec", help="JSON s odpověďmi průvodce rolemi, nebo `-` pro stdin")
+    parser.add_argument("--json", action="store_true", help="Strojový výstup")
     sub = parser.add_subparsers(dest="command")
     cards = sub.add_parser("cards", help="Render one-page role cards (audit N15)")
     target = cards.add_mutually_exclusive_group(required=True)
@@ -583,6 +608,7 @@ def main(argv: list[str] | None = None) -> None:
                         help=f"All catalog roles (default out: {STATIC_CARDS_DIR.relative_to(REPO_ROOT)})")
     cards.add_argument("--out", type=Path, help="Output directory")
     cards.add_argument("--tier", choices=TIERS, help="Highlight Quick / Lean / Full presence")
+    cards.add_argument("--json", action="store_true", help="Strojový výstup")
     args = parser.parse_args(argv)
 
     if args.command == "cards":
@@ -591,11 +617,32 @@ def main(argv: list[str] | None = None) -> None:
         except ValueError as exc:
             print(f"{BRAND_LINE}\n\n✖ {exc}", file=sys.stderr)
             sys.exit(2)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        who = f" pro `{args.slug}`" if args.slug else " (celý catalog)"
+        emit(result, title=f"Role cards hotové{who}",
+             lines=[f"{result['cards_count']} karet ve složce `{result['out_dir']}`.",
+                    f"Rozcestník: `{result['index_path']}`."],
+             next_step=("pošli každému jeho kartu (1 strana) s pozvánkou na jeho okno"
+                        if args.slug else "`pflanzer roles cards --slug <slug>` pro karty se jmény"),
+             tips=[], as_json=args.json or getattr(args, "json", False))
         return
     if args.spec is None:
         parser.error("--spec is required (or use the `cards` subcommand)")
-    print(json.dumps(run_from_json(args.spec), ensure_ascii=False, indent=2))
+    try:
+        spec = read_spec(args.spec)
+        answers = RoleAnswers(**spec)
+        selected = resolve_roles(answers)
+        result = persist_roles(answers.slug, answers.profile, selected)
+    except TypeError as exc:
+        die(f"Spec nesedí na průvodce rolemi: {exc}")
+        return
+    except ValueError as exc:
+        die(str(exc))
+        return
+    names = [f"{r['catalog_label']} — {r['human_owner'] or 'bez jména'}" for r in selected]
+    emit(result, title=f"Zástupci vybráni — {answers.slug}",
+         lines=[f"{result['roles_count']} rolí v seznamu zástupců (ne v místnosti)."] + names[:5],
+         next_step=f"/pm build {answers.slug}", tips=tips_for("build"),
+         warnings=[w.lstrip("⚠ ").strip() for w in result["warnings"]], as_json=args.json)
 
 
 if __name__ == "__main__":

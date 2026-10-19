@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, git_info, locate_worktree, table_has_col  # noqa: E402
+from tool.cli.ux import die, emit, read_spec, tips_for  # noqa: E402
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
@@ -146,27 +147,44 @@ def diff_summary_to_md(diff_summary: Any) -> str | None:
     return "\n".join(lines) or None
 
 
+SPEC_EXAMPLE = """  {
+    "slug": "moje-appka",
+    "facilitator": "Fanda",
+    "decider_call": {"shortlist": ["A", "B"], "rationale": "A je nejrychlejší"},
+    "variants": [
+      {"name": "A", "builder": "claude-code", "prototype_url": "https://…",
+       "description_md": "Co varianta dělá",
+       "role_preferences": [{"role_idx": 1, "user_value": 0.8, "effort": 0.3, "risk": 0.2,
+                             "strategic_fit": 0.9, "commitment_level": 3,
+                             "rationale": "Proč to tak vidím (1–2 věty)"}]}
+    ]
+  }"""
+
+
 def _validate_spec(spec: dict[str, Any]) -> None:
     if "slug" not in spec:
-        raise ValueError("spec missing 'slug'")
+        raise ValueError("Ve specu chybí `slug` (jméno projektu z Kickoffu).")
     variants = spec.get("variants") or []
     if not (1 <= len(variants) <= 3):
-        raise ValueError(f"Build musí mít 1-3 varianty, got {len(variants)}")
+        raise ValueError(f"Build musí mít 1–3 varianty, ve specu jich je {len(variants)}.")
     seen_names: set[str] = set()
-    for v in variants:
-        for k in ("name", "builder", "prototype_url"):
+    for i, v in enumerate(variants, 1):
+        label = f"Varianta {v.get('name') or '#' + str(i)}"
+        for k, why in (("name", "písmeno A, B nebo C"),
+                       ("builder", "čím se stavěla, např. claude-code")):
             if not v.get(k):
-                raise ValueError(f"variant missing '{k}': {v}")
+                raise ValueError(f"{label}: chybí `{k}` ({why}).")
         if v["builder"] not in ALLOWED_BUILDERS:
-            raise ValueError(f"unknown builder '{v['builder']}' (variant {v['name']})")
+            raise ValueError(f"{label}: neznámý builder „{v['builder']}“. "
+                             f"Povolené: {', '.join(sorted(ALLOWED_BUILDERS))}.")
         if v["name"] in seen_names:
-            raise ValueError(f"duplicate variant name '{v['name']}'")
+            raise ValueError(f"Varianta {v['name']} je ve specu dvakrát.")
         seen_names.add(v["name"])
         for rp in v.get("role_preferences", []):
             if not rp.get("rationale"):
                 raise ValueError(
-                    f"role_preferences row for variant '{v['name']}' missing rationale "
-                    "(POVINNÉ, viz docs/methodology/04-session-1.md § Score závaznosti)"
+                    f"{label}: u hlasu role {rp.get('role_idx', '?')} chybí `rationale` "
+                    "(1–2 věty, proč to zástupce vidí tak, jak hlasoval)."
                 )
 
 
@@ -212,6 +230,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
     _validate_spec(spec)
 
     slug = spec["slug"]
+    warnings: list[str] = []
     facilitator = spec.get("facilitator") or current_actor()
     decider_call = spec.get("decider_call", {})
 
@@ -318,10 +337,17 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             role_meta_by_id = {r["id"]: r for r in idx_to_role.values()}
             agg_score = _aggregate_variant_score(resolved, role_meta_by_id)
 
+            given_url = v.get("prototype_url")
             proto_url = (
-                kept_urls.get(v["name"], v["prototype_url"])
-                if _is_placeholder_url(v["prototype_url"]) else v["prototype_url"]
+                kept_urls.get(v["name"], given_url or "")
+                if _is_placeholder_url(given_url) else given_url
             )
+            if _is_placeholder_url(proto_url):
+                warnings.append(
+                    f"Varianta {v['name']} nemá preview URL — zástupci v Asyncu nemají na co klikat. "
+                    f"Doplň: `pflanzer worktree set-url --slug {slug} --variant {v['name']} "
+                    f"--url https://…`")
+                proto_url = proto_url or ""  # sandbox.invalid zůstává (NOT NULL), None -> ""
             if v["name"] in existing_variants:
                 variant_id = existing_variants[v["name"]]
                 conn.execute(
@@ -380,7 +406,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
 
             persisted_variants.append({
                 "id": variant_id, "name": v["name"], "builder": v["builder"],
-                "prototype_url": v["prototype_url"],
+                "prototype_url": None if _is_placeholder_url(proto_url) else proto_url,
                 "preference_score": agg_score,
                 "branch": branch, "head_sha": head_sha,
                 "description_md": v.get("description_md"),
@@ -432,10 +458,13 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         "slug": slug,
         "variants": persisted_variants,
         "summary_path": str(summary_path),
+        "warnings": warnings,
         "next_step": (
-            f"Async: sdílej preview URL variant "
-            f"({', '.join(v['name'] + ' ' + v['prototype_url'] for v in persisted_variants)}) "
-            f"zástupcům kroků cesty (3–5 dní). Feedback sbírej přes `/pm feedback {slug}`, "
+            "Async: sdílej preview"
+            + (" URL variant (" + ", ".join(f"{v['name']} {v['prototype_url']}"
+                                          for v in persisted_variants if v["prototype_url"]) + ")"
+               if any(v["prototype_url"] for v in persisted_variants) else "")
+            + f" zástupcům kroků cesty (3–5 dní). Feedback sbírej přes `/pm feedback {slug}`, "
             f"pak `/pm decide {slug}`."
         ),
     }
@@ -457,7 +486,7 @@ def render_summary_md(
     var_table = "\n".join(
         f"| {v['name']} | `{v['builder']}` | {v['preference_score']:.2f} | "
         f"{'shortlist' if v['name'] in shortlist else '—'} | "
-        f"[preview]({v['prototype_url']}) |"
+        f"{'[preview](' + v['prototype_url'] + ')' if v['prototype_url'] else '— (bez URL)'} |"
         for v in variants
     )
 
@@ -561,17 +590,40 @@ def _fmt(x: float | None) -> str:
 # --------------------------------------------------------------------------
 
 
-def run_from_json(path: Path) -> dict[str, Any]:
-    spec = json.loads(path.read_text(encoding="utf-8"))
-    return persist(spec)
+def run_from_json(path: Path | str) -> dict[str, Any]:
+    return persist(read_spec(path, example=SPEC_EXAMPLE))
+
+
+def _owners_for(slug: str) -> dict[str, str]:
+    from tool.cli.triage import path_owners
+    with transaction() as conn:
+        row = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+        return path_owners(conn, int(row[0])) if row else {}
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("--spec", type=Path, required=True,
-                   help="JSON spec with slug + variants + role_preferences")
+    p.add_argument("--spec", required=True,
+                   help="JSON spec (slug + variants + role_preferences): soubor, nebo `-` pro stdin")
+    p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
-    print(json.dumps(run_from_json(args.spec), ensure_ascii=False, indent=2))
+    try:
+        out = run_from_json(args.spec)
+    except ValueError as e:
+        die(str(e), "pflanzer session --spec spec.json   (nebo: … | pflanzer session --spec -)\n"
+            "Formát specu:\n" + SPEC_EXAMPLE)
+    ranked = sorted(out["variants"], key=lambda v: -v["preference_score"])
+    lines = ["Hlasování jádra (0–1, vyšší = lepší): "
+             + ", ".join(f"{v['name']} {v['preference_score']:.2f}" for v in ranked)]
+    lines.append("Varianty: " + ", ".join(
+        f"{v['name']} ({v['builder']})" for v in out["variants"]))
+    owners = _owners_for(out["slug"])
+    sec = owners.get("bezpecnost")
+    nxt = (f"{sec or 'zástupce bezpečnosti'} podepíše okno do 48 h: `pflanzer checkpoint --slug "
+           f"{out['slug']} bezpecnost --by {sec or 'JMÉNO'} --note …`; zástupci zatím píšou feedback "
+           f"(`/pm feedback {out['slug']}`)")
+    emit(out, title=f"Build zapsán: {out['slug']}", lines=lines, warnings=out["warnings"],
+         next_step=nxt, tips=tips_for("build", {}), as_json=args.json)
 
 
 if __name__ == "__main__":

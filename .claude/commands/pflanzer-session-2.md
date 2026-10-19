@@ -33,20 +33,34 @@ nejde zapsat** — tool to odmítne. Iterate je povolen (opraví ho).
 ## Krok 3 — Spory a hlasování
 
 Top 3 spory: AI navrhuje řešení, nerozhoduje. Neznámý spor rozhodne
-Decider s rationale. Silent voting jádra, Decider poslední.
+Decider s rationale.
+
+**Rady pro silent voting:** každý napíše volbu sám a najednou (karty /
+chat v jednom okamžiku), nikdo ji dřív neříká nahlas; důvod jednou větou;
+jádro hlasuje o tom, co uvidí uživatel; **Decider odkryje svou volbu poslední**
+a když se liší od většiny, řekne proč. Až potom diskuse.
 
 ## Krok 4 — Rozhodnutí
 
 AskUserQuestion Decideru: **Go / Iterate / Kill** + rationale (1–2 věty,
 povinné). Při Go vyber vítěze.
 
+**Dobrý rationale má tři části:** (1) **proč** tahle varianta / rozhodnutí,
+(2) **co vědomě nechceme** (co jsme z poražených variant nebo ze scope
+odložili), (3) **kdo hlídá riziko** (jméno a co přesně sleduje). Má mu
+rozumět někdo, kdo v místnosti nebyl. Špatně: „A je lepší.“ Dobře: „A, protože
+splní metodu bez změny API; nechceme zatím B-ův report; riziko ceny hlídá
+Petra přes týdenní dashboard.“
+
 ```bash
 pflanzer session_2 decide --slug $ARGUMENTS go --winner A --rationale "<1–2 věty>"
 pflanzer session_2 decide --slug $ARGUMENTS go --winner A --rationale "…" --override-critical "<důvod>"
 pflanzer session_2 decide --slug $ARGUMENTS iterate --rationale "…" --iterate-focus "<co změnit>"   # max 1×
 pflanzer session_2 decide --slug $ARGUMENTS kill --rationale "…"
-# critical vyřešen jinak než overridem:
-pflanzer session_2 resolve --slug $ARGUMENTS --feedback-id <id> --note "<jak>"
+# critical vyřešen jinak než overridem (--by a --note jsou povinné):
+pflanzer session_2 resolve --slug $ARGUMENTS --feedback-id <id> --by "<kdo>" --note "<jak>"
+# druhé rozhodnutí po Go jen výslovně:
+pflanzer session_2 decide --slug $ARGUMENTS go --winner B --rationale "…" --force
 ```
 
 - **Iterate** = jedno další Build kolo (max 1×). Druhý Iterate tool
@@ -57,7 +71,13 @@ pflanzer session_2 resolve --slug $ARGUMENTS --feedback-id <id> --note "<jak>"
 
 ## Krok 5 — Výstup a další krok
 
-Rozhodnutí + rationale, vítěz, počet critical, cesta k decision logu.
+Ukaž lidský výstup toolu a předej jeho **Doporučení**. Rozhodnutí +
+rationale, vítěz, počet critical, cesta k decision logu.
+
+**Poděkuj poraženým variantám nahlas** (jméno autora a co dobrého přinesly);
+jejich nápady jdou do parking lotu, ne do koše. Ať vývojáři nesmažou větve
+dřív, než PR vítěze projde.
+
 **Jeden** další krok:
 
 - Go → `/pm ship <slug>` — vývojáři + provoz (checkpoint 20 min)
@@ -67,7 +87,7 @@ Rozhodnutí + rationale, vítěz, počet critical, cesta k decision logu.
 ## Co NEDĚLAT
 
 - Nepřebíjej Decidera; nezapomeň rationale (audit).
-- Nedovol druhý Iterate.
+- Nedovol druhý Iterate; druhé `decide` po Go jen s `--force` a `--rationale`.
 - Nezapomeň commitnout decision log.
 
 ## Reference

@@ -19,6 +19,10 @@ import sys
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PLUGIN_ROOT))
+
+from tool.cli.ux import die, emit, tips_for  # noqa: E402
+
 GUIDE_TEMPLATE = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -59,8 +63,15 @@ def _read_toml_project(repo: Path) -> dict[str, str]:
     return out
 
 
-def _check(name: str, status: str, detail: str, advice: str = "") -> dict[str, str]:
-    return {"check": name, "status": status, "detail": detail, "advice": advice}
+def _check(name: str, status: str, detail: str, advice: str = "",
+           impact: str = "") -> dict[str, str]:
+    """`impact` = co to znamená v praxi („pilot půjde, ale …“) — jen u ⚠."""
+    return {"check": name, "status": status, "detail": detail, "advice": advice,
+            "impact": impact}
+
+
+def _is_node(repo: Path) -> bool:
+    return (repo / "package.json").is_file()
 
 
 # --------------------------------------------------------------------------
@@ -80,6 +91,15 @@ def check_git(repo: Path) -> tuple[list[dict[str, str]], str | None]:
     return [_check("Git repo + origin", OK, origin)], origin
 
 
+PLACEHOLDER_RE = re.compile(r"<[^<>\n]*(?:\s\||\|\s|\s[^<>\n]*\s|doplň|vyplň)[^<>\n]*>")
+
+
+def _guide_sections(text: str) -> list[str]:
+    """Body of each `##` section (the intro before the first `##` is ignored)."""
+    parts = re.split(r"(?m)^##\s+", text)
+    return parts[1:]
+
+
 def check_guide(repo: Path) -> dict[str, str]:
     name = "INTEGRATION_GUIDE.md"
     guide = repo / "docs" / "INTEGRATION_GUIDE.md"
@@ -91,10 +111,19 @@ def check_guide(repo: Path) -> dict[str, str]:
     if GUIDE_TEMPLATE.is_file() and text.strip() == GUIDE_TEMPLATE.read_text(encoding="utf-8").strip():
         return _check(name, FAIL, "pořád jen nevyplněná šablona",
                       "Vyplň auth, API, state, logger, folder layout, test runner (cca 30 min).")
-    placeholders = re.findall(r"<[^<>\n]*(?:\s\||\|\s|\s[^<>\n]*\s|doplň|vyplň)[^<>\n]*>", text)
+    sections = _guide_sections(text)
+    open_sections = [sec for sec in sections if PLACEHOLDER_RE.search(sec)]
+    placeholders = PLACEHOLDER_RE.findall(text)
+    if sections and len(open_sections) * 2 > len(sections):
+        return _check(name, FAIL,
+                      f"nevyplněno: {len(open_sections)} z {len(sections)} sekcí má ještě placeholdery",
+                      "Jeden doplněný řádek nestačí. Ve většině sekcí nahraď `<…>` realitou repa "
+                      "(vývojář: „vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“, cca 30 min).")
     if placeholders:
-        return _check(name, WARN, f"{len(placeholders)}× zbývá placeholder `<…>`",
-                      "Nahraď zbylé `<…>` skutečnými hodnotami, AI jinak hádá.")
+        return _check(name, WARN, f"{len(placeholders)}× zbývá placeholder `<…>` "
+                                  f"({len(open_sections)} z {len(sections)} sekcí)",
+                      "Nahraď zbylé `<…>` skutečnými hodnotami, AI jinak hádá.",
+                      "pilot půjde, ale AI bude u zbylých sekcí hádat konvence repa")
     return _check(name, OK, str(guide.relative_to(repo)))
 
 
@@ -107,8 +136,24 @@ def check_constitution(repo: Path) -> dict[str, str]:
     n = text.count("<doplň>")
     if n:
         return _check(name, WARN, f"{n}× zbývá `<doplň>`",
-                      "Doplň povolenou síť, zakázané adresáře a příkazy lint/test/build.")
+                      "Doplň povolenou síť, zakázané adresáře a příkazy lint/test/build.",
+                      "pilot půjde, ale AI nezná zakázané adresáře ani povolenou síť")
     return _check(name, OK, ".pflanzer/CONSTITUTION.md")
+
+
+LOCKFILE_ADVICE = {
+    "package.json": "Commitni lockfile (`npm install` vytvoří package-lock.json) — install ve "
+                    "worktrees (`npm ci`) ho potřebuje.",
+    "pyproject.toml": "Commitni lockfile (`uv lock` nebo `poetry lock`) — Python worktrees "
+                      "pak mají stejné verze.",
+    "requirements.txt": "Připni verze (`pip freeze > requirements.txt`) nebo přejdi na `uv lock`.",
+    "Cargo.toml": "Commitni Cargo.lock (`cargo generate-lockfile`).",
+    "go.mod": "Commitni go.sum (`go mod tidy`).",
+    "Gemfile": "Commitni Gemfile.lock (`bundle install`).",
+    "composer.json": "Commitni composer.lock (`composer install`).",
+    "pubspec.yaml": "Commitni pubspec.lock (`flutter pub get`).",
+    "Package.swift": "Commitni Package.resolved.",
+}
 
 
 def check_package_manager(repo: Path) -> dict[str, str]:
@@ -116,14 +161,14 @@ def check_package_manager(repo: Path) -> dict[str, str]:
     found = [f for f in LOCKFILES if (repo / f).exists()]
     if found:
         return _check(name, OK, ", ".join(found))
-    manifests = [m for m in ("package.json", "pyproject.toml", "requirements.txt", "Cargo.toml",
-                             "go.mod", "Gemfile", "composer.json", "pubspec.yaml", "Package.swift")
-                 if (repo / m).exists()]
+    manifests = [m for m in LOCKFILE_ADVICE if (repo / m).exists()]
     if manifests:
         return _check(name, WARN, f"{', '.join(manifests)} bez lockfilu",
-                      "Commitni lockfile — install ve worktrees (`npm ci`/`--frozen-lockfile`) ho potřebuje.")
+                      LOCKFILE_ADVICE[manifests[0]],
+                      "pilot půjde, ale 3 worktrees nemusí mít stejné verze závislostí")
     return _check(name, WARN, "žádný manifest ani lockfile",
-                  "Pokud je to statický web, ignoruj; jinak přidej manifest a lockfile.")
+                  "Pokud je to statický web, ignoruj; jinak přidej manifest a lockfile.",
+                  "pilot půjde, ale kontroly v Ship nebudou mít co instalovat")
 
 
 def _scripts(repo: Path) -> tuple[dict[str, str], str]:
@@ -192,7 +237,9 @@ def check_scripts(repo: Path) -> list[dict[str, str]]:
             rows.append(_check(
                 label, lvl, f"nenalezen ({stack})",
                 f"Builder musí po každém kroku pustit {key} a commitnout jen zelené — "
-                f"přidej {key} skript (package.json / Makefile / pyproject)."
+                f"přidej {key} skript (package.json / Makefile / pyproject).",
+                "" if lvl == FAIL else
+                f"pilot půjde, ale AI nebude mít čím po kroku ověřit {key} (kontroly až v Ship)"
             ))
     return rows
 
@@ -206,7 +253,8 @@ def check_ci(repo: Path) -> dict[str, str]:
     if found:
         return _check(name, OK, ", ".join(found))
     return _check(name, WARN, "žádná CI konfigurace",
-                  "PR ze Ship bude bez automatických kontrol — přidej CI (lint + test + build).")
+                  "Přidej CI (lint + test + build) — stačí jedna GitHub Actions workflow.",
+                  "pilot půjde, ale PR ze Ship bude bez automatických kontrol")
 
 
 def check_preview(repo: Path) -> dict[str, str]:
@@ -221,9 +269,12 @@ def check_preview(repo: Path) -> dict[str, str]:
                 break
     if found:
         return _check(name, OK, ", ".join(found))
+    local = ("počítej se spuštěním lokálně (`npm run dev`) + port-forward, nebo přidej "
+             "Vercel/Netlify preview" if _is_node(repo) else
+             "domluv s provozem sdílený náhled (staging, tunel nebo nahrávka obrazovky)")
     return _check(name, WARN, "žádná indikace preview deploye",
-                  "Bez preview URL zástupci v Asyncu varianty neuvidí; "
-                  "počítej s `npm run dev` + port-forward (nebo přidej Vercel/Netlify preview).")
+                  f"Bez preview URL zástupci v Asyncu varianty neuvidí; {local}.",
+                  "pilot půjde, ale zástupci v Asyncu nebudou mít na co kliknout")
 
 
 def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
@@ -246,7 +297,7 @@ def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
     if untracked or dirty:
         bad = untracked + dirty
         return [_check(name, FAIL, f"necommitnuté: {', '.join(bad)}",
-                       "`git add docs/INTEGRATION_GUIDE.md .pflanzer/ && git commit -m 'chore(pflanzer): init' && git push`")]
+                       "`git add -A docs .pflanzer tests .gitignore && git commit -m 'chore(pflanzer): init' && git push`")]
     if not has_origin:
         return [_check(name, FAIL, "bez originu nelze ověřit push", "Přidej origin a pushni.")]
 
@@ -283,7 +334,8 @@ def check_project_toml(repo: Path) -> dict[str, str]:
     left = re.findall(r"=\s*\"<[^\"]*>\"", text)
     if left:
         return _check(name, WARN, f"{len(left)}× nevyplněný placeholder",
-                      "Doplň `target_branch_owner` (GitHub handle) a `shadow_pm`.")
+                      "Doplň `target_branch_owner` (GitHub handle) a `shadow_pm`.",
+                      "pilot půjde, ale PR ze Ship nebude mít automaticky revieweře")
     return _check(name, OK, ".pflanzer/project.toml")
 
 
@@ -304,21 +356,37 @@ def run_checks(repo: Path) -> list[dict[str, str]]:
 
 
 def render(repo: Path, rows: list[dict[str, str]]) -> str:
-    fails = sum(r["status"] == FAIL for r in rows)
-    warns = sum(r["status"] == WARN for r in rows)
-    out = [BRAND_LINE, "", f"# Připravenost repa — `{repo}`", "",
-           "| | Kontrola | Nález | Rada |", "|---|----------|-------|------|"]
-    for r in rows:
-        out.append(f"| {SYMBOL[r['status']]} | {r['check']} | {r['detail']} | {r['advice']} |")
-    ready = "ano" if fails == 0 else "ne"
-    out += ["", f"**Připraveno ke Kickoffu: {ready}**  "
-            f"(✗ {fails}, ⚠ {warns}, ✓ {len(rows) - fails - warns})"]
+    """Human view as markdown (kept for scripts; `main` uses ux.emit)."""
+    from tool.cli.ux import render as ux_render
+    title, lines, nxt, warns, tips = _human(repo, rows)
+    return ux_render(title, lines, nxt, tips, warns)
+
+
+def _human(repo: Path, rows: list[dict[str, str]]):
+    fails = [r for r in rows if r["status"] == FAIL]
+    warns = [r for r in rows if r["status"] == WARN]
+    oks = [r for r in rows if r["status"] == OK]
+    lines: list[str] = []
+    for r in fails:
+        lines.append(f"✗ {r['check']} — {r['detail']}. {r['advice']}".strip())
+    for r in warns:
+        impact = (r["impact"][0].upper() + r["impact"][1:] + ". ") if r.get("impact") else ""
+        lines.append(f"⚠ {r['check']} — {r['detail']}. {impact}{r['advice']}".strip())
+    if len(lines) > 6:
+        extra = len(lines) - 6
+        lines = lines[:6] + [f"… a dalších {extra} (`pflanzer doctor --json`)"]
+    if oks:
+        lines.append(f"✓ V pořádku ({len(oks)}): " + ", ".join(r["check"] for r in oks))
+    ready = "ano" if not fails else "ne"
+    title = f"Připraveno ke Kickoffu: {ready}" + (
+        f" — {len(warns)}× s výhradou" if not fails and warns else "")
     if fails:
-        out.append("Oprav ✗ a spusť `pflanzer doctor` znovu.")
+        nxt = f"oprav ✗ ({fails[0]['check']}): {fails[0]['advice']} — pak `pflanzer doctor` znovu"
     else:
-        out.append("Pokračuj: restartuj Claude Code v tomto repu a spusť `/pm start`."
-                   + (" ⚠ nejsou blokující, ale zhorší Build." if warns else ""))
-    return "\n".join(out)
+        nxt = "restartuj Claude Code v tomto repu a spusť `/pm start`"
+    ctx = {"no_preview": any(r["check"] == "Preview deploy" and r["status"] == WARN for r in rows),
+           "no_ci": any(r["check"] == "CI konfigurace" and r["status"] == WARN for r in rows)}
+    return title, lines, nxt, [], tips_for("doctor", ctx)
 
 
 def main() -> None:
@@ -329,15 +397,15 @@ def main() -> None:
 
     repo = Path(args.target).expanduser().resolve()
     if not repo.is_dir():
-        print(f"CHYBA: {repo} není složka.", file=sys.stderr)
-        sys.exit(2)
+        die(f"{repo} není složka. Příklad: `pflanzer doctor --target ~/projekty/moje-appka`.")
+        return
     rows = run_checks(repo)
     fails = sum(r["status"] == FAIL for r in rows)
-    if args.json:
-        print(json.dumps({"brand": "Pflanzer Method | pflanzer.cz/method", "target": str(repo),
-                          "ready": fails == 0, "checks": rows}, ensure_ascii=False, indent=2))
-    else:
-        print(render(repo, rows))
+    data = {"brand": "Pflanzer Method | pflanzer.cz/method", "target": str(repo),
+            "ready": fails == 0, "checks": rows}
+    title, lines, nxt, warns, tips = _human(repo, rows)
+    emit(data, title=title, lines=lines, next_step=nxt, tips=tips, warnings=warns,
+         as_json=args.json)
     sys.exit(0 if fails == 0 else 1)
 
 

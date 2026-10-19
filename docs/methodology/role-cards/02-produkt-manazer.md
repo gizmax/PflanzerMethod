@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #2 — Produkt manažer
 
-> Jako PdM překládáš business do produktových požadavků a držíš JTBD, prioritu a OKR alignment.
+> Za celý Build potvrdíš, že varianty řeší správný problém a míří na metriku z Kickoffu. Překládáš business do požadavků a držíš prioritu.
 
 **Krok cesty:** Produkt · **Kde jsi:** jádro — celý Build, Async a Rozhodnutí
 
 Status v catalogu: **povinná** · Kdy se zve: vždy (core role)
 
 ## Přines do svého okna
-- JTBD kartu a personu ne starší než 6 měsíců
-- OST v0 vyplněný aspoň na 60 %
-- Metriku úspěchu: lagging + leading, s baseline
+- Popis uživatele a úkolu, který řeší (JTBD karta, ne starší než 6 měsíců)
+- Metriku úspěchu s dnešním výchozím číslem
 - Zadání z Kickoffu rozepsané do kritérií, podle kterých se varianty posoudí
+- Pro hlubší kontrolu (stupeň Full): OST v0 vyplněný aspoň na 60 %, podpis JTBD v Discovery Readiness Gate
 
 ## Podepisuješ
 - JTBD podpis v Discovery Readiness Gate — bez něj se Build odkládá
@@ -35,7 +35,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Metrika úspěchu nejde změřit (chybí baseline)
 
 ## AI proxy
-**Režim 1 — Vlastnické a vetovací (vždy člověk).** ⚠️ Krátkodobě s předem připraveným briefem; finální slovo máš ty. Sub-agent: `.claude/agents/pm-expert.md`.
+**Režim 1 — Vlastnické a vetovací (vždy člověk).** Může tě nahradit AI? **Jen ve stupni Quick / u throwaway** (ADR-0023); zadání pak podepisuje Decider. Jinak člověk, finální slovo máš ty. Sub-agent: `.claude/agents/pm-expert.md`.
 
 ---
 

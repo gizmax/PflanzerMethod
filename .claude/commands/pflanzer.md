@@ -23,18 +23,23 @@ zvlášť (jiný den, Decider si vezme okno).
 ## Postup
 
 1. **Kickoff** — přečti `.claude/commands/pflanzer-charter.md` a proveď ho
-   celý (doctor → sběr → `pflanzer quick_session bootstrap --spec`). Krok
-   bez jména = STOP. Decider je přítomen jen pro tuto část.
+   celý (doctor → sběr → `pflanzer quick_session bootstrap --spec - <<'EOF' … EOF`,
+   spec přes stdin; u každého chybějícího kroku nabídka [jméno] / [stejný
+   člověk jako X] / [AI náhrada — jen kde ADR-0023 dovolí]). Krok bez jména
+   a bez povolené AI náhrady = STOP. Decider je přítomen jen pro tuto část.
+   Po Kickoffu nabídni text pozvánek pro okna.
 2. **Build** — přečti `.claude/commands/pflanzer-session-1.md` a proveď ho
    celý (`worktree setup` → `prompts` → 3× Claude Code → průběžné kontroly
-   → checkpoint bezpečnost & právo → push → preview → zápis).
+   → checkpoint bezpečnost & právo (u AI náhrady `security-expert` +
+   `pflanzer checkpoint … --ai --agent …`) → push → preview → zápis).
 3. **Hlasování a zápis** — viz Build Krok 5; Decider ve `live` režimu
    nehlasuje (Rozhodnutí je samostatné okno).
 
 ## Výstup
 
-Zadání na 1 stránku, tabulka varianta / branch / preview URL, jména a termíny
-oken. Na konci **jeden** další krok:
+Lidský výstup toolu a jeho Doporučení, zadání na 1 stránku, tabulka varianta /
+branch / preview URL, jména (nebo AI náhrada s podepisujícím) a termíny oken.
+Připomeň: bez pushe nejsou preview URL. Na konci **jeden** další krok:
 
 > Další krok: `/pm feedback <slug>` — zástupci klikají na preview 3–5 dní.
 

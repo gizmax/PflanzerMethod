@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import unicodedata
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,14 +26,51 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
+from tool.cli.ux import die, emit, severity_label, tips_for  # noqa: E402
 
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 NO_FEEDBACK_MSG = (
-    "Žádný feedback — sbírej přes hub nebo `pflanzer feedback add` "
-    "(např. pflanzer feedback add --slug {slug} --variant A --role \"Bezpečnost\" "
-    "--severity major --text \"...\")."
+    "Zatím žádný feedback. Zástupci ho píšou v hubu, nebo ho zapiš za ně: "
+    "pflanzer feedback add --slug {slug} --variant A --role \"Bezpečnost\" "
+    "--severity major --text \"co je špatně\"."
 )
+SEVERITY_ORDER = ("critical", "high", "medium", "low")
+# Kroky cesty (klíč v path_owners_json) -> zobrazený název a texty, kterými se píše oddělení.
+STEP_LABELS = {"produkt": "Produkt", "design": "Design", "vyvoj": "Vývoj",
+               "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
+
+
+def _norm(text: str | None) -> str:
+    text = unicodedata.normalize("NFD", text or "")
+    return "".join(c for c in text if unicodedata.category(c) != "Mn").casefold().strip()
+
+
+def silent_reps(conn: Any, project_id: int, feedback: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Zástupci kroků cesty (jména z Kickoffu), kteří ještě nedali žádný feedback.
+
+    Krok počítáme jako „ozvaný“, když feedback nese oddělení tohoto kroku, nebo ho napsal
+    člověk se stejným jménem (stačí křestní jméno). Byznys (Decider) a AI náhrady se nehlídají.
+    """
+    from tool.cli.triage import path_owners  # lazy: triage importuje ux, ne feedback_pull
+
+    owners = path_owners(conn, project_id)
+    authors = {_norm(f.get("submitted_by")) for f in feedback if f.get("submitted_by")}
+    depts = {_norm(f.get("department")) for f in feedback if f.get("department")}
+    out: list[dict[str, str]] = []
+    for key, label in STEP_LABELS.items():
+        name = owners.get(key, "").strip()
+        if not name or name.upper().startswith("AI"):
+            continue
+        n = _norm(name)
+        first = n.split()[0] if n.split() else n
+        by_dept = any(d == _norm(label) or d.startswith(key) or _norm(label).startswith(d)
+                      for d in depts if d)
+        by_author = any(a == n or a == first or n in a or (first and a.split()[:1] == [first])
+                        for a in authors)
+        if not (by_dept or by_author):
+            out.append({"step": key, "label": label, "name": name})
+    return out
 
 def aggregate(slug: str) -> dict[str, Any]:
     """Aggregate feedback for a project. Returns structured summary."""
@@ -116,6 +154,10 @@ def aggregate(slug: str) -> dict[str, Any]:
             ai_only_ratio_data["ai_only"] / ai_only_ratio_data["total"]
             if ai_only_ratio_data["total"] else 0.0
         )
+        silent = silent_reps(conn, project_id, feedback)
+        by_variant_severity: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for fb in feedback:
+            by_variant_severity[fb["variant_name"]][fb["severity"]] += 1
 
         # Audit: log the pull event (DORA — every read of audit-relevant data is itself logged)
         audit(
@@ -140,46 +182,63 @@ def aggregate(slug: str) -> dict[str, Any]:
         "by_department": dept_avg,
         "by_variant": dict(by_variant),
         "critical_flags": critical_flags,
+        "by_variant_severity": {v: dict(c) for v, c in by_variant_severity.items()},
+        "silent_reps": silent,
         "ai_only_ratio": round(ai_only_ratio, 3),
         "raw_feedback": feedback,
     }
 
 
+def severity_text(counts: dict[str, int]) -> str:
+    """„Kritické 1, Vysoké 2“ (jen nenulové), nebo „bez připomínek“."""
+    parts = [f"{severity_label(k)} {counts[k]}" for k in SEVERITY_ORDER if counts.get(k)]
+    return ", ".join(parts) or "bez připomínek"
+
+
+def critical_line(c: dict[str, Any], limit: int = 90) -> str:
+    text = (c.get("rationale") or "").strip().replace("\n", " ")
+    if len(text) > limit:
+        text = text[: limit - 1].rsplit(" ", 1)[0] + "…"
+    return (f"#{c['id']} {c.get('submitted_by') or 'autor neznámý'} "
+            f"(krok {c['department']}) na variantě {c['variant']}: „{text}“")
+
+
 def render_summary_md(agg: dict[str, Any]) -> str:
     """Souhrn feedbacku pro Rozhodnutí (v0.5)."""
     sev_table = "\n".join(
-        f"| {s} | {agg['by_severity'].get(s, 0)} |"
-        for s in ("critical", "high", "medium", "low")
+        f"| {severity_label(s)} | {agg['by_severity'].get(s, 0)} |" for s in SEVERITY_ORDER
     )
-    dept_rows = "\n".join(
-        f"| {d} | {avg:.2f} |"
-        for d, avg in sorted(agg["by_department"].items(), key=lambda x: -x[1])
-    ) or "| — | — |"
     var_rows = "\n".join(
-        f"| {v} | {data['count']} | {data['avg_score']:.2f} | {data['criticals']} |"
-        for v, data in sorted(agg["by_variant"].items(), key=lambda x: -x[1]["avg_score"])
+        f"| {v} | {data['count']} | {severity_text(agg['by_variant_severity'].get(v, {}))} "
+        f"| {data['criticals']} |"
+        for v, data in sorted(agg["by_variant"].items())
     ) or "| — | — | — | — |"
+    dept_rows = "\n".join(
+        f"| {d} | {n} |" for d, n in sorted(
+            ((d, sum(1 for f in agg["raw_feedback"] if f["department"] == d))
+             for d in agg["by_department"]), key=lambda x: -x[1])
+    ) or "| — | — |"
 
     crit_section = ""
     if agg["critical_flags"]:
-        crit_rows = "\n".join(
-            f"- **[{c['variant']} / {c['department']}]** — {c['rationale']}"
-            f" *(by {c['submitted_by']}, {c['submitted_at']})*"
-            for c in agg["critical_flags"]
-        )
+        crit_rows = "\n".join(f"- {critical_line(c, 300)} *({c['submitted_at']})*"
+                              for c in agg["critical_flags"])
         crit_section = (
-            f"\n## ⚠ Critical flags ({len(agg['critical_flags'])})\n\n"
+            f"\n## Otevřené kritické ({len(agg['critical_flags'])})\n\n"
             f"{crit_rows}\n\n"
-            f"> Critical flag = varianta se nedá vybrat, dokud se nevyřeší nebo "
-            f"Decider výslovně nepřijme riziko (ADR-0001, veto Bezpečnost & právo).\n"
+            f"> Kritická připomínka na vítězi blokuje Go, dokud se nevyřeší "
+            f"(`pflanzer session_2 resolve`) nebo ji Decider výslovně nepřebije s důvodem.\n"
         )
+    silent_section = ""
+    if agg.get("silent_reps"):
+        who = ", ".join(f"{r['label']} ({r['name']})" for r in agg["silent_reps"])
+        silent_section = f"\n## Ještě bez feedbacku\n\n{who}\n"
 
     ai_warn = ""
     if agg["ai_only_ratio"] > 0.5:
         ai_warn = (
-            f"\n> ⚠ **AI-only ratio = {agg['ai_only_ratio']:.0%}** — víc než polovina "
-            f"feedbacku je AI persona, ne reální lidé. Riziko discovery debtu. "
-            f"Před Rozhodnutím doporučen rozhovor se skutečným uživatelem.\n"
+            f"\n> ⚠ **{agg['ai_only_ratio']:.0%} feedbacku píše AI persona**, ne reální lidé. "
+            f"Před Rozhodnutím doporučujeme rozhovor se skutečným uživatelem.\n"
         )
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -192,34 +251,33 @@ def render_summary_md(agg: dict[str, Any]) -> str:
 
 ## Přehled
 
-- **Řádků feedbacku celkem**: {agg['feedback_count']}
-- **AI-only ratio**: {agg['ai_only_ratio']:.0%} (skóre AI-only max 0.5)
+- **Připomínek celkem**: {agg['feedback_count']}
+- **Podíl AI feedbacku**: {agg['ai_only_ratio']:.0%} (hodnocení AI má váhu max 0,5)
 {ai_warn}
-## Rozložení podle severity
+## Podle závažnosti
 
-| Severity | Počet |
-|----------|-------|
+| Závažnost | Počet |
+|-----------|-------|
 {sev_table}
 
-## Skóre podle varianty
+## Podle varianty
 
-| Varianta | Řádků feedbacku | Průměrné skóre | Critical flags |
-|----------|-----------------|----------------|----------------|
+| Varianta | Připomínek | Rozpis | Otevřené kritické |
+|----------|------------|--------|-------------------|
 {var_rows}
 
-## Průměrné skóre podle oddělení
+## Podle kroku cesty (počet připomínek)
 
-| Oddělení | Průměrné skóre |
-|----------|----------------|
+| Krok | Připomínek |
+|------|-----------|
 {dept_rows}
-{crit_section}
+{crit_section}{silent_section}
 ## Co dál
 
-1. Spusť **discovery-debt-detector** na tento souhrn (skóre 0–10;
-   > 2 = varování, > 5 = blokuje Rozhodnutí).
-2. Pokud jsou otevřené Critical flags → Decider je řeší **před** Rozhodnutím
-   (eskalační protokol ADR-0001).
-3. Spusť `/pm decide` pro Rozhodnutí.
+1. Otevřené kritické řeší Decider **před** Rozhodnutím (oprava, nebo vědomé přebití s důvodem).
+2. Kdo ještě nenapsal, dostane připomínku; mlčení nevetovací role po termínu = souhlas,
+   u bezpečnosti ne.
+3. `pflanzer session_2 prep --slug {agg['slug']}`, pak Rozhodnutí.
 """
 
 
@@ -234,44 +292,68 @@ def write_summary(slug: str, agg: dict[str, Any] | None = None) -> Path | None:
     return out
 
 
+def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list[str], str, dict[str, Any]]:
+    slug = agg["slug"]
+    crit = agg["critical_flags"]
+    silent = agg["silent_reps"]
+    lines = [f"Připomínek celkem: {agg['feedback_count']} ({severity_text(agg['by_severity'])})"]
+    for v in sorted(agg["by_variant"])[:3]:
+        lines.append(f"Varianta {v}: {severity_text(agg['by_variant_severity'].get(v, {}))}")
+    for c in crit[:2]:
+        lines.append("Otevřené kritické: " + critical_line(c))
+    if len(crit) > 2:
+        lines.append(f"…a dalších {len(crit) - 2} otevřených kritických")
+    if silent:
+        lines.append("Ještě bez feedbacku: " + ", ".join(f"{r['label']} ({r['name']})"
+                                                        for r in silent))
+    warns = []
+    if agg["ai_only_ratio"] > 0.5:
+        warns.append(f"{agg['ai_only_ratio']:.0%} feedbacku píše AI persona, ne lidé — "
+                     "před Rozhodnutím zkus rozhovor se skutečným uživatelem.")
+    if crit:
+        nxt = (f"vyřeš kritické #{crit[0]['id']} s autorem ({crit[0].get('submitted_by') or '?'}): "
+               f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
+               f"--by JMÉNO --note \"…\"`")
+    elif silent:
+        r = silent[0]
+        nxt = (f"ozvi se {r['name']} ({r['label']}); jeho připomínku zapíšeš: "
+               f"`pflanzer feedback add --slug {slug} --variant A --role {r['step']} "
+               f"--severity major --text \"…\" --author {r['name']}`")
+    else:
+        nxt = f"`pflanzer session_2 prep --slug {slug}`"
+    if summary_path:
+        lines.append(f"Souhrn: {display_path(summary_path)}")
+    return (f"Feedback {slug}", lines[:6], warns, nxt,
+            {"silent_reps": bool(silent), "open_critical": bool(crit)})
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--json", action="store_true",
-                   help="Vypíše celý agregát jako JSON (default: zapíše souhrn MD)")
+                   help="Vypíše celý agregát jako JSON (default: lidský souhrn + zápis MD)")
     args = p.parse_args()
 
     try:
         agg = aggregate(args.slug)
     except ValueError as e:
-        print(f"CHYBA: {e}", file=sys.stderr)
-        sys.exit(2)
+        die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer feedback_pull --slug moje-appka")
 
     if args.json:
         print(json.dumps(agg, ensure_ascii=False, indent=2, default=str))
         return
 
     if agg["feedback_count"] == 0:
-        print(json.dumps({
-            "slug": args.slug,
-            "feedback_count": 0,
-            "summary_path": None,
-            "message": NO_FEEDBACK_MSG.format(slug=args.slug),
-        }, ensure_ascii=False, indent=2))
+        emit({}, title=f"Feedback {args.slug}: zatím nic",
+             lines=["Nikdo zatím nenapsal žádnou připomínku."],
+             next_step=NO_FEEDBACK_MSG.format(slug=args.slug),
+             tips=tips_for("async", {"silent_reps": bool(agg["silent_reps"])}))
         sys.exit(1)
 
     path = write_summary(args.slug, agg)
-    print(json.dumps({
-        "slug": args.slug,
-        "summary_path": display_path(path),
-        "feedback_count": agg["feedback_count"],
-        "critical_flags": len(agg["critical_flags"]),
-        "ai_only_ratio": agg["ai_only_ratio"],
-        "next_step": (
-            "Nejdřív vyřeš otevřené critical flags, pak /pm decide"
-            if agg["critical_flags"] else "Discovery debt audit, pak /pm decide"
-        ),
-    }, ensure_ascii=False, indent=2))
+    title, lines, warns, nxt, ctx = _human(agg, path)
+    emit(agg, title=title, lines=lines, warnings=warns, next_step=nxt,
+         tips=tips_for("async", ctx))
 
 
 if __name__ == "__main__":

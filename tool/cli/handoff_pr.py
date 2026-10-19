@@ -24,13 +24,15 @@ Ship (audit N5 + N11 + N16):
   nikdy brána,
 - sekce "Změř po 30 dnech" odkazuje na `/pm retro` (outcomes T+7/30/60/90).
 
+Nevyplněné údaje (metriky, kill kritéria, jména) se v PR ani v SHIP.md neukazují jako
+placeholdery: sekce bez dat se vynechá. Shadow PdM = shadow_pm, jinak zástupce kroku Produkt.
+
 Rozhraní:
-    pflanzer handoff_pr --slug S [--print] [--pr-body]
+    pflanzer handoff_pr --slug S [--print] [--pr-body] [--json]
 """
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import shlex
 import shutil
@@ -51,16 +53,22 @@ from tool.cli.extract import (  # noqa: E402
     DATA_ROOT,
     WORKTREE_METHODS,
     base_gates_adapter,
-    clean_text,
+    code_without_tests,
     find_worktree,
     public_repo_ref,
     table_has_col,
     tilde,
 )
-from tool.cli.quality_gates import GATE_TYPES, aggregate_score  # noqa: E402
-from tool.cli.session_2 import get_winner  # noqa: E402
+from tool.cli.quality_gates import GATE_TYPES, aggregate_score, gates_summary_line  # noqa: E402
+from tool.cli.session_2 import describe_critical, get_winner, open_criticals  # noqa: E402
 from tool.cli.session_3 import gates_sufficiency  # noqa: E402
-from tool.cli.triage import latest_threshold_override, ship_triage_gate  # noqa: E402
+from tool.cli.triage import (  # noqa: E402
+    human_triage_blockers,
+    latest_threshold_override,
+    path_owners,
+    ship_triage_gate,
+)
+from tool.cli.ux import die, emit, tips_for  # noqa: E402
 
 SHIP_DIR = DATA_ROOT / "handoffs"
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
@@ -73,6 +81,38 @@ přežilo v `main`, (2) incidenty způsobené změnou, (3) metriku úspěchu vs.
 ({metric_primary}). Kill kritérium: {kill}
 Měření a připomínky vede `/pm retro {slug}`.
 """
+
+_PLACEHOLDER_RE = re.compile(r"doplnit|doplň|nezadán|nezadáno|^tbd|^\W*$|\btodo\b", re.IGNORECASE)
+
+
+def real(value: Any) -> str | None:
+    """Skutečně vyplněná hodnota, nebo None (prázdné, `TBD…`, „doplň…“, „nezadán“)."""
+    text = str(value).strip() if value is not None else ""
+    return None if not text or _PLACEHOLDER_RE.search(text) else text
+
+
+def trim_words(text: str, limit: int) -> str:
+    """Zkrať na hranici slova (bez useknutého slova a bez visících interpunkčních znaků)."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0] if " " in text[:limit + 1] else text[:limit]
+    return cut.rstrip(" ,;:-–—(") or text[:limit]
+
+
+_ASSERT_RE = re.compile(r"^E\s|AssertionError|\bassert\b|Expected|expected|FAILED|✗|×|Error:", re.M)
+
+
+def failure_line(details: str) -> str:
+    """Užitečný řádek z výstupu selhané brány: assertion, ne konec stack trace."""
+    lines = [ln.strip() for ln in (details or "").splitlines() if ln.strip()]
+    for ln in lines:  # pytest: řádky `E   assert 4 == 5` nesou vyhodnocenou chybu
+        if re.match(r"^E\s+\S", ln):
+            return trim_words(ln[1:].strip(), 160)
+    for ln in lines:
+        if _ASSERT_RE.search(ln) and not ln.startswith("Traceback"):
+            return trim_words(ln, 160)
+    return trim_words(lines[0], 160) if lines else "(bez detailu)"
 
 
 def load_template(name: str, fallback: str = "") -> str:
@@ -95,7 +135,7 @@ def render_measure_30d(values: dict[str, Any]) -> str:
 MODEL_FAMILY = {
     "claude-code": "Claude (Anthropic)",
     "codex-cli": "GPT / Codex (OpenAI)",
-    "cursor": "dle nastavení Cursoru (doplň: Claude / GPT / …)",
+    "cursor": "dle nastavení Cursoru",
     "v0": "v0 (Vercel) — model dle platformy",
     "bolt": "Bolt (StackBlitz) — model dle platformy",
     "lovable": "Lovable — model dle platformy",
@@ -344,6 +384,8 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             )["gate_score"]
             threshold_override = latest_threshold_override(
                 conn, project_id, score=_score, target=int(proj[15]))
+        criticals = open_criticals(conn, project_id)
+        owners = path_owners(conn, project_id)
         dev_owners = [
             r[0] for r in conn.execute(
                 "SELECT human_owner FROM roles WHERE project_id = ? "
@@ -356,7 +398,8 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "gates": gate_rows, "decision": decision, "triage": triage_gate,
             "threshold_override": threshold_override,
             "variant_names": variant_names, "dev_owners": dev_owners,
-            "winner_basis": winner_basis}
+            "winner_basis": winner_basis, "open_critical": criticals,
+            "path_owners": owners}
 
 
 def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
@@ -386,10 +429,13 @@ def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
 """
     top = ""
     if triage["blocked_by"]:
-        top = f"""> ## BLOKOVÁNO: spusť `/pm triage {slug}`
+        who = "\n".join(f"> - {m}" for m in human_triage_blockers(slug, triage["windows"]))
+        top = f"""> ## BLOKOVÁNO: chybí podpisy oken
 >
-> Produkční nasazení není povoleno - {', '.join(f'`{b}`' for b in triage['blocked_by'])}.
-> Override Decidera jen s důvodem do decision logu:
+> Produkční nasazení není povoleno, dokud okna nepodepíšou lidé z kroků cesty:
+{who}
+>
+> Decider může přebít jen s důvodem do decision logu:
 > `pflanzer session_3 --slug {slug} --override-triage --rationale "…"`
 """
     return top, section
@@ -488,17 +534,37 @@ def _winner_basis_md(basis: dict[str, Any]) -> str:
     return "—"
 
 
+def _gate_summary(gates: list) -> str:
+    """„78/100 z 5/9 bran; neběžely: types (důvod)“ ze zapsaných quality_gates."""
+    rows = [{"gate": g[0], "status": g[1], "details": g[3] or ""} for g in gates]
+    score = aggregate_score(
+        [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gates]  # type: ignore[misc]
+    )["gate_score"]
+    return gates_summary_line(score, rows)
+
+
+def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
+    """Řádky o otevřených kritických: na vítězi (blokují Go), na poražených jen informativně."""
+    crit = ctx.get("open_critical") or []
+    on_win = [c for c in crit if winner_name and c["variant"] == winner_name]
+    on_lost = [c for c in crit if not winner_name or c["variant"] != winner_name]
+    lines: list[str] = []
+    for c in on_win:
+        lines.append(f"- Na vítězi: {describe_critical(c)}")
+    for c in on_lost:
+        lines.append(f"- Informativně, poražená varianta: {describe_critical(c)}")
+    return lines
+
+
 def build_pr(slug: str) -> dict[str, Any]:
     """Sestaví titulek, tělo PR (bez absolutních cest) a metadata."""
     ctx = _fetch_ship_context(slug)
     p, w, e, gates = ctx["project"], ctx["winner"], ctx["extracted"], ctx["gates"]
     name, decider = p[1], p[5]
     state = _ship_state(ctx)
-    metric_primary = clean_text(p[17], "doplnit při Rozhodnutí")
-    metric_leading = clean_text(p[18], "doplnit při Rozhodnutí")
-    metric_guardrail = clean_text(p[19], "doplnit při Rozhodnutí")
+    metric_primary, metric_leading, metric_guardrail = real(p[17]), real(p[18]), real(p[19])
     gate_score, target = state["score"], state["target"]
-    kill = p[10] or "(nezadáno v Kickoffu)"
+    kill = real(p[10])
     badges, applicable, total = _render_gate_badges(gates)
     dec_user = ctx["decision"][1] if ctx["decision"] else None
     dec_ts = str(ctx["decision"][2])[:10] if ctx["decision"] else None
@@ -510,12 +576,12 @@ def build_pr(slug: str) -> dict[str, Any]:
     loc_removed = e[6] if e else None
     diff_files = e[7] if e else None
     acceptance = next((f"{int(g[2])} %" for g in gates
-                       if g[0] == "acceptance" and g[1] != "skipped" and g[2] is not None), "N/A")
+                       if g[0] == "acceptance" and g[1] != "skipped" and g[2] is not None), None)
 
-    decider_line = decider or dec_user or "(Decider nezadán)"
-    if dec_user and decider and dec_user.strip() != decider.strip():
+    decider_line = real(decider) or real(dec_user)
+    if decider_line and dec_user and real(decider) and dec_user.strip() != decider.strip():
         decider_line += f" (zapsal {dec_user})"
-    if dec_ts:
+    if decider_line and dec_ts:
         decider_line += f", rozhodnutí Go {dec_ts}"
 
     size_line = ""
@@ -528,47 +594,72 @@ def build_pr(slug: str) -> dict[str, Any]:
     prov = check_provenance(
         slug=slug, variant=w[0], builder=builder, target_branch=p[7] or "main", worktree=wt,
     ) if w else None
-    keyboard = ((prov["authors"] if prov else None) or ctx["dev_owners"]
-                or ["(doplň - dev u klávesnice)"])
+    keyboard = (prov["authors"] if prov else None) or ctx["dev_owners"] or []
     variants = ctx["variant_names"] or ([w[0]] if w else [])
+    notests = code_without_tests(wt, p[7] or "main") if wt else None
+    warnings: list[str] = []
+    if notests and notests["missing_tests"]:
+        warnings.append(
+            f"Nový kód bez testů: {notests['new_source_files']} nových zdrojových souborů, "
+            "žádný nový ani změněný test.")
+    failures = [(g[0], failure_line(g[3] or "")) for g in gates if g[1] == "fail"]
+    crit_lines = _criticals_md(ctx, w[0] if w else None)
+    model = MODEL_FAMILY.get(builder)
 
-    pr_title = f"feat({slug}): {name[:60]}"
-    body_lines = [
-        BRAND, "",
-        "## Co se mění", p[4] or name, "",
-        "## Výstup Pflanzer Method",
-        f"- Varianta: `{w[0] if w else '—'}` (`{builder}`), větev `{branch or '—'}`"
-        + (f" @ `{head_sha[:10]}`" if head_sha else ""),
-        f"- Skóre z Buildu: {float(w[3] or 0):.2f}" if w else "- Skóre z Buildu: —",
-        f"- Gate skóre: **{gate_score}/100 (práh {target})** - {state['verdict']}",
-        f"- Acceptance: {acceptance}",
-        f"- Rozsah: {size_line or '—'}", "",
-        f"## Quality gates ({applicable} z {total} aplikovatelných)", badges, "",
-        "## Decider", decider_line, "",
-        "## Kill kritéria", kill, "",
-        "## Měření",
-        f"- Primary (lagging): {metric_primary}",
-        f"- Leading: {metric_leading}",
-        f"- Guardrail: {metric_guardrail}", "",
-        "## AI provenance",
-        f"- Builder: {builder}",
-        f"- Model family: {MODEL_FAMILY.get(builder, 'doplň')}",
-        f"- Varianty: {len(variants)} postaveny ({'/'.join(variants)}), do PR jde vítěz {w[0] if w else '—'}",
-        f"- U klávesnice: {', '.join(keyboard)} (git author commitů)", "",
-        "---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*",
-    ]
+    pr_title = f"feat({slug}): {trim_words(name, 60)}"
+    summary = _gate_summary(gates) if gates else None
+    body_lines: list[str] = [BRAND, "", "## Co se mění", p[4] or name, "",
+                             "## Výstup Pflanzer Method",
+                             f"- Varianta: `{w[0] if w else '—'}` (`{builder}`), větev `{branch or '—'}`"
+                             + (f" @ `{head_sha[:10]}`" if head_sha else "")]
+    if w:
+        body_lines.append(f"- Hlasování jádra v Buildu: {float(w[3] or 0):.2f} (0–1, vyšší = lepší)")
+    body_lines.append(f"- Brány: **{summary or str(gate_score) + '/100'}** (práh {target}) - "
+                      f"{state['verdict']}")
+    if acceptance:
+        body_lines.append(f"- Acceptance: {acceptance}")
+    if size_line:
+        body_lines.append(f"- Rozsah: {size_line}")
+    body_lines += ["", f"## Quality gates ({applicable} z {total} aplikovatelných)", badges, ""]
+    if failures:
+        body_lines += ["## Co selhalo"] + [f"- **{g}**: {line}" for g, line in failures] + [""]
+    if warnings:
+        body_lines += ["## Pozor"] + [f"- {x}" for x in warnings] + [""]
+    if crit_lines:
+        body_lines += ["## Otevřené kritické připomínky"] + crit_lines + [""]
+    if decider_line:
+        body_lines += ["## Decider", decider_line, ""]
+    if kill:
+        body_lines += ["## Kill kritéria", kill, ""]
+    metrics = [("Primary (lagging)", metric_primary), ("Leading", metric_leading),
+               ("Guardrail", metric_guardrail)]
+    if any(v for _, v in metrics):
+        body_lines += ["## Měření"] + [f"- {k}: {v}" for k, v in metrics if v] + [""]
+    prov_lines = [f"- Builder: {builder}"]
+    if model:
+        prov_lines.append(f"- Model family: {model}")
+    if variants:
+        prov_lines.append(f"- Varianty: {len(variants)} postaveny ({'/'.join(variants)}), "
+                          f"do PR jde vítěz {w[0] if w else '—'}")
+    if keyboard:
+        prov_lines.append(f"- U klávesnice: {', '.join(keyboard)} (git author commitů)")
+    body_lines += ["## AI provenance", *prov_lines, "",
+                   "---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*"]
     if state["threshold_override"]:
-        at = body_lines.index("## Decider")
+        at = body_lines.index("## Decider") if "## Decider" in body_lines else len(body_lines) - 3
         body_lines[at:at] = _render_threshold_override(
             state["threshold_override"], gate_score, target).splitlines() + [""]
     return {
         "ctx": ctx, "state": state, "title": pr_title, "body": "\n".join(body_lines),
         "branch": branch, "head_sha": head_sha, "loc_added": loc_added,
         "gate_score": gate_score, "target": target, "badges": badges,
+        "gates_summary": summary,
         "metrics": (metric_primary, metric_leading, metric_guardrail),
         "applicable": applicable, "total": total, "kill": kill,
         "builder": builder, "worktree": wt, "provenance": prov,
-        "keyboard": keyboard, "variants": variants,
+        "keyboard": keyboard, "variants": variants, "warnings": warnings,
+        "failures": failures, "critical_lines": crit_lines, "model": model,
+        "decider_line": decider_line,
     }
 
 
@@ -579,8 +670,8 @@ def render_ship_md(slug: str) -> str:
     name, decider = p[1], p[5]
     target_repo = public_repo_ref(p[6])
     target_branch = p[7] or "main"
-    branch_owner = p[8] or "(target_branch_owner nezadán)"
-    shadow_pm = p[9] or "(shadow_pm nezadán)"
+    branch_owner = real(p[8])
+    shadow_pm = real(p[9]) or real(ctx["path_owners"].get("produkt"))
     score, target, verdict = pr["gate_score"], pr["target"], state["verdict"]
     blocked_by = state["blocked_by"]
     triage = ctx["triage"]
@@ -599,8 +690,7 @@ def render_ship_md(slug: str) -> str:
                 shutil.rmtree(adapter["tmp_dir"], ignore_errors=True)
             adapter_warnings = adapter["warnings"]
         feat_branch = f"pflanzer/{slug}-{w[0]}"
-        reviewer = (branch_owner if (" " not in branch_owner and not branch_owner.startswith("("))
-                    else "YOUR-GH-HANDLE")
+        reviewer = branch_owner if (branch_owner and " " not in branch_owner) else None
         trailers = [f"Pflanzer-Variant: {slug}-{w[0]}", "Pflanzer-Session: ship"]
         if builder != "manual":
             trailers.append(f"AI-Assisted: {builder}")
@@ -626,30 +716,40 @@ def render_ship_md(slug: str) -> str:
             + ("" if suff["sufficient"] else f" - `{suff['blocker']}` (viz tool/templates/README-gates.md)")
         ) if ctx["gates"] else "(Ship ještě neběžel)"
         draft_flag = " \\\n  --draft" if (blocked_by or state["threshold_override"]) else ""
+        reviewer_flag = f"  --reviewer {reviewer} \\\n" if reviewer else ""
         work_dir = tilde(wt) if wt else e[1]
+        extra_parts: list[str] = []
+        if pr["failures"]:
+            extra_parts.append("\n### Co selhalo\n\n" + "\n".join(
+                f"- **{g}**: {line}" for g, line in pr["failures"]) + "\n")
+        if pr["warnings"]:
+            extra_parts.append("\n### Pozor\n\n" + "\n".join(f"- {x}" for x in pr["warnings"]) + "\n")
+        if pr["critical_lines"]:
+            extra_parts.append("\n### Otevřené kritické připomínky\n\n"
+                               + "\n".join(pr["critical_lines"]) + "\n")
+        extra_md = "".join(extra_parts)
         winner_info = f"""## Vítěz
 
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
 - **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} v `{target_repo}`
-- **Rozsah**: {pr['loc_added'] if pr['loc_added'] is not None else '—'} přidaných řádků
-- **Gate skóre**: **{score}/100 (práh {target})** - {verdict}
+{f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: **{pr['gates_summary'] or str(score) + '/100'}** (práh {target}) - {verdict}
 
 ### Quality gates ({pr['applicable']} z {pr['total']} aplikovatelných)
 
 {pr['badges']}
 
 - **Gates run**: {gates_md}
-
+{extra_md}
 ### Gate adaptér - integrita
 
 {adapter_md}
 
 ## AI provenance
 
-- **Builder**: `{builder}` · **Model family**: {MODEL_FAMILY.get(builder, 'doplň')}
+- **Builder**: `{builder}`{f" · **Model family**: {pr['model']}" if pr['model'] else ''}
 - **Varianty**: {len(pr['variants'])} postaveny ({'/'.join(pr['variants'])}), do PR jde vítěz {w[0]}
-- **U klávesnice**: {', '.join(pr['keyboard'])}
+{f"- **U klávesnice**: {', '.join(pr['keyboard'])}" + chr(10) if pr['keyboard'] else ''}
 - **Kontrola `{feat_branch}`** (read-only, historie se nepřepisuje):
 {prov_warn}
 """
@@ -680,16 +780,26 @@ gh pr create \\
 PRBODY
 )" \\
   --base {target_branch} \\
-  --reviewer {reviewer} \\
-  {label_flags}{draft_flag}
+{reviewer_flag}  {label_flags}{draft_flag}
 ```
 """
 
     measure = render_measure_30d({
         "slug": slug, "branch": pr["branch"], "head_sha_short": (pr["head_sha"] or "")[:10],
-        "loc_added": pr["loc_added"], "metric_primary": pr["metrics"][0],
-        "guardrail": pr["metrics"][2], "kill": pr["kill"],
+        "loc_added": pr["loc_added"], "metric_primary": pr["metrics"][0] or "dle Kickoffu",
+        "guardrail": pr["metrics"][2], "kill": pr["kill"] or "viz Kickoff",
     })
+    owner_rows = [("Decider", real(decider)), ("Branch owner / merger", branch_owner),
+                  ("Shadow PdM (hlídá Async)", shadow_pm)]
+    owners_md = "\n".join(f"| **{k}** | {v} |" for k, v in owner_rows if v)
+    owners_section = (f"## Odpovědnosti\n\n| Role | Kdo |\n|------|-----|\n{owners_md}\n"
+                      if owners_md else "")
+    metrics_rows = [("Primary (lagging)", pr["metrics"][0]), ("Leading", pr["metrics"][1]),
+                    ("Guardrail", pr["metrics"][2])]
+    measure_md = "\n".join(f"- **{k}**: {v}" for k, v in metrics_rows if v)
+    measure_section = f"## Měření\n\n{measure_md}\n\n" if measure_md else ""
+    kill_section = f"## Kill kritéria\n\n{pr['kill']}\n\n" if pr["kill"] else ""
+    verdict_notes = "".join(f"> Pozor: {x}\n" for x in pr["warnings"])
 
     return f"""{BRAND}
 
@@ -697,19 +807,12 @@ PRBODY
 
 > Projekt: `{p[2]}` · Vygenerováno: {today} · {verdict}
 > SHIP.md je primární handoff (1 stránka). Soubory per role jsou doplněk pro audit.
-
+{verdict_notes}
 {triage_top}{threshold_md}## Co se mění
 
-{p[4]}
+{p[4] or name}
 
-## Odpovědnosti
-
-| Role | Kdo |
-|------|-----|
-| **Decider** | {decider or '(nezadán)'} |
-| **Branch owner / merger** | {branch_owner} |
-| **Shadow PdM** (hlídá Async) | {shadow_pm} |
-
+{owners_section}
 {winner_info}
 {render_ai_usage_section(slug)}
 ## Rizikový profil
@@ -717,27 +820,14 @@ PRBODY
 - **AI Act tier**: `{p[12]}` · **Data class**: `{p[13]}` · **Profil**: `{p[11]}` · **Risk profil**: `{triage['risk_profile']}`
 
 {triage_section}
-## Kill kritéria
-
-{pr['kill']}
-
-## Měření
-
-- **Primary (lagging)**: {pr['metrics'][0]}
-- **Leading**: {pr['metrics'][1]}
-- **Guardrail**: {pr['metrics'][2]}
-- **Instrumentace hotová**: 2 dny před nasazením
-
-{pr_command}
+{kill_section}{measure_section}{pr_command}
 ## Co dál (T+0 → T+90)
 
 - **Dnes**: PR otevřený, branch owner dělá review
-- **T+1d**: PR merged, preview odkaz sdílen + `/pm retro {slug}` (`python3 tool/cli/retro.py measure --slug {slug} --pr-url <PR_URL>`) -> `loc_reused_pct` (cíl ≥ 80 %), `days_to_prod` (cíl ≤ 14)
-- **Hned po merge**: připomínky T+7/30/60/90 -> `python3 tool/cli/retro.py reminders --slug {slug} --format ics --out data/retro/{slug}-reminders.ics`
-- **T+7 dní**: feature flag 10 % uživatelů; kontrola instrumentace
-- **T+14 dní**: 50 % uživatelů; první čtení metrik
+- **T+1d**: PR merged, preview sdílen; `pflanzer retro measure --slug {slug} --pr-url <URL_PR>` — kolik kódu vítěze přežilo a za kolik dní se dostal do produkce
+- **Hned po merge**: připomínky do kalendáře: `pflanzer retro reminders --slug {slug} --format ics --out {slug}-pripominky.ics`
+- **T+7 / 30 / 60 / 90 dní**: čtení metrik přes `/pm retro {slug}`
 - **T+30 dní**: plný rollout, nebo rollback podle kill kritérií; **změř, co z kódu přežilo** (níže)
-- **T+7/30/60/90**: readouty přes `/pm retro {slug}` (tabulka `outcomes`, report `data/retro/{slug}-retro.md`)
 
 {measure}
 ## Audit trail
@@ -780,6 +870,29 @@ def write_ship(slug: str) -> Path:
     return out
 
 
+def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
+    """Data pro lidský výstup po zápisu SHIP.md."""
+    pr = build_pr(slug)
+    state, ctx = pr["state"], pr["ctx"]
+    owner = real(ctx["project"][8])
+    lines = [f"SHIP.md: {tilde(path)}",
+             f"Brány: {pr['gates_summary'] or str(pr['gate_score']) + '/100'} "
+             f"(práh {pr['target']}) — {state['verdict']}"]
+    human = human_triage_blockers(slug, ctx["triage"]["windows"]) if ctx["triage"]["blocked_by"] else []
+    lines += human[:2]
+    for x in pr["failures"][:1]:
+        lines.append(f"Selhalo {x[0]}: {x[1]}")
+    lines += pr["critical_lines"][:1]
+    warnings = list(pr["warnings"])
+    if state["blocked_by"] and not human:
+        warnings.append("PR půjde jako draft: " + ", ".join(state["blocked_by"]))
+    nxt = ("Ukaž SHIP.md týmu a " + (f"{owner} (branch owner) " if owner else "branch owner ")
+           + "spustí `gh pr create` z konce SHIP.md (z worktree vítěze).")
+    return {"lines": lines[:6], "warnings": warnings, "next_step": nxt,
+            "ctx": {"open_critical": bool(pr["critical_lines"]),
+                    "below_threshold": state["score"] < state["target"]}}
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
@@ -787,22 +900,23 @@ def main() -> None:
                    help="Vypiš SHIP.md na stdout (default: zapiš do výstupní složky)")
     p.add_argument("--pr-body", action="store_true",
                    help="Vypiš jen tělo PR (pro `gh pr create --body-file -`)")
+    p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
 
-    if args.pr_body:
-        print(build_pr(args.slug)["body"])
-    elif args.print:
-        print(render_ship_md(args.slug))
-    else:
-        path = write_ship(args.slug)
-        print(json.dumps({
-            "slug": args.slug,
-            "ship_path": tilde(path),
-            "next_step": (
-                "Ukaž SHIP.md týmu. Decider nebo branch owner spustí `gh pr create` příkaz "
-                "z konce SHIP.md (z worktree vítěze)."
-            ),
-        }, ensure_ascii=False, indent=2))
+    try:
+        if args.pr_body:
+            print(build_pr(args.slug)["body"])
+        elif args.print:
+            print(render_ship_md(args.slug))
+        else:
+            path = write_ship(args.slug)
+            view = _human_ship_md(args.slug, path)
+            emit({"slug": args.slug, "ship_path": tilde(path), "next_step": view["next_step"]},
+                 title=f"SHIP.md hotový: {args.slug}", lines=view["lines"],
+                 warnings=view["warnings"], next_step=view["next_step"],
+                 tips=tips_for("handoff", view["ctx"]), as_json=args.json)
+    except ValueError as e:
+        die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff_pr --slug moje-appka")
 
 
 if __name__ == "__main__":

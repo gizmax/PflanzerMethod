@@ -2,10 +2,11 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-> Zjednodušený průběh v0.5 (ADR-0021). Detail: `docs/methodology/00-lean-pflanzer.md`.
-> Diagram popisuje výchozí stupeň **Lean**; `/pm live` je **Quick** (Kickoff + Build
-> v jednom, 60–90 min), **Full** je governance / regulované (delší Build a Async,
-> role cards, triage) — viz § Tři stupně v 1-pageru a ADR-0017.
+> Průběh na jednu obrazovku. Detail: [`methodology/00-lean-pflanzer.md`](methodology/00-lean-pflanzer.md).
+> Diagram popisuje výchozí stupeň **Lean** (Build 3 h). Kratší je **Quick**
+> (`/pm live`, Kickoff + Build v jednom, 60–90 min), delší **Full** pro
+> regulované prostředí — viz § Tři stupně v 1-pageru.
+> Kolik to stojí a co říct šéfovi: [`zacni.md`](zacni.md#kolik-to-stojí).
 
 ## Diagram průběhu
 
@@ -49,15 +50,19 @@ gantt
 ## Postup v 5 krocích
 
 0. **Před Kickoffem:** `pflanzer doctor` — repo musí být připravené
-   (testy, CI, preview deploy, INTEGRATION_GUIDE + CONSTITUTION, pushnuto).
+   (testy, CI, preview deploy, vyplněný `docs/INTEGRATION_GUIDE.md`
+   a `.pflanzer/CONSTITUTION.md`, vše pushnuté).
 1. **Kickoff (15 min)** — Decider + jádro. Zadání na 1 stránku: problém
    v 1 větě, metrika úspěchu, kill kritérium. Ke každému ze 6 kroků cesty
    napiš jméno (byznys, produkt, design, vývoj, bezpečnost & právo, provoz).
-   Zabookuj okna. *Chybí jméno → nesvolávat.*
+   Zabookuj okna. *Chybí jméno → nesvolávat.* Kde člověk chybí, může krok
+   v omezené míře zastoupit AI (design, předkontrola bezpečnosti a provozu);
+   podepisuje vždy člověk — tabulka v [`zacni.md`](zacni.md#co-když-nemáme).
 2. **Build (3 h)** — jádro u jedné obrazovky. AI staví 3 varianty paralelně.
    Kontroly (lint, testy, build) běží průběžně. Checkpoint 20 min
-   s bezpečností & právem: datový tok, data classification, egress limit,
-   strop tokenů/nákladů, prompt injection; worktree není izolace.
+   s bezpečností & právem potvrdí tři věci: jaká data AI vidí, kam smí
+   síť a kolik smí AI stát (plus riziko podstrčené instrukce v cizím textu).
+   Oddělená kopie repa pro variantu není bezpečnostní izolace.
 3. **Async (3–5 dní)** — všichni zástupci klikají na sandbox URL a komentují.
    Vývojář zapracovává.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,
@@ -67,7 +72,8 @@ gantt
    (`.pflanzer/decisions/<slug>.md`).
 5. **Ship (1–2 dny)** — vývojáři + provoz. Quality gates jen na vítěze,
    práh pilot 80 / production 85 ze 100,
-   20 min checkpoint provozu, PR do target repa, deploy.
+   20 min checkpoint provozu (rollback, kdo je na telefonu, první hodina),
+   PR do repa produktu, deploy.
 
 ## Kde varianty fyzicky jsou
 
@@ -93,20 +99,20 @@ flowchart LR
 
 | Kdy | Kód | Běžící varianta | Kdo ji vidí |
 |-----|-----|-----------------|-------------|
-| **Build** | 3 worktrees na notebooku buildera, každý ve vlastní branchi `pflanzer/<slug>-A/B/C` target repa | lokálně, 3 dev servery na 3 portech (např. `:3001`, `:3002`, `:3003`) | jádro u jedné obrazovky |
+| **Build** | 3 oddělené kopie repa (worktrees) na notebooku buildera, každý ve vlastní branchi `pflanzer/<slug>-A/B/C` target repa | lokálně, 3 dev servery na 3 portech (např. `:3001`, `:3002`, `:3003`) | jádro u jedné obrazovky |
 | **Async + Rozhodnutí** | branche pushnuté do target repa | **preview deploy každé branche** (bez produkčních dat, noindex, štítek „k rozhodnutí, ne produkt") — 3 URL | všichni zástupci ve svém prohlížeči, bez účtu na prod |
 | **Ship** | vítězná branche → PR do `main` target repa; poražené branche se smažou | produkční deploy přes běžnou pipeline | uživatelé |
 
 Prakticky:
 
-- Kód **nikdy nežije mimo target repo** (ADR-0009) — proto vítěz jde
-  rovnou do PR, nic se nepřepisuje.
+- Kód **nikdy nežije mimo repo produktu** — proto vítěz jde rovnou do PR,
+  nic se nepřepisuje.
 - Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,
   preview namespace v Kubernetes, review apps v GitLabu). Dohodne se na
   Kickoffu se zástupcem provozu; nic nového se nestaví.
 - Odkazy na 3 URL + feedback sbírá web hub — `pflanzer hub`
-  (`http://localhost:8000/method/`, pro kolegy `--host 0.0.0.0`), nebo
-  offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
+  (`http://localhost:8000/method/` bez přihlášení; pro kolegy
+  `--host 0.0.0.0 --password …`), nebo offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
 - Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
   bezpečnosti & práva.
 

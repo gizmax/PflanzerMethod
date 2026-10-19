@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..audit import write_audit
-from ..models import Project, Variant, utcnow
+from ..models import Feedback, Project, Variant, utcnow
 from ..models import Session as PSession
 
 router = APIRouter(prefix="/api/projects", tags=["variants"])
@@ -28,8 +28,13 @@ class VariantIn(BaseModel):
     preference_score: float | None = Field(default=None, ge=0, le=1)
 
 
-@router.get("/{slug}/variants", response_model=list[Variant])
-def list_variants(slug: str, db: Session = Depends(get_session)) -> list[Variant]:
+@router.get("/{slug}/variants")
+def list_variants(
+    slug: str,
+    db: Session = Depends(get_session),
+    actor: str = Depends(get_actor),
+) -> list[dict]:
+    """Varianty projektu + počet feedbacků a příznak, zda už feedback dal volající."""
     project = db.exec(select(Project).where(Project.slug == slug)).first()
     if not project:
         raise HTTPException(404, f"Project '{slug}' not found")
@@ -39,9 +44,17 @@ def list_variants(slug: str, db: Session = Depends(get_session)) -> list[Variant
     ]
     if not session_ids:
         return []
-    return list(
+    variants = list(
         db.exec(select(Variant).where(Variant.session_id.in_(session_ids)).order_by(Variant.id)).all()
     )
+    out: list[dict] = []
+    for v in variants:
+        fbs = db.exec(select(Feedback).where(Feedback.variant_id == v.id)).all()
+        row = v.model_dump(mode="json")
+        row["feedback_count"] = len(fbs)
+        row["my_feedback"] = any(f.submitted_by == actor for f in fbs)
+        out.append(row)
+    return out
 
 
 @router.post("/{slug}/variants", status_code=201)

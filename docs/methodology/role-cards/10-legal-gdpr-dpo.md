@@ -2,22 +2,22 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #10 — Legal / GDPR / DPO
 
-> Zastupuješ krok bezpečnost & právo z právní strany: osobní data, marketing claims a AI Act risk-tier.
+> Za 20 minut potvrdíš, že varianty nezpracují osobní údaje bez právního důvodu a že tvrzení v UI jdou doložit. Podpis: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …`.
 
 **Krok cesty:** Bezpečnost & právo · **Kde jsi:** okno — checkpoint 20 min v posledních 30 min Buildu (stačí Legal / DPO nebo Security)
 
 Status v catalogu: **doporučená** · Kdy se zve: Osobní data, marketing, novel AI use case (≥ Limited risk-tier), nebo regulovaný produkt (PSD2/MiFID)?
 
 ## Přines do svého okna
-- RoPA a DPIA trigger checklist (GDPR čl. 35/3)
-- AI Act risk-tier klasifikaci use casu
-- DPA + SCC per vendor (včetně AI builderu)
-- Marketing compliance brief, pokud jsou ve hře claims
+- Jaké osobní údaje varianty zpracují a na jakém základě
+- Zda je ve hře AI Act vyššího rizika nebo zvláštní kategorie dat
+- Tvrzení v UI (marketing), která musí jít doložit
+- Pro hlubší kontrolu (stupeň Full): RoPA, DPIA trigger checklist (GDPR čl. 35), DPA + SCC per dodavatel, AI Act risk-tier
 
 ## Podepisuješ
-- Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by JMÉNO --note …` (blokace: přidej `--blocked`)
-- Legal & privacy triage (≥ 2 DPIA triggery = Build odložen)
-- DPIA podepsaná DPO a legal basis per feature; veto při high-risk AI Act nebo special category datech
+- Checkpoint bezpečnost & právo: `pflanzer checkpoint --slug <slug> bezpecnost --by <jméno> --note …` (blokace: přidej `--blocked`)
+- Veto při vysokém riziku AI Act nebo zvláštních kategoriích dat
+- Pro hlubší kontrolu (stupeň Full): DPIA podepsaná DPO a právní základ per funkce
 
 ## Kdy jsi u toho
 - Quick (60–90 min) — **async**: checkpoint se odkládá — podepíšeš ho před pilotem
@@ -35,7 +35,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - AI use case ≥ High risk-tier v Quick / Lean stupni
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ AI zvládne L1/L2 data a minimal / limited risk; high-risk AI Act, special categories a profiling podepisuje lidský DPO. Sub-agent: `.claude/agents/legal-gdpr-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Jen jako předkontrola** (ADR-0023): `--ai --agent legal-gdpr-expert` zapíše návrh; u pilotu a produkce podepíše člověk do 48 h. Vysoké riziko AI Act a zvláštní kategorie vždy člověk. Sub-agent: `.claude/agents/legal-gdpr-expert.md`.
 
 ---
 

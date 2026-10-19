@@ -1,22 +1,26 @@
 import type { Config } from "tailwindcss";
 
+const c = (name: string) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
+// Barvy jsou CSS proměnné (index.css) — světlý i tmavý režim (prefers-color-scheme).
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Pflanzer brand — sober, governance-grade.
-        brand: {
-          50: "#f5f7f9",
-          500: "#3b5b7e",
-          700: "#27425e",
-          900: "#16263a",
-        },
-        severity: {
-          critical: "#b00020",
-          high: "#d97706",
-          medium: "#f59e0b",
-          low: "#65a30d",
+        page: c("page"),
+        card: c("card"),
+        line: c("line"),
+        ink: c("ink"),
+        muted: c("muted"),
+        accent: c("accent"),
+        "accent-ink": c("accent-ink"),
+        soft: c("soft"),
+        sev: {
+          critical: c("sev-critical"),
+          high: c("sev-high"),
+          medium: c("sev-medium"),
+          low: c("sev-low"),
         },
       },
       fontFamily: {

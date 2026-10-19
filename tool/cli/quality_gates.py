@@ -71,6 +71,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT  # noqa: E402
+from tool.cli.ux import die, emit, tips_for  # noqa: E402
 
 GATES_DIR = DATA_ROOT / "handoffs"
 # Pořadí = fail-fast (levné → drahé).
@@ -377,6 +378,48 @@ def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
                       f"{label}: `{shown}` exit {rc}\n{(out + err)[-500:]}",
                       duration_s=duration)
 
+def _python_cmd() -> str:
+    """Interpreter pro Python brány (`PFLANZER_PYTHON` přebíjí; default `python3`)."""
+    return os.environ.get("PFLANZER_PYTHON") or "python3"
+
+
+_MAKE_TARGET_RE = re.compile(r"^build\s*:(?!=)", re.MULTILINE)
+
+
+def _has_make_build(path: Path) -> bool:
+    for name in ("Makefile", "makefile", "GNUmakefile"):
+        f = path / name
+        if f.is_file():
+            try:
+                return bool(_MAKE_TARGET_RE.search(f.read_text(encoding="utf-8", errors="ignore")))
+            except OSError:
+                return False
+    return False
+
+
+def _python_build(ctx: Ctx) -> GateResult:
+    """`make build`, když Makefile má cíl build; jinak `compileall` jako ekvivalent."""
+    started = time.monotonic()
+    if _has_make_build(ctx.path) and _has("make"):
+        rc, out, err = _run(["make", "build"], ctx.path, timeout=300)
+        dur = round(time.monotonic() - started, 2)
+        if rc == 0:
+            return GateResult("build", "pass", "`make build` OK", duration_s=dur)
+        return GateResult("build", "fail", f"`make build` exit {rc}\n{(out + err)[-500:]}",
+                          duration_s=dur)
+    py = _python_cmd()
+    if not _has(py):
+        return _skip("build", f"{py} není na PATH")
+    rc, out, err = _run([py, "-m", "compileall", "-q", "."], ctx.path, timeout=120)
+    dur = round(time.monotonic() - started, 2)
+    if rc == 0:
+        return GateResult("build", "pass",
+                          "Python bez Makefile cíle build: `compileall` (syntaxe) OK",
+                          duration_s=dur)
+    return GateResult("build", "fail", f"`compileall` exit {rc}\n{(out + err)[-500:]}",
+                      duration_s=dur)
+
+
 def gate_build(ctx: Ctx) -> GateResult:
     st = ctx.stack
     if st.other:
@@ -399,7 +442,7 @@ def gate_build(ctx: Ctx) -> GateResult:
             return GateResult("build", "pass", f"Build OK, výstup {size_kb} KB", metric=size_kb)
         return GateResult("build", "fail", (out + err)[-500:])
     if st.python:
-        return _skip("build", "Python build není v rozsahu bran")
+        return _python_build(ctx)
     return _skip("build", "neznámý stack (bez package.json / pyproject.toml)")
 
 
@@ -451,13 +494,22 @@ def gate_lint(ctx: Ctx) -> GateResult:
                           f"lint hlásí chybu ({problems} nálezů)\n{(out + err)[-500:]}",
                           metric=problems)
     if st.python:
-        if not _has("ruff"):
+        if _has("ruff"):
+            cmd = ["ruff", "check", "."]
+        elif _has(_python_cmd()):
+            cmd = [_python_cmd(), "-m", "ruff", "check", "."]
+        else:
             return _skip("lint", "ruff není na PATH")
-        rc, out, err = _run(["ruff", "check", "."], ctx.path)
-        return GateResult("lint", "pass" if rc == 0 else "fail", (out + err)[-500:] or "OK")
+        rc, out, err = _run(cmd, ctx.path)
+        text = out + err
+        if rc != 0 and _NO_MODULE_RE.search(text):
+            return _skip("lint", "ruff není nainstalovaný (`pip install ruff`); "
+                                 "nástroj chybí, kód se nehodnotil")
+        return GateResult("lint", "pass" if rc == 0 else "fail", text[-500:] or "OK")
     return _skip("lint", "neznámý stack")
 
 
+_NO_MODULE_RE = re.compile(r"No module named ['\"]?([\w.\-]+)")
 _PLACEHOLDER_TEST = re.compile(r"no test specified", re.IGNORECASE)
 
 
@@ -470,6 +522,16 @@ def _count_tests(output: str) -> int | None:
             return int(m.group(1))
     m = re.search(r"^# tests (\d+)", output, re.MULTILINE)
     return int(m.group(1)) if m else None
+
+
+def _pytest_failure_summary(output: str) -> str:
+    """Užitečný konec pytest výstupu: řádky `E   …` (assertion) a shrnutí FAILED, ne useknutý stack."""
+    lines = output.splitlines()
+    picked = [ln.strip() for ln in lines if ln.lstrip().startswith("E ")][:4]
+    picked += [ln.strip() for ln in lines if ln.startswith("FAILED ")][:3]
+    summary = next((ln.strip() for ln in reversed(lines) if re.search(r"\d+ (failed|passed|error)", ln)), "")
+    text = "\n".join([*picked, summary] if picked else [output[-500:]])
+    return text[-600:]
 
 
 def gate_tests(ctx: Ctx) -> GateResult:
@@ -494,14 +556,19 @@ def gate_tests(ctx: Ctx) -> GateResult:
         note = f"{count} testů prošlo" if count is not None else "testy prošly (počet nezjištěn)"
         return GateResult("tests", "pass", note, metric=count)
     if st.python:
-        if not _has("pytest"):
-            return _skip("tests", "pytest není na PATH")
-        rc, out, err = _run(["pytest", "-q"], ctx.path, timeout=180)
+        py = _python_cmd()
+        if not _has(py):
+            return _skip("tests", f"{py} není na PATH")
+        rc, out, err = _run([py, "-m", "pytest", "-q"], ctx.path, timeout=180)
+        if rc != 0 and (m := _NO_MODULE_RE.search(out + err)) and m.group(1).split(".")[0] == "pytest":
+            return _skip("tests", f"pytest není nainstalovaný pro {py} (`{py} -m pip install pytest`)")
         if rc == 5:
             return GateResult("tests", "fail", "žádné testy - pytest žádný nenašel", metric=0)
         count = _count_tests(out)
-        return GateResult("tests", "pass" if rc == 0 else "fail", (out + err)[-500:],
-                          metric=count)
+        if rc == 0:
+            note = f"{count} testů prošlo" if count is not None else "testy prošly"
+            return GateResult("tests", "pass", note, metric=count)
+        return GateResult("tests", "fail", _pytest_failure_summary(out + err), metric=count)
     return GateResult("tests", "fail", "žádné testy - neznámý stack, nic ke spuštění", metric=0)
 
 
@@ -534,9 +601,9 @@ def gate_security(ctx: Ctx) -> GateResult:
                 secrets_count += 1
                 findings.append(f"{label} v {f.relative_to(ctx.path)}")
 
-    audit_note = "npm audit nespuštěn"
-    audit_findings = 0
     st = ctx.stack
+    audit_note = "npm audit nespuštěn" if st.node else ""
+    audit_findings = 0
     if st.node and _has("npm") and ((ctx.path / "node_modules").exists()
                                     or (ctx.path / "package-lock.json").exists()):
         rc, out, _ = _run(["npm", "audit", "--json"], ctx.path, timeout=60)
@@ -557,7 +624,8 @@ def gate_security(ctx: Ctx) -> GateResult:
         return GateResult("security", "warn",
                           f"{audit_note}" + (" (> 5 = review)" if audit_findings > 5 else ""),
                           metric=audit_findings)
-    return GateResult("security", "pass", f"Žádné secrets; {audit_note}", metric=0)
+    return GateResult("security", "pass",
+                      "Žádné secrets" + (f"; {audit_note}" if audit_note else ""), metric=0)
 
 
 def gate_a11y(ctx: Ctx) -> GateResult:
@@ -584,10 +652,12 @@ def gate_a11y(ctx: Ctx) -> GateResult:
     if issues:
         return GateResult("a11y", "warn",
                           f"{issues} možných a11y problémů v {len(files)} UI souborech "
-                          "(heuristika; pro detail `npx axe`)", metric=issues)
+                          "(heuristika" + ("; pro detail `npx axe`)" if ctx.stack.node else ")"),
+                          metric=issues)
     return GateResult("a11y", "pass",
                       f"{len(files)} UI souborů, {semantic} se sémantickými značkami, 0 zjevných "
-                      "problémů (heuristika; pro produkci doporuč. axe)", metric=0)
+                      "problémů (heuristika" + ("; pro produkci doporuč. axe)" if ctx.stack.node else ")"),
+                      metric=0)
 
 
 def gate_coverage(ctx: Ctx) -> GateResult:
@@ -597,6 +667,9 @@ def gate_coverage(ctx: Ctx) -> GateResult:
     has_tool = st.node and "vitest" in st.deps and any(
         k in st.deps for k in ("@vitest/coverage-v8", "@vitest/coverage-istanbul"))
     if not has_tool:
+        if st.python and not st.node:
+            return _skip("coverage", "coverage se pro Python nespouští automaticky "
+                                     "(definuj příkaz v pflanzer.gates.json)")
         return _skip("coverage", "není nakonfigurovaný coverage nástroj (vitest + coverage-v8)")
     if (s := _needs_deps(ctx, "coverage")):
         return s
@@ -625,6 +698,10 @@ def gate_acceptance(ctx: Ctx) -> GateResult:
         return _skip("acceptance", "tests/acceptance/ neexistuje (kritéria nejsou v kódu)")
     st = ctx.stack
     if not (st.node and "@playwright/test" in st.deps):
+        if st.python and not st.node:
+            return _skip("acceptance", "scénáře v tests/acceptance/ jsou, ale automaticky se "
+                                       "spouští jen Playwright (pro Python je běží `tests`; "
+                                       "případně definuj příkaz v pflanzer.gates.json)")
         return _skip("acceptance", "scénáře jsou, ale chybí @playwright/test")
     if (s := _needs_deps(ctx, "acceptance")):
         return s
@@ -672,6 +749,9 @@ def gate_observability(ctx: Ctx) -> GateResult:
             continue
         files.append(f)
     if not files:
+        if ctx.stack.python and not ctx.stack.node:
+            return _skip("observability", "kontrola `console.*` je jen pro JS/TS; "
+                                          "pro Python se nevyhodnocuje")
         return _skip("observability", "žádné JS/TS zdrojové soubory")
     leaks = 0
     for f in files:
@@ -703,6 +783,10 @@ GATE_RUNNERS = {
 # --------------------------------------------------------------------------
 # Gate adapter (pflanzer.gates.yml) — audit N7
 # --------------------------------------------------------------------------
+
+
+class AdapterError(ValueError):
+    """Adaptér bran nejde přečíst. Zpráva je lidská věta; Ship ji ukáže, brány se potichu nevypnou."""
 
 
 ADAPTER_FILENAMES = ("pflanzer.gates.yml", "pflanzer.gates.yaml", "pflanzer.gates.json")
@@ -737,8 +821,8 @@ def load_gates_adapter(adapter: Path) -> dict[str, Any]:
         try:
             import yaml  # optional: PyYAML is not a hard dependency
         except ImportError as e:
-            raise ValueError("PyYAML is not installed — `pip install pyyaml` "
-                             "or use pflanzer.gates.json") from e
+            raise ValueError(f"{adapter.name} potřebuje PyYAML: nainstaluj ho "
+                             "(`pip install pyyaml`) nebo použij pflanzer.gates.json") from e
         try:
             data = yaml.safe_load(text)
         except yaml.YAMLError as e:
@@ -843,7 +927,7 @@ def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> lis
     try:
         specs = load_gates_adapter(adapter)
     except (OSError, ValueError) as e:
-        return [GateResult(g, "skipped", f"{adapter.name} unreadable: {e}") for g in GATE_TYPES]
+        raise AdapterError(f"Adaptér bran {adapter.name} nejde přečíst: {e}.") from e
     unknown = sorted(set(specs) - set(GATE_TYPES) - ADAPTER_RESERVED_KEYS)
     if unknown:
         print(f"[gates] warning: {adapter} has unknown gate(s) {unknown}; "
@@ -1064,12 +1148,40 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
         "low_confidence": score_info["low_confidence"],
         "counts": score_info["counts"],
         "summary_path": display_path(md_path),
+        "summary_line": gates_summary_line(score, results),
         "results": [
             {"gate": r.gate_type, "status": r.status,
              "metric": r.metric, "details": r.details[:200]}
             for r in results
         ],
     }
+
+
+def skip_reason(result: Any) -> str:
+    """Krátký důvod, proč brána neběžela (z `details`)."""
+    details = result.details if hasattr(result, "details") else result.get("details", "")
+    text = (details or "").replace("\n", " ").strip()
+    if text.upper().startswith("SKIP:"):
+        text = text[5:].strip()
+    return text[:90]
+
+
+def gates_summary_line(score: int, results: list[Any], reasons: bool = True) -> str:
+    """„78/100 z 5/9 bran; neběžely: types (důvod), a11y (důvod)“ — vždy stejný tvar."""
+    def g(r: Any) -> str:
+        return r.gate_type if hasattr(r, "gate_type") else r["gate"]
+
+    def st(r: Any) -> str:
+        return r.status if hasattr(r, "status") else r["status"]
+
+    ran = [r for r in results if st(r) in RAN_STATUSES]
+    missing = [r for r in results if st(r) not in RAN_STATUSES]
+    line = f"{score}/100 z {len(ran)}/{len(results)} bran"
+    if missing:
+        line += "; neběžely: " + ", ".join(
+            f"{g(r)} ({skip_reason(r)})" if reasons and skip_reason(r) else g(r)
+            for r in missing)
+    return line
 
 
 def verdict_label(score: int, target: int, low_confidence: bool = False) -> str:
@@ -1103,7 +1215,7 @@ def _render_md(slug: str, variant: str, results: list[GateResult],
 
 # Quality gates — {slug} / varianta {variant}
 
-> Skóre: **{score}/100** (práh {target}) · {verdict_label(score, target, score_info['low_confidence'])}
+> Skóre: **{gates_summary_line(score, results)}** (práh {target}) · {verdict_label(score, target, score_info['low_confidence'])}
 > Stack: `{stack.label}` · Aplikovatelné brány: {score_info['applicable_gates']} z {score_info['total_gates']} · {score_info['counts']}
 > Zdroj příkazů: {gate_source or 'autodetekce'}
 {low}
@@ -1122,43 +1234,79 @@ Opakování: `pflanzer quality_gates --slug {slug} --variant {variant}`
 """
 
 
+_STATUS_CS = {"pass": "OK", "warn": "varování", "fail": "SELHALA", "skipped": "neběžela",
+              "unsupported": "neběžela"}
+
+
+def _first_line(text: str, limit: int = 110) -> str:
+    for ln in (text or "").splitlines():
+        if ln.strip():
+            return ln.strip()[:limit]
+    return ""
+
+
+def human_gate_lines(summary_line: str, results: list[dict[str, Any]], limit: int = 5) -> list[str]:
+    """Řádky pro lidský výstup: souhrn + nejdřív selhané, pak varování (max `limit`)."""
+    lines = [summary_line]
+    problems = [r for r in results if r["status"] == "fail"] + \
+               [r for r in results if r["status"] == "warn"]
+    for r in problems[: limit - 1]:
+        lines.append(f"{_STATUS_CS[r['status']]}: {r['gate']} — {_first_line(r.get('details', ''))}")
+    return lines
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--extracted-id", type=int, default=None)
     p.add_argument("--slug", default=None)
     p.add_argument("--variant", default=None)
     p.add_argument("--path", default=None,
-                   help="Pusť brány nad adresářem bez DB (vypíše JSON, nic neukládá)")
+                   help="Pusť brány nad adresářem bez DB (nic neukládá)")
     p.add_argument("--adapter", default=None,
-                   help="Použij tento pflanzer.gates.yml/.json místo hledání ve stromu "
+                   help="Použij tento pflanzer.gates.json/.yml místo hledání ve stromu "
                         "(cwd se vztahuje ke kontrolované cestě)")
+    p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
     adapter_path = Path(args.adapter).resolve() if args.adapter else None
 
     if args.path:
         target_dir = Path(args.path).resolve()
         if not target_dir.is_dir():
-            p.error(f"--path {target_dir} není adresář")
+            die(f"Cesta {target_dir} není adresář.",
+                "pflanzer quality_gates --path ./moje-aplikace")
         source = describe_gate_source(target_dir, adapter_path)
-        _st, results, score_info, _deps = evaluate_path(target_dir, adapter_path)
-        print(json.dumps({
+        try:
+            _st, results, score_info, _deps = evaluate_path(target_dir, adapter_path)
+        except AdapterError as e:
+            die(str(e), "pflanzer quality_gates --path . --adapter pflanzer.gates.json")
+        rows = [
+            {"gate": r.gate_type, "status": r.status, "metric": r.metric,
+             "duration_s": r.duration_s, "details": r.details[:300]}
+            for r in results
+        ]
+        out = {
             "path": str(target_dir),
             "gate_source": source,
             "gate_score": score_info["gate_score"],
+            "summary_line": gates_summary_line(score_info["gate_score"], results),
             "counts": score_info["counts"],
             "gates_run": score_info["gates_run"],
             "gates_unsupported": score_info["gates_unsupported"],
-            "results": [
-                {"gate": r.gate_type, "status": r.status, "metric": r.metric,
-                 "duration_s": r.duration_s, "details": r.details[:300]}
-                for r in results
-            ],
-        }, ensure_ascii=False, indent=2, default=str))
+            "results": rows,
+        }
+        failing = [r["gate"] for r in rows if r["status"] == "fail"]
+        emit(out, title=f"Kontrola bran: {target_dir.name}",
+             lines=human_gate_lines(out["summary_line"], rows),
+             next_step=(f"oprav {', '.join(failing)} a spusť znovu: "
+                        f"`pflanzer quality_gates --path {args.path}`" if failing
+                        else "bez blokace; pro Ship vítěze: `pflanzer session_3 --slug <slug>`"),
+             tips=tips_for("ship", {}) [:1], as_json=args.json)
         return
 
     if not args.extracted_id:
         if not (args.slug and args.variant):
-            p.error("Either --extracted-id OR (--slug AND --variant) OR --path required")
+            die("Chybí, co mám zkontrolovat: zadej --path <složka>, nebo --slug a --variant.",
+                "pflanzer quality_gates --slug moje-appka --variant A")
         with transaction() as conn:
             row = conn.execute(
                 """
@@ -1171,12 +1319,23 @@ def main() -> None:
                 """, (args.slug, args.variant),
             ).fetchone()
             if not row:
-                sys.exit(f"No extracted_code for {args.slug}/{args.variant}. "
-                         f"Spusť nejdřív `pflanzer extract --slug {args.slug} --variant {args.variant}`.")
+                die(f"Varianta {args.variant} projektu {args.slug} ještě nemá načtený kód.",
+                    f"pflanzer extract --slug {args.slug} --variant {args.variant}")
             args.extracted_id = int(row[0])
 
-    print(json.dumps(run_all(args.extracted_id, adapter_path),
-                     ensure_ascii=False, indent=2, default=str))
+    try:
+        out = run_all(args.extracted_id, adapter_path)
+    except ValueError as e:  # vč. AdapterError
+        die(str(e))
+    failing = [r["gate"] for r in out["results"] if r["status"] == "fail"]
+    emit(out, title=f"Kontrola bran: {out['slug']} / varianta {out['variant']}",
+         lines=human_gate_lines(out["summary_line"], out["results"]) +
+               [f"Práh projektu: {out['target']}/100 — "
+                f"{'splněn' if out['production_ready'] else 'nesplněn nebo málo důkazů'}"],
+         next_step=(f"oprav {', '.join(failing)} a spusť znovu: "
+                    f"`pflanzer quality_gates --slug {out['slug']} --variant {out['variant']}`"
+                    if failing else f"`pflanzer session_3 --slug {out['slug']}`"),
+         as_json=args.json)
 
 
 if __name__ == "__main__":

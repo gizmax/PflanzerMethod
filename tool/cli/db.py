@@ -106,22 +106,28 @@ def transaction() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _git_config(key: str, *, cwd: Path | None = None, global_only: bool = False) -> str:
+    cmd = ["git", "config"] + (["--global"] if global_only else []) + [key]
+    try:
+        res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return res.stdout.strip() if res.returncode == 0 else ""
+
+
 def current_actor() -> str:
     """Resolve current actor for audit/decision attribution.
 
     Per devil's advocate Útok 8: human attribution for DORA/AI Act/GDPR.
-    Until SSO arrives, we use git config user.email + user.name.
+    Until SSO arrives, we use git config user.name/user.email. Order: git
+    config seen from cwd (the target repo: local, then global values), then
+    explicit global config, then `unknown`.
     """
-    try:
-        email = subprocess.check_output(
-            ["git", "config", "user.email"], cwd=REPO_ROOT, text=True
-        ).strip()
-        name = subprocess.check_output(
-            ["git", "config", "user.name"], cwd=REPO_ROOT, text=True
-        ).strip()
+    name = _git_config("user.name") or _git_config("user.name", global_only=True)
+    email = _git_config("user.email") or _git_config("user.email", global_only=True)
+    if name and email:
         return f"{name} <{email}>"
-    except subprocess.CalledProcessError:
-        return "unknown"
+    return name or email or "unknown"
 
 
 def audit(

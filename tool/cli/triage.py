@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.ux import die, emit, read_spec  # noqa: E402
 
 try:  # výstupy mimo repo metody (DATA_ROOT z tool.cli.db); fallback <repo>/data
     from tool.cli.db import DATA_ROOT  # type: ignore[attr-defined]  # noqa: E402
@@ -229,6 +230,80 @@ def triage_tracks(conn: sqlite3.Connection, project_id: int) -> list[dict[str, A
     return out
 
 
+# Okna kroků cesty (checkpoint.py) <- triage tracky; lidská jména podle Kickoffu.
+WINDOW_FOR_TRACK = {"discovery": "zadani", "security": "bezpecnost", "legal": "bezpecnost",
+                    "platform": "provoz"}
+WINDOW_LABEL = {"zadani": "Zadání", "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
+WINDOW_OWNER_KEY = {"zadani": "byznys", "bezpecnost": "bezpecnost", "provoz": "provoz"}
+
+
+def path_owners(conn: sqlite3.Connection, project_id: int) -> dict[str, str]:
+    """Jména zástupců kroků cesty z Kickoffu (prázdné, pokud nejsou zadána)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(projects)")}
+    if "path_owners_json" not in cols:
+        return {}
+    row = conn.execute("SELECT path_owners_json FROM projects WHERE id = ?",
+                       (project_id,)).fetchone()
+    try:
+        data = json.loads(row[0]) if row and row[0] else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return {k: str(v) for k, v in data.items() if v} if isinstance(data, dict) else {}
+
+
+def _human_name(value: str | None) -> str | None:
+    """Jméno člověka; „AI“ (náhrada kroku) není podpis."""
+    v = (value or "").strip()
+    return None if not v or v.upper().startswith("AI") else v
+
+
+def triage_windows(conn: sqlite3.Connection, project_id: int,
+                   tracks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Stav oken (zadani | bezpecnost | provoz) s jmény: kdo má podepsat a čím."""
+    tracks = tracks if tracks is not None else triage_tracks(conn, project_id)
+    owners = path_owners(conn, project_id)
+    decider = conn.execute("SELECT decider_name FROM projects WHERE id = ?",
+                           (project_id,)).fetchone()
+    out: list[dict[str, Any]] = []
+    for window, label in WINDOW_LABEL.items():
+        mine = [t for t in tracks if WINDOW_FOR_TRACK.get(t["track"]) == window]
+        statuses = {t["status"] for t in mine}
+        state = ("ok" if statuses == {"ok"} else "blocked" if "blocked" in statuses
+                 else "pending" if "pending" in statuses
+                 else "deferred" if "deferred" in statuses else "missing")
+        signer = next((t["signed_by"] for t in mine if t["signed_by"]), None)
+        owner = (_human_name(owners.get(WINDOW_OWNER_KEY[window]))
+                 or (_human_name(decider[0]) if decider and window == "zadani" else None))
+        out.append({"window": window, "label": label, "state": state, "owner": owner,
+                    "signed_by": signer})
+    return out
+
+
+def checkpoint_command(slug: str, window: dict[str, Any]) -> str:
+    """Příkaz, kterým člověk z kroku cesty okno podepíše."""
+    who = window["owner"] or "JMÉNO"
+    who = f'"{who}"' if " " in who else who
+    return f"pflanzer checkpoint --slug {slug} {window['window']} --by {who} --note …"
+
+
+def human_triage_blockers(slug: str, windows: list[dict[str, Any]]) -> list[str]:
+    """Věty po oknech: kdo ještě nepodepsal a jakým příkazem."""
+    msgs: list[str] = []
+    for w in windows:
+        if w["state"] == "ok":
+            continue
+        who = w["owner"]
+        cmd = f"`{checkpoint_command(slug, w)}`"
+        if w["state"] == "pending":
+            msgs.append(f"AI draft čeká na podpis: {who or 'člověk z kroku ' + w['label']} — {cmd}")
+        elif w["state"] == "blocked":
+            msgs.append(f"{w['label']} ({w['signed_by'] or who or '—'}) označilo okno jako "
+                        f"blokované; po opravě znovu podepiš: {cmd}")
+        else:
+            msgs.append(f"{w['label']} ({who or 'jméno chybí v Kickoffu'}) ještě nepodepsal: {cmd}")
+    return msgs
+
+
 def _latest_override(conn: sqlite3.Connection, project_id: int) -> dict[str, Any] | None:
     row = conn.execute(
         "SELECT id, body_md, atribuce_user, atribuce_ts FROM decisions "
@@ -266,9 +341,11 @@ def ship_triage_gate(conn: sqlite3.Connection, project_id: int) -> dict[str, Any
     )
     override = _latest_override(conn, project_id) if raw_blockers else None
     covered = bool(override) and set(raw_blockers) <= set(override["blocked_by"])
+    windows = triage_windows(conn, project_id, tracks)
     return {
         "risk_profile": risk,
         "gated": gated,
+        "windows": windows,
         "tracks": tracks,
         "raw_blocked_by": raw_blockers,
         "blocked_by": [] if covered else raw_blockers,
@@ -366,16 +443,40 @@ def latest_threshold_override(
             "by": row[2], "at": row[3]}
 
 
-def run_from_json(path: Path) -> dict[str, Any]:
-    spec = json.loads(path.read_text(encoding="utf-8"))
+TRIAGE_SPEC_EXAMPLE = (
+    '  echo \'{"slug": "moje-appka", "results": [{"track": "security", "status": "ok", '
+    '"signed_by": "Lucie", "artefact_md": "…"}, …]}\' | pflanzer triage --spec -\n'
+    "  (4 tracky: discovery, security, legal, platform; status ok|blocked|deferred)"
+)
+
+
+def run_from_json(path: Path | str) -> dict[str, Any]:
+    spec = read_spec(path, example=TRIAGE_SPEC_EXAMPLE)
+    if "slug" not in spec or not isinstance(spec.get("results"), list):
+        raise ValueError("Spec musí obsahovat `slug` a seznam `results` (4 tracky).")
     return aggregate(spec["slug"], spec["results"])
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--spec", type=Path, required=True, help="JSON spec with 4 triage results")
+    parser.add_argument("--spec", required=True,
+                        help="JSON se 4 výsledky triage (soubor, nebo `-` pro stdin)")
+    parser.add_argument("--json", action="store_true", help="Výstup jako JSON")
     args = parser.parse_args()
-    print(json.dumps(run_from_json(args.spec), ensure_ascii=False, indent=2))
+    try:
+        out = run_from_json(args.spec)
+    except (ValueError, KeyError) as e:
+        die(str(e) if isinstance(e, ValueError) else f"V specu chybí klíč {e}.",
+            TRIAGE_SPEC_EXAMPLE)
+    slug = out["slug"]
+    ok = out["overall_status"] == "ok"
+    emit(out, title=f"Triage {slug}: {'v pořádku' if ok else 'blokováno'}",
+         lines=[f"{t}: {st}" for t, st in out["tracks"].items()] + out["blockers"][:2],
+         warnings=out["warnings"][:2],
+         next_step=(f"`/pm build {slug}`" if ok
+                    else "vyřeš blokace a spusť triage znovu; okna podepisuje "
+                         f"`pflanzer checkpoint --slug {slug} bezpecnost --by JMÉNO --note …`"),
+         as_json=args.json)
 
 
 if __name__ == "__main__":

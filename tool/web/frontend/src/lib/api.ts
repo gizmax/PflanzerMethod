@@ -1,57 +1,50 @@
-import type {
-  Feedback,
-  Project,
-  ProjectDetail,
-  Variant,
-} from "./types";
+import { getIdentity } from "./identity";
+import type { Feedback, Project, ProjectDetail, Variant } from "./types";
 
 const API_BASE = "/api";
 
-// Dev-mode identity (PFLANZER_HUB_AUTH_MODE=dev). Set in frontend/.env.local.
-const DEV_USER: string = import.meta.env.VITE_PFLANZER_DEV_USER || "dev@local";
+/** Chyba API s HTTP kódem — stránky z ní skládají české chybové obrazovky. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const who = getIdentity()?.name;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // Dev režim (localhost / sdílené heslo): identita = jméno vybrané na úvodu.
+  // V OIDC režimu proxy hlavičku zahodí a identita jde z SSO.
+  // Hlavička musí být ISO-8859-1 safe, proto kódujeme.
+  if (who) headers["X-User"] = encodeURIComponent(who);
   const r = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      // Dev mode only (PFLANZER_HUB_AUTH_MODE=dev). In OIDC mode nginx drops this
-      // header and the identity comes from the SSO session (see README-auth.md).
-      "X-User": DEV_USER,
-      ...(init?.headers || {}),
-    },
     ...init,
+    headers: { ...headers, ...((init?.headers as Record<string, string>) || {}) },
   });
-  if (r.status === 401) {
-    // No SSO identity (session expired or hub not behind oauth2-proxy).
-    // Pages render thrown errors via their error state.
-    throw new Error(
-      "HTTP 401: nejste přihlášeni přes SSO — obnovte stránku (F5) pro nové přihlášení."
-    );
-  }
-  if (!r.ok) {
-    const text = await r.text();
-    throw new Error(`HTTP ${r.status}: ${text}`);
-  }
+  if (!r.ok) throw new ApiError(r.status, await r.text());
   return r.json() as Promise<T>;
 }
 
 export const api = {
   listProjects: () => request<Project[]>("/projects"),
-  getProject: (slug: string) => request<ProjectDetail>(`/projects/${slug}`),
+  getProject: (slug: string) =>
+    request<ProjectDetail>(`/projects/${encodeURIComponent(slug)}`),
   listVariants: (slug: string) =>
-    request<Variant[]>(`/projects/${slug}/variants`),
-  createVariant: (slug: string, payload: Omit<Variant, "id" | "session_id" | "created_at">) =>
-    request<Variant>(`/projects/${slug}/variants`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    request<Variant[]>(`/projects/${encodeURIComponent(slug)}/variants`),
   listFeedback: (slug: string) =>
     request<Feedback[]>(`/feedback?project=${encodeURIComponent(slug)}`),
-  submitFeedback: (
-    payload: Omit<Feedback, "id" | "submitted_by" | "submitted_at">
-  ) =>
-    request<Feedback>("/feedback", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+  submitFeedback: (payload: {
+    variant_id: number;
+    role_id: number | null;
+    severity: Feedback["severity"];
+    department: string;
+    category: string;
+    rationale: string;
+    ai_act_dimension: string | null;
+    wcag_level: Feedback["wcag_level"];
+    is_ai_only: boolean;
+  }) =>
+    request<Feedback>("/feedback", { method: "POST", body: JSON.stringify(payload) }),
 };

@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #13 — Customer support proxy
 
-> Přinášíš hlas zákazníka z ticketů — co dnes bolí a kolik ticketů varianta přidá nebo ubere.
+> Za 20 minut v Asyncu odhadneš, kolik dotazů na podporu varianty přidají nebo ubere, a co zákazníci řeknou.
 
 **Krok cesty:** Provoz (podpora) · **Kde jsi:** okno — Async okno nad preview a příprava Shipu
 
 Status v catalogu: **doporučená** · Kdy se zve: Customer base > 1000 active users + user-facing change?
 
 ## Přines do svého okna
-- Top-10 ticket kategorií za 90 dní
-- 20 verbatim citací zákazníků
-- Frikční místa současného flow a churn radar
-- KB článek baseline
+- 10 nejčastějších důvodů ticketů za 90 dní
+- Pár doslovných citací zákazníků k dotčenému flow
+- Článek v nápovědě, který se změní
+- Pro hlubší kontrolu (stupeň Full): churn radar, ticket prediction worksheet, termíny D-7 KB / D-2 makra / D+30 retro
 
 ## Podepisuješ
 - Ticket prediction worksheet per varianta
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Launch bez KB článku a maker
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Jen pokud má AI přístup k ticket history; jinak člověk. Sub-agent: `.claude/agents/cs-proxy-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI pomůže jen s přístupem k historii ticketů, odhad podepisuješ ty. Sub-agent: `.claude/agents/cs-proxy-expert.md`.
 
 ---
 

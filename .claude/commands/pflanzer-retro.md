@@ -9,6 +9,9 @@ description: Retro (/pm retro) — měření outcome po Ship: % LOC vítěze v p
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
+Výstup toolu je lidský (co se stalo → jeden další krok → Doporučení); ukaž ho
+a předej Doporučení. `--json` jen pro čtení polí.
+
 Argumenty: `$ARGUMENTS` = `<slug> [measure|record|report|reminders]` —
 podpříkaz volitelný; bez něj command sám pozná, co chybí (viz Krok 1).
 
@@ -130,6 +133,15 @@ pflanzer retro reminders --slug <slug> --format ics \
 
 Owneři se berou z Charteru (`reinforcement_t7…t90`); prázdný milník dostane
 default ownera z `07-handoff-do-vyvoje.md` § Retro.
+
+### Co měřit a proč (řekni to týmu jednou větou)
+
+- **Přežití kódu** — kolik z kódu vítěze žije v produkci beze změny (cíl ≥ 80 %).
+- **Rychlost** — dny od Kickoffu / Go do produkce (cíl ≤ 14).
+- **Kvalita po nasazení** — bugy a hotfixy za 7 dní, rework za 60 dní.
+- **Dopad** — metrika z Kickoffu za 30 a 90 dní proti číslu, které jsme si dali.
+- **AI náklady** a **podíl kroků s AI náhradou** (kolik kroků cesty podepsal
+  jen AI draft + člověk) — vstup pro příští pilot.
 
 ### Krok 5 — Report + next step
 

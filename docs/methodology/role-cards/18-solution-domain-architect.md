@@ -2,16 +2,16 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #18 — Solution / Domain architect
 
-> Hlídáš hranice domén a dopady napříč týmy, když scope přesahuje jeden tým.
+> Za 20 minut nad diffem potvrdíš, že varianty nesahají do cizích domén a nerozbijí jiný tým.
 
 **Krok cesty:** Vývoj (architektura) · **Kde jsi:** okno — Async okno nad PR diffem
 
 Status v catalogu: **volitelná (trigger)** · Kdy se zve: Multi-team scope (≥ 3 týmy) nebo komplexní doména (vyžaduje Event Storming) nebo regulovaný SDLC?
 
 ## Přines do svého okna
-- Bounded contexts a domain model
-- Integration map napříč týmy
-- ADR archiv
+- Hranice domén, kterých se varianty dotýkají
+- Seznam týmů, které změna ovlivní
+- Pro hlubší kontrolu (stupeň Full): bounded contexts a domain model, integration map, ADR archiv, breaking-change registr
 
 ## Podepisuješ
 - Breaking-change registr
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Breaking change bez záznamu v registru
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Jen typické vzory; doménový úsudek je tvůj. Sub-agent: `.claude/agents/solution-architect-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Není to krok cesty** (ADR-0023); AI pomůže u typických vzorů, doménový úsudek je tvůj. Sub-agent: `.claude/agents/solution-architect-expert.md`.
 
 ---
 

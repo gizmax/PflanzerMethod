@@ -20,8 +20,10 @@ Builder zapracovává připomínky.
 
 ```bash
 pflanzer hub                    # http://localhost:8000/method/
-pflanzer hub --host 0.0.0.0     # dostupné kolegům ve firemní síti
+pflanzer hub --host 0.0.0.0 --password …   # kolegům ve firemní síti (heslo povinné)
 ```
+
+Na `localhost` hub běží bez přihlášení.
 
 Zástupci tam u každé varianty kliknou na preview a zapíšou feedback.
 
@@ -34,8 +36,14 @@ pflanzer feedback add --slug $ARGUMENTS --variant A --role <krok/role> \
 pflanzer feedback list --slug $ARGUMENTS
 ```
 
-`critical` = brání nasazení (bezpečnost, právo, data, rozbitý hlavní tok).
-Nezneužívat; kdo dává critical, píše proč.
+Závažnost: `critical` (zobrazí se jako Kritické) · `major` (Vysoké) · `minor`
+(Střední / Nízké). `critical` = brání nasazení (bezpečnost, právo, data,
+rozbitý hlavní tok). Nezneužívat; kdo dává critical, píše proč.
+
+Dobrý feedback: **co jsem zkoušel → co se stalo → co jsem čekal → co
+navrhuji**; jeden feedback = jeden problém. Kdo z oken ještě nic nenapsal,
+dostane připomínku; mlčení nevetovací role po termínu = souhlas, u
+bezpečnosti ne.
 
 ## Krok 2 — Agregace
 
@@ -62,7 +70,7 @@ rationale v decision logu).
 
 ## Krok 5 — Výstup a další krok
 
-Tabulka: feedback podle kroku cesty a závažnosti, top 3 spory, critical,
+Ukaž lidský výstup toolu a předej jeho **Doporučení**. Tabulka: feedback podle kroku cesty a závažnosti, top 3 spory, critical,
 verdikt debtu. Na konci **jeden** krok:
 
 > Další krok: `/pm decide <slug>` — přizvi Decidera, 60–90 min.

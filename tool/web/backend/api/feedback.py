@@ -22,6 +22,8 @@ def get_actor() -> str:  # pragma: no cover
 
 VALID_SEVERITY = {"critical", "high", "medium", "low"}
 VALID_WCAG = {"A", "AA", "AAA", "N/A", None}
+# Skóre se odvozuje ze závažnosti, když ho klient neposlal (UI slider už nemá).
+SEVERITY_DEFAULT_SCORE = {"critical": 0.1, "high": 0.3, "medium": 0.5, "low": 0.7}
 
 
 class FeedbackIn(BaseModel):
@@ -29,8 +31,8 @@ class FeedbackIn(BaseModel):
     role_id: int | None = None
     severity: str
     department: str
-    category: str
-    score: float = Field(ge=0, le=1)
+    category: str = "general"
+    score: float | None = Field(default=None, ge=0, le=1)
     rationale: str = Field(min_length=1)
     ai_act_dimension: str | None = None
     wcag_level: str | None = None
@@ -88,7 +90,7 @@ def submit_feedback(
         raise HTTPException(404, f"Variant {payload.variant_id} not found")
 
     # AI-only score deflation max 0.5 (perspektiva 14, devil's advocate Útok 6 caveat)
-    score = payload.score
+    score = payload.score if payload.score is not None else SEVERITY_DEFAULT_SCORE[payload.severity]
     if payload.is_ai_only and score > 0.5:
         score = 0.5
 

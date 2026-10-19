@@ -2,17 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #5 — Backend / API lead
 
-> Držíš data a API — bez tebe varianty stojí na mockovaném backendu, který v produkci neexistuje.
+> Za 15 minut před Buildem potvrdíš, co varianty smí měnit na API a datech, aby nestály na mocku, který v produkci neexistuje.
 
 **Krok cesty:** Vývoj (backend) · **Kde jsi:** jádro — Build (backendová část) a Ship
 
 Status v catalogu: **doporučená** · Kdy se zve: Mění se data nebo API?
 
 ## Přines do svého okna
-- Backend Context Pack: OpenAPI stávajícího API, ERD, NFR baseline
-- Event taxonomy a RFC 7807 konvence chyb
-- ADR archiv za posledních 12 měsíců
-- Seznam consumer ownerů pro breaking-change check
+- Popis stávajícího API a datového modelu (OpenAPI, schéma)
+- Seznam týmů, kterým by změna API rozbila klienta
+- Plán migrace dat, pokud varianta mění model
+- Pro hlubší kontrolu (stupeň Full): ERD, NFR baseline, event taxonomy, RFC 7807 konvence chyb, ADR archiv za 12 měsíců
 
 ## Podepisuješ
 - OpenAPI 3.1 final + procházející contract test (Pact / Schemathesis)
@@ -34,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Reálná osobní data v promptu nebo v sandboxu
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ⚠️ Jen pro velmi greenfield části; brownfield vyžaduje lidského BE leada. Sub-agent: `.claude/agents/be-api-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Ne, nikdy** (ADR-0023). Vývoj podepisuje člověk; AI jen pomáhá s částmi bez napojení na stávající systém. Sub-agent: `.claude/agents/be-api-expert.md`.
 
 ---
 

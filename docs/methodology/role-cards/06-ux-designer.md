@@ -2,16 +2,17 @@ Pflanzer Method | pflanzer.cz/method
 
 # Role card #6 — UX / Designer
 
-> Držíš user flow a design system — varianty musí sedět na JTBD a personu, ne jen hezky vypadat.
+> Za Build a Async potvrdíš, že varianty sedí na uživatele a úkol, který řeší, ne jen hezky vypadají. Držíš flow a design system.
 
 **Krok cesty:** Design · **Kde jsi:** jádro — Build a Async (u interního toolu může krýt PdM)
 
 Status v catalogu: **doporučená** · Kdy se zve: Vzniká nový user flow nebo přepracování core experience?
 
 ## Přines do svého okna
-- Personu, JTBD kartu a a11y potřeby
-- Journey map současného flow
-- Design tokens, component inventory a brand voice & tone
+- Popis uživatele, jeho úkolu a potřeb přístupnosti
+- Dnešní průchod uživatele (kde to bolí)
+- Design tokeny a existující komponenty
+- Pro hlubší kontrolu (stupeň Full): journey map, component inventory, brand voice & tone, seznam odchylek od design systému s ownerem
 
 ## Podepisuješ
 - JTBD a persona lock (spolu s PdM)
@@ -33,7 +34,7 @@ Preference matrix: `user_value` · `effort` · `risk` · `strategic_fit`; tvoje 
 - Persona drift — tým navrhuje pro sebe, ne pro uživatele
 
 ## AI proxy
-**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** ✅ Pro design system audit, ⚠️ pro flow integrity (tvůj sign-off). Sub-agent: `.claude/agents/ux-expert.md`.
+**Režim 2 — Konzultativní (AI proxy + human sign-off 24-48 h).** Může tě nahradit AI? **Ano** (ADR-0023): UX expert + kontroly přístupnosti, nahrazení podepisuje PdM; u zákaznického produktu v produkci potvrdí design člověk. Sub-agent: `.claude/agents/ux-expert.md`.
 
 ---
 

@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.ux import die, emit, tips_for  # noqa: E402
 
 RETRO_DIR = REPO_ROOT / "data" / "retro"
 CHARTER_DIR = REPO_ROOT / "data" / "charters"
@@ -55,34 +56,50 @@ RECOMMENDED_METRICS: dict[str, dict[str, str]] = {
         "t7_hotfix_commits": "počet hotfix commitů do shipnutých cest",
     },
     "t30": {
-        "t30_leading_metric": "readout leading metriky z Charteru",
+        "t30_leading_metric": "první měření ranné metriky z Kickoffu",
         "t30_handoff_acceptance_pct": "% acceptance criteria splněných v produkci / přijetí handoffu dev týmem",
     },
     "t60": {
         "t60_rework_pct": "% shipnutých LOC přepsaných od merge (rework)",
     },
     "t90": {
-        "t90_lagging_metric": "readout lagging metriky vs success criterion",
+        "t90_lagging_metric": "měření hlavní metriky proti cíli z Kickoffu",
         "t90_go_iterate_kill": "verdikt T+90 readoutu: 1 = go, 0.5 = iterate, 0 = kill",
     },
 }
 
 # Default reinforcement owners from 07-handoff-do-vyvoje.md § Retro
 # track — used when the Charter leaves the milestone empty.
-DEFAULT_OWNERS = {
-    "t7": "CS proxy + Champion",
-    "t30": "Data + Champion",
-    "t60": "Champion + EM",
-    "t90": "Data + CS + Champion",
+# Kdo čte jednotlivé milníky: kroky cesty (klíče path_owners_json z Kickoffu).
+DEFAULT_OWNER_STEPS = {
+    "t7": ("provoz", "produkt"),
+    "t30": ("produkt", "byznys"),
+    "t60": ("vyvoj", "provoz"),
+    "t90": ("byznys", "produkt"),
 }
+STEP_NAMES = {"byznys": "Byznys", "produkt": "Produkt", "design": "Design", "vyvoj": "Vývoj",
+              "bezpecnost": "Bezpečnost a právo", "provoz": "Provoz"}
+DEFAULT_OWNERS = {m: " a ".join(STEP_NAMES[s] for s in steps)
+                  for m, steps in DEFAULT_OWNER_STEPS.items()}
 DEFAULT_DELIVERABLES = {
-    "t7": "Ticket category check vs prediction worksheet; bugy T+7",
-    "t30": "Leading metric readout, build progress vs estimate, retro",
-    "t60": "Capacity actual vs estimate, dependency drift, rework",
-    "t90": "Lagging metric vs success criterion, learnings → role catalog",
+    "t7": "Podívat se, jestli podpora dostává víc dotazů, než se čekalo, a kolik přišlo bugů",
+    "t30": "Odečíst první metriku z Kickoffu, porovnat práci s odhadem, krátké retro",
+    "t60": "Skutečná kapacita proti odhadu, co se rozbilo okolo a kolik kódu se přepsalo",
+    "t90": "Hlavní metrika proti cíli z Kickoffu a co si odnést do dalšího projektu",
 }
 
 EMPTY_MARKERS = {"", "-", "—", "tbd", "n/a"}
+
+# Soubory, které do větve přidal sám nástroj (init, guard, worktree); do reuse se nepočítají.
+METHOD_FILES = {".gitignore", "CLAUDE.md", "docs/INTEGRATION_GUIDE.md", "tests/acceptance/.gitkeep"}
+METHOD_PREFIXES = (".pflanzer/",)
+
+
+def is_method_file(path: str) -> bool:
+    """`.gitignore`, `.pflanzer/*`, … — přidal je guard nebo init, ne autor varianty."""
+    name = path.rsplit("/", 1)[-1]
+    return (path in METHOD_FILES or name == ".gitignore" or path.startswith(METHOD_PREFIXES)
+            or name.startswith("pflanzer.gates."))
 
 
 # --------------------------------------------------------------------------
@@ -370,7 +387,9 @@ def measure(
     fork_sha, fork_source = _fork_point(repo, base_ref, winner_sha, winner_ref)
 
     winner_stat = _numstat(repo, fork_sha, winner_sha)
-    added_by_path = {p: a for p, (a, _r) in winner_stat.items() if a > 0}
+    ignored_files = sorted(p for p, (a, _r) in winner_stat.items() if a > 0 and is_method_file(p))
+    added_by_path = {p: a for p, (a, _r) in winner_stat.items()
+                     if a > 0 and not is_method_file(p)}
     loc_winner = sum(added_by_path.values())
 
     post_stat = _numstat(repo, winner_sha, merge_sha, sorted(added_by_path))
@@ -399,7 +418,9 @@ def measure(
         f"({fork_source}); winner={winner_sha[:10]}; merge={merge_sha[:10]} ({merge_source})"
     )
     rows: list[tuple[str, float | None, str, str]] = [
-        ("loc_winner", float(loc_winner), "loc", f"{len(added_by_path)} files; {winner_branch}"),
+        ("loc_winner", float(loc_winner), "loc",
+         f"{len(added_by_path)} files; {winner_branch}"
+         + (f"; ignorováno {len(ignored_files)} souborů nástroje" if ignored_files else "")),
         ("loc_merged_unchanged", float(loc_unchanged), "loc", heuristic),
         ("loc_reused_pct", reuse_pct, "%", f"target >= {TARGET_REUSE_PCT:.0f} %"),
         ("winner_commits", float(winner_commits), "commits", f"{fork_sha[:10]}..{winner_sha[:10]}"),
@@ -457,8 +478,9 @@ def measure(
             "days_to_prod_ok": days_to_prod is not None and days_to_prod <= TARGET_DAYS_TO_PROD,
         },
         "per_file": per_file,
+        "ignored_files": ignored_files,
         "evidence_url": evidence,
-        "next_step": f"python3 tool/cli/retro.py report --slug {slug}",
+        "next_step": f"pflanzer retro report --slug {slug}",
     }
 
 
@@ -595,9 +617,9 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
                 for r in ms_rows
             )
         else:
-            hint = (f"`python3 tool/cli/retro.py measure --slug {slug} --pr-url <URL>`"
+            hint = (f"`pflanzer retro measure --slug {slug} --pr-url <URL>`"
                     if m == "ship" else
-                    f"`python3 tool/cli/retro.py record --slug {slug} --milestone {m} "
+                    f"`pflanzer retro record --slug {slug} --milestone {m} "
                     f"--metric {next(iter(RECOMMENDED_METRICS[m]))} --value <N>`")
             body = f"_Zatím bez dat._ Zapiš: {hint}"
         sections.append(f"{header}\n\n{body}")
@@ -620,7 +642,7 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 
 > Slug: `{p['slug']}` · Vygenerováno: {now} · Stav projektu: `{p['status']}`
 > Rozhodnutí (Go): {go_dt.date().isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
-> Per audit N4 + `docs/methodology/07-handoff-do-vyvoje.md` § Retro.
+> Postup měření: `docs/methodology/07-handoff-do-vyvoje.md`, kapitola Retro.
 
 ## Cíle metody
 
@@ -636,10 +658,10 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 
 - `loc_reused_pct` = řádky přidané winner branchí, které v merge commitu
   zůstaly beze změny (heuristika `added − removed` po cestách, které winner
-  změnil; konzervativní dolní odhad — viz docstring `retro.py measure`).
+  změnil; konzervativní dolní odhad — viz `pflanzer retro measure --help`).
 - `days_to_prod` = kalendářní dny od Rozhodnutí (Go) do merge commitu (proxy
   pro první prod deploy).
-- T+7/30/60/90 = ruční readouty (`retro.py record`), evidence URL povinně
+- T+7/30/60/90 = ruční readouty (`pflanzer retro record`), evidence URL povinně
   tam, kde existuje (issue, dashboard, retro zápis).
 
 ---
@@ -699,9 +721,23 @@ def _owners(slug: str, project: dict[str, Any]) -> dict[str, tuple[str, str]]:
             text = (_charter_owner_line(slug, m) or "").strip()
             source = "charter (MD)"
         if text.lower() in EMPTY_MARKERS:
-            text, source = DEFAULT_OWNERS[m], "07-handoff default"
+            text, source = _default_owner(project, m), "kroky cesty z Kickoffu"
         result[m] = (text, source)
     return result
+
+
+def _default_owner(project: dict[str, Any], milestone: str) -> str:
+    """„Provoz (Karel) a Produkt (Eva)“ podle jmen z Kickoffu; bez jmen jen názvy kroků."""
+    try:
+        owners = json.loads(project.get("path_owners_json") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        owners = {}
+    parts = []
+    for step in DEFAULT_OWNER_STEPS[milestone]:
+        name = str(owners.get(step) or "").strip()
+        parts.append(STEP_NAMES[step] + (f" ({name})" if name and not name.upper().startswith("AI")
+                                         else ""))
+    return " a ".join(parts)
 
 
 def _ics_escape(text: str) -> str:
@@ -754,7 +790,7 @@ def _reminder_items(
             "owner_source": source,
             "deliverable": DEFAULT_DELIVERABLES[m],
             "metrics": list(metrics),
-            "record_cmd": (f"python3 tool/cli/retro.py record --slug {slug} "
+            "record_cmd": (f"pflanzer retro record --slug {slug} "
                            f"--milestone {m} --metric {first_metric} --value <N> "
                            f"--evidence <URL>"),
         })
@@ -778,8 +814,8 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
         for it in items:
             desc = (
                 f"{BRAND_LINE}\n\nProjekt: {name} ({slug})\n"
-                f"Owner (Charter): {it['owner']}\n"
-                f"Deliverable: {it['deliverable']}\n"
+                f"Kdo: {it['owner']}\n"
+                f"Co udělat: {it['deliverable']}\n"
                 f"Metriky: {', '.join(it['metrics'])}\n\n"
                 f"Zápis: /pm retro {slug}\n{it['record_cmd']}"
             )
@@ -810,7 +846,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
                f"> Slug: `{slug}` · Od: {start.isoformat()} ({start_source})", ""]
         for it in items:
             out.append(
-                f"- [ ] **{it['label']}** — {it['due'].isoformat()} · owner: "
+                f"- [ ] **{it['label']}** — {it['due'].isoformat()} · kdo: "
                 f"{it['owner']} _({it['owner_source']})_  \n"
                 f"  {it['deliverable']}. Metriky: "
                 + ", ".join(f"`{m}`" for m in it["metrics"])
@@ -835,8 +871,8 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
             title = f"[Pflanzer {it['label']} · {it['due'].isoformat()}] Readout — {name}"
             body = (
                 f"{BRAND_LINE}\n\n**Termín:** {it['due'].isoformat()}\n"
-                f"**Owner (Charter):** {it['owner']}\n"
-                f"**Deliverable:** {it['deliverable']}\n"
+                f"**Kdo:** {it['owner']}\n"
+                f"**Co udělat:** {it['deliverable']}\n"
                 f"**Metriky:** {', '.join(f'`{x}`' for x in it['metrics'])}\n\n"
                 f"Zápis výsledku: `/pm retro {slug}` nebo\n\n"
                 f"```\n{it['record_cmd']}\n```\n"
@@ -902,44 +938,90 @@ def main() -> None:
     p_rem.add_argument("--from", dest="from_date", help="YYYY-MM-DD (default: datum Rozhodnutí (Go))")
     p_rem.add_argument("--out", help="Zapsat do souboru místo stdout")
 
+    for sp in (p_measure, p_record, p_report, p_rem):
+        sp.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
+
     args = p.parse_args()
+    examples = {
+        "measure": "pflanzer retro measure --slug moje-appka --pr-url https://github.com/firma/repo/pull/12",
+        "record": ("pflanzer retro record --slug moje-appka --milestone t7 --metric t7_bugs "
+                   "--value 2 --evidence https://github.com/firma/repo/issues"),
+        "report": "pflanzer retro report --slug moje-appka",
+        "reminders": "pflanzer retro reminders --slug moje-appka --format ics --out pripominky.ics",
+    }
     try:
         if args.cmd == "measure":
             out = measure(slug=args.slug, pr_url=args.pr_url,
                           merge_commit=args.merge_commit, base=args.base,
                           repo_path=args.repo_path, winner=args.winner,
                           fetch=not args.no_fetch)
-            print(json.dumps(out, ensure_ascii=False, indent=2))
+            lines = [f"Varianta {out['winner']}: {out['loc_merged_unchanged']} z {out['loc_winner']} "
+                     f"nových řádků zůstalo beze změny"
+                     + (f" ({out['loc_reused_pct']:g} %, cíl ≥ {TARGET_REUSE_PCT:.0f} %)"
+                        if out["loc_reused_pct"] is not None else "")]
+            if out["days_to_prod"] is not None:
+                lines.append(f"Od Go do merge: {out['days_to_prod']} dní (cíl ≤ {TARGET_DAYS_TO_PROD})")
+            if out["ignored_files"]:
+                lines.append(f"Nepočítám {len(out['ignored_files'])} souborů přidaných nástrojem "
+                             "(.gitignore, .pflanzer/…).")
+            warns = []
+            if not out["targets"]["reuse_ok"]:
+                warns.append("Pod cílem znovupoužití: zjisti v review, co se přepisovalo a proč.")
+            emit(out, title=f"Retro: měření {args.slug}", lines=lines, warnings=warns,
+                 next_step=f"`pflanzer retro report --slug {args.slug}`",
+                 tips=tips_for("retro", {}), as_json=args.json)
         elif args.cmd == "record":
             out = record(slug=args.slug, milestone=args.milestone, metric=args.metric,
                          value=args.value, unit=args.unit, evidence=args.evidence,
                          notes=args.notes)
-            print(json.dumps(out, ensure_ascii=False, indent=2))
+            emit(out, title=f"Retro: zapsáno {MILESTONE_LABELS[args.milestone]}",
+                 lines=[f"{out['metric']} = {_fmt_value(out['value'], out['unit'])} "
+                        f"(zapsal {out['recorded_by']})"],
+                 next_step=f"`pflanzer retro report --slug {args.slug}`",
+                 tips=tips_for("retro", {}), as_json=args.json)
         elif args.cmd == "report":
             path, data, md = write_report(args.slug, args.out)
             if args.md:
                 print(md)
             else:
-                print(json.dumps({
+                out = {
                     "slug": args.slug,
                     "report_path": _display(path),
                     "checks": data["checks"],
                     "milestones": data["milestones"],
                     "outcome_rows": len(data["rows"]),
-                }, ensure_ascii=False, indent=2, default=str))
+                }
+                status = {"ok": "splněno", "flag": "pod cílem", "missing": "zatím neměřeno"}
+                lines = [f"{c['metric']}: {_fmt_value(c['value'], c.get('unit'))} "
+                         f"(cíl {c['target']}) — {status[c['status']]}" for c in data["checks"]]
+                overdue = [m for m in data["milestones"] if m["state"] == "overdue"]
+                if overdue:
+                    lines.append("Po termínu chybí čtení: " + ", ".join(
+                        MILESTONE_LABELS[m["milestone"]] for m in overdue))
+                lines.append(f"Report: {_display(path)}")
+                nxt = (f"`pflanzer retro record --slug {args.slug} --milestone "
+                       f"{overdue[0]['milestone']} --metric "
+                       f"{next(iter(RECOMMENDED_METRICS[overdue[0]['milestone']]))} --value <N>`"
+                       if overdue else f"`pflanzer retro reminders --slug {args.slug} "
+                                       f"--format ics --out {args.slug}-pripominky.ics`")
+                emit(out, title=f"Retro: {args.slug}", lines=lines, next_step=nxt,
+                     tips=tips_for("retro", {}), as_json=args.json)
         elif args.cmd == "reminders":
             text = render_reminders(args.slug, args.format, args.from_date)
             if args.out:
                 path = Path(args.out).expanduser()
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8", newline="")
-                print(json.dumps({"slug": args.slug, "format": args.format,
-                                  "path": _display(path)}, ensure_ascii=False))
+                emit({"slug": args.slug, "format": args.format, "path": _display(path)},
+                     title="Připomínky uloženy",
+                     lines=[f"Soubor {_display(path)} (T+7, T+30, T+60, T+90)",
+                            "Importuj ho do kalendáře (ics), nebo ho předej Provozu a Produktu."],
+                     next_step=f"`pflanzer retro report --slug {args.slug}`",
+                     as_json=args.json)
             else:
                 sys.stdout.write(text)
     except (ValueError, RuntimeError) as exc:
-        print(f"[retro] chyba: {exc}", file=sys.stderr)
-        sys.exit(1)
+        die(str(exc), examples.get(args.cmd, ""))
 
 
 if __name__ == "__main__":

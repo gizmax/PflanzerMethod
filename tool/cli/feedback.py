@@ -8,8 +8,9 @@ tabulky `feedback` jako z hubu, takže `/pm feedback` (feedback_pull) ho vidí.
         --severity critical|major|minor --text "..." [--author "Jméno"]
     pflanzer feedback list --slug S [--variant A] [--json]
 
-Severity: critical | major | minor (aliasy: high = major, medium, low = minor;
-DB ukládá critical/high/medium/low, `major` -> high, `minor` -> low).
+Závažnost: critical | major | minor (aliasy: high = major, medium, low = minor).
+V DB je critical/high/medium/low; lidsky se ukazuje Kritické / Vysoké / Střední / Nízké.
+Hodnocení `--score` je 0–1 (vyšší = lepší); bez něj se odvodí ze závažnosti.
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
+from tool.cli.ux import die, emit, normalize_severity, severity_label, tips_for  # noqa: E402
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -91,14 +93,11 @@ def add_feedback(
     author: str | None = None, category: str = "general",
     score: float | None = None, ai_only: bool = False,
 ) -> dict[str, Any]:
-    sev = SEVERITY_ALIASES.get(severity.lower())
-    if not sev:
-        raise ValueError("severity musí být critical, major nebo minor "
-                         f"(dostal jsem '{severity}').")
+    sev = normalize_severity(severity)
     if not text.strip():
         raise ValueError("Text feedbacku nesmí být prázdný (rationale je povinné).")
     if score is not None and not 0 <= score <= 1:
-        raise ValueError("--score musí být v rozsahu 0..1.")
+        raise ValueError("--score je hodnocení 0–1 (vyšší = lepší), např. --score 0.3.")
     val = score if score is not None else SEVERITY_SCORE[sev]
     if ai_only and val > AI_ONLY_CAP:
         val = AI_ONLY_CAP
@@ -162,6 +161,35 @@ def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
+ADD_EXAMPLE = ('pflanzer feedback add --slug moje-appka --variant A --role Bezpečnost '
+               '--severity major --text "Export nemá kontrolu oprávnění" --author Lucie')
+
+
+def _counts(rows: list[dict[str, Any]]) -> str:
+    order = ("critical", "high", "medium", "low")
+    n = {k: sum(1 for r in rows if r["severity"] == k) for k in order}
+    return ", ".join(f"{severity_label(k)} {n[k]}" for k in order if n[k]) or "bez připomínek"
+
+
+def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], str, dict[str, Any]]:
+    variants = sorted({r["variant"] for r in rows})
+    lines = [f"Varianta {v}: {_counts([r for r in rows if r['variant'] == v])}" for v in variants[:3]]
+    crit = [r for r in rows if r["severity"] == "critical" and not r.get("resolved_at")]
+    for r in crit[:2]:
+        text = r["rationale"].replace("\n", " ").strip()
+        text = text if len(text) <= 80 else text[:79].rsplit(" ", 1)[0] + "…"
+        lines.append(f"Otevřené kritické #{r['id']}: {r['submitted_by']} "
+                     f"(krok {r['department']}) na {r['variant']} — „{text}“")
+    if len(crit) > 2:
+        lines.append(f"…a dalších {len(crit) - 2} otevřených kritických")
+    if crit:
+        nxt = (f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
+               f"--by JMÉNO --note \"…\"`")
+    else:
+        nxt = f"`pflanzer feedback_pull --slug {slug}` (souhrn + kdo ještě mlčí)"
+    return f"Feedback {slug}: {len(rows)} připomínek", lines[:6], nxt, {"open_critical": bool(crit)}
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="pflanzer feedback", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -175,8 +203,9 @@ def main() -> None:
     a.add_argument("--text", required=True, help="Co je špatně / co chybí (povinné)")
     a.add_argument("--author", help="Kdo to řekl (default: git user)")
     a.add_argument("--category", default="general")
-    a.add_argument("--score", type=float, help="0..1 (default dle severity)")
+    a.add_argument("--score", type=float, help="hodnocení 0–1, vyšší = lepší (default dle závažnosti)")
     a.add_argument("--ai-only", action="store_true", help="Feedback od AI persony (skóre max 0.5)")
+    a.add_argument("--json", action="store_true")
 
     ls_p = sub.add_parser("list", help="Vypíše feedback projektu")
     ls_p.add_argument("--slug", required=True)
@@ -191,39 +220,28 @@ def main() -> None:
                 severity=args.severity, text=args.text, author=args.author,
                 category=args.category, score=args.score, ai_only=args.ai_only,
             )
-            print(BRAND_LINE)
-            print()
-            print(f"✓ Feedback #{res['id']} zapsán — varianta {res['variant']}, "
-                  f"{res['department']}, {res['severity']}, autor {res['submitted_by']}")
+            lines = [f"Varianta {res['variant']}, krok {res['department']}, "
+                     f"{severity_label(res['severity'])}, autor {res['submitted_by']}"]
             if not res["role_matched"]:
-                print("  (role v projektu nenalezena — uloženo jen jako oddělení)")
-            print(f"  Další: `pflanzer feedback list --slug {res['slug']}` nebo `/pm feedback`")
+                lines.append("Role v projektu nenalezena — uloženo jen jako oddělení.")
+            emit(res, title=f"Feedback #{res['id']} zapsán", lines=lines,
+                 next_step=f"`pflanzer feedback list --slug {res['slug']}`",
+                 tips=tips_for("async", {}, limit=2), as_json=args.json)
         else:
             rows = list_feedback(args.slug, args.variant)
             if args.json:
                 print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
                 return
-            print(BRAND_LINE)
-            print()
             if not rows:
-                print(f"Žádný feedback u '{args.slug}' — sbírej přes hub nebo "
-                      "`pflanzer feedback add`.")
+                emit({}, title=f"Feedback {args.slug}: zatím nic",
+                     lines=["Nikdo zatím nenapsal žádnou připomínku."],
+                     next_step=ADD_EXAMPLE)
                 return
-            print(f"Feedback — {args.slug} ({len(rows)})\n")
-            print("| # | Var | Oddělení | Severity | Skóre | Autor | Text |")
-            print("|---|-----|----------|----------|-------|-------|------|")
-            for r in rows:
-                txt = r["rationale"].replace("\n", " ").replace("|", "/")
-                sev = r["severity"] + (" ✓ vyřešeno" if r.get("resolved_at") else "")
-                print(f"| {r['id']} | {r['variant']} | {r['department']} | {sev} "
-                      f"| {r['score']:.2f} | {r['submitted_by']} | {txt[:80]} |")
-            crit = sum(1 for r in rows if r["severity"] == "critical" and not r.get("resolved_at"))
-            if crit:
-                print(f"\n⚠ Otevřený critical: {crit} — na vítězi blokuje Go "
-                      "(`pflanzer session_2 resolve` nebo Iterate).")
+            title, lines, nxt, ctx = _list_view(args.slug, rows)
+            emit(rows, title=title, lines=lines, next_step=nxt,
+                 tips=tips_for("async", ctx, limit=2))
     except ValueError as e:
-        print(f"CHYBA: {e}", file=sys.stderr)
-        sys.exit(2)
+        die(str(e), ADD_EXAMPLE if args.cmd == "add" else "")
 
 
 if __name__ == "__main__":
