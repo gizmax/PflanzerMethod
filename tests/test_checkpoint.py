@@ -5,12 +5,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import bootstrap_project, file_url
 
 from tool.cli import checkpoint
 from tool.cli.db import transaction
 from tool.cli.triage import ship_triage_gate
-
-from conftest import bootstrap_project, file_url
 
 OWNERS = {"byznys": "Dana", "produkt": "Petr", "design": "Eva", "vyvoj": "Tomáš",
           "bezpecnost": "Lucie", "provoz": "Karel"}
