@@ -319,6 +319,7 @@ def _latest_override(conn: sqlite3.Connection, project_id: int) -> dict[str, Any
         "decision_id": int(row[0]),
         "blocked_by": list(payload.get("blocked_by", [])),
         "rationale": payload.get("rationale", ""),
+        "decider": payload.get("decider") or "",
         "by": row[2],
         "at": row[3],
     }
@@ -353,9 +354,16 @@ def ship_triage_gate(conn: sqlite3.Connection, project_id: int) -> dict[str, Any
     }
 
 
+def decider_label(name: str | None) -> str:
+    """Jméno Decidera z Kickoffu; prázdné nebo placeholder → „Decider“ (ne git user)."""
+    v = (name or "").strip()
+    return "Decider" if not v or re.search(r"doplnit|doplň|nezad|^tbd", v, re.I) else v
+
+
 def record_triage_override(
     conn: sqlite3.Connection, *, project_id: int, slug: str,
     blocked_by: list[str], rationale: str, actor: str | None = None,
+    decider: str | None = None,
 ) -> int:
     """Persist a Decider override of the triage gate (decisions + audit log)."""
     if not rationale or not rationale.strip():
@@ -363,11 +371,13 @@ def record_triage_override(
             "--override-triage vyžaduje --rationale \"…\" (DORA / AI Act čl. 14)."
         )
     actor = actor or current_actor()
-    payload = {"blocked_by": blocked_by, "rationale": rationale.strip()}
+    decider_name = decider_label(decider)
+    payload = {"blocked_by": blocked_by, "rationale": rationale.strip(), "decider": decider_name}
     body = (
         f"# Triage override (Ship) — {slug}\n\n"
         f"<!-- {TRIAGE_OVERRIDE_MARKER} {json.dumps(payload, ensure_ascii=False)} -->\n\n"
-        f"**Decider override:** production_ready povoleno i přes nedokončený triage.\n\n"
+        f"**Decider override:** production_ready povoleno i přes nedokončený triage "
+        f"(výjimku schválil: {decider_name}).\n\n"
         f"**Blokace, které override pokrývá:** {', '.join(blocked_by)}\n\n"
         f"**Rationale:** {rationale.strip()}\n\n"
         f"**Atribuce:** {actor}\n"
@@ -398,7 +408,7 @@ def record_threshold_override(
     if not rationale or not rationale.strip():
         raise ValueError("--override-threshold vyžaduje --rationale \"…\" (zapisuje se do decision logu).")
     actor = actor or current_actor()
-    decider = (decider or "").strip() or actor
+    decider = decider_label(decider)
     payload = {"score": int(score), "target": int(target), "decider": decider,
                "rationale": rationale.strip()}
     body = (

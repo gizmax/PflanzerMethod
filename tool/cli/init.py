@@ -29,6 +29,7 @@ from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
+PYTHON_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
 CONSTITUTION_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "CONSTITUTION.md.template"
 GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.template"
 GATES_FILENAME = "pflanzer.gates.yml"
@@ -36,6 +37,23 @@ GATES_FILENAME = "pflanzer.gates.yml"
 sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
 from tool.cli.ux import die, emit, tips_for  # noqa: E402
+
+
+def guide_template_for(path: Path) -> Path:
+    """INTEGRATION_GUIDE šablona podle stacku repa: Python varianta, jinak (Node) stávající."""
+    try:
+        python = detect_stack(path) == "python"
+    except OSError:
+        python = False
+    return PYTHON_TEMPLATE_PATH if python and PYTHON_TEMPLATE_PATH.is_file() else TEMPLATE_PATH
+
+
+def git_add_command(target_repo: Path) -> str:
+    """`git add` jen pro soubory, které existují (.gitignore nemusí v repu být)."""
+    paths = ["docs", ".pflanzer", "tests"]
+    if (target_repo / ".gitignore").exists():
+        paths.append(".gitignore")
+    return f"git add -A {' '.join(paths)}"
 
 
 def _git_origin(cwd: Path) -> str | None:
@@ -237,9 +255,10 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
     if guide.exists() and not force:
         actions.append("docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
     else:
-        if not TEMPLATE_PATH.exists():
-            return {"ok": False, "reason": f"Template missing: {TEMPLATE_PATH}"}
-        guide.write_text(TEMPLATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        template = guide_template_for(target_repo)
+        if not template.exists():
+            return {"ok": False, "reason": f"Template missing: {template}"}
+        guide.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
         actions.append("napsáno: docs/INTEGRATION_GUIDE.md (vyplň ručně podle realit svého repa)")
 
     # 1b. .pflanzer/CONSTITUTION.md
@@ -289,13 +308,15 @@ shadow_pm = "<jméno PdM>"
 
     # 4. .gitignore — pridej extracted/ pokud chybí
     gitignore = target_repo / ".gitignore"
-    if gitignore.exists():
-        text = gitignore.read_text(encoding="utf-8")
+    if True:  # create when missing: specs for /pm must never be committed
+        text = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
         additions = []
         if "extracted/" not in text:
             additions.append("\n# Pflanzer Method runtime (clones from vibe-coding sessions)\nextracted/\n")
         if ".pflanzer/local/" not in text:
             additions.append(".pflanzer/local/\n")
+        if ".pflanzer/specs/" not in text:
+            additions.append(".pflanzer/specs/\n")
         if additions:
             gitignore.write_text(text + "".join(additions), encoding="utf-8")
             actions.append(f"updated: .gitignore (+{len(additions)} entries)")
@@ -323,7 +344,7 @@ shadow_pm = "<jméno PdM>"
             "2. Zkontroluj `.pflanzer/project.toml` (target_branch_owner = GitHub handle).",
             "3. Ověř připravenost: `pflanzer doctor`",
             "4. Commit + PUSH (worktrees se klonují z originu, nepushnuté soubory v nich nebudou): "
-            "`git add -A docs .pflanzer tests .gitignore "
+            f"`{git_add_command(target_repo)} "
             "&& git commit -m \"chore(pflanzer): init\" && git push`",
             "5. Restartuj Claude Code v tomto repu a spusť: `/pm start`",
         ] + gates_hint,

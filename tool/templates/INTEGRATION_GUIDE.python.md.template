@@ -1,0 +1,100 @@
+# INTEGRATION_GUIDE.md — pro vibe-coding session v tomto repu (Python)
+
+> **Tento soubor čte Claude Code / Codex CLI jako PRVNÍ věc** v každé Pflanzer
+> session. Bez něj AI píše kód pro generic Python projekt, ne podle
+> konvencí tohoto repa. Updatuj při velkých změnách architektury.
+
+## Stack a prostředí
+
+- Python: <3.11 | 3.12 | 3.13>, virtuální prostředí v `.venv/` (`python -m venv .venv`)
+- Závislosti: <uv | pip + requirements.txt | poetry | pip-tools> (`<příkaz instalace>`)
+- Web framework: <FastAPI | Flask | Django | žádný (CLI / knihovna)>
+- Spuštění lokálně: `<uvicorn app.main:app --reload | flask run | python manage.py runserver>`
+
+```python
+# PŘÍKLAD — nahraď realitou tohoto repa
+from app.main import create_app
+
+app = create_app()
+```
+
+## Auth pattern
+
+- Provider: <OIDC / OAuth2 | session cookie | API klíč | žádná auth>
+- Kde se ověřuje: <FastAPI Depends(get_current_user) | Flask before_request | Django middleware>
+- Chráněný endpoint / view: `<dekorátor nebo dependency, např. require_user>`
+
+## API a datová vrstva
+
+- Router / blueprint / urls: `<app/api/ | app/blueprints/ | project/urls.py>`
+- Validace vstupu: <pydantic | marshmallow | Django forms / serializers>
+- Chyby API: <RFC 7807 Problem Details | vlastní formát>
+- ORM / DB: <SQLAlchemy | Django ORM | žádná>
+- **Vibe-coded varianty NESMÍ generovat migrace** (Alembic / Django migrations) —
+  změny schématu jdou do samostatného PR s labelem `db-migration`.
+
+## Logger / observability
+
+```python
+import logging
+log = logging.getLogger(__name__)
+log.info("user.login", extra={"user_id": user_id})
+```
+
+- Žádné `print()` v produkčním kódu
+- Strukturované logy: `event` + payload (<structlog | logging + JSON formatter>)
+- Tracing / metriky: <OpenTelemetry | žádné>
+
+## Feature flags
+
+- Provider: <LaunchDarkly | Unleash | proměnná prostředí | žádné>
+- Nová funkce za flagem: `<is_enabled("nazev-flagu")>` — vypnutí = rollback bez deploye.
+
+## Struktura repa
+
+```
+app/                 # aplikační kód (balíček)
+├── api/             # endpointy / views
+├── services/        # byznys logika
+├── models/          # ORM modely / schémata
+└── features/<slug>/ # sem padají Pflanzer varianty
+tests/               # pytest, zrcadlí strukturu app/
+pyproject.toml       # závislosti + konfigurace nástrojů
+```
+
+## Testy
+
+- Test runner: pytest (`python -m pytest -q` nebo `make test`)
+- Fixtures: `tests/conftest.py` — <DB v paměti | testcontainers | mocky>
+- Pokrytí: <coverage.py, práh X %> | žádný práh
+- Nový kód bez testu se nemerguje; Builder po každém kroku pustí testy a commituje jen zelené.
+
+## Lint, typy, formát
+
+- Lint + formát: <ruff check . && ruff format --check . | flake8 + black>
+- Typy: <mypy | pyright | žádné>
+- Pre-commit: <pre-commit | žádný>
+
+## CI
+
+- CI: <GitHub Actions | GitLab CI | jiné> — lint + typy + pytest musí projít před mergem do `main`.
+- Preview prostředí: <Fly.io | Render | staging | lokálně + port-forward>
+
+## AI code provenance
+
+- Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
+  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: <AI>` trailer.
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: <slug>-<A|B|C>`,
+  `Pflanzer-Session: <1|2|ship>` (1 = Build, 2 = Rozhodnutí), `AI-Assisted: <claude-code | codex-cli | cursor>`.
+- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
+- Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
+  jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
+- Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
+- **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická
+  data dle Data Classification (`<L1 | L2 | L3>`).
+
+## Folder for Pflanzer artefakty
+
+Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/<slug>/`,
+ne v root. Kód varianty v `app/features/<slug>/`. Po Rozhodnutí winner branche
+se merguje, ostatní se mažou.

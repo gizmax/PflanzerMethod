@@ -33,7 +33,7 @@ def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     assert "AI-Assisted: claude-code" in md
     assert '--label "ai-generated"' in md
     assert f'--label "pflanzer:{slug}"' in md
-    assert "## AI provenance" in md
+    assert "## Původ kódu a podíl AI" in md
     assert "## AI náklady (viditelnost)" in md  # N16: always present, never fails
     assert "**Vybrán podle**: Ship -" in md
     assert "Co-Authored-By: Claude" not in md
@@ -96,8 +96,9 @@ def test_pr_body_and_ship_have_no_placeholders(shipped: dict[str, Any]) -> None:
         for ph in PLACEHOLDERS:
             assert ph not in text, f"placeholder {ph!r} v textu určeném lidem"
     assert "Brány:" in pr["body"] and "/100" in pr["body"]
-    assert "z " in pr["gates_summary"] and "bran" in pr["gates_summary"]
-    assert "neběžely:" in pr["gates_summary"]
+    # 2 běžící brány -> poctivá jedna věta, ne tučně
+    assert pr["gates_summary"] == "100/100 jen ze 2 bran — orientační"
+    assert "**100/100" not in pr["body"]
 
 
 def test_shadow_pdm_falls_back_to_path_owner(shipped: dict[str, Any]) -> None:

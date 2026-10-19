@@ -47,6 +47,8 @@ v závěrečném zápisu.
 | „Utratíme víc, než čekáme" | strop nákladů na AI se potvrzuje v checkpointu a spotřeba je v zápisu |
 | „Bude to nekonečné" | Iterate jen jednou; potom Go nebo Kill |
 | „Chybí nám specialista" | AI připraví předkontrolu, ale u pilotu a produkce **podepisuje vždy člověk**; vás (Decidera) a vývoj AI nenahrazuje nikdy |
+| „Security nám nepodepíše" | rozhodnete vy: u pilotu bez osobních dat můžete riziko vědomě převzít (`--override-triage`, zapíše se vaše jméno); právo to nepokrývá |
+| „Chci být na Buildu" | ne, ať váš názor netáhne hlasování; dostanete 10min screencast z Buildu a na Rozhodnutí uvidíte varianty živě |
 
 ## Hotový e-mail
 

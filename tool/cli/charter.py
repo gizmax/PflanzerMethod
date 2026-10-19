@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import DATA_ROOT, audit, current_actor, load_project_toml, transaction  # noqa: E402
 from tool.cli.tier import TIER_LABELS, WINDOW_DAYS, default_tier, validate_tier  # noqa: E402
+from tool.cli.ux import plural  # noqa: E402
 
 CHARTER_DIR = DATA_ROOT / "charters"
 
@@ -93,6 +94,16 @@ def _norm_owner(value: str | None) -> str:
     return "AI" if is_ai_owner(value) else (value or "").strip()
 
 
+def _security_signers(path_owners: dict[str, str], risk_profile: str) -> str:
+    """Kdo smí podepsat bezpečnost za AI (do 48 h): Decider / PdM, u production Decider / DPO."""
+    decider, pdm = path_owners.get("byznys"), path_owners.get("produkt")
+    d = f"Decider ({decider})" if decider and not is_ai_owner(decider) else "Decider"
+    if risk_profile == "production":
+        return f"{d} nebo DPO/právník do 48 h"
+    p = f"PdM ({pdm})" if pdm and not is_ai_owner(pdm) else "PdM"
+    return f"{d} nebo {p} do 48 h"
+
+
 def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
                           tier: str | None) -> tuple[list[dict[str, str]], list[str]]:
     """Check which steps a stand-in AI may cover (ADR-0023 table).
@@ -119,7 +130,7 @@ def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
             "design": (path_owners.get("produkt") if not is_ai_owner(path_owners.get("produkt"))
                        else path_owners.get("byznys")) or "PdM",
             "bezpecnost": ("AI pre-check stačí" if risk_profile == "throwaway"
-                           else "člověk do 48 h"),
+                           else _security_signers(path_owners, risk_profile)),
             "provoz": ("AI pre-check stačí" if risk_profile == "throwaway"
                        else (path_owners.get("vyvoj") if risk_profile == "pilot"
                              else "člověk z provozu")),
@@ -172,8 +183,9 @@ def people_check(core: list[str] | None, path_owners: dict[str, str] | None) -> 
     warnings: list[str] = []
     if len(core_people) > MAX_PEOPLE:
         warnings.append(
-            f"Jádro má {len(core_people)} lidí ({', '.join(core_people.values())}) — víc než "
-            f"{MAX_PEOPLE} naráz nefunguje. Nech stálou účast jen 3–4 lidem, ostatní zvi "
+            f"Jádro má {plural(len(core_people), 'člověka', 'lidi', 'lidí')} "
+            f"({', '.join(core_people.values())}) — víc než "
+            f"{plural(MAX_PEOPLE, 'člověk', 'lidé', 'lidí')} naráz nefunguje. Nech stálou účast jen 3–4 lidem, ostatní zvi "
             "jen na jejich okno."
         )
     for window, steps in WINDOW_STEPS.items():
@@ -182,7 +194,8 @@ def people_check(core: list[str] | None, path_owners: dict[str, str] | None) -> 
         if len(room) > MAX_PEOPLE:
             who = ", ".join(v for k, v in guests.items() if k not in core_people) or "hosté"
             warnings.append(
-                f"V okně {window} by bylo {len(room)} lidí — víc než {MAX_PEOPLE} naráz. "
+                f"V okně {window} by bylo {plural(len(room), 'člověk', 'lidé', 'lidí')} — víc než "
+                f"{plural(MAX_PEOPLE, 'člověk', 'lidé', 'lidí')} naráz. "
                 f"Ať na okno přijde jen {who} a nikdo další ze stálé účasti."
             )
     return warnings
@@ -461,7 +474,7 @@ def main() -> None:
                              "(quick_session bootstrap).")
     parser.add_argument("--json", action="store_true", help="Strojový výstup")
     args = parser.parse_args()
-    from tool.cli.ux import die, emit, read_spec, tips_for
+    from tool.cli.ux import die, emit, read_spec, tips_for_project
     try:
         spec = read_spec(args.spec)
         if not spec.get("target_repo_url"):
@@ -480,7 +493,7 @@ def main() -> None:
               "slug": inp.slug}
     emit(result, title=f"Charter uložen — {inp.name}",
          lines=[f"Zadání je v `{result['charter_path']}`.", f"Decider: {inp.decider_name}"],
-         next_step=f"/pm build {inp.slug}", tips=tips_for("kickoff"), as_json=args.json)
+         next_step=f"/pm build {inp.slug}", tips=[] if args.json else tips_for_project(inp.slug, "kickoff"), as_json=args.json)
 
 
 if __name__ == "__main__":

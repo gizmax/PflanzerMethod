@@ -13,4 +13,7 @@ v target repu a do `method-metrics.json` (pole `after_30d`).
 
 Kill kritérium (z Kickoffu): {kill}
 
-Měření vede `/pm retro {slug}`: `python3 tool/cli/retro.py measure --slug {slug} --pr-url <PR_URL>` spočítá podíl LOC vítěze v produkci a days-to-prod, `retro.py reminders` vygeneruje připomínky T+7/30/60/90.
+Měření vede `/pm retro {slug}`. Po merge (z worktree vítěze, kde je PR):
+`pflanzer retro measure --slug {slug} --pr-url "$(gh pr view --json url -q .url)"` spočítá
+podíl LOC vítěze v produkci a days-to-prod; `pflanzer retro reminders --slug {slug} --format ics --out {slug}-pripominky.ics`
+vygeneruje připomínky T+7/30/60/90. URL PR vypíše `gh pr create`, `gh pr view` ji najde znovu.

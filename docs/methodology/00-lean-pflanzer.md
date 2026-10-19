@@ -40,7 +40,10 @@ Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 
 Jeden člověk smí krýt víc kroků (vývojář = vývoj + provoz je běžné).
 Chybí-li člověk, smí některé kroky v omezené míře zastoupit AI (design,
-předkontrola bezpečnosti & práva a provozu) — podepisuje ale vždy člověk,
+předkontrola bezpečnosti & práva a provozu) — podepisuje ale vždy člověk
+(design PdM přes `checkpoint … design`; bezpečnost v pořadí: člověk
+s mandátem z firmy → Decider vědomě přebírá riziko přes `--override-triage`
+→ autor kódu jen jako poslední možnost u pilotu bez osobních dat),
 Decidera a vývoj AI nenahradí nikdy (ADR-0023,
 [`02-role-catalog.md` § AI náhrada](02-role-catalog.md#ai-náhrada-chybějícího-zástupce)).
 Kdo přesně může krok zastoupit, říká `02-role-catalog.md` — catalog

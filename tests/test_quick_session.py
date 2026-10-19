@@ -109,4 +109,4 @@ def test_revote_keeps_real_preview_url(project: dict[str, Any],
     with transaction() as conn:
         urls = dict(conn.execute("SELECT name, prototype_url FROM variants").fetchall())
     assert urls["A"] == "https://github.com/acme/app/pull/7"
-    assert "sandbox.invalid" in urls["B"]
+    assert urls["B"] == ""   # bez URL = prázdný řetězec, ne vymyšlená adresa

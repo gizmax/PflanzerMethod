@@ -103,8 +103,18 @@ def test_summary_line_names_missing_gates() -> None:
         quality_gates.GateResult("tests", "pass"),
         quality_gates.GateResult("types", "skipped", "SKIP: mypy není nakonfigurovaný"),
     ]
-    line = quality_gates.gates_summary_line(100, results)
-    assert line.startswith("100/100 z 2/3 bran; neběžely: types (mypy není nakonfigurovaný)")
+    # méně než 5 běžících bran: poctivě „orientační“
+    assert quality_gates.gates_summary_line(100, results) == "100/100 jen ze 2 bran — orientační"
+    many = [quality_gates.GateResult(g, "pass")
+            for g in ("build", "tests", "lint", "security", "a11y")]
+    many += [quality_gates.GateResult("coverage", "skipped",
+                                      "SKIP: coverage se nespouští (definuj příkaz)"),
+             quality_gates.GateResult("types", "skipped", "SKIP: mypy není nakonfigurovaný")]
+    line = quality_gates.gates_summary_line(76, many)
+    assert line == "76/100 · 2 brány neběžely (coverage, types)"
+    full = quality_gates.skip_reasons(many)
+    assert full == ["coverage — coverage se nespouští (definuj příkaz)",
+                    "types — mypy není nakonfigurovaný"]
 
 
 # --- nový kód bez testů -------------------------------------------------------------------
@@ -165,7 +175,7 @@ def test_ship_blocked_message_names_people_and_windows(worktree_project: dict[st
                f"pflanzer checkpoint --slug {slug} provoz --by Ondra" in h for h in human)
     assert not any("/pm triage" in h or "platform" in h for h in human)
     assert "/pm triage" not in out["winner"]["next_step"]
-    assert out["winner"]["summary_line"].count("/100 z ") == 1
+    assert out["winner"]["summary_line"].count("/100") == 1
 
 
 def test_pending_ai_draft_waits_for_named_signature(worktree_project: dict[str, Any],

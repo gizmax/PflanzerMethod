@@ -25,11 +25,26 @@ Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
   slov) a **předej jeho „Doporučení“** doslova. `--json` použij jen tam,
   kde z výstupu čteš pole (např. `slug`).
 - Vždy **jeden** další krok ve tvaru `/pm <sloveso> <slug>` + kdo má přijít.
-- Spec do toolu předávej přes `--spec -` a heredoc (žádný soubor v `/tmp`):
-  `pflanzer quick_session bootstrap --spec - <<'EOF' … EOF`.
-- Žargon (worktree, quality gate, checkpoint) při prvním použití v jedné
-  větě vysvětli: oddělená kopie repa · automatická kontrola · 20min okno
-  s podpisem.
+- Spec do toolu předávej **souborem**: JSON zapiš nástrojem Write do
+  `.pflanzer/specs/<slug>-<krok>.json` v target repu a spusť
+  `pflanzer … --spec .pflanzer/specs/<slug>-<krok>.json`. Specy se
+  necommitují (`.pflanzer/specs/` je v `.gitignore` z `init`). Heredoc
+  `--spec - <<'EOF'` je jen záložní varianta — v omezených oprávněních ho
+  blokuje bezpečnostní heuristika Bashe.
+- Žargon při **prvním** použití v odpovědi vysvětli jednou větou, pak už ne:
+  Async (3–5 dní, kdy zástupci sami proklikají preview a napíšou feedback) ·
+  Decider (člověk s mandátem říct Go i Kill) · checkpoint (20min okno
+  s podpisem) · stupeň Lean (výchozí průběh: Build 3 h, Async 3–5 dní) ·
+  worktree (oddělená kopie repa) · quality gate (automatická kontrola).
+- Po Kickoffu neopakuj „připraveno ke Kickoffu“ z `doctor`; zmiň jen
+  otevřené výhrady, jednou větou.
+- **Jeden další krok, nikdy dvě otázky najednou.** Chybí-li po Kickoffu jméno
+  podepisujícího (např. u AI náhrady bezpečnosti) nebo nejsou zabookovaná
+  okna, je dalším krokem právě to (konkrétní akce a člověk), ne
+  `/pm build`. Chybí-li preview URL, navrhni konkrétního člověka (zástupce
+  provozu z projektu) a termín, ne „domluvte s provozem“.
+- Používej **skutečná jména z projektu** (`pflanzer status`), ne generické
+  „PdM, vývojář, designér“.
 - Nenajde-li uživatel `/pm`, zkus `/pflanzer:pm`.
 
 ## Proč tento command existuje
@@ -84,6 +99,13 @@ commandu po svém.
 ### 1. Parsuj `$ARGUMENTS`
 
 - První token = sloveso (pokud odpovídá tabulce výše), zbytek = slug.
+- **Argument není sloveso, ale věta nebo otázka** (např. „může Decider na
+  Build?“, „co když nemáme security?“): nejdřív `pflanzer status` (pro
+  aktivní projekt `--slug S`), pak odpověz **podle metody** — přečti
+  příslušnou pasáž (`docs/methodology/00-lean-pflanzer.md`, FAQ
+  v `docs/zacni.md`, ADR-0021 / ADR-0023), ne jen z obsahu repa. Odpověď
+  max ~8 řádků, se jmény z projektu, a **jeden** další krok. Speciální
+  případy viz sekce „Typické otázky“ níže.
 - Neznámé sloveso → ukaž tabulku sloves a zeptej se přes AskUserQuestion.
 - Sloveso bez slugu, ale `pflanzer status` hlásí víc projektů → AskUserQuestion, který projekt.
 
@@ -121,6 +143,32 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
 `data/handoffs/<slug>/SHIP.md`, nabídni vedle `handoff` i `retro`
 (po merge vítěze `measure`, hned `reminders`, pak T+7/30/60/90 readouty).
 `killed` → jen oznám; nový projekt = `start`.
+
+### 2a. Typické otázky (volný text v `/pm`)
+
+**„Security nám nepodepíše, co teď?“**
+1. Vyžádej si jejich **písemný důvod** a rozlišuj: *chybí podklady*
+   (data, síť, strop nákladů — doplníme) vs. *reálné riziko* (osobní data,
+   produkční přístup — upravíme rozsah nebo zastavíme).
+2. Pošli jim **3věté shrnutí**: co aplikace čte, kam píše, jestli vidí
+   reálná data. Nabídni **AI pre-check** (`security-expert`) jako podklad,
+   ne jako podpis.
+3. Bez odpovědi do **48 h** eskaluj na Decidera: rozhodne a zapíše to —
+   buď převezme riziko (`pflanzer session_3 --slug S --override-triage
+   --rationale "…"`, v decision logu je jeho jméno; jen pilot bez osobních
+   dat), nebo projekt zastaví.
+
+**Podpis bezpečnosti, když security není** — pořadí (nikdy nezačínej
+autorem kódu): (a) někdo z firmy s mandátem — DPO, IT security, compliance,
+stačí 20 min; (b) Decider vědomě převezme riziko (`--override-triage`),
+u pilotu bez osobních dat; (c) autor kódu jen jako poslední možnost,
+u interního nástroje bez osobních dat — nástroj to označí varováním a právo
+tím pokryté není.
+
+**„Decider chce být na Buildu.“** Ne (anti-HiPPO, ADR-0021: jeho přítomnost
+táhne hlasování k jeho názoru). Nabídni místo toho: **10min screencast**
+z Buildu (nahraje <jméno PdM>) a pozvánku na **Rozhodnutí s živým demem**
+(<jméno Decidera>, 60–90 min). Jména vezmi z `pflanzer status`.
 
 ### 2b. `doctor`
 

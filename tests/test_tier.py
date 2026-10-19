@@ -81,7 +81,10 @@ def test_bootstrap_tier(tmp_db: Path, bare_repo: Path) -> None:
     bootstrap_project(slug="pilot-q", target_repo_url=url)
     bootstrap_project(slug="prod-l", risk_profile="production", target_repo_url=url)
     bootstrap_project(slug="explicit-f", target_repo_url=url, tier="full")
-    assert (_tier("pilot-q"), _tier("prod-l"), _tier("explicit-f")) == ("quick", "lean", "full")
+    bootstrap_project(slug="throw-q", risk_profile="throwaway", target_repo_url=url)
+    bootstrap_project(slug="live-q", target_repo_url=url, tier="quick")   # /pm live výslovně
+    assert (_tier("pilot-q"), _tier("prod-l"), _tier("explicit-f")) == ("lean", "lean", "full")
+    assert (_tier("throw-q"), _tier("live-q")) == ("quick", "quick")
 
 
 def test_migrate_backfills_tier_for_legacy_projects(isolated_env: dict[str, Path]) -> None:

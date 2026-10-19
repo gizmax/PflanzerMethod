@@ -23,17 +23,27 @@ zvlášť (jiný den, Decider si vezme okno).
 ## Postup
 
 1. **Kickoff** — přečti `.claude/commands/pflanzer-charter.md` a proveď ho
-   celý (doctor → sběr → `pflanzer quick_session bootstrap --spec - <<'EOF' … EOF`,
-   spec přes stdin; u každého chybějícího kroku nabídka [jméno] / [stejný
+   celý (doctor → sběr → spec zapsaný Write do
+   `.pflanzer/specs/<slug>-kickoff.json` →
+   `pflanzer quick_session bootstrap --spec .pflanzer/specs/<slug>-kickoff.json`;
+   heredoc jen jako záloha; u každého chybějícího kroku nabídka [jméno] / [stejný
    člověk jako X] / [AI náhrada — jen kde ADR-0023 dovolí]). Krok bez jména
    a bez povolené AI náhrady = STOP. Decider je přítomen jen pro tuto část.
-   Po Kickoffu nabídni text pozvánek pro okna.
+   Po Kickoffu rovnou napiš texty pozvánek pro okna (podle role cards) a jako další krok uveď právě jednu chybějící věc (jméno podepisujícího, zabookovaná okna, preview URL), jinak Build.
 2. **Build** — přečti `.claude/commands/pflanzer-session-1.md` a proveď ho
    celý (`worktree setup` → `prompts` → 3× Claude Code → průběžné kontroly
    → checkpoint bezpečnost & právo (u AI náhrady `security-expert` +
-   `pflanzer checkpoint … --ai --agent …`) → push → preview → zápis).
+   `pflanzer checkpoint … --ai --agent …`; u AI designu potvrdí PdM `pflanzer checkpoint --slug S design --by <PdM>`) → push → preview → zápis).
 3. **Hlasování a zápis** — viz Build Krok 5; Decider ve `live` režimu
    nehlasuje (Rozhodnutí je samostatné okno).
+
+## Časté otázky
+
+- **Decider chce být na Buildu:** ne (anti-HiPPO, ADR-0021). Nabídni
+  10min screencast z Buildu (jméno PdM) a pozvánku na Rozhodnutí s demem
+  (jméno Decidera) — jména z `pflanzer status`.
+- **Chybí preview URL:** navrhni konkrétního člověka (zástupce provozu
+  z projektu) a termín.
 
 ## Výstup
 

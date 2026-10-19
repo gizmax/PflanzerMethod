@@ -215,6 +215,26 @@ Stačí 20 minut: AI udělá **předkontrolu** (datový tok, data, síť, strop
 nákladů, právní rizika) a člověk ji **podepíše do 48 hodin**. U throwaway
 věci stačí AI; u pilotu a produkce bez podpisu člověka Ship neprojde.
 
+Kdo podepíše, když security ve firmě opravdu není — v tomto pořadí:
+
+1. **Někdo z firmy s mandátem** — DPO, IT security, compliance; stačí
+   20 minut a tři věty (co aplikace čte, kam píše, jestli vidí reálná data).
+2. **Decider vědomě převezme riziko** (`pflanzer session_3 --slug S
+   --override-triage --rationale "…"`) — jeho jméno se zapíše do decision
+   logu. Jen u pilotu bez osobních dat.
+3. **Autor kódu** — jen poslední možnost, u interního nástroje bez osobních
+   dat. Nástroj to označí varováním a právo tím pokryté není.
+
+Autor kódu **není výchozí volba**: podepisoval by vlastní práci.
+
+### …security, která nám nechce podepsat
+
+Vyžádejte si písemný důvod a rozlište, jestli chybí podklady, nebo je riziko
+skutečné. Pošlete jim tříveté shrnutí (co aplikace čte, kam píše, jestli
+vidí reálná data) a nabídněte AI pre-check jako podklad. Bez odpovědi do
+48 hodin to eskaluje na Decidera: buď převezme riziko a zapíše to pod svým
+jménem, nebo projekt zastaví.
+
 ### …DevOps
 
 U **pilotu** podepíše provoz vývojář z jádra (vývoj + provoz je běžná
@@ -232,6 +252,9 @@ Pilot jde, ale bez CI nemá PR automatické kontroly. `doctor` to ohlásí;
 stačí jednoduchý běh lint + test + build na každé větvi.
 
 ### …preview prostředí
+
+Určete konkrétního člověka (zástupce provozu) a termín, kdy preview
+zprovozní; „domluvíme s provozem“ nestačí.
 
 Build jede lokálně (3 dev servery), ale Async tak nemá na co klikat. Zkuste
 draft PR s preview nebo nahrávku průchodu (`pflanzer worktree preview`,
@@ -254,8 +277,8 @@ pro vývojáře; ostatní v týmu ji nepotřebují.
 | Byznys (Decider) | **nikdy** | bez Decidera se Kickoff nesvolává |
 | Vývoj | **nikdy** | u klávesnice sedí vývojář |
 | Produkt | jen Quick / throwaway | Decider (zadání) |
-| Design | ano (UX expert + kontrola přístupnosti) | PdM; u zákaznického produktu člověk |
-| Bezpečnost & právo | jen **předkontrola** | throwaway: stačí AI; pilot/production: člověk do 48 h |
+| Design | ano (UX expert + kontrola přístupnosti) | PdM (`pflanzer checkpoint … design`); u zákaznického produktu člověk |
+| Bezpečnost & právo | jen **předkontrola** | throwaway: stačí AI; pilot/production: člověk do 48 h (pořadí viz výše) |
 | Provoz | jen **předkontrola** | throwaway: AI; pilot: vývojář z jádra; production: člověk z provozu |
 
 AI náhrada je u všeho **vidět** (stav projektu, rozhodnutí, `SHIP.md`) a je

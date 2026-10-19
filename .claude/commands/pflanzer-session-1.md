@@ -122,6 +122,14 @@ pflanzer checkpoint --slug $ARGUMENTS bezpecnost --ai --agent security-expert \
   --note "<shrnutí předkontroly: data, síť, strop nákladů, nálezy>"
 ```
 
+**Kdo podepíše, když security není** — pořadí (nikdy default autor kódu):
+(a) někdo z firmy s mandátem (DPO, IT security, compliance, 20 min);
+(b) Decider vědomě převezme riziko — `pflanzer session_3 --slug
+$ARGUMENTS --override-triage --rationale "…"` (jeho jméno v decision logu;
+u pilotu bez osobních dat); (c) autor kódu jen jako poslední možnost
+u interního nástroje bez osobních dat — nástroj varuje, právo tím pokryté
+není.
+
 3. **`throwaway`** — stačí AI. **`pilot` / `production`** — okno zůstane
    „čeká na podpis člověka“. Řekni nahlas, kdo to podepíše (jméno z
    Kickoffu) a že do **48 hodin**, jinak Ship zablokuje; podpis pak:
@@ -131,7 +139,12 @@ pflanzer checkpoint --slug $ARGUMENTS bezpecnost --ai --agent security-expert \
 
 Spusť **`ux-expert`** (a `a11y-expert` na kontrolu přístupnosti) nad
 variantami; výstup je vstup do diff walkthrough, ne hlas (`is_ai_only: true`,
-váha max 0,5). Podepisuje PdM.
+váha max 0,5). Podepisuje PdM — potvrzení zapiš:
+
+```bash
+pflanzer checkpoint --slug $ARGUMENTS design --by "<jméno PdM>" \
+  --note "<co ověřeno>"
+```
 
 Výsledek (OK / podmínky / veto) zapiš i do zápisu Buildu. Veto = varianta
 nejde na preview, dokud ji Decider výslovně nepřebije s odůvodněním.
@@ -146,6 +159,8 @@ git push origin pflanzer/$ARGUMENTS-A pflanzer/$ARGUMENTS-B pflanzer/$ARGUMENTS-
 Preview URL = to, co firma už má (Vercel/Netlify preview, review apps,
 preview namespace). Bez produkčních dat. Na každém preview viditelný štítek
 **„Varianta X — k rozhodnutí, ne produkt“** + 1 věta, jaký problém řeší.
+Chybí-li preview deploy, navrhni konkrétního člověka (zástupce provozu
+z projektu) a termín, ne „domluvte s provozem“.
 Odkazy (tabulka varianta / URL) pošli všem zástupcům. Nemá-li firma preview
 deploy, jde varianty zpřístupnit i jinak: `pflanzer worktree preview --slug
 $ARGUMENTS` založí **draft PR per varianta** (preview URL z PR checks; push do
@@ -160,10 +175,13 @@ sám a najednou; hlasujte za to, co uvidí uživatel, ne za kód; důvod jednou
 větou; Decider hlasuje vždy poslední (na Rozhodnutí), nepřítomní přes Async.
 Skóre až po diff walkthrough.
 
-Zapiš přes stdin — **přesný formát** (`record_voting` → `session.persist`):
+Zapiš spec nástrojem **Write** do `.pflanzer/specs/<slug>-vote.json`
+(necommituje se) a spusť `pflanzer quick_session vote --spec
+.pflanzer/specs/<slug>-vote.json`. Heredoc `--spec - <<'EOF'` je jen záloha
+(v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe).
+**Přesný formát** (`record_voting` → `session.persist`), obsah souboru:
 
-```bash
-pflanzer quick_session vote --spec - <<'EOF'
+```json
 {
   "slug": "<slug>",
   "facilitator": "<jméno>",
@@ -184,14 +202,13 @@ pflanzer quick_session vote --spec - <<'EOF'
   "decider_call": {"shortlist": ["A", "B"], "rationale": "…", "veto_register": [], "parking_lot": []},
   "real_urls": {"A": "https://…", "B": "https://…", "C": "https://…"}
 }
-EOF
 ```
 
 Pravidla: `role_idx` = číslo role v catalogu (1 zadavatel, 2 PdM, 4 FE, 6 UX,
 7 security, 15 DevOps…), hodnoty 0–1, `rationale` povinný u každého řádku,
 AI hlas má `is_ai_only: true`. `real_urls` jsou skutečné preview URL
 (bez nich zůstane placeholder). Alternativa pro plný zápis s experty:
-`pflanzer session --spec - <<'EOF' … EOF`.
+`pflanzer session --spec .pflanzer/specs/<slug>-session.json` (soubor zapsaný Write).
 
 ## Krok 6 — Výstup a další krok
 

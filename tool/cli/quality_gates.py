@@ -91,6 +91,7 @@ GATE_WEIGHTS = {  # Production readiness weight
 COVERAGE_TARGET = 60  # % branch coverage; pod tímto = warn, pod 30 = fail
 # Minimum důkazů pro verdikt "splňuje práh": aspoň MIN_GATES_RUN reálně spuštěných bran
 # (pass/warn/fail; SKIP / unsupported se nepočítají) a mezi nimi build i tests.
+MIN_SOLID_GATES = 5
 MIN_GATES_RUN = 4
 REQUIRED_GATES = ("build", "tests")
 RAN_STATUSES = ("pass", "warn", "fail")
@@ -378,23 +379,50 @@ def _gate_other_stack(gate: str, path: Path, stack: str) -> GateResult:
                       f"{label}: `{shown}` exit {rc}\n{(out + err)[-500:]}",
                       duration_s=duration)
 
-def _python_cmd() -> str:
-    """Interpreter pro Python brány (`PFLANZER_PYTHON` přebíjí; default `python3`)."""
-    return os.environ.get("PFLANZER_PYTHON") or "python3"
+def _python_cmd(path: Path | None = None) -> str:
+    """Interpreter pro Python brány.
+
+    Pořadí: `PFLANZER_PYTHON` > `.venv/bin/python` / `venv/bin/python` v projektu > `python3`.
+    """
+    env = os.environ.get("PFLANZER_PYTHON")
+    if env:
+        return env
+    if path is not None:
+        for d in (".venv", "venv"):
+            cand = path / d / "bin" / "python"
+            if cand.is_file():
+                return str(cand)
+    return "python3"
 
 
-_MAKE_TARGET_RE = re.compile(r"^build\s*:(?!=)", re.MULTILINE)
+GATES_JSON_HINT = (
+    "doplňte do `pflanzer.gates.json` v base branchi např.:\n"
+    '{"tests": {"cmd": ".venv/bin/python -m pytest -q"},\n'
+    ' "lint": {"cmd": ".venv/bin/python -m ruff check ."},\n'
+    ' "build": {"cmd": "make build"}}'
+)
 
 
-def _has_make_build(path: Path) -> bool:
+def _no_python(py: str) -> str:
+    """Lidská věta pro chybějící interpret (bez anglického `python: No such file`)."""
+    return ("Python v projektu nenašel — vytvořte .venv v repu nebo nastavte PFLANZER_PYTHON "
+            f"(hledal jsem `{py}`); nebo {GATES_JSON_HINT}")
+
+
+def _has_make_target(path: Path, target: str) -> bool:
+    pat = re.compile(rf"^{re.escape(target)}\s*:(?!=)", re.MULTILINE)
     for name in ("Makefile", "makefile", "GNUmakefile"):
         f = path / name
         if f.is_file():
             try:
-                return bool(_MAKE_TARGET_RE.search(f.read_text(encoding="utf-8", errors="ignore")))
+                return bool(pat.search(f.read_text(encoding="utf-8", errors="ignore")))
             except OSError:
                 return False
     return False
+
+
+def _has_make_build(path: Path) -> bool:
+    return _has_make_target(path, "build")
 
 
 def _python_build(ctx: Ctx) -> GateResult:
@@ -407,9 +435,9 @@ def _python_build(ctx: Ctx) -> GateResult:
             return GateResult("build", "pass", "`make build` OK", duration_s=dur)
         return GateResult("build", "fail", f"`make build` exit {rc}\n{(out + err)[-500:]}",
                           duration_s=dur)
-    py = _python_cmd()
+    py = _python_cmd(ctx.path)
     if not _has(py):
-        return _skip("build", f"{py} není na PATH")
+        return _skip("build", _no_python(py))
     rc, out, err = _run([py, "-m", "compileall", "-q", "."], ctx.path, timeout=120)
     dur = round(time.monotonic() - started, 2)
     if rc == 0:
@@ -494,16 +522,27 @@ def gate_lint(ctx: Ctx) -> GateResult:
                           f"lint hlásí chybu ({problems} nálezů)\n{(out + err)[-500:]}",
                           metric=problems)
     if st.python:
-        if _has("ruff"):
+        started = time.monotonic()
+        if _has_make_target(ctx.path, "lint") and _has("make"):
+            rc, out, err = _run(["make", "lint"], ctx.path, timeout=180)
+            dur = round(time.monotonic() - started, 2)
+            if rc == 0:
+                return GateResult("lint", "pass", "`make lint` OK", duration_s=dur)
+            return GateResult("lint", "fail", f"`make lint` exit {rc}\n{(out + err)[-500:]}",
+                              duration_s=dur)
+        py = _python_cmd(ctx.path)
+        if Path(py).is_absolute() and _has(py):  # venv projektu / PFLANZER_PYTHON: jeho ruff
+            cmd = [py, "-m", "ruff", "check", "."]
+        elif _has("ruff"):
             cmd = ["ruff", "check", "."]
-        elif _has(_python_cmd()):
-            cmd = [_python_cmd(), "-m", "ruff", "check", "."]
+        elif _has(py):
+            cmd = [py, "-m", "ruff", "check", "."]
         else:
-            return _skip("lint", "ruff není na PATH")
+            return _skip("lint", _no_python(py))
         rc, out, err = _run(cmd, ctx.path)
         text = out + err
         if rc != 0 and _NO_MODULE_RE.search(text):
-            return _skip("lint", "ruff není nainstalovaný (`pip install ruff`); "
+            return _skip("lint", "ruff není nainstalovaný (`pip install ruff` do .venv projektu); "
                                  "nástroj chybí, kód se nehodnotil")
         return GateResult("lint", "pass" if rc == 0 else "fail", text[-500:] or "OK")
     return _skip("lint", "neznámý stack")
@@ -524,7 +563,155 @@ def _count_tests(output: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _pytest_failure_summary(output: str) -> str:
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _unquote(v: str) -> str:
+    v = v.strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+        v = v[1:-1]
+    return v
+
+
+def _tap_failures(lines: list[str]) -> list[tuple[str, str]]:
+    """Node `--test` v TAP: `not ok N - název` + YAML blok (`error:`, `expected:`, `actual:`)."""
+    out: list[tuple[str, str]] = []
+    for i, ln in enumerate(lines):
+        m = re.match(r"^(\s*)not ok \d+ - (.*?)(?:\s+# .*)?$", ln)
+        if not m:
+            continue
+        base = len(m.group(1))
+        block: list[str] = []
+        for nxt in lines[i + 1:]:
+            if nxt.strip() and _indent(nxt) <= base:
+                break
+            block.append(nxt)
+        text = "\n".join(block)
+        if "subtestsFailed" in text:  # rodičovský suite; selhání nesou jeho podtesty
+            continue
+        fields: dict[str, str] = {}
+        for j, b in enumerate(block):
+            fm = re.match(r"^\s*(error|expected|actual):\s*(.*)$", b)
+            if not fm:
+                continue
+            val = fm.group(2).strip()
+            if val in ("|-", "|", ">-", ">") and j + 1 < len(block):
+                val = block[j + 1].strip()
+            fields.setdefault(fm.group(1), _unquote(val))
+        detail = fields.get("error", "")
+        if "expected" in fields or "actual" in fields:
+            detail = (detail + " " if detail else "") + (
+                f"(očekáváno {fields.get('expected', '?')}, bylo {fields.get('actual', '?')})")
+        out.append((m.group(2).strip(), detail))
+    return out
+
+
+def _jest_failures(lines: list[str]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for i, ln in enumerate(lines):
+        m = re.match(r"^\s*● (?!Console)(.+)$", ln)
+        if not m:
+            continue
+        exp = rec = ""
+        first = ""
+        for nxt in lines[i + 1:i + 40]:
+            if re.match(r"^\s*● ", nxt):
+                break
+            t = nxt.strip()
+            if t.startswith("Expected") and not exp:
+                exp = t.split(":", 1)[-1].strip() if ":" in t else t
+            elif t.startswith("Received") and not rec:
+                rec = t.split(":", 1)[-1].strip() if ":" in t else t
+            elif not first and re.match(r"(expect\(|Error|TypeError|ReferenceError)", t):
+                first = t
+        detail = f"očekáváno {exp}, bylo {rec}" if exp or rec else first
+        out.append((m.group(1).strip(), detail))
+    return out
+
+
+def _vitest_failures(lines: list[str]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for i, ln in enumerate(lines):
+        m = re.match(r"^\s*FAIL\s+(\S.*? > .+)$", ln)
+        if not m:
+            continue
+        detail = ""
+        for nxt in lines[i + 1:i + 8]:
+            t = nxt.strip()
+            if re.match(r"(AssertionError|\w*Error)\b", t):
+                detail = t
+                break
+        out.append((m.group(1).strip(), detail))
+    return out
+
+
+def _pytest_failures(lines: list[str]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for ln in lines:
+        m = re.match(r"^FAILED (\S+?)(?: - (.*))?$", ln.strip())
+        if m:
+            out.append((m.group(1), (m.group(2) or "").strip()))
+    return out
+
+
+def _node_spec_failures(lines: list[str]) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for i, ln in enumerate(lines):
+        m = re.match(r"^\s*✖ (.+?) \(\d+(?:\.\d+)?ms\)\s*$", ln)
+        if not m or m.group(1) in seen:
+            continue
+        seen.add(m.group(1))
+        detail = ""
+        for nxt in lines[i + 1:i + 6]:
+            t = nxt.strip()
+            if re.match(r"(AssertionError|\w*Error)\b", t):
+                detail = t
+                break
+        out.append((m.group(1).strip(), detail))
+    return out
+
+
+def _summary_failures(lines: list[str]) -> list[tuple[str, str]]:
+    """Naše vlastní shrnutí (`summarize_test_failures`): `✗ název — detail`."""
+    out: list[tuple[str, str]] = []
+    for ln in lines:
+        m = re.match(r"^✗ (.+?)(?: — (.*))?$", ln.strip())
+        if m:
+            out.append((m.group(1), (m.group(2) or "").strip()))
+    return out
+
+
+def parse_test_failures(output: str) -> list[tuple[str, str]]:
+    """Selhané testy jako (název, detail) z výstupu Node TAP / jest / vitest / pytest / node spec."""
+    lines = (output or "").splitlines()
+    for parser in (_summary_failures, _tap_failures, _jest_failures, _vitest_failures, _pytest_failures,
+                   _node_spec_failures):
+        found = parser(lines)
+        if found:
+            return found
+    return []
+
+
+def summarize_test_failures(output: str, root: Path | None = None) -> str:
+    """Lidské shrnutí selhání: `✗ název: detail` na řádek, pak (stručně) konec výstupu.
+
+    Cesty jsou relativní k repu (`root`), ne absolutní.
+    """
+    if root is not None:
+        for r in {str(root), str(root.resolve())}:
+            output = output.replace(r + os.sep, "")
+    found = parse_test_failures(output)
+    if not found:
+        return output[-500:]
+    rows = [f"✗ {name}" + (f" — {detail}" if detail else "") for name, detail in found[:6]]
+    if len(found) > 6:
+        rows.append(f"…a dalších {len(found) - 6} testů")
+    return "\n".join(rows)
+
+
+def _pysummarize_test_failures(output: str) -> str:
     """Užitečný konec pytest výstupu: řádky `E   …` (assertion) a shrnutí FAILED, ne useknutý stack."""
     lines = output.splitlines()
     picked = [ln.strip() for ln in lines if ln.lstrip().startswith("E ")][:4]
@@ -547,7 +734,7 @@ def gate_tests(ctx: Ctx) -> GateResult:
             return s
         rc, out, err = _run(["npm", "test"], ctx.path, timeout=180)
         if rc != 0:
-            return GateResult("tests", "fail", (out + err)[-500:])
+            return GateResult("tests", "fail", summarize_test_failures(out + err, ctx.path))
         count = _count_tests(out + err)
         if count == 0 or (count is None and not _has_test_files(ctx.path)):
             return GateResult("tests", "fail",
@@ -556,19 +743,22 @@ def gate_tests(ctx: Ctx) -> GateResult:
         note = f"{count} testů prošlo" if count is not None else "testy prošly (počet nezjištěn)"
         return GateResult("tests", "pass", note, metric=count)
     if st.python:
-        py = _python_cmd()
+        py = _python_cmd(ctx.path)
         if not _has(py):
-            return _skip("tests", f"{py} není na PATH")
+            return _skip("tests", _no_python(py))
         rc, out, err = _run([py, "-m", "pytest", "-q"], ctx.path, timeout=180)
         if rc != 0 and (m := _NO_MODULE_RE.search(out + err)) and m.group(1).split(".")[0] == "pytest":
-            return _skip("tests", f"pytest není nainstalovaný pro {py} (`{py} -m pip install pytest`)")
+            return _skip("tests", f"pytest není nainstalovaný pro {py} (`{py} -m pip install pytest`); "
+                                  f"nebo {GATES_JSON_HINT}")
         if rc == 5:
             return GateResult("tests", "fail", "žádné testy - pytest žádný nenašel", metric=0)
         count = _count_tests(out)
         if rc == 0:
             note = f"{count} testů prošlo" if count is not None else "testy prošly"
             return GateResult("tests", "pass", note, metric=count)
-        return GateResult("tests", "fail", _pytest_failure_summary(out + err), metric=count)
+        found = summarize_test_failures(out + err, ctx.path) if parse_test_failures(out + err) else ""
+        return GateResult("tests", "fail",
+                          found or _pysummarize_test_failures(out + err), metric=count)
     return GateResult("tests", "fail", "žádné testy - neznámý stack, nic ke spuštění", metric=0)
 
 
@@ -1158,16 +1348,27 @@ def run_all(extracted_id: int, adapter_path: Path | None = None) -> dict[str, An
 
 
 def skip_reason(result: Any) -> str:
-    """Krátký důvod, proč brána neběžela (z `details`)."""
+    """Důvod, proč brána neběžela (z `details`), celý a bez zalomení."""
     details = result.details if hasattr(result, "details") else result.get("details", "")
-    text = (details or "").replace("\n", " ").strip()
+    text = " ".join((details or "").split())
     if text.upper().startswith("SKIP:"):
         text = text[5:].strip()
-    return text[:90]
+    return text
 
 
-def gates_summary_line(score: int, results: list[Any], reasons: bool = True) -> str:
-    """„78/100 z 5/9 bran; neběžely: types (důvod), a11y (důvod)“ — vždy stejný tvar."""
+def _brany(n: int) -> str:
+    """„z 1 brány“ / „ze 4 bran“ / „z 5 bran“ — předložka podle čísla."""
+    prep = "ze" if n in (2, 3, 4, 6, 7) else "z"
+    return f"{prep} {n} {'brány' if n == 1 else 'bran'}"
+
+
+def gates_summary_line(score: int, results: list[Any], reasons: bool = False) -> str:
+    """Jedna krátká věta o skóre.
+
+    „76/100 · 3 brány neběžely (coverage, acceptance, a11y)“; když běžely < 5 bran:
+    „100/100 jen ze 4 bran — orientační“. Důvody SKIP jsou jen s `reasons=True`
+    (celé, neusekávané; jinak je najdete v `skip_reasons`).
+    """
     def g(r: Any) -> str:
         return r.gate_type if hasattr(r, "gate_type") else r["gate"]
 
@@ -1176,12 +1377,32 @@ def gates_summary_line(score: int, results: list[Any], reasons: bool = True) -> 
 
     ran = [r for r in results if st(r) in RAN_STATUSES]
     missing = [r for r in results if st(r) not in RAN_STATUSES]
-    line = f"{score}/100 z {len(ran)}/{len(results)} bran"
+    if len(ran) < MIN_SOLID_GATES:
+        return f"{score}/100 jen {_brany(len(ran))} — orientační"
+    line = f"{score}/100"
     if missing:
-        line += "; neběžely: " + ", ".join(
-            f"{g(r)} ({skip_reason(r)})" if reasons and skip_reason(r) else g(r)
-            for r in missing)
+        n = len(missing)
+        names = ", ".join(
+            f"{g(r)}: {skip_reason(r)}" if reasons and skip_reason(r) else g(r) for r in missing)
+        line += (f" · {n} {'brána neběžela' if n == 1 else 'brány neběžely' if n < 5 else 'bran neběželo'}"
+                 f" ({names})")
     return line
+
+
+def skip_reasons(results: list[Any]) -> list[str]:
+    """Řádky „coverage — důvod celý“ pro brány, které neběžely (do reportu)."""
+    out: list[str] = []
+    for r in results:
+        status = r.status if hasattr(r, "status") else r["status"]
+        if status in RAN_STATUSES:
+            continue
+        gate = r.gate_type if hasattr(r, "gate_type") else r["gate"]
+        details = r.details if hasattr(r, "details") else r.get("details", "")
+        text = " ".join((details or "").split())
+        if text.upper().startswith("SKIP:"):
+            text = text[5:].strip()
+        out.append(f"{gate} — {text or 'neběžela'}")
+    return out
 
 
 def verdict_label(score: int, target: int, low_confidence: bool = False) -> str:
@@ -1211,18 +1432,21 @@ def _render_md(slug: str, variant: str, results: list[GateResult],
         low = (f"\n> Pozor: skóre je jen z {score_info['applicable_gates']} aplikovatelných bran - "
                f"malá vypovídací hodnota (`{score_info['sufficiency_blocker']}`; verdikt vyžaduje "
                f"aspoň {MIN_GATES_RUN} spuštěné brány včetně build a tests).\n")
+    skipped = skip_reasons(results)
+    skip_block = ("\n## Brány, které neběžely\n\n" + "\n".join(f"- {x}" for x in skipped) + "\n"
+                  if skipped else "")
     return f"""{BRAND}
 
 # Quality gates — {slug} / varianta {variant}
 
-> Skóre: **{gates_summary_line(score, results)}** (práh {target}) · {verdict_label(score, target, score_info['low_confidence'])}
+> Skóre: {gates_summary_line(score, results)} (práh {target}) · {verdict_label(score, target, score_info['low_confidence'])}
 > Stack: `{stack.label}` · Aplikovatelné brány: {score_info['applicable_gates']} z {score_info['total_gates']} · {score_info['counts']}
 > Zdroj příkazů: {gate_source or 'autodetekce'}
 {low}
 | Gate | Stav | Metrika | Detail |
 |------|------|---------|--------|
 {rows}
-
+{skip_block}
 ## Jak číst
 
 - PASS = v pořádku, WARN = do pilotu, opravit v dalším sprintu, FAIL = blokuje.

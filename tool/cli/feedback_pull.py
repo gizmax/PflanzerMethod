@@ -25,8 +25,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import count, tips  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
-from tool.cli.ux import die, emit, severity_label, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, severity_label  # noqa: E402
 
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
@@ -302,7 +303,9 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
     for c in crit[:2]:
         lines.append("Otevřené kritické: " + critical_line(c))
     if len(crit) > 2:
-        lines.append(f"…a dalších {len(crit) - 2} otevřených kritických")
+        n_more = len(crit) - 2
+        lines.append("…a " + count(n_more, "další otevřený kritický", "další otevřené kritické",
+                                  "dalších otevřených kritických"))
     if silent:
         lines.append("Ještě bez feedbacku: " + ", ".join(f"{r['label']} ({r['name']})"
                                                         for r in silent))
@@ -347,13 +350,13 @@ def main() -> None:
         emit({}, title=f"Feedback {args.slug}: zatím nic",
              lines=["Nikdo zatím nenapsal žádnou připomínku."],
              next_step=NO_FEEDBACK_MSG.format(slug=args.slug),
-             tips=tips_for("async", {"silent_reps": bool(agg["silent_reps"])}))
+             tips=tips(args.slug, "async", {"silent_reps": bool(agg["silent_reps"])}))
         sys.exit(1)
 
     path = write_summary(args.slug, agg)
     title, lines, warns, nxt, ctx = _human(agg, path)
     emit(agg, title=title, lines=lines, warnings=warns, next_step=nxt,
-         tips=tips_for("async", ctx))
+         tips=tips(args.slug, "async", ctx))
 
 
 if __name__ == "__main__":

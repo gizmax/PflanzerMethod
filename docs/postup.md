@@ -63,6 +63,10 @@ gantt
    s bezpečností & právem potvrdí tři věci: jaká data AI vidí, kam smí
    síť a kolik smí AI stát (plus riziko podstrčené instrukce v cizím textu).
    Oddělená kopie repa pro variantu není bezpečnostní izolace.
+   AI design potvrzuje PdM (`pflanzer checkpoint … design`). Chybí-li
+   security, podpis jde v pořadí: člověk z firmy s mandátem → Decider vědomě
+   převezme riziko (`--override-triage`) → autor kódu jen jako poslední
+   možnost (varování).
 3. **Async (3–5 dní)** — všichni zástupci klikají na sandbox URL a komentují.
    Vývojář zapracovává.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,

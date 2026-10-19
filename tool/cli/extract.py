@@ -717,7 +717,7 @@ def find_worktree(slug: str, variant: str, target_repo_url: str | None = None) -
 
 
 def _setup_hint(slug: str) -> str:
-    return f"python tool/cli/worktree.py setup --slug {slug}"
+    return f"pflanzer worktree setup --slug {slug}"
 
 
 def plan_extraction(

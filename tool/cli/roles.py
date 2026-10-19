@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from tool.cli.charter import is_ai_owner, people_check  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, transaction  # noqa: E402
 from tool.cli.tier import infer_tier  # noqa: E402
-from tool.cli.ux import die, emit, read_spec, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, read_spec, tips_for_project  # noqa: E402
 
 CATALOG_PATH = REPO_ROOT / "tool" / "data" / "role_catalog.json"
 SUMMARY_DIR = DATA_ROOT / "charters"
@@ -641,7 +641,8 @@ def main(argv: list[str] | None = None) -> None:
     names = [f"{r['catalog_label']} — {r['human_owner'] or 'bez jména'}" for r in selected]
     emit(result, title=f"Zástupci vybráni — {answers.slug}",
          lines=[f"{result['roles_count']} rolí v seznamu zástupců (ne v místnosti)."] + names[:5],
-         next_step=f"/pm build {answers.slug}", tips=tips_for("build"),
+         next_step=f"/pm build {answers.slug}",
+         tips=[] if args.json else tips_for_project(answers.slug, "build"),
          warnings=[w.lstrip("⚠ ").strip() for w in result["warnings"]], as_json=args.json)
 
 

@@ -24,8 +24,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import count, tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import die, emit, normalize_severity, severity_label, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, normalize_severity, severity_label  # noqa: E402
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -130,10 +131,15 @@ def add_feedback(
             payload={"variant_id": variant_id, "severity": sev, "department": department,
                      "ai_only": ai_only, "via": "cli"},
         )
+        focus: list[str] = []
+        if sev == "critical":
+            from tool.cli.session_2 import focus_variants
+            focus = focus_variants(conn, project_id)
     return {
         "id": fid, "slug": slug, "variant": variant.upper(), "department": department,
         "role_matched": role_id is not None, "severity": sev, "score": val,
-        "submitted_by": actor,
+        "submitted_by": actor, "focus_variants": focus,
+        "blocks_go": sev == "critical" and variant.upper() in focus,
     }
 
 
@@ -181,13 +187,16 @@ def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], s
         lines.append(f"Otevřené kritické #{r['id']}: {r['submitted_by']} "
                      f"(krok {r['department']}) na {r['variant']} — „{text}“")
     if len(crit) > 2:
-        lines.append(f"…a dalších {len(crit) - 2} otevřených kritických")
+        n_more = len(crit) - 2
+        lines.append("…a " + count(n_more, "další otevřený kritický", "další otevřené kritické",
+                                  "dalších otevřených kritických"))
     if crit:
         nxt = (f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
                f"--by JMÉNO --note \"…\"`")
     else:
         nxt = f"`pflanzer feedback_pull --slug {slug}` (souhrn + kdo ještě mlčí)"
-    return f"Feedback {slug}: {len(rows)} připomínek", lines[:6], nxt, {"open_critical": bool(crit)}
+    return (f"Feedback {slug}: {count(len(rows), 'připomínka', 'připomínky', 'připomínek')}",
+            lines[:6], nxt, {"open_critical": bool(crit)})
 
 
 def main() -> None:
@@ -224,9 +233,26 @@ def main() -> None:
                      f"{severity_label(res['severity'])}, autor {res['submitted_by']}"]
             if not res["role_matched"]:
                 lines.append("Role v projektu nenalezena — uloženo jen jako oddělení.")
+            if res["severity"] == "critical":
+                fid, sl = res["id"], res["slug"]
+                if res["blocks_go"]:
+                    lines.append(f"Kritické na {res['variant']} blokuje Go, dokud se nevyřeší.")
+                    nxt = (f"oprav to ve variantě {res['variant']} a pak "
+                           f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
+                           f"--by JMÉNO --note \"co se opravilo\"`; nebo Decider přebije při Go: "
+                           f"`--override-critical \"důvod\"`")
+                else:
+                    lines.append(f"Kritické na {res['variant']} Go neblokuje, pokud vyhraje jiná "
+                                 f"varianta ({'/'.join(res['focus_variants']) or '—'}).")
+                    nxt = (f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
+                           f"--by JMÉNO --note \"proč je to mimo vítěze\"`, nebo nech být: "
+                           f"`pflanzer feedback list --slug {sl}`")
+                phase = "after_critical"
+            else:
+                nxt, phase = f"`pflanzer feedback list --slug {res['slug']}`", "async"
             emit(res, title=f"Feedback #{res['id']} zapsán", lines=lines,
-                 next_step=f"`pflanzer feedback list --slug {res['slug']}`",
-                 tips=tips_for("async", {}, limit=2), as_json=args.json)
+                 next_step=nxt,
+                 tips=tips(res["slug"], phase, {}, fallback="async")[:2], as_json=args.json)
         else:
             rows = list_feedback(args.slug, args.variant)
             if args.json:
@@ -239,7 +265,7 @@ def main() -> None:
                 return
             title, lines, nxt, ctx = _list_view(args.slug, rows)
             emit(rows, title=title, lines=lines, next_step=nxt,
-                 tips=tips_for("async", ctx, limit=2))
+                 tips=tips(args.slug, "async", ctx)[:2])
     except ValueError as e:
         die(str(e), ADD_EXAMPLE if args.cmd == "add" else "")
 

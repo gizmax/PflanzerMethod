@@ -42,6 +42,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import count, tips  # noqa: E402
 from tool.cli.db import audit, display_path, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     BRAND,
@@ -52,6 +53,7 @@ from tool.cli.extract import (  # noqa: E402
     code_without_tests,
     extract,
     plan_extraction,
+    tilde,
 )
 from tool.cli.quality_gates import (  # noqa: E402
     GATE_TYPES,
@@ -59,6 +61,8 @@ from tool.cli.quality_gates import (  # noqa: E402
     RAN_STATUSES,
     REQUIRED_GATES,
     gates_summary_line,
+    parse_test_failures,
+    skip_reason,
     verdict_label,
 )
 from tool.cli.quality_gates import gates_sufficiency as _gates_sufficiency  # noqa: E402
@@ -66,12 +70,13 @@ from tool.cli.quality_gates import run_all as run_gates  # noqa: E402
 from tool.cli.session_2 import get_shortlist, get_winner, write_repo_decision_log  # noqa: E402
 from tool.cli.triage import (  # noqa: E402
     checkpoint_command,
+    decider_label,
     human_triage_blockers,
     record_threshold_override,
     record_triage_override,
     ship_triage_gate,
 )
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli.ux import die, emit  # noqa: E402
 
 REPORTS_DIR = DATA_ROOT / "production_reports"
 BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
@@ -85,6 +90,54 @@ def gates_sufficiency(gate_result: dict[str, Any]) -> dict[str, Any]:
     Bere výsledek `quality_gates.run_all` (klíč `results`); SKIP / unsupported se nepočítají.
     """
     return _gates_sufficiency(gate_result.get("results", []))
+
+
+_GENITIVE_EXC = {"karel": "Karla", "pavel": "Pavla", "marcel": "Marcela", "havel": "Havla",
+                 "ondra": "Ondry", "tom": "Toma", "jan": "Jana", "petr": "Petra"}
+
+
+def decider_genitive(name: str) -> str:
+    """„Ship na odpovědnost Pavly“: 2. pád jednoslovného křestního jména; jinak „Decidera (Jméno)“."""
+    n = (name or "").strip()
+    if not n or n == "Decider":
+        return "Decidera"
+    if " " in n:
+        return f"Decidera ({n})"
+    low = n.lower()
+    if low in _GENITIVE_EXC:
+        return _GENITIVE_EXC[low]
+    if low.endswith("a"):
+        return n[:-1] + "y"
+    if low.endswith(("e", "i", "o", "u", "y")):
+        return n
+    if low.endswith("ek"):
+        return n[:-2] + "ka"
+    if low.endswith("ec"):
+        return n[:-2] + "ce"
+    return n + "a"
+
+
+def _security_unsigned_by_human(triage_gate: dict[str, Any]) -> bool:
+    """True, když Decider override přebil chybějící lidský podpis bezpečnosti (security / legal)."""
+    ov = triage_gate.get("override")
+    if not ov:
+        return False
+    return any(b.startswith(("triage:security", "triage:legal")) for b in ov.get("blocked_by", []))
+
+
+def _provoz_done(windows: list[dict[str, Any]], checkpoints: list[str]) -> bool:
+    """Okno provozu je podepsané (nebo ho tento běh dostal přes --checkpoint)."""
+    if any(w["window"] == "provoz" and w["state"] == "ok" for w in windows):
+        return True
+    return any(re.match(r"\s*provoz\b", c, re.I) for c in checkpoints)
+
+
+def _clip_words(text: str, limit: int) -> str:
+    """Zkrátí na hranici slova (bez useknuté závorky); text do limitu vrací celý."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-–—(")
+    return cut + " …"
 
 
 def _select_variants(
@@ -186,7 +239,7 @@ def hardening_run(
                 record_triage_override(
                     conn, project_id=project_id, slug=slug,
                     blocked_by=triage_gate["raw_blocked_by"],
-                    rationale=override_rationale or "",
+                    rationale=override_rationale or "", decider=decider_name,
                 )
                 triage_gate = ship_triage_gate(conn, project_id)
         else:
@@ -245,16 +298,33 @@ def hardening_run(
     blocked_by = list(triage_gate["blocked_by"])
     if target > 0 and low_conf:
         blocked_by.append(suff["blocker"])
+    design_msg = ""
+    try:
+        from tool.cli.checkpoint import design_gate
+        dg = design_gate(slug)
+        if dg.get("blocks_ship") and target > 0:
+            blocked_by.append("design:nepotvrzeno")
+            design_msg = dg["message"]
+    except Exception:  # noqa: BLE001 — okno design je volitelné
+        pass
+    if design_msg:
+        warnings_pre = [design_msg]
+    else:
+        warnings_pre = []
     if informational:
         blocked_by.append(f"ship:neni-vitez (Rozhodnutí = {decided})")
     summary_line = gates_summary_line(w_score, winner["gates"]["results"])
-    warnings: list[str] = []
+    warnings: list[str] = list(warnings_pre)
     ncheck = winner.get("new_code_check")
     if ncheck and ncheck["missing_tests"]:
         warnings.append(
             f"Nový kód bez testů: {ncheck['new_source_files']} nových zdrojových souborů "
             "a žádný nový ani změněný test (skóre to nesnižuje, ale doplň testy)."
         )
+    decider_disp = decider_label(decider_name)
+    if _security_unsigned_by_human(triage_gate):
+        warnings.append(f"Ship na odpovědnost {decider_genitive(decider_disp)}: "
+                        "bezpečnost nepodepsal člověk.")
     gate_ready = w_score >= target
     meets = gate_ready and not blocked_by
     threshold_override: dict[str, Any] | None = None
@@ -275,7 +345,7 @@ def hardening_run(
                     score=w_score, target=target, rationale=override_rationale or "")
             threshold_override = {
                 "decision_id": dec_id, "score": w_score, "target": target,
-                "decider": (decider_name or "").strip() or "Decider",
+                "decider": decider_disp,
                 "rationale": (override_rationale or "").strip(),
             }
     production_ready = (meets or threshold_override is not None) and target > 0
@@ -325,7 +395,8 @@ def hardening_run(
     report_md = _render_report(slug, name, target, per_variant, winner, meets,
                                source, errors, checkpoints, triage_gate, blocked_by,
                                threshold_override, summary_line=summary_line,
-                               warnings=warnings, decided=decided if informational else None)
+                               warnings=warnings, decided=decided if informational else None,
+                               provoz_done=_provoz_done(triage_gate["windows"], checkpoints))
     report_path.write_text(report_md, encoding="utf-8")
 
     repo_log = write_repo_decision_log(
@@ -345,6 +416,7 @@ def hardening_run(
         "decided_winner": decided,
         "warnings": warnings,
         "threshold_override": threshold_override,
+        "provoz_signed": _provoz_done(triage_gate["windows"], checkpoints),
         "triage": {
             "gated": triage_gate["gated"],
             "windows": triage_gate["windows"],
@@ -367,13 +439,15 @@ def hardening_run(
             "threshold_override": threshold_override is not None,
             "blocked_by": blocked_by,
             "stack": winner["gates"].get("stack"),
+            "failures": _gate_failures(winner["gates"]["results"]),
             "applicable_gates": winner["gates"].get("applicable_gates"),
             "total_gates": winner["gates"].get("total_gates"),
             "local_path": winner["extraction"]["local_path"],
             "next_step": _next_step(winner, meets, target, slug, blocked_by,
                                     threshold_override, informational=informational,
                                     decided=decided,
-                                    human=human_triage_blockers(slug, triage_gate["windows"])),
+                                    human=human_triage_blockers(slug, triage_gate["windows"]),
+                                    provoz_done=_provoz_done(triage_gate["windows"], checkpoints)),
         },
         "per_variant": [
             {
@@ -395,6 +469,7 @@ def hardening_run(
         ],
         "errors": errors,
         "report_path": display_path(report_path),
+        "report_nice_path": _nice_path(report_path),
         "decision_log_repo": repo_log,
     }
     return out
@@ -451,15 +526,16 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
                blocked_by: list[str] | None = None,
                threshold_override: dict[str, Any] | None = None, *,
                informational: bool = False, decided: str | None = None,
-               human: list[str] | None = None) -> str:
+               human: list[str] | None = None, provoz_done: bool = False) -> str:
     score = winner["gates"]["gate_score"]
+    pr_step = (f"`pflanzer handoff_pr --slug {slug}` a `/pm handoff {slug}`")
+    ops = "" if provoz_done else "Checkpoint provozu (20 min), pak "
     if informational:
         return (f"Tohle bylo jen porovnání: vítěz z Rozhodnutí je {decided}. Pro Ship spusť "
                 f"`pflanzer session_3 --slug {slug}` bez --variants.")
     if threshold_override and not blocked_by:
         return (f"Skóre {score}/100 je pod prahem {target}, Ship běží na odpovědnost Decidera "
-                f"({threshold_override['decider']}). Checkpoint provozu (20 min), pak draft PR: "
-                f"`pflanzer handoff_pr --slug {slug}` a `/pm handoff {slug}`.")
+                f"({threshold_override['decider']}). {ops}{'d' if ops else 'D'}raft PR: {pr_step}.")
     if blocked_by and target > 0:
         parts: list[str] = []
         triage_b = [b for b in blocked_by if b.startswith("triage:")]
@@ -479,8 +555,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
     if meets:
-        return (f"Skóre {score}/100 (práh {target}). Checkpoint provozu (20 min), pak PR vítěze: "
-                f"`pflanzer handoff_pr --slug {slug}` a `/pm handoff {slug}`.")
+        return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}."
     fails, warns = _failing(winner)
     return (f"Skóre {score}/100 je pod prahem {target}. Dopravit: "
             f"{', '.join(fails) or 'viz report'}"
@@ -501,7 +576,7 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
         "",
         f"- **{role}**: **{winner['variant']}** (větev `{ext.get('branch') or '—'}` "
         f"@ `{(ext.get('head_sha') or '—')[:10]}`)",
-        f"- **Skóre**: **{summary_line or str(winner['gates']['gate_score']) + '/100'}** "
+        f"- **Skóre**: {summary_line or str(winner['gates']['gate_score']) + '/100'} "
         f"(práh {target}) — {verdict}",
         f"- **Brány**: {winner['gates'].get('applicable_gates')} z {winner['gates'].get('total_gates')} "
         f"aplikovatelných, stack `{winner['gates'].get('stack')}`",
@@ -511,6 +586,7 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
                   f"- Verdikt: pod prahem — Ship na odpovědnost Decidera "
                   f"({threshold_override['decider']})",
                   f"- Skóre {threshold_override['score']}/100, práh {threshold_override['target']}",
+                  f"- Výjimku schválil: {threshold_override['decider']} (Decider)",
                   f"- Důvod: {threshold_override['rationale']}"]
     if blocked_by and target > 0:
         lines += ["", "### Blokace", ""] + [f"- `{b}`" for b in blocked_by]
@@ -521,6 +597,16 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
     return "\n".join(lines) + "\n"
 
 
+def _steps_md(slug: str, provoz_done: bool, *, draft: bool) -> str:
+    steps: list[str] = []
+    if not provoz_done:
+        steps.append("Checkpoint provozu (20 min): deploy plán, monitoring, on-call, rollback.")
+    steps.append(("**Draft** PR" if draft else "PR") + f" vítěze do `{slug}` target repa: "
+                 f"`pflanzer handoff_pr --slug {slug}`.")
+    steps.append(f"`/pm handoff {slug}` — balíček per role a metriky pilotu.")
+    return "".join(f"{i}. {x}\n" for i, x in enumerate(steps, 1))
+
+
 def _render_report(
     slug: str, name: str, target: int,
     per_variant: list[dict[str, Any]], winner: dict[str, Any],
@@ -528,6 +614,7 @@ def _render_report(
     triage_gate: dict[str, Any], blocked_by: list[str],
     threshold_override: dict[str, Any] | None = None, *,
     summary_line: str = "", warnings: list[str] | None = None, decided: str | None = None,
+    provoz_done: bool = False,
 ) -> str:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     w = winner
@@ -548,34 +635,36 @@ def _render_report(
         f"{r['adapter']['source']} |"
         for r in per_variant
     )
+    def _gate_detail(g: dict[str, Any]) -> str:
+        if g["status"] in ("skipped", "unsupported"):  # důvod SKIP celý, nikdy useknutý
+            return skip_reason(g) or "neběžela"
+        return _clip_words(" ".join(g["details"].split()), 200)
+
     gate_lines = "\n".join(
-        f"- `{ {'skipped': 'SKIP', 'unsupported': 'SKIP'}.get(g['status'], g['status'].upper()) }` **{g['gate']}**: {g['details'][:160].replace(chr(10), ' ')}"
+        f"- `{ {'skipped': 'SKIP', 'unsupported': 'SKIP'}.get(g['status'], g['status'].upper()) }` "
+        f"**{g['gate']}**: {_gate_detail(g)}"
         for g in w["gates"]["results"]
     )
     fails, warns = _failing(w)
     if threshold_override and not blocked_by:
         verdict_block = (
             f"## Verdikt: pod prahem — Ship na odpovědnost Decidera ({threshold_override['decider']})\n\n"
-            f"Vítěz **{w['variant']}** má **{w_score}/100**, práh je {target}. "
+            f"Vítěz **{w['variant']}** má {w_score}/100, práh je {target}. "
             f"Blokující: {', '.join(fails) or '—'}; varování: {', '.join(warns) or '—'}.\n\n"
             f"### Výjimka z prahu\n\n"
-            f"- Rozhodnutí #{threshold_override['decision_id']}, Decider: "
-            f"{threshold_override['decider']}\n"
+            f"- Výjimku schválil: {threshold_override['decider']} (Decider), "
+            f"rozhodnutí #{threshold_override['decision_id']}\n"
             f"- Důvod: {threshold_override['rationale']}\n\n"
             f"### Další krok\n"
-            f"1. Checkpoint provozu (20 min): deploy plán, monitoring, on-call, rollback.\n"
-            f"2. **Draft** PR vítěze do `{slug}` target repa: `pflanzer handoff_pr --slug {slug}`.\n"
-            f"3. `/pm handoff {slug}` — balíček per role a metriky pilotu.\n"
+            f"{_steps_md(slug, provoz_done, draft=True)}"
         )
     elif meets and target > 0:
         verdict_block = (
             f"## Verdikt: splňuje práh\n\n"
-            f"Vítěz **{w['variant']}** má **{w_score}/100** (práh {target}). Kód je ve větvi "
+            f"Vítěz **{w['variant']}** má {w_score}/100 (práh {target}). Kód je ve větvi "
             f"`{ext.get('branch') or '—'}` @ `{(ext.get('head_sha') or '—')[:10]}`.\n\n"
             f"### Další krok\n"
-            f"1. Checkpoint provozu (20 min): deploy plán, monitoring, on-call, rollback.\n"
-            f"2. PR vítěze do `{slug}` target repa: `pflanzer handoff_pr --slug {slug}`.\n"
-            f"3. `/pm handoff {slug}` — balíček per role a metriky pilotu.\n"
+            f"{_steps_md(slug, provoz_done, draft=False)}"
         )
     elif target <= 0:
         verdict_block = (
@@ -594,7 +683,7 @@ def _render_report(
     else:
         verdict_block = (
             f"## Verdikt: pod prahem\n\n"
-            f"Vítěz **{w['variant']}** má **{w_score}/100**, práh je {target}. "
+            f"Vítěz **{w['variant']}** má {w_score}/100, práh je {target}. "
             f"Blokující: {', '.join(fails) or '—'}; varování: {', '.join(warns) or '—'}.\n\n"
             f"Možnosti: (a) dopravit a znovu `/pm ship {slug}`, (b) pilot s malou skupinou "
             f"a paralelní oprava, (c) Ship i přesto na odpovědnost Decidera: "
@@ -623,7 +712,7 @@ def _render_report(
             f"production_ready. Ship vítěze: `pflanzer session_3 --slug {slug}`.\n"
         )
     elif summary_line:
-        verdict_block += f"\n**Brány:** {summary_line}.\n"
+        verdict_block += f"\nBrány: {summary_line}.\n"
     if warnings:
         verdict_block += "\n" + "\n".join(f"> Varování: {x}" for x in warnings) + "\n"
     adapter_warnings = "\n".join(
@@ -635,7 +724,7 @@ def _render_report(
     if triage_gate["blocked_by"] and target > 0:
         verdict_block = (
             f"## Verdikt: BLOKOVÁNO triage\n\n"
-            f"Vítěz **{w['variant']}** má **{w_score}/100** (práh {target}), ale risk profil "
+            f"Vítěz **{w['variant']}** má {w_score}/100 (práh {target}), ale risk profil "
             f"`{triage_gate['risk_profile']}` vyžaduje podepsaná všechna okna.\n\n"
             + "\n".join(f"- {m}" for m in human_triage_blockers(slug, triage_gate["windows"]))
             + "\n\nPak spusť Ship znovu.\n"
@@ -671,19 +760,61 @@ Detail per brána: `quality-{w['variant']}.md` ve výstupní složce (`pflanzer 
 """
 
 
+def _nice_path(path: Path) -> str:
+    """Cesta k reportu: relativní k aktuální složce, jinak ~/… (ne absolutní s /Users/…)."""
+    p = Path(path).resolve()
+    try:
+        return str(p.relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return tilde(p)
+
+
+def _gate_failures(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Selhané brány: {gate, tests: [názvy], detail: první řádek} (cesty relativní k repu)."""
+    out: list[dict[str, Any]] = []
+    for g in results:
+        if g["status"] != "fail":
+            continue
+        details = g.get("details") or ""
+        first = next((x.strip() for x in details.splitlines() if x.strip()), "")
+        out.append({"gate": g["gate"], "tests": [n for n, _d in parse_test_failures(details)],
+                    "detail": _clip_words(first, 110)})
+    return out
+
+
+def _failed_gate_lines(failures: list[dict[str, Any]]) -> list[str]:
+    """Řádky o selhaných branách: u testů názvy selhaných testů, jinak první řádek detailu."""
+    lines: list[str] = []
+    for f in failures:
+        names = f["tests"]
+        if names:
+            more = len(names) - 3
+            tail = f" (+{more} dalších)" if more > 0 else ""
+            lines.append(f"{'Selhaly' if len(names) > 1 else 'Selhal'} "
+                         f"{count(len(names), 'test', 'testy', 'testů')}: "
+                         f"{'; '.join(names[:3])}{tail}")
+        else:
+            lines.append(f"Selhala brána {f['gate']}: {f['detail']}")
+    return lines
+
+
 def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[str], str, dict[str, Any]]:
     """(titulek, řádky, varování, další krok, ctx pro tipy) lidského výstupu Shipu."""
     w = out["winner"]
     target = out["production_readiness_target"]
-    # v terminálu jen jména neběžících bran; důvody jsou v reportu
-    short = re.sub(r" \([^)]*\)(?=,|$)", "", w["summary_line"])
+    short = w["summary_line"]  # v terminálu jen jména bran; důvody SKIP jsou celé v reportu
     human = out["triage"].get("human_blockers") or []
     below = w["gate_score"] < target and not out["production_ready"]
-    ctx = {"below_threshold": below}
+    ctx = {"below_threshold": below, "missing_signatures": bool(human)}
+    ov = out.get("threshold_override")
     if out.get("informational"):
         title = f"Ship {slug}: jen porovnání (vítěz = {out['decided_winner']})"
         lines = [f"Varianta {w['variant']}: {short}",
                  f"Vítěz z Rozhodnutí je {out['decided_winner']}; tento běh ho nemění."]
+    elif ov and out["production_ready"]:
+        title = (f"Ship {slug}: připraveno jako draft — výjimka Decidera "
+                 f"({ov['decider']}, {ov['score']} < {ov['target']})")
+        lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
     elif out["production_ready"]:
         title = f"Ship {slug}: připraveno"
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
@@ -691,15 +822,21 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
         title = f"Ship {slug}: blokováno podpisy"
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})", *human[:3]]
         if len(human) > 3:
-            lines.append(f"…a dalších {len(human) - 3} oken")
+            n_more = len(human) - 3
+            lines.append(f"…a další {count(n_more, 'okno', 'okna', 'oken')}")
     else:
         title = f"Ship {slug}: " + ("pod prahem" if below else "nelze potvrdit")
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
+    failed = _failed_gate_lines(w.get("failures") or [])
+    if failed:
+        lines = [lines[0], *failed[:2], *lines[1:]]
+    lines = lines[:5]
+    lines.append(f"Detail: {out['report_nice_path']}")
     nxt = w["next_step"]
     if human and not out["production_ready"] and not out.get("informational"):
         first = next(x for x in out["triage"]["windows"] if x["state"] != "ok")
         nxt = f"`{checkpoint_command(slug, first)}`"
-    return title, lines[:6], list(out.get("warnings") or []), nxt, ctx
+    return title, lines, list(out.get("warnings") or []), nxt, ctx
 
 
 def main() -> None:
@@ -748,8 +885,9 @@ def main() -> None:
         die(str(e))
     title, lines, warns, nxt, ctx = _human_ship(out, args.slug)
     ctx["open_critical"] = False
+    phase = "after_ship" if out["production_ready"] and not out.get("informational") else "ship"
     emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
-         tips=tips_for("ship", ctx), as_json=args.json)
+         tips=tips(args.slug, phase, ctx, fallback="ship"), as_json=args.json)
 
 
 if __name__ == "__main__":

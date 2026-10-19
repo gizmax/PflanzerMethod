@@ -12,7 +12,7 @@ import pytest
 from conftest import bootstrap_project, file_url, git, set_status
 
 from tool.cli import checkpoint, doctor, quick_session, status
-from tool.cli.db import current_actor, transaction
+from tool.cli.db import audit, current_actor, transaction
 from tool.cli.triage import ship_triage_gate
 from tool.cli.ux import normalize_severity, severity_label
 
@@ -71,8 +71,11 @@ def test_ai_never_covers_business_or_dev(tmp_db: Path, bare_repo: Path,
 
 def test_ai_product_only_quick_or_throwaway(tmp_db: Path, bare_repo: Path) -> None:
     ok = bootstrap_project(slug="ai-prod-quick", target_repo_url=file_url(bare_repo),
-                           path_owners=_owners(produkt="AI"))      # pilot via /pm live = Quick
+                           tier="quick", path_owners=_owners(produkt="AI"))   # /pm live = Quick
     assert ok["tier"] == "quick"
+    with pytest.raises(ValueError, match="Produkt smí zastoupit AI jen"):   # pilot default = Lean
+        bootstrap_project(slug="ai-prod-pilot", target_repo_url=file_url(bare_repo),
+                          path_owners=_owners(produkt="AI"))
     with pytest.raises(ValueError, match="Produkt smí zastoupit AI jen"):
         bootstrap_project(risk_profile="production", slug="ai-prod-lean",
                           target_repo_url=file_url(bare_repo), path_owners=_owners(produkt="AI"))
@@ -192,7 +195,9 @@ def test_status_ai_draft_names_signer(tmp_db: Path, bare_repo: Path) -> None:
                       path_owners=_owners(bezpecnost="AI"))
     checkpoint.sign("aid", "bezpecnost", ai=True, note="AI pre-check")
     d = status.project_detail("aid")
-    assert any(b["kind"] == "ai_draft" and "podepíše" in b["text"] for b in d["blockers"])
+    txt = next(b["text"] for b in d["blockers"] if b["kind"] == "ai_draft")
+    # bezpečnost za AI a nikdo není určen -> status řekne, kdo smí podepsat
+    assert "Decider (Dana)" in txt and "PdM (Petr)" in txt and "ne autor kódu (Tomáš)" in txt
 
 
 def test_status_open_critical_variant_and_who(tmp_db: Path, bare_repo: Path,
@@ -224,12 +229,22 @@ def test_status_after_ship_recommends_retro_and_human_output(
         capsys: pytest.CaptureFixture[str]) -> None:
     bootstrap_project(slug="done", target_repo_url=file_url(bare_repo), path_owners=_owners())
     set_status("done", "handoff")
+    checkpoint.sign("done", "bezpecnost", by="Lucie", note="syntetická data")
+    checkpoint.sign("done", "provoz", by="Karel", note="rollback, on-call, flag")
     with transaction() as conn:
         conn.execute("UPDATE projects SET gate_score_latest = 90 WHERE slug = 'done'")
+        pid = conn.execute("SELECT id FROM projects WHERE slug = 'done'").fetchone()[0]
+        audit(conn, action="session_3.hardening", target_type="project", target_id=pid,
+              payload={"informational": False, "meets_threshold": True, "blocked_by": []})
+    d = status.project_detail("done")
+    assert d["phase"] == "Ship hotový" and d["next_step"] == "/pm handoff done"   # PR, ne retro
+    with transaction() as conn:
+        audit(conn, action="ship.render", target_type="project", target_id=pid,
+              payload={"slug": "done"})
     assert status.project_detail("done")["next_step"] == "/pm retro done"
     assert _run(monkeypatch, status, "--slug", "done") == 0
     out = capsys.readouterr().out
-    assert "Další krok" in out and "DB status" not in out and "Quick" in out
+    assert "Další krok" in out and "DB status" not in out and "Lean" in out
 
 
 def test_status_before_ship_lists_missing_signatures(tmp_db: Path, bare_repo: Path) -> None:
@@ -302,7 +317,7 @@ def test_slug_and_name_cut_on_word_boundary() -> None:
     slug = quick_session.slugify(hook)
     assert slug == "rychlejsi-schvalovani-zadosti-tak-aby"
     long_hook = "Aplikace, ve které uvidí každý den přehled nákladů za měsíc"
-    assert quick_session.slugify(long_hook) == "aplikace-ve-ktere-uvidi-kazdy-den"
+    assert quick_session.slugify(long_hook) == "aplikace-ve-ktere-uvidi-kazdy"
     name = quick_session.short_name(hook * 2)
     assert name.endswith("…") and not name[:-1].endswith(" ")
 

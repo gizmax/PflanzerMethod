@@ -75,14 +75,14 @@ def test_cards_for_project_only_selected_roles(project: dict[str, Any], tmp_path
     # conftest bootstrap: room [1, 2, 3, 4, 6]
     assert [n[:2] for n in names] == ["01", "02", "03", "04", "06"]
     assert result["cards_count"] == 5
-    assert result["tier"] == "quick"  # /pm live bootstrap with the default profile
+    assert result["tier"] == "lean"  # pilot = Lean (výchozí podle risk profilu)
 
     fe = (out / "04-frontend-vibe-coding-lead.md").read_text(encoding="utf-8")
     assert fe.splitlines()[0] == BRAND
     assert "Petr Frontend" in fe
     assert "Dana Deciderová" in fe
     assert project["slug"] in fe
-    assert "▶ Quick" in fe
+    assert "▶ Lean" in fe
     assert not STANDALONE_ABBREV.search(fe)
     ux = (out / "06-ux-designer.md").read_text(encoding="utf-8")
     assert "doplň jméno" in ux  # no human_owner for UX in the fixture

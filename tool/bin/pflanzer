@@ -40,7 +40,7 @@ case "$SUB" in
     echo "  pflanzer checkpoint --slug S bezpecnost --ai --note …               # AI draft (ADR-0023), podepíše člověk"
     echo ""
     echo "Všechny příkazy mají lidský výstup; --json dá strojový. --spec - čte JSON ze stdin."
-    ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^__' -e '^db$' | sed 's/^/  pflanzer /' ;;
+    ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | sed 's/^/  pflanzer /' ;;
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"
     if [ ! -f "$SCRIPT" ]; then

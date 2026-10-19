@@ -38,11 +38,12 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import count, tips  # noqa: E402
 from tool.cli.conflict_resolver import detect_conflicts  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, table_has_col  # noqa: E402
 from tool.cli.feedback_pull import aggregate as pull_aggregate  # noqa: E402
-from tool.cli.ux import die, emit, severity_label, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, severity_label  # noqa: E402
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 VALID_DECISIONS = {"go", "iterate", "kill"}
@@ -69,6 +70,20 @@ def open_criticals(conn: Any, project_id: int) -> list[dict[str, Any]]:
     ).fetchall()
     return [{"id": r[0], "variant": r[1], "department": r[2], "category": r[3],
              "rationale": r[4], "submitted_by": r[5]} for r in rows]
+
+
+def resolved_criticals(conn: Any, project_id: int) -> list[dict[str, Any]]:
+    """Vyřešené critical (kdo a jak: `resolved_note` = „jméno: poznámka“)."""
+    if not table_has_col(conn, "feedback", "resolved_at"):
+        return []
+    rows = conn.execute(
+        "SELECT f.id, v.name, f.department, f.rationale, f.submitted_by, f.resolved_note "
+        "FROM feedback f JOIN variants v ON v.id = f.variant_id "
+        "JOIN sessions s ON s.id = v.session_id "
+        "WHERE s.project_id = ? AND f.severity = 'critical' AND f.resolved_at IS NOT NULL "
+        "ORDER BY f.id", (project_id,)).fetchall()
+    return [{"id": r[0], "variant": r[1], "department": r[2], "rationale": r[3],
+             "submitted_by": r[4], "resolved_note": r[5]} for r in rows]
 
 
 def describe_critical(c: dict[str, Any], slug: str | None = None) -> str:
@@ -113,6 +128,35 @@ def get_shortlist(conn: Any, project_id: int) -> list[str]:
         except (json.JSONDecodeError, AttributeError):
             return []
     return []
+
+
+def focus_variants(conn: Any, project_id: int) -> list[str]:
+    """Varianty, o kterých se rozhoduje: vítěz z Go, jinak shortlist z Buildu, jinak nejlépe hlasovaná.
+
+    Critical na těchto variantách blokuje Go; critical na ostatních je jen informativní.
+    """
+    winner = get_winner(conn, project_id)
+    if winner:
+        return [winner]
+    sl = get_shortlist(conn, project_id)
+    names = {r[0] for r in conn.execute(
+        "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
+        "WHERE s.project_id = ? AND s.type = 1", (project_id,)).fetchall()}
+    sl = [n for n in sl if n in names]
+    if sl:
+        return sl
+    top = conn.execute(
+        "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
+        "WHERE s.project_id = ? AND s.type = 1 ORDER BY v.preference_score DESC, v.name LIMIT 1",
+        (project_id,)).fetchone()
+    return [top[0]] if top else []
+
+
+def split_criticals(criticals: list[dict[str, Any]], focus: list[str]
+                    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(na vítězi / shortlistu, ostatní)."""
+    return ([c for c in criticals if c["variant"] in focus],
+            [c for c in criticals if c["variant"] not in focus])
 
 
 def _votes_summary(conn: Any, project_id: int) -> list[dict[str, Any]]:
@@ -173,6 +217,7 @@ def prep(slug: str) -> dict[str, Any]:
         ).fetchone()[0]
         votes = _votes_summary(conn, project_id)
         shortlist = get_shortlist(conn, project_id)
+        focus = focus_variants(conn, project_id)
 
     commitment_index = (
         sum(commitments) / (3 * len(commitments)) if commitments else 0.0
@@ -199,6 +244,7 @@ def prep(slug: str) -> dict[str, Any]:
             "open_critical": len(criticals),
         },
         "open_critical": criticals,
+        "focus_variants": focus,
         "conflicts": conflicts["top_conflicts"][:3],  # top 3
         "unmapped_conflicts": conflicts["unmapped_count"],
         "next_action": _suggest_next_action(commitment_index, len(criticals), conflicts),
@@ -257,8 +303,12 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
         audit(conn, action="session_2.resolve_feedback", target_type="project",
               target_id=pid, payload={"slug": slug, "resolved": done, "by": by, "note": note})
         remaining = open_criticals(conn, pid)
+        focus = focus_variants(conn, pid)
+    on_win, other = split_criticals(remaining, focus)
     return {"slug": slug, "resolved": done, "not_found": [], "by": by, "note": note,
-            "open_critical_left": len(remaining), "open_critical": remaining}
+            "open_critical_left": len(remaining), "open_critical": remaining,
+            "focus_variants": focus, "open_critical_on_winner": on_win,
+            "open_critical_other": other}
 
 
 # --------------------------------------------------------------------------
@@ -311,9 +361,13 @@ def record_decision(
         ).fetchone() if table_has_col(conn, "sessions", "winner_variant") else None
         if prev and prev[0] in ("go", "kill") and proj[1] in ("handoff", "killed") and not force:
             what = f"Go ({prev[1]})" if prev[0] == "go" and prev[1] else DECISION_LABEL[prev[0]]
+            new_win = winner or prev[1] or "A"
             raise ValueError(
-                f"Už je {what}. Změna jen přes `--force --rationale \"…\"`; "
-                f"původní rozhodnutí zůstane v decision logu."
+                f"Už je {what}. Změna jen přes `--force --rationale \"…\"`, např. "
+                f"`pflanzer session_2 decide --slug {slug} {decision} "
+                f"{f'--winner {new_win} ' if decision == 'go' else ''}--force "
+                f"--rationale \"proč měníme rozhodnutí\"`; původní rozhodnutí zůstane "
+                f"v decision logu."
             )
         variants = [r[0] for r in conn.execute(
             "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
@@ -531,36 +585,44 @@ def write_repo_decision_log(slug: str, section_md: str, *, label: str) -> str | 
 def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dict[str, Any]]:
     slug = out["slug"]
     crit = out["open_critical"]
+    focus = out.get("focus_variants") or []
+    on_win, other = split_criticals(crit, focus)
     lines: list[str] = []
     ranked = sorted(out["variants"], key=lambda v: -v["score"])
     if ranked:
         lines.append("Hlasy jádra: " + ", ".join(
-            f"{v['variant']} {v['score']:.2f} ({v['votes']} hlasů)" for v in ranked[:3]))
+            f"{v['variant']} {v['score']:.2f} ({count(v['votes'], 'hlas', 'hlasy', 'hlasů')})"
+            for v in ranked[:3]))
     fb = out["feedback_summary"]
     sev = ", ".join(f"{severity_label(k)}: {n}" for k, n in
                     sorted(fb["by_severity"].items(), key=lambda kv: ["critical", "high", "medium",
                                                                        "low"].index(kv[0])
                            if kv[0] in ("critical", "high", "medium", "low") else 9))
     lines.append(f"Feedback: {fb['count']}" + (f" ({sev})" if sev else ""))
-    for c in crit[:2]:
-        lines.append("Otevřené kritické: " + describe_critical(c))
-    if len(crit) > 2:
-        lines.append(f"…a dalších {len(crit) - 2} kritických")
+    if crit:
+        lines.append(f"Otevřené kritické: {len(on_win)} na vítězi"
+                     + (f" ({'/'.join(focus)})" if focus else "")
+                     + f", {len(other)} ostatní")
+    for c in on_win[:2]:
+        lines.append("Na vítězi: " + describe_critical(c))
+    if len(on_win) > 2:
+        n_more = len(on_win) - 2
+        lines.append(f"…a {count(n_more, 'další kritický', 'další kritické', 'dalších kritických')}")
     for c in out["conflicts"][:1]:
         lines.append(f"Hlavní spor u varianty {c['variant']}: {c['role_a']['label']} vs. "
                      f"{c['role_b']['label']}")
-    if crit:
-        c0 = crit[0]
+    if on_win:
+        c0 = on_win[0]
         nxt = (f"vyřeš kritické #{c0['id']} s autorem ({c0['submitted_by']}): `pflanzer session_2 "
                f"resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO --note \"…\"`")
     elif not out["ready_for_decision"]:
         nxt = (f"sežeň víc hlasů a feedbacku (závaznost {out['commitment_index']:.0%}, "
                f"cíl {out['commitment_threshold']:.0%}): `pflanzer feedback add --slug {slug} …`")
     else:
-        nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go --winner A "
-               f"--rationale \"proč\"`")
+        nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
+               f"--winner {(focus or ['A'])[0]} --rationale \"proč\"`")
     return (f"Příprava Rozhodnutí: {slug}", lines[:6], [], nxt,
-            {"open_critical": bool(crit)})
+            {"open_critical": bool(on_win)})
 
 
 def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, str]:
@@ -576,7 +638,7 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
                  + (f" ({out['decision_log_repo']}) — commitni ho." if out.get("decision_log_repo")
                     else "; z target repa se zapíše i do `.pflanzer/decisions/`."))
     nxt = out["next_step"]
-    phase = "iterate" if dec == "iterate" else "decide"
+    phase = "iterate" if dec == "iterate" else "after_go" if dec == "go" else "decide"
     return f"Rozhodnutí {slug}: {label}", lines, [], nxt, phase
 
 
@@ -626,21 +688,33 @@ def main() -> None:
             out = prep(args.slug)
             title, lines, warns, nxt, ctx = _prep_view(out)
             emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
-                 tips=tips_for("decide", ctx), as_json=args.json)
+                 tips=tips(args.slug, "decide", ctx), as_json=args.json)
         elif args.cmd == "resolve":
             out = resolve_feedback(slug=args.slug, feedback_ids=args.feedback_id,
                                    note=args.note, by=args.by)
             who = f"{out['by']}: {out['note']}"
-            left = out["open_critical"]
-            emit(out, title=f"Vyřešeno: {', '.join('#' + str(i) for i in out['resolved'])}",
-                 lines=[f"Vyřešeno: {', '.join('#' + str(i) for i in out['resolved'])} ({who})",
-                        (f"Zbývá otevřených kritických: {len(left)}" if left
-                         else "Žádný otevřený kritický feedback nezbývá.")],
-                 next_step=(f"`pflanzer session_2 resolve --slug {args.slug} --feedback-id "
-                            f"{left[0]['id']} --by JMÉNO --note \"…\"`" if left
-                            else f"`pflanzer session_2 decide --slug {args.slug} go --winner A "
-                                 f"--rationale \"proč\"`"),
-                 tips=tips_for("decide", {"open_critical": bool(left)}), as_json=args.json)
+            on_win, other = out["open_critical_on_winner"], out["open_critical_other"]
+            focus = out["focus_variants"]
+            ids = ", ".join("#" + str(i) for i in out["resolved"])
+            if on_win:
+                left_line = (f"Zbývá otevřených kritických: {len(on_win)} na vítězi"
+                             f" ({'/'.join(focus)}), {len(other)} ostatní")
+                nxt = (f"`pflanzer session_2 resolve --slug {args.slug} --feedback-id "
+                       f"{on_win[0]['id']} --by JMÉNO --note \"…\"`")
+                phase = "decide"
+            else:
+                left_line = ("Na vítězi" + (f" ({'/'.join(focus)})" if focus else "")
+                             + " žádný kritický nezbývá"
+                             + (f"; {len(other)} ostatní na poražených variantách Go neblokuje."
+                                if other else "."))
+                nxt = (f"`pflanzer session_2 decide --slug {args.slug} go "
+                       f"--winner {(focus or ['A'])[0]} --rationale \"proč\"`")
+                phase = "after_resolve"
+            emit(out, title=f"Vyřešeno: {ids}",
+                 lines=[f"Vyřešeno: {ids} ({who})", left_line],
+                 next_step=nxt,
+                 tips=tips(args.slug, phase, {"open_critical": bool(on_win)}, fallback="decide"),
+                 as_json=args.json)
         else:
             decision = args.decision_pos or args.decision
             if not decision:
@@ -655,7 +729,7 @@ def main() -> None:
             )
             title, lines, warns, nxt, phase = _decision_view(out)
             emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
-                 tips=tips_for(phase, {}), as_json=args.json)
+                 tips=tips(args.slug, phase, {}, fallback="decide"), as_json=args.json)
     except ValueError as e:
         msg = str(e)
         die(msg, {"resolve": RESOLVE_EXAMPLE, "decide": DECIDE_EXAMPLE}.get(args.cmd, "")

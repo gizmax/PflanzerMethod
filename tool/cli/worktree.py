@@ -43,7 +43,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402,F401
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, tips_for_project  # noqa: E402
 
 TARGETS_CACHE = Path(
     os.environ.get("PFLANZER_TARGETS_DIR") or (Path.home() / ".pflanzer" / "targets")
@@ -106,6 +106,7 @@ class WorktreeSetup:
     repos: list[dict[str, Any]] = field(default_factory=list)
     guard: list[dict[str, Any]] = field(default_factory=list)
     init_missing: list[dict[str, Any]] = field(default_factory=list)
+    copied_inputs: list[str] = field(default_factory=list)  # Kickoff soubory zkopírované z cwd
 
 
 _REPO_URL_RE = re.compile(
@@ -804,6 +805,10 @@ def check_env_files(wt: Path, *, fix_gitignore: bool = True) -> list[dict[str, s
             new = (existing.rstrip("\n") + "\n" + GITIGNORE_BLOCK) if existing.strip() else GITIGNORE_BLOCK.lstrip("\n")
             gi.write_text(new, encoding="utf-8")
         detail += " → přidáno do .gitignore (commitni, ideálně v `init-pr`)"
+        # Doplnění .env* do .gitignore je dobrá praxe, ne varování — jen informace.
+        rows.append({"check": ".env* v .gitignore", "status": "OK", "detail": detail,
+                     "fixed": "1"})
+        return rows
     rows.append({"check": ".env* v .gitignore", "status": "WARN", "detail": detail})
     return rows
 
@@ -860,7 +865,7 @@ def guard(slug: str, *, fix_gitignore: bool = True) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     wts = _existing_worktrees(slug, repos)
     if not wts:
-        raise ValueError(f"Žádné worktrees pro '{slug}' — spusť `python tool/cli/worktree.py setup --slug {slug}`.")
+        raise ValueError(f"Žádné worktrees pro '{slug}' — spusť `pflanzer worktree setup --slug {slug}`.")
     for repo, variant, path in wts:
         for r in guard_worktree(path, fix_gitignore=fix_gitignore):
             rows.append({"repo": repo.role, "variant": variant, **r})
@@ -972,7 +977,8 @@ def detect_stack(repo: Path, workspace: str | None = None) -> dict[str, Any]:
 
 
 def render_integration_guide(repo: Path, *, workspace: str | None, repo_role: str) -> str:
-    tpl = INTEGRATION_GUIDE_TEMPLATE.read_text(encoding="utf-8")
+    from tool.cli.init import guide_template_for
+    tpl = guide_template_for(repo / workspace if workspace else repo).read_text(encoding="utf-8")
     stack = detect_stack(repo, workspace)
     lines = [f"> {BRAND_LINE}", ""]
     lines.append(tpl.split("\n", 1)[0])  # title line
@@ -1013,15 +1019,16 @@ def _init_missing(clone: Path, base_ref: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
+def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> list[str]:
     """Copy Kickoff inputs from the cwd target repo into worktrees if not yet pushed.
 
     Worktrees are cloned from origin, so a freshly generated acceptance .feature
     (or an unpushed CONSTITUTION) would otherwise be missing for the AI builder.
     """
     cwd = Path.cwd()
+    copied: list[str] = []
     if not (cwd / ".pflanzer").is_dir():
-        return
+        return copied
     for rel in (f"tests/acceptance/{slug}.feature", ".pflanzer/CONSTITUTION.md",
                 "docs/INTEGRATION_GUIDE.md"):
         src = cwd / rel
@@ -1032,8 +1039,9 @@ def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> None:
             if not dst.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(src.read_bytes())
-                print(f"[setup] copied {rel} → {Path(wt).name} (není v originu — commitni ho)",
-                      file=sys.stderr)
+                if rel not in copied:
+                    copied.append(rel)
+    return copied
 
 
 def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
@@ -1065,15 +1073,14 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     repo_results: list[dict[str, Any]] = []
     guard_rows: list[dict[str, str]] = []
     init_missing: list[dict[str, Any]] = []
+    copied_inputs: list[str] = []
 
     for i, repo in enumerate(repos):
         primary = i == 0
-        print(f"[setup] {repo.role}: {repo.url} (base {repo.branch}"
-              f"{', workspace ' + repo.workspace if repo.workspace else ''})", file=sys.stderr)
         clone = _ensure_target_clone(repo.url, repo.branch)
         wts = _create_worktrees(clone, slug, repo.branch, mode=mode, repo=repo, primary=primary)
         if primary:
-            _copy_kickoff_inputs(slug, wts)
+            copied_inputs = _copy_kickoff_inputs(slug, wts)
         claude_md: dict[str, str] = {}
         for variant, wt in zip(variants, wts):
             builder = builders.get(variant) or (next(iter(builders.values()), None)
@@ -1123,6 +1130,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
         package_manager=primary_res["package_manager"],
         install_results=primary_res["install_results"],
         mode=mode, repos=repo_results, guard=guard_rows, init_missing=init_missing,
+        copied_inputs=copied_inputs,
     )
 
 
@@ -1163,7 +1171,7 @@ def init_pr(slug: str) -> list[dict[str, Any]]:
         if upsert_claude_md(wt / "CLAUDE.md", render_claude_md(slug=None, workspace=repo.workspace)) != "unchanged":
             changed.append("CLAUDE.md")
         env_rows = [r for r in check_env_files(wt, fix_gitignore=True) if r["check"] == ".env* v .gitignore"]
-        if env_rows and env_rows[0]["status"] != "OK":
+        if env_rows and (env_rows[0]["status"] != "OK" or env_rows[0].get("fixed")):
             changed.append(".gitignore")
 
         if changed:
@@ -1308,7 +1316,8 @@ def confirm_preview_push(slug: str, *, assume_yes: bool = False,
 
 def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
     repos = load_target_repos(slug)
-    builders = _variant_builders(int(load_project(slug)["id"]))
+    proj = load_project(slug)
+    builders = _variant_builders(int(proj["id"]))
     results = []
     for variant in _variants_for_mode(slug, repos):
         for idx, (repo, wt) in enumerate(variant_worktrees(slug, repos, variant)):
@@ -1331,7 +1340,7 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                 f"- **Builder**: {builder}\n"
                 "- **Model family**: " + ("Claude" if builder == "claude-code" else builder) + "\n"
                 f"- **Varianta**: {variant} (branch `{branch}`)\n"
-                "- **U klávesnice**: <jméno> (git author commitů)\n"
+                f"- **U klávesnice**: {_keyboard_name(proj)} (git author commitů)\n"
                 f"- **Decision log**: `data/sessions/{slug}/_summary.md`\n",
                 encoding="utf-8",
             )
@@ -1519,6 +1528,16 @@ def render_guard_table(rows: list[dict[str, str]]) -> str:
                      [[r["repo"], r["variant"], r["check"], r["status"], r["detail"]] for r in rows])
 
 
+def _keyboard_name(proj: dict[str, Any]) -> str:
+    """Zástupce kroku Vývoj z Kickoffu (ne git user); bez něj placeholder."""
+    try:
+        owners = json.loads(proj.get("path_owners_json") or "{}")
+    except (TypeError, ValueError):
+        owners = {}
+    owner = owners.get("vyvoj")
+    return owner if owner and str(owner).strip().lower() != "ai" else "<jméno>"
+
+
 def _tilde(path: str | Path) -> str:
     home = str(Path.home())
     p = str(path)
@@ -1543,7 +1562,7 @@ def render_setup(s: WorktreeSetup) -> str:
     """Compact human view of a setup (no wide tables)."""
     from tool.cli.ux import render
     title, lines, nxt = _setup_view(s)
-    return render(title, lines, nxt, tips_for("build"), _setup_warnings(s))
+    return render(title, lines, nxt, tips_for_project(s.slug, "after_setup"), _setup_warnings(s))
 
 
 def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
@@ -1556,6 +1575,9 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     first = s.repos[0]
     first_path = next(iter(first["worktrees"].values()))
     lines.append(f"Složky: `{_tilde(first_path)}` (ostatní varianty vedle ní)")
+    if s.copied_inputs:
+        lines.append("Do worktrees zkopírováno (v originu zatím nejsou — commitni a pushni): "
+                     + ", ".join(f"`{c}`" for c in s.copied_inputs))
     hooks = {r["hook"]["status"] for r in s.repos}
     lines.append("Commit trailery (původ AI kódu): "
                  + ("nainstalovány" if hooks <= {"installed", "ok"} else ", ".join(sorted(hooks))))
@@ -1662,7 +1684,8 @@ def _dispatch(args: argparse.Namespace) -> None:
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode,
                   run_guard=not args.no_guard)
         title, lines, nxt = _setup_view(s)
-        emit(_setup_json(s), title=title, lines=lines, next_step=nxt, tips=tips_for("build"),
+        emit(_setup_json(s), title=title, lines=lines, next_step=nxt,
+             tips=[] if args.json else tips_for_project(args.slug, "after_setup"),
              warnings=_setup_warnings(s), as_json=args.json)
         if args.strict and any(g["status"] != "OK" for g in s.guard):
             sys.exit(2)
@@ -1691,7 +1714,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         cmds = [c for r in res if r["status"] != "nothing-to-do" for c in r.get("commands", [])]
         emit(res, title=f"První PR pilotu — `{args.slug}`", lines=lines,
              next_step=(f"`{cmds[0]}`" if cmds else f"`pflanzer worktree setup --slug {args.slug}`"),
-             tips=tips_for("init"), as_json=args.json)
+             tips=[], as_json=args.json)
     elif args.cmd == "preview":
         if args.mode == "draft-pr":
             if args.run and not confirm_preview_push(args.slug, assume_yes=args.yes):
@@ -1712,7 +1735,9 @@ def _dispatch(args: argparse.Namespace) -> None:
                         if args.mode == "draft-pr" and not args.run
                         else f"pošli zástupcům odkazy a spusť `/pm feedback {args.slug}`"))
         emit(data, title=f"Preview — `{args.slug}`", lines=lines or ["Žádné worktrees k náhledu."],
-             next_step=nxt, tips=tips_for("async"), as_json=args.json)
+             next_step=nxt,
+             tips=[] if args.json else tips_for_project(args.slug, "async", limit=2),
+             as_json=args.json)
     elif args.cmd == "set-session":
         res = set_session(args.slug, args.session, args.variant)
         emit(res, title="Session v trailerech přepnutá",

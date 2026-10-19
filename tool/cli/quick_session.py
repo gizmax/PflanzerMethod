@@ -34,6 +34,7 @@ from tool.cli.charter import (  # noqa: E402
     PATH_STEPS,
     THROWAWAY_USE_CASES,
     CharterInput,
+    is_ai_owner,
     owner_display,
     people_check,
     persist_charter,
@@ -50,8 +51,13 @@ from tool.cli.db import (  # noqa: E402
 )
 from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
-from tool.cli.tier import TIER_LABELS, default_tier  # noqa: E402
-from tool.cli.ux import die, emit, read_spec, tips_for  # noqa: E402
+from tool.cli.tier import TIER_LABELS, validate_tier  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    die,
+    emit,
+    read_spec,
+    tips_for_project,
+)
 from tool.cli.worktree import (  # noqa: E402
     TargetRepo,
     load_target_repos,
@@ -109,6 +115,9 @@ RISK_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
+# Výchozí stupeň podle risk profilu (spec `tier` ho přebíjí; `/pm live` posílá quick výslovně).
+DEFAULT_TIER_BY_RISK = {"throwaway": "quick", "pilot": "lean", "production": "lean"}
+
 # 5-role default mix per `02-role-catalog.md` § Výběr zástupců — rychlý strom
 # (always-on 1+2+3, plus FE+UX pro UI fíčuru — covers 80 % corporate cases).
 DEFAULT_ROOM = [1, 2, 3, 4, 6]
@@ -130,19 +139,32 @@ def _cut_at_word(text: str, max_len: int, sep: str) -> str:
     return (head if found and head else cut).rstrip(sep)
 
 
-def slugify(s: str, max_len: int = 40) -> str:
-    """Convert hook into URL-safe slug (cut on a word boundary, no truncated words)."""
+SLUG_MAX_WORDS = 5
+
+
+def slugify(s: str, max_len: int = 40, max_words: int = SLUG_MAX_WORDS) -> str:
+    """Convert hook into URL-safe slug: max ~5 words, cut on a word boundary."""
     s = _strip_diacritics(s.lower().strip())
     s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    words = s.split("-")
+    if len(words) > max_words:
+        s = "-".join(words[:max_words])
     s = _cut_at_word(s, max_len, "-")
     return s or f"session-{date.today().isoformat()}"
 
 
 def short_name(hook: str, max_len: int = 80) -> str:
-    """Project name from the hook: whole words, ellipsis only when cut."""
+    """Project name from the hook: whole sentence, else whole words up to `max_len`.
+
+    The ellipsis appears only when something was cut; never mid-word.
+    """
     hook = " ".join(hook.split())
     if len(hook) <= max_len:
         return hook
+    # Prefer the longest run of whole sentences that fits (no ellipsis needed).
+    ends = [m.end() for m in re.finditer(r"[.!?](?=\s)", hook) if m.end() <= max_len]
+    if ends and ends[-1] >= 12:
+        return hook[:ends[-1]].rstrip(".!? ")
     return _cut_at_word(hook, max_len - 1, " ").rstrip(" ,.;:-") + "…"
 
 
@@ -323,8 +345,9 @@ def bootstrap(
         target_branch: base branch pro jednorepo případ (default 'main').
         throwaway_rationale: jen pro risk_profile='throwaway' (ADR-0005 v0.4);
             default = use case „discovery-only pilot“ (interní demo).
-        tier: 'quick' | 'lean' | 'full' (ADR-0017). Default: Quick (`/pm live`),
-            jen risk_profile='production' dostane Lean (tabulka stupňů).
+        tier: 'quick' | 'lean' | 'full' (ADR-0017). Spec ho respektuje. Default podle
+            risk profilu: throwaway -> Quick, pilot -> Lean, production -> Lean.
+            `/pm live` posílá `tier: "quick"` výslovně.
 
     Returns dict: project_id, slug, roles_count, warnings, ...
     """
@@ -335,8 +358,8 @@ def bootstrap(
     profile = RISK_PROFILES[risk_profile]
     slug = slug or slugify(hook)
     owners_by_step = _normalize_path_owners(path_owners)  # fail fast, before any write
-    tier = tier or default_tier(profile["capacity_profile"], quick_bootstrap=True,
-                                risk_profile=risk_profile)
+    tier = (validate_tier(tier, profile["capacity_profile"]) if tier
+            else DEFAULT_TIER_BY_RISK[risk_profile])
     ai_stand_ins: list[dict[str, str]] = []
     ai_warnings: list[str] = []
     if owners_by_step:
@@ -366,7 +389,12 @@ def bootstrap(
             "či target_repos='fe=https://github.com/org/web, be=https://github.com/org/api'."
         )
 
+    # Pořadí varování je stálé: AI náhrady -> kdo smí podepsat -> lidé v místnosti -> role.
     warnings: list[str] = list(ai_warnings)
+    if owners_by_step and is_ai_owner(owners_by_step.get("bezpecnost")) \
+            and risk_profile != "throwaway":
+        from tool.cli.checkpoint import signer_guidance
+        warnings.append(signer_guidance("bezpecnost", owners_by_step, risk_profile))
     warnings += people_check(core, owners_by_step)
 
     # 1. Charter
@@ -500,7 +528,10 @@ def bootstrap(
         "target_repos": [r.to_dict() for r in repos],
         "charter_path": str(DATA_ROOT / "charters" / f"{slug}.md"),
         "acceptance_feature_path": feature_path,
-        "warnings": warnings,
+        "acceptance_commit_hint": (
+            f"Commitněte a pushněte `tests/acceptance/{slug}.feature` — worktrees se klonují "
+            "z originu a jinak ho Build neuvidí." if feature_path else None),
+        "warnings": list(dict.fromkeys(warnings)),
         "defer_note": (
             "Triage odložený (Kickoff nemá 48h pre-read). Checkpoint Bezpečnost & "
             "právo proběhne do 48 h po Buildu, před Ship."
@@ -719,6 +750,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
 
+    keyboard = keyboard_owner(slug)
+
     # Audit N8: FE + BE + monorepo workspace — every variant gets all repos.
     try:
         repos = load_target_repos(slug)
@@ -778,6 +811,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "slug": slug,
         "mode": mode,
         "diversity_hint": rec.get("diversity_hint", ""),
+        "keyboard": keyboard,
         "stack": stack.stack, "check_commands": stack.commands or [],
         "acceptance_feature": f"tests/acceptance/{slug}.feature" if has_feature else None,
         "push_hint": (
@@ -795,6 +829,18 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             for p in prompts
         ],
     }
+
+
+def keyboard_owner(slug: str) -> str | None:
+    """Kdo sedí u klávesnice = zástupce kroku Vývoj z Kickoffu (ne git user)."""
+    try:
+        with transaction() as conn:
+            row = conn.execute("SELECT path_owners_json FROM projects WHERE slug = ?",
+                               (slug,)).fetchone()
+        owner = (json.loads(row[0]) if row and row[0] else {}).get("vyvoj")
+    except Exception:  # noqa: BLE001 — jen informace pro lidi
+        return None
+    return owner if owner and not is_ai_owner(owner) else None
 
 
 def _feature_exists(slug: str) -> bool:
@@ -1179,13 +1225,25 @@ def _validate_votes(slug: str, facilitator: str, votes: Any, decider_call: Any) 
             if missing:
                 raise bad(f"Hodnocení č. {j} u varianty {label} nemá: {', '.join(missing)}. "
                           "Důvod (rationale) je povinný — jedna věta stačí.")
-    if not isinstance(decider_call, dict):
-        raise bad("Ve specu chybí „decider_call“ (shortlist + rationale Decidera).")
+            for dim in ("user_value", "effort", "risk", "strategic_fit"):
+                val = rp.get(dim)
+                if val is None:
+                    continue
+                if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 1:
+                    raise bad(f"Hodnocení č. {j} u varianty {label}: „{dim}“ musí být číslo "
+                              f"od 0 do 1 (dostal jsem {val!r}). 0 = nejhorší, 1 = nejlepší.")
+    if not isinstance(decider_call, dict) or not decider_call:
+        raise bad("Ve specu chybí „decider_call“ (shortlist, rationale).")
+
+
+def _is_no_url(url: str | None) -> bool:
+    """Prázdný řetězec (nový zápis) i starý placeholder `sandbox.invalid` = „bez URL“."""
+    return not url or "sandbox.invalid" in url
 
 
 def record_voting(
     *, slug: str, facilitator: str, votes: list[dict[str, Any]],
-    decider_call: dict[str, Any], real_urls: dict[str, str] | None = None,
+    decider_call: dict[str, Any] | None = None, real_urls: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Persist voting outputs via session.persist.
 
@@ -1202,8 +1260,8 @@ def record_voting(
         real_urls: optional dict[variant_name → real preview URL]. Bez URL se
                    NEdosazuje vymyšlená adresa: výstup má `prototype_url: None`
                    a varování, že zástupci v Asyncu variantu neuvidí. (DB sloupec
-                   je NOT NULL, proto se interně drží neplatná adresa
-                   `sandbox.invalid`, kterou session.persist bere jako „není URL“.)
+                   je NOT NULL, proto se bez URL ukládá prázdný řetězec `''`;
+                   starší řádky s `sandbox.invalid` se berou stejně.)
 
     Returns session.persist result + `warnings`.
     """
@@ -1211,6 +1269,9 @@ def record_voting(
     real_urls = real_urls or {}
 
     with transaction() as conn:
+        if not conn.execute("SELECT 1 FROM projects WHERE slug = ?", (slug,)).fetchone():
+            raise ValueError(f"Projekt „{slug}“ neexistuje. Zkontroluj slug — "
+                             "seznam projektů ukáže `pflanzer status`.")
         existing = {r[0]: r[1] for r in conn.execute(
             "SELECT v.name, v.prototype_url FROM variants v JOIN sessions s ON s.id = v.session_id "
             "JOIN projects p ON p.id = s.project_id WHERE p.slug = ?", (slug,)).fetchall()}
@@ -1222,11 +1283,11 @@ def record_voting(
         url = real_urls.get(name) or v.get("prototype_url")
         if not url:
             kept = existing.get(name)
-            if not kept or "sandbox.invalid" in kept:
+            if not kept or _is_no_url(kept):
                 warnings.append(f"varianta {name} nemá preview URL — zástupci v Asyncu ji neuvidí "
                                 f"(doplň: `pflanzer worktree set-url --slug {slug} "
                                 f"--variant {name} --url <odkaz>`)")
-            url = f"https://sandbox.invalid/{slug}/{name}"  # interní „není URL“ (NOT NULL)
+            url = ""  # „bez URL“: DB sloupec je NOT NULL, proto prázdný řetězec (ne vymyšlená adresa)
         spec_variants.append({
             "name": name,
             "builder": v.get("builder") or "claude-code",
@@ -1244,7 +1305,7 @@ def record_voting(
     }
     result = persist_session(spec)
     for pv in result.get("variants", []):
-        if "sandbox.invalid" in str(pv.get("prototype_url") or ""):
+        if _is_no_url(str(pv.get("prototype_url") or "")):
             pv["prototype_url"] = None
     result["warnings"] = warnings
     shown = [f"{v['name']} {v['prototype_url']}" for v in result.get("variants", [])
@@ -1476,6 +1537,8 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
             f"{a['label']} (AI {a['agent']}, podepisuje {a['signer']})" for a in out["ai_stand_ins"]))
     if out.get("acceptance_feature_path"):
         lines.append(f"Akceptační scénáře: `{out['acceptance_feature_path']}`")
+    if out.get("acceptance_commit_hint"):
+        lines.append(out["acceptance_commit_hint"])
     metric = (spec.get("metric") or "")
     kill = (spec.get("kill_criteria") or "")
     ctx = {"metric_weak": not (metric and re.search(r"\d", metric)),
@@ -1483,7 +1546,8 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
            "ai_design": any(a["step"] == "design" for a in out.get("ai_stand_ins", [])),
            "ai_stand_ins": bool(out.get("ai_stand_ins"))}
     emit(out, title="Kickoff hotový", lines=lines, next_step=f"`{out['next_step']}`",
-         tips=tips_for("kickoff", ctx), warnings=out.get("warnings"), as_json=as_json)
+         tips=([] if as_json else tips_for_project(out["slug"], "kickoff", ctx)),
+         warnings=out.get("warnings"), as_json=as_json)
 
 
 def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
@@ -1495,12 +1559,14 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
         emit(out, title="", as_json=True)
         return
     lines = [f"Varianta {p['name']} — {p['angle']} ({p['builder']})" for p in out["prompts"]]
+    if out.get("keyboard"):
+        lines.append(f"U klávesnice: {out['keyboard']} (zástupce kroku Vývoj)")
     if out.get("stack"):
         lines.append(f"Stack target repa: {out['stack']}; kontroly po každém kroku: "
                      f"{', '.join(out['check_commands']) or 'viz README'}")
     emit(out, title="Prompty pro buildery", lines=lines,
          next_step="vlož každému dvojici jen blok „Vlož do AI“ (tisk níže), zbytek je pro facilitátora",
-         tips=tips_for("build"), as_json=False)
+         tips=tips_for_project(out["slug"], "build"), as_json=False)
     for pr in out["prompts"]:
         print(f"\n---\n### Varianta {pr['name']} — {pr['angle']}\n\n"
               f"**Pro facilitátora:**\n\n{pr['facilitator_text']}\n\n"
@@ -1515,7 +1581,8 @@ def _render_vote(out: dict[str, Any], as_json: bool, slug: str) -> None:
         url = v.get("prototype_url") or "bez preview URL"
         lines.append(f"Varianta {v['name']}: skóre {v['preference_score']:.2f} — {url}")
     emit(out, title="Hlasování zapsáno", lines=lines, next_step=out["next_step"],
-         tips=tips_for("build") + tips_for("veto"), warnings=out.get("warnings"), as_json=as_json)
+         tips=([] if as_json else tips_for_project(slug, "after_vote", limit=2)),
+         warnings=out.get("warnings"), as_json=as_json)
 
 
 def main() -> None:
@@ -1578,7 +1645,8 @@ def main() -> None:
                  lines=[f"Jednostránkový souhrn: `{path}`",
                         "Obsahuje: co děláme, varianty, kdo co dělá, kill kritéria, co dál."],
                  next_step=f"`/pm feedback {args.slug}` (Async 3–5 pracovních dní)",
-                 tips=tips_for("async"), as_json=args.json)
+                 tips=([] if args.json else tips_for_project(args.slug, "async", limit=2)),
+                 as_json=args.json)
         else:
             p.error(f"unknown cmd: {args.cmd}")
     except ValueError as e:

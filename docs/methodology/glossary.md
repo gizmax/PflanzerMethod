@@ -199,7 +199,16 @@ Krok cesty, u kterého místo jména stojí `AI` (nebo `AI:<agent>`). AI **přip
 (perspektivu, předkontrolu, návrh checkpointu), **podepisuje člověk**. Nikdy
 u kroků byznys a vývoj; u produktu jen ve stupni Quick / throwaway; u designu
 ano; u bezpečnosti & práva a provozu jen jako předkontrola. Viz ADR-0023
-a `02-role-catalog.md` § AI náhrada chybějícího zástupce.
+a `02-role-catalog.md` § AI náhrada chybějícího zástupce. Design potvrzuje
+PdM (`pflanzer checkpoint --slug S design --by <PdM>`). Podpis bezpečnosti
+autorem kódu je jen varování (pilot bez osobních dat), právo tím pokryté
+není.
+
+### Override triage
+
+Vědomé převzetí rizika Deciderem, když bezpečnost & právo nikdo nepodepsal:
+`pflanzer session_3 --slug S --override-triage --rationale "…"`. Do decision
+logu se zapíše jeho jméno; u pilotu bez osobních dat.
 
 ### Checkpoint
 

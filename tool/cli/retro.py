@@ -32,11 +32,14 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli._compat import count, tips  # noqa: E402
+from tool.cli.charter import is_ai_owner  # noqa: E402
+from tool.cli.db import DATA_ROOT, audit, current_actor, transaction  # noqa: E402
+from tool.cli.extract import tilde  # noqa: E402
+from tool.cli.ux import die, emit  # noqa: E402
 
-RETRO_DIR = REPO_ROOT / "data" / "retro"
-CHARTER_DIR = REPO_ROOT / "data" / "charters"
+RETRO_DIR = DATA_ROOT / "retro"
+CHARTER_DIR = DATA_ROOT / "charters"
 BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
 
 # Method targets (README / 07-handoff-do-vyvoje.md, audit N4).
@@ -113,7 +116,7 @@ def _ensure_outcomes_table(conn: sqlite3.Connection) -> None:
     ).fetchone()
     if not row:
         raise RuntimeError(
-            "Tabulka `outcomes` v DB chybí. Spusť `python3 tool/db/migrate.py` "
+            "Tabulka `outcomes` v DB chybí. Spusť `pflanzer update` "
             "(additivní migrace, data nemaže)."
         )
 
@@ -245,7 +248,7 @@ def _resolve_repo(project: dict[str, Any], repo_path: str | None) -> Path:
     raise ValueError(
         "Nenašel jsem lokální clone target repa (zkoušeno: "
         + ", ".join(str(c) for c in candidates or [Path("—")])
-        + "). Spusť `python3 tool/cli/worktree.py setup --slug <slug> --no-install` "
+        + "). Spusť `pflanzer worktree setup --slug <slug> --no-install` "
         "nebo zadej `--repo-path`."
     )
 
@@ -535,6 +538,53 @@ def _md_cell(text: Any) -> str:
     return str(text or "—").replace("|", "\\|").replace("\n", " ")
 
 
+def ai_stand_in_share(project: dict[str, Any]) -> dict[str, Any]:
+    """Podíl kroků cesty, za které stála AI náhrada (ADR-0023), z `path_owners_json`."""
+    try:
+        owners = json.loads(project.get("path_owners_json") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        owners = {}
+    steps = [k for k in STEP_NAMES if str(owners.get(k) or "").strip()]
+    ai = [k for k in steps if is_ai_owner(owners.get(k))]
+    pct = round(len(ai) / len(steps) * 100) if steps else None
+    return {"ai_steps": ai, "total_steps": len(steps), "pct": pct,
+            "names": [STEP_NAMES[k] for k in ai]}
+
+
+def _ai_stand_in_text(info: dict[str, Any]) -> str:
+    if not info["total_steps"]:
+        return "kroky cesty nejsou v Kickoffu vyplněné"
+    if not info["ai_steps"]:
+        return f"0 z {count(info['total_steps'], 'kroku', 'kroků', 'kroků')} — všude člověk"
+    return (f"{info['pct']} % ({len(info['ai_steps'])} z "
+            f"{count(info['total_steps'], 'kroku', 'kroků', 'kroků')}: "
+            f"{', '.join(info['names'])})")
+
+
+def _primary_metric(project: dict[str, Any], latest: dict[tuple[str, str], dict[str, Any]]
+                    ) -> dict[str, Any]:
+    """Metrika úspěchu z Kickoffu + poslední změřená hodnota (T+90, jinak T+30)."""
+    text = str(project.get("primary_lagging_metric") or "").strip()
+    if text.lower() in EMPTY_MARKERS or re.search(r"doplnit|nezad[aá]n", text, re.I):
+        text = ""
+    reading = None
+    for key in (("t90", "t90_lagging_metric"), ("t30", "t30_leading_metric")):
+        r = latest.get(key)
+        if r and r["value"] is not None:
+            reading = {"milestone": key[0], "metric": key[1], "value": r["value"],
+                       "unit": r["unit"]}
+            break
+    return {"text": text, "reading": reading}
+
+
+def _primary_line(primary: dict[str, Any]) -> str:
+    text = primary["text"] or "není v Kickoffu zadaná"
+    r = primary["reading"]
+    measured = (f"{_fmt_value(r['value'], r['unit'])} ({MILESTONE_LABELS[r['milestone']]})"
+                if r else "zatím neměřeno")
+    return f"Metrika: {text} — změřeno: {measured}"
+
+
 def build_report(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         _ensure_outcomes_table(conn)
@@ -581,7 +631,9 @@ def build_report(slug: str) -> dict[str, Any]:
                            "state": state})
 
     return {"project": project, "go_dt": go_dt, "go_source": go_source,
-            "rows": rows, "checks": checks, "milestones": milestones}
+            "rows": rows, "checks": checks, "milestones": milestones,
+            "primary": _primary_metric(project, latest),
+            "ai_stand_ins": ai_stand_in_share(project)}
 
 
 def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
@@ -644,6 +696,10 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 > Rozhodnutí (Go): {go_dt.date().isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
 > Postup měření: `docs/methodology/07-handoff-do-vyvoje.md`, kapitola Retro.
 
+**{_primary_line(data['primary'])}**
+
+Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
+
 ## Cíle metody
 
 | Metrika | Hodnota | Cíl | Stav |
@@ -666,7 +722,7 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 
 ---
 
-*Zdroj dat: tabulka `outcomes` v `data/pflanzer.db` · další readout
+*Zdroj dat: tabulka `outcomes` v DB toolu (`pflanzer db`) · další readout
 zapiš přes `/pm retro {p['slug']}`.*
 """
 
@@ -690,10 +746,8 @@ def write_report(slug: str, out: str | None = None) -> tuple[Path, dict[str, Any
 
 
 def _display(path: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(REPO_ROOT))
-    except ValueError:
-        return str(path)
+    """Absolutní cesta (pod $HOME jako ~/…), aby šla zkopírovat; kam se zapisuje, je vidět."""
+    return tilde(Path(path).expanduser().resolve())
 
 
 def _charter_owner_line(slug: str, milestone: str) -> str | None:
@@ -842,7 +896,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
         return "\r\n".join(_ics_fold(line) for line in lines) + "\r\n"
 
     if fmt == "md":
-        out = [BRAND_LINE, "", f"# Reinforcement připomínky — {name}", "",
+        out = [BRAND_LINE, "", f"# Připomínky — {name}", "",
                f"> Slug: `{slug}` · Od: {start.isoformat()} ({start_source})", ""]
         for it in items:
             out.append(
@@ -863,7 +917,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
             repo_flag = f" --repo {shlex.quote(f'{m.group(1)}/{m.group(2)}')}"
         out = [
             f"# {BRAND_LINE}",
-            f"# Reinforcement issues pro {slug} — příkazy se NESPOUŠTĚJÍ automaticky.",
+            f"# Připomínky jako GitHub issues pro {slug} — příkazy se NESPOUŠTĚJÍ automaticky.",
             f"gh label create {shlex.quote(label)}{repo_flag} --color 5319e7 "
             f"--description {shlex.quote('Pflanzer Method outcome tracking')} --force",
         ]
@@ -899,9 +953,43 @@ def _metrics_help() -> str:
     return "\n".join(lines)
 
 
+SUBCOMMANDS = ("measure", "record", "report", "reminders")
+
+
+class _CsParser(argparse.ArgumentParser):
+    """argparse s českou chybou (bez anglické hlášky a bez usage na pár stran)."""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        m = re.match(r"the following arguments are required: (.+)", message)
+        if m:
+            message = f"Chybí povinný argument: {m.group(1)}."
+        elif message.startswith("invalid choice"):
+            message = "Neznámá volba: " + message.split(":", 1)[-1].strip()
+        die(message, f"{self.prog.replace('retro.py', 'pflanzer retro')} --help")
+
+
+def _usage_help(first: str | None) -> str:
+    slug = first if first and not first.startswith("-") else "moje-appka"
+    return (
+        "Retro má čtyři kroky (slug projektu je vždy za --slug):\n"
+        f"  pflanzer retro measure   --slug {slug} --pr-url <adresa PR>   # kolik kódu vítěze přežilo, days-to-prod\n"
+        f"  pflanzer retro record    --slug {slug} --milestone t7 --metric t7_bugs --value 2   # čtení T+7/30/60/90\n"
+        f"  pflanzer retro report    --slug {slug}                         # shrnutí do souboru\n"
+        f"  pflanzer retro reminders --slug {slug} --format ics --out {slug}-pripominky.ics   # připomínky do kalendáře"
+    )
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    sub = p.add_subparsers(dest="cmd", required=True)
+    argv = sys.argv[1:]
+    if not argv or argv[0] not in SUBCOMMANDS and argv[0] not in ("-h", "--help"):
+        first = argv[0] if argv else None
+        if first and not first.startswith("-"):
+            msg = f"Za `pflanzer retro` chybí, co se má udělat (zadáno jen „{first}“)."
+        else:
+            msg = "Za `pflanzer retro` chybí, co se má udělat."
+        die(msg, _usage_help(first))
+    p = _CsParser(description=__doc__.split("\n")[0], prog="pflanzer retro")
+    sub = p.add_subparsers(dest="cmd", required=True, parser_class=_CsParser)
 
     p_measure = sub.add_parser(
         "measure", help="Změř %% LOC winneru v merge commitu + days-to-prod (milestone ship)",
@@ -927,10 +1015,10 @@ def main() -> None:
     p_record.add_argument("--evidence", help="URL (issue list, dashboard, retro zápis)")
     p_record.add_argument("--notes")
 
-    p_report = sub.add_parser("report", help="Retro report → data/retro/<slug>-retro.md")
+    p_report = sub.add_parser("report", help="Retro report → <datová složka>/retro/<slug>-retro.md")
     p_report.add_argument("--slug", required=True)
     p_report.add_argument("--md", action="store_true", help="Vypiš markdown na stdout místo JSON")
-    p_report.add_argument("--out", help="Jiná cesta výstupu (default data/retro/<slug>-retro.md)")
+    p_report.add_argument("--out", help="Jiná cesta výstupu (default <datová složka>/retro/<slug>-retro.md)")
 
     p_rem = sub.add_parser("reminders", help="Připomínky T+7/30/60/90 (ics | md | gh-issues)")
     p_rem.add_argument("--slug", required=True)
@@ -960,16 +1048,19 @@ def main() -> None:
                      + (f" ({out['loc_reused_pct']:g} %, cíl ≥ {TARGET_REUSE_PCT:.0f} %)"
                         if out["loc_reused_pct"] is not None else "")]
             if out["days_to_prod"] is not None:
-                lines.append(f"Od Go do merge: {out['days_to_prod']} dní (cíl ≤ {TARGET_DAYS_TO_PROD})")
+                lines.append(f"Od Go do merge: "
+                             f"{count(out['days_to_prod'], 'den', 'dny', 'dní')} "
+                             f"(cíl ≤ {TARGET_DAYS_TO_PROD})")
             if out["ignored_files"]:
-                lines.append(f"Nepočítám {len(out['ignored_files'])} souborů přidaných nástrojem "
-                             "(.gitignore, .pflanzer/…).")
+                n_ign = len(out["ignored_files"])
+                lines.append(f"Nepočítám {count(n_ign, 'soubor', 'soubory', 'souborů')} "
+                             "přidaných nástrojem (.gitignore, .pflanzer/…).")
             warns = []
             if not out["targets"]["reuse_ok"]:
                 warns.append("Pod cílem znovupoužití: zjisti v review, co se přepisovalo a proč.")
             emit(out, title=f"Retro: měření {args.slug}", lines=lines, warnings=warns,
                  next_step=f"`pflanzer retro report --slug {args.slug}`",
-                 tips=tips_for("retro", {}), as_json=args.json)
+                 tips=tips(args.slug, "retro", {}), as_json=args.json)
         elif args.cmd == "record":
             out = record(slug=args.slug, milestone=args.milestone, metric=args.metric,
                          value=args.value, unit=args.unit, evidence=args.evidence,
@@ -978,7 +1069,7 @@ def main() -> None:
                  lines=[f"{out['metric']} = {_fmt_value(out['value'], out['unit'])} "
                         f"(zapsal {out['recorded_by']})"],
                  next_step=f"`pflanzer retro report --slug {args.slug}`",
-                 tips=tips_for("retro", {}), as_json=args.json)
+                 tips=tips(args.slug, "retro", {}), as_json=args.json)
         elif args.cmd == "report":
             path, data, md = write_report(args.slug, args.out)
             if args.md:
@@ -992,8 +1083,17 @@ def main() -> None:
                     "outcome_rows": len(data["rows"]),
                 }
                 status = {"ok": "splněno", "flag": "pod cílem", "missing": "zatím neměřeno"}
-                lines = [f"{c['metric']}: {_fmt_value(c['value'], c.get('unit'))} "
-                         f"(cíl {c['target']}) — {status[c['status']]}" for c in data["checks"]]
+                lines = [_primary_line(data["primary"])]
+                lines += [f"{c['metric']}: {_fmt_value(c['value'], c.get('unit'))} "
+                          f"(cíl {c['target']}) — {status[c['status']]}" for c in data["checks"]]
+                lines.append("Podíl kroků s AI náhradou: " + _ai_stand_in_text(data["ai_stand_ins"]))
+                latest_rows: dict[tuple[str, str], dict[str, Any]] = {}
+                for r in data["rows"]:
+                    if r["milestone"] != "ship":
+                        latest_rows[(r["milestone"], r["metric"])] = r
+                for (ms, metric), r in latest_rows.items():
+                    lines.append(f"{MILESTONE_LABELS[ms]} {metric}: "
+                                 f"{_fmt_value(r['value'], r['unit'])}")
                 overdue = [m for m in data["milestones"] if m["state"] == "overdue"]
                 if overdue:
                     lines.append("Po termínu chybí čtení: " + ", ".join(
@@ -1005,7 +1105,7 @@ def main() -> None:
                        if overdue else f"`pflanzer retro reminders --slug {args.slug} "
                                        f"--format ics --out {args.slug}-pripominky.ics`")
                 emit(out, title=f"Retro: {args.slug}", lines=lines, next_step=nxt,
-                     tips=tips_for("retro", {}), as_json=args.json)
+                     tips=tips(args.slug, "retro", {}), as_json=args.json)
         elif args.cmd == "reminders":
             text = render_reminders(args.slug, args.format, args.from_date)
             if args.out:
@@ -1014,7 +1114,8 @@ def main() -> None:
                 path.write_text(text, encoding="utf-8", newline="")
                 emit({"slug": args.slug, "format": args.format, "path": _display(path)},
                      title="Připomínky uloženy",
-                     lines=[f"Soubor {_display(path)} (T+7, T+30, T+60, T+90)",
+                     lines=[f"Soubor {_display(path)} ({count(4, 'připomínka', 'připomínky', 'připomínek')}: "
+                            "T+7, T+30, T+60, T+90)",
                             "Importuj ho do kalendáře (ics), nebo ho předej Provozu a Produktu."],
                      next_step=f"`pflanzer retro report --slug {args.slug}`",
                      as_json=args.json)

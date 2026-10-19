@@ -28,9 +28,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, git_info, locate_worktree, table_has_col  # noqa: E402
-from tool.cli.ux import die, emit, read_spec, tips_for  # noqa: E402
+from tool.cli.ux import die, emit, read_spec  # noqa: E402
 
 SESSIONS_DIR = DATA_ROOT / "sessions"
 ALLOWED_BUILDERS = {"claude-code", "codex-cli", "v0", "bolt", "lovable",
@@ -186,6 +187,16 @@ def _validate_spec(spec: dict[str, Any]) -> None:
                     f"{label}: u hlasu role {rp.get('role_idx', '?')} chybí `rationale` "
                     "(1–2 věty, proč to zástupce vidí tak, jak hlasoval)."
                 )
+            for dim in PREFERENCE_DIMS:
+                val = rp.get(dim)
+                if val is None:
+                    continue
+                if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 1:
+                    raise ValueError(
+                        f"{label}: hlas role {rp.get('role_idx', '?')} má `{dim}` = {val!r}; "
+                        "hodnocení je číslo 0–1 (např. 0.8, vyšší = lepší; u effort a risk "
+                        "nižší = lepší). Opravte spec a zapište Build znovu."
+                    )
 
 
 def persist(spec: dict[str, Any]) -> dict[str, Any]:
@@ -243,7 +254,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             "SELECT id, status, target_repo_url FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
-            raise ValueError(f"Project '{slug}' not found.")
+            raise ValueError(f"Projekt '{slug}' neexistuje. Přehled projektů: `pflanzer status`.")
         project_id, status, target_repo_url = int(proj[0]), proj[1], proj[2]
         # session_2 = Iterate → další Build kolo (ADR-0021)
         if status not in ("triage", "session_1", "session_2"):
@@ -623,7 +634,7 @@ def main() -> None:
            f"{out['slug']} bezpecnost --by {sec or 'JMÉNO'} --note …`; zástupci zatím píšou feedback "
            f"(`/pm feedback {out['slug']}`)")
     emit(out, title=f"Build zapsán: {out['slug']}", lines=lines, warnings=out["warnings"],
-         next_step=nxt, tips=tips_for("build", {}), as_json=args.json)
+         next_step=nxt, tips=tips(out["slug"], "build", {}), as_json=args.json)
 
 
 if __name__ == "__main__":

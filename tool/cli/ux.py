@@ -24,7 +24,8 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
     "init": [
         (None, "INTEGRATION_GUIDE nemusíte psát ručně: vývojář v Claude Code napíše "
                "„vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“ a výsledek zkontroluje (5 min)."),
-        (None, "Commitněte a pushněte vše najednou: `git add -A docs .pflanzer tests .gitignore`."),
+        (None, "Commitněte a pushněte vše najednou, než spustíte Kickoff (worktrees se klonují "
+               "z originu)."),
     ],
     "doctor": [
         ("no_preview", "Bez preview URL zástupci v Asyncu nemají na co klikat — domluvte "
@@ -37,11 +38,10 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         ("kill_weak", "Kill kritérium potřebuje číslo: „po 4 týdnech otevře přehled méně než 5 "
                       "z 15 lidí → končíme“. Bez čísla se Kill nikdy neřekne."),
         ("ai_design", "Bez designéra: AI připraví návrh a kontrolu přístupnosti, ale vzhled "
-                      "před Ship potvrdí PdM — domluvte, kdo se na varianty podívá."),
+                      "před Ship potvrdí PdM (`pflanzer checkpoint … design`) — domluvte, "
+                      "kdo se na varianty podívá."),
         ("ai_stand_ins", "Kroky s AI náhradou podepisuje člověk (ADR-0023) — "
                          "domluvte, kdo to bude, ještě dnes."),
-        (None, "Dobrá metrika = číslo + termín: „10 z 15 obchodníků otevře přehled aspoň "
-               "3× týdně do 30 dnů“. „Budou to používat“ nestačí."),
         (None, "Decider musí umět říct i Kill. Kdo nemůže zastavit, není Decider."),
         (None, "Zabookujte všechna okna teď (Build, checkpointy, Rozhodnutí) — "
                "ad hoc termíny pilot zabijí."),
@@ -52,6 +52,12 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
                "jestli vidí reálná data. Checkpoint pak trvá 20 minut, ne hodinu."),
         ("ai_design", "Design dělá AI: nechte ji zkontrolovat kontrasty a ovládání z klávesnice "
                       "a výsledek ukažte PdM ještě před Rozhodnutím."),
+    ],
+    "after_setup": [
+        (None, "Každá varianta má jiný úhel — nemíchejte je."),
+    ],
+    "after_vote": [
+        (None, "Pošlete zástupcům 3 odkazy a termín Asyncu, ne víc."),
         (None, "Hlasujte za to, co uvidí uživatel, ne za kód. Důvod jednou větou."),
     ],
     "async": [
@@ -78,6 +84,10 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         ("blocked", "Doplňte chybějící z těch čtyř věcí (rollback, on-call, první hodina, "
                     "flag) a okno podepište znovu — zabere to 10 minut."),
     ],
+    "checkpoint_design": [
+        (None, "Design za AI potvrzuje člověk, který varianty viděl: projděte hlavní tok "
+               "a kontrasty a napište do poznámky, co jste skutečně zkontrolovali."),
+    ],
     "ai_stand_in": [
         (None, "AI připraví podklad, podepisuje člověk. Domluvte jméno teď, ne až Ship "
                "stojí: bez podpisu člověka pilot nepůjde."),
@@ -89,7 +99,19 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         ("veto", "Veto zapište jednou větou: co přesně nejde nasadit a co ho zruší."),
         ("open_critical", "Critical na jiné variantě než vítězné Go neblokuje — řešte jen ty "
                           "na vítězi (opravit, nebo vědomě přebít s důvodem)."),
-        (None, "Rationale pište tak, aby mu za půl roku rozuměl někdo, kdo nebyl v místnosti."),
+    ],
+    "after_go": [
+        (None, "Rationale ukažte týmu do hodiny; critical na poražených zapište do parking "
+               "lotu nebo vědomě zavřete."),
+        (None, "Poraženým variantám poděkujte nahlas — jejich nápady jdou do parking lotu, "
+               "ne do koše."),
+    ],
+    "after_critical": [
+        (None, "Autor + vývojář: oprav ve vítězné variantě, pak `pflanzer session_2 resolve …`; "
+               "nebo Decider vědomě přebije `--override-critical`."),
+    ],
+    "after_resolve": [
+        (None, "Na vítězi žádný critical nezbývá → decide go."),
     ],
     "iterate": [
         (None, "Iterate = jedno kolo navíc a jen na to, co se mění. Druhé Iterate není — "
@@ -102,7 +124,9 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
                "flag. 20 minut."),
         ("below_threshold", "Pod prahem: nejdřív opravte tests/build; Ship i přesto jen "
                             "vědomě s `--override-threshold` a důvodem od Decidera."),
-        (None, "Poraženým variantám poděkujte nahlas — jejich nápady jdou do parking lotu, ne do koše."),
+    ],
+    "after_ship": [
+        (None, "PR nech zkontrolovat člověkem, který u Buildu nebyl."),
     ],
     "handoff": [
         (None, "Za 30 dní `/pm retro`: kolik kódu vítěze přežilo, metrika vs. cíl, incidenty."),
@@ -115,12 +139,27 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
                        "(20 minut), jinak Ship zůstane zablokovaný."),
         ("open_critical", "Critical = nesmí se nasadit. Buď se opraví, nebo ho Decider "
                           "vědomě přebije s důvodem."),
-        (None, "Stav projektu zkontrolujte vždy před schůzkou: `pflanzer status`."),
     ],
     "retro": [
         (None, "Retro do 30 minut: co bychom příště udělali jinak, a jedno rozhodnutí pro další pilot."),
     ],
 }
+
+
+def plural(n: int, one: str, few: str, many: str) -> str:
+    """Czech noun agreement including the number: `plural(3, "den", "dny", "dnů")` -> "3 dny".
+
+    1 -> `one`, 2-4 -> `few`, 0 and 5+ -> `many` (fractions/negatives use `many`).
+    """
+    try:
+        k = int(n)
+    except (TypeError, ValueError):
+        return f"{n} {many}"
+    if k != n:
+        return f"{n} {many}"
+    a = abs(k)
+    form = one if a == 1 else few if 2 <= a <= 4 else many
+    return f"{k} {form}"
 
 
 # ---------------------------------------------------------------------------
@@ -190,14 +229,57 @@ def die(message: str, example: str = "") -> None:
     sys.exit(2)
 
 
-def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3) -> list[str]:
-    """Recommendations for `phase`, filtered by truthy keys in `ctx`."""
+def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
+             seen: set[str] | None = None) -> list[str]:
+    """Recommendations for `phase`, filtered by truthy keys in `ctx`.
+
+    With `seen` (a set of tip texts already shown for the project) tips in it are
+    skipped and the returned ones are added to it, so the same tip never repeats.
+    """
     ctx = ctx or {}
-    picked = [text for cond, text in TIPS.get(phase, []) if cond is None or ctx.get(cond)]
-    # Conditional tips are more specific → put them first.
-    conditional = [t for c, t in TIPS.get(phase, []) if c and ctx.get(c)]
-    ordered = conditional + [t for t in picked if t not in conditional]
-    return ordered[:limit]
+    items = TIPS.get(phase, [])
+    conditional = [t for c, t in items if c and ctx.get(c)]
+    generic = [t for c, t in items if c is None]
+    ordered = conditional + [t for t in generic if t not in conditional]
+    if seen is not None:
+        ordered = [t for t in ordered if t not in seen]
+    picked = ordered[:limit]
+    if seen is not None:
+        seen.update(picked)
+    return picked
+
+
+def tips_for_project(slug: str, phase: str, ctx: dict[str, Any] | None = None,
+                     limit: int = 3) -> list[str]:
+    """Like `tips_for`, but never repeats a tip within one project.
+
+    Shown tips are stored in the audit log (action `tip.shown`, target = project),
+    so no schema change is needed. Unknown project or unreadable DB -> plain `tips_for`.
+    """
+    try:
+        from tool.cli.db import audit, transaction
+        with transaction() as conn:
+            row = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+            if not row:
+                return tips_for(phase, ctx, limit)
+            pid = int(row[0])
+            seen: set[str] = set()
+            for r in conn.execute(
+                    "SELECT payload_json FROM audit_log WHERE action = 'tip.shown' "
+                    "AND target_type = 'project' AND target_id = ?", (pid,)).fetchall():
+                try:
+                    seen.update(json.loads(r[0] or "{}").get("tips", []))
+                except (ValueError, TypeError):
+                    continue
+            before = set(seen)
+            tips = tips_for(phase, ctx, limit, seen=seen)
+            new = [t for t in tips if t not in before]
+            if new:
+                audit(conn, action="tip.shown", target_type="project", target_id=pid,
+                      payload={"phase": phase, "tips": new})
+            return tips
+    except Exception:  # noqa: BLE001 — tips are advisory, never break a command
+        return tips_for(phase, ctx, limit)
 
 
 def render(title: str, lines: list[str] | None = None, next_step: str | None = None,

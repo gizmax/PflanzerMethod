@@ -24,6 +24,7 @@ sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.ux import die, emit, tips_for  # noqa: E402
 
 GUIDE_TEMPLATE = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
+GUIDE_TEMPLATE_PYTHON = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
 OK, WARN, FAIL = "ok", "warn", "fail"
@@ -108,7 +109,8 @@ def check_guide(repo: Path) -> dict[str, str]:
     if not guide.is_file():
         return _check(name, FAIL, "chybí", "`pflanzer init`, pak ho vyplň podle reality repa.")
     text = guide.read_text(encoding="utf-8", errors="replace")
-    if GUIDE_TEMPLATE.is_file() and text.strip() == GUIDE_TEMPLATE.read_text(encoding="utf-8").strip():
+    if any(t.is_file() and text.strip() == t.read_text(encoding="utf-8").strip()
+           for t in (GUIDE_TEMPLATE, GUIDE_TEMPLATE_PYTHON)):
         return _check(name, FAIL, "pořád jen nevyplněná šablona",
                       "Vyplň auth, API, state, logger, folder layout, test runner (cca 30 min).")
     sections = _guide_sections(text)
@@ -277,6 +279,12 @@ def check_preview(repo: Path) -> dict[str, str]:
                   "pilot půjde, ale zástupci v Asyncu nebudou mít na co kliknout")
 
 
+def _git_add_command(repo: Path) -> str:
+    """`git add` jen pro existující cesty (.gitignore nemusí v repu být)."""
+    paths = ["docs", ".pflanzer", "tests"] + ([".gitignore"] if (repo / ".gitignore").exists() else [])
+    return f"git add -A {' '.join(paths)}"
+
+
 def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
     name = "Init soubory commitnuté a pushnuté"
     missing_init = [f for f in INIT_FILES if not (repo / f).exists()]
@@ -297,7 +305,7 @@ def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
     if untracked or dirty:
         bad = untracked + dirty
         return [_check(name, FAIL, f"necommitnuté: {', '.join(bad)}",
-                       "`git add -A docs .pflanzer tests .gitignore && git commit -m 'chore(pflanzer): init' && git push`")]
+                       f"`{_git_add_command(repo)} && git commit -m 'chore(pflanzer): init' && git push`")]
     if not has_origin:
         return [_check(name, FAIL, "bez originu nelze ověřit push", "Přidej origin a pushni.")]
 

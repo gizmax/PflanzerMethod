@@ -33,10 +33,11 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tool.cli._compat import count, tips  # noqa: E402
 from tool.cli.db import audit, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, clean_text, table_has_col, tilde  # noqa: E402
 from tool.cli.session_2 import get_winner  # noqa: E402
-from tool.cli.ux import die, emit, tips_for  # noqa: E402
+from tool.cli.ux import die, emit  # noqa: E402
 
 HANDOFF_DIR = DATA_ROOT / "handoffs"
 METRICS_PATH = DATA_ROOT / "method-metrics.json"
@@ -959,16 +960,17 @@ def main() -> None:
         die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff --slug moje-appka")
     m = out["metrics"]
     lines = [f"Hlavní dokument: {out['out_dir']}/SHIP.md (PR příkaz a měření na jedné stránce)",
-             f"Doplňkové podklady pro role: {len(out['files']) - 1} souborů v {out['out_dir']}"]
+             f"Doplňkové podklady pro role: "
+             f"{count(len(out['files']) - 1, 'soubor', 'soubory', 'souborů')} v {out['out_dir']}"]
     days = m.get("time_to_handoff_days")
     if days is not None:
-        lines.append(f"Od Kickoffu k předání: {days} dní")
+        lines.append(f"Od Kickoffu k předání: {count(int(days), 'den', 'dny', 'dní')}")
     if m.get("feedback_critical"):
         lines.append(f"Kritických připomínek v Asyncu bylo {m['feedback_critical']}.")
     emit(out, title=f"Předání hotové: {args.slug}", lines=lines,
          next_step=("otevři `SHIP.md`, branch owner spustí `gh pr create` z jeho konce; "
                     "kontrolní seznamy před nasazením jsou v `qa.md` a `platform.md`"),
-         tips=tips_for("handoff", {}), as_json=args.json)
+         tips=tips(args.slug, "handoff", {}), as_json=args.json)
 
 
 if __name__ == "__main__":
