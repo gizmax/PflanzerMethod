@@ -158,7 +158,7 @@ historicky neměl Security/Legal v primary room.
 
 **Co to umožňuje:** Late-stage veto eliminované — security/legal flag
 risk surface na minutě 240, ne v sprintu 4. Audit-grade profil přidává
-co-facilitator (ADR-0010) a Method Steward (ADR-0012) pro multi-pilot
+co-facilitator (role catalog #3) a Method Steward (ADR-0012) pro multi-pilot
 governance.
 
 ### 2. Score závaznosti per role + AI deflation (decision moat)

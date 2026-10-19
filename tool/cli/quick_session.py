@@ -451,7 +451,7 @@ VARIANT_ANGLES = [
     ("C", "smart defaults", "Postav variantu, která hádá inputy z kontextu (recent activity / role) a uživatel jen potvrdí"),
 ]
 
-# Mob mode (per ADR-0011): sequential iterations, ne paralelní angles.
+# Mob mode (per ADR-0016): sequential iterations, ne paralelní angles.
 # Synthesis konsenzus: 1 deep + 1 refinement default; 3rd iteration opt-in.
 MOB_ITERATION_ANGLES = [
     ("iter1", "deep first stab",
@@ -470,7 +470,7 @@ def recommend_mode(
     has_veto_role: bool = False, new_team: bool = False,
     onboarding_member: bool = False, single_high_stakes: bool = False,
 ) -> tuple[str, str]:
-    """Return (mode, rationale_for_decider) per ADR-0011 decision tree.
+    """Return (mode, rationale_for_decider) per ADR-0016 decision tree.
 
     Default = parallel. Mob = explicit opt-in for narrow class.
     """
@@ -526,7 +526,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     - **parallel** (default): 3× claude-code s VARIANT_ANGLES (A/B/C paralelně
       v 3 worktrees, branch pflanzer/<slug>-X). Diversity skrz prompty.
     - **mob**: 2-3× claude-code s MOB_ITERATION_ANGLES (sequential iterations
-      v 1 worktree, max 5 lidí u monitoru). Per ADR-0011.
+      v 1 worktree, max 5 lidí u monitoru). Per ADR-0016.
 
     prefer_hosted (paralelní only): mix s Bolt/v0/Lovable.
     """
@@ -653,7 +653,7 @@ def _render_mob_iteration_prompt(
     slug: str, iteration: str, iteration_idx: int, total_iterations: int,
     has_feature: bool = False,
 ) -> str:
-    """Mob mode prompt — sequential iteration v 1 worktree (ADR-0011).
+    """Mob mode prompt — sequential iteration v 1 worktree (ADR-0016).
 
     1 deep + 1 refinement default, 8min driver rotation, observer-task
     assignment, single shared branch. Max 5 lidí u monitoru.
@@ -1054,7 +1054,7 @@ def main() -> None:
     p_prompts.add_argument("--hook", required=True)
     p_prompts.add_argument("--n", type=int, default=3)
     p_prompts.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
-                           help="parallel = 3 angles paralelně; mob = sequential iterations (per ADR-0011)")
+                           help="parallel = 3 angles paralelně; mob = sequential iterations (per ADR-0016)")
     p_prompts.add_argument("--prefer-hosted", action="store_true",
                            help="Opt-in pro Bolt/v0/Lovable (parallel only). Default = claude-code 3×.")
 

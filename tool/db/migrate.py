@@ -31,7 +31,7 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Autoresearch Sprint 3 (perspektiva 02): ship contract fields
         ("target_branch_owner", "TEXT"),
         ("shadow_pm", "TEXT"),
-        # Mob mode autoresearch (Sprint 4 — ADR-0011)
+        # Mob mode autoresearch (Sprint 4 — ADR-0016)
         ("session_mode", "TEXT DEFAULT 'parallel'"),
         # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
         ("path_owners_json", "TEXT"),

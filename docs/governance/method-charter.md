@@ -216,7 +216,7 @@ Měříme proti **current state v dané organizaci**: sériový handoff
   regulated, customer-facing, scope category, BU) → top-quartile propensity
   baseline projects = control set per Pflanzer pilot.
 - **Bootstrap budget €40k + 3 měsíce pre-pilot Steward effort** pro baseline
-  collection (P2 follow-up: ADR-0010 method post-mortem disclosure + budget
+  collection (P2 follow-up: plánované ADR o method post-mortem disclosure + budget
   spec).
 
 ## Reinforcement track (method-level + per-pilot)

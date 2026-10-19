@@ -125,7 +125,7 @@ def _create_worktrees(
     """Create worktrees per mode.
 
     - parallel (default): 3 worktrees A/B/C as siblings.
-    - mob (per ADR-0011): 1 worktree '<slug>-mob', single shared branch.
+    - mob (per ADR-0016): 1 worktree '<slug>-mob', single shared branch.
     """
     worktrees: list[Path] = []
     variants = ("A", "B", "C") if mode == "parallel" else ("mob",)
@@ -318,7 +318,7 @@ def main() -> None:
     p_setup = sub.add_parser("setup", help="Naklonuje target repo a vytvoří worktrees")
     p_setup.add_argument("--slug", required=True)
     p_setup.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
-                         help="parallel = 3 worktrees A/B/C (default); mob = 1 worktree, max 5 lidí (ADR-0011)")
+                         help="parallel = 3 worktrees A/B/C (default); mob = 1 worktree, max 5 lidí (ADR-0016)")
     p_setup.add_argument("--no-install", action="store_true",
                          help="Přeskočí install závislostí (rychlejší, ale brány v Ship se přeskočí)")
 
@@ -333,7 +333,7 @@ def main() -> None:
         if args.mode == "mob":
             next_steps = [
                 f"cd {s.worktrees[0]} && claude  # MOB Build — max 5 lidí "
-                "u 1 monitoru (per ADR-0011)",
+                "u 1 monitoru (per ADR-0016)",
                 "Driver/navigator rotation: 8 min cycle, 25 min hard break",
                 "Timing: 25 min iter1 + 25 min iter2 + 15 min zápis do toolu "
                 "(90 min cap); pak /pm feedback",
