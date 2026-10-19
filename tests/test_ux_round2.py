@@ -161,7 +161,7 @@ def test_design_window_for_ai_design(tmp_db: Path, bare_repo: Path) -> None:
     d = status.project_detail("dsg")
     assert any(i.startswith("Design: AI (ux-expert) — potvrdí Petr") for i in d["info"])
     res = checkpoint.sign("dsg", "design", by="Petr", note="hlavní tok i kontrasty")
-    assert res["status"] == "ok" and res["signed_by_role"] == "zástup"
+    assert res["status"] == "ok" and res["signed_by_role"] == "zástupce"
     assert checkpoint.design_gate("dsg")["state"] == "ok"
     with transaction() as conn:       # žádný nový triage track
         n = conn.execute("SELECT COUNT(*) FROM triage").fetchone()[0]

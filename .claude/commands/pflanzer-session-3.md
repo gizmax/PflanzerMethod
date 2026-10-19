@@ -9,7 +9,10 @@ description: Ship (/pm ship) — quality gates jen na vítěze, skóre X/100 (pr
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Ship není session, je to práce vývojářů s automatickými branami + 20min
 checkpoint provozu. Předpoklad: Rozhodnutí skončilo **Go** s vítězem.
@@ -17,19 +20,19 @@ Krok Provoz musí mít jméno; jinak se zeptej, kdo deploy převezme.
 (`/pflanzer-session-3` a `tool/cli/session_3.py` jsou jen technické názvy
 tohoto kroku.)
 
-Kód vítěze je ve **worktree target repa** (`~/.pflanzer/targets/<slug>-<X>/`,
-branch `pflanzer/<slug>-<X>`, ADR-0009) — Ship gate nic nekopíruje a na
-GitHub URL se neptá. Ověř, že worktree existuje a patří do target repa:
-`pflanzer worktree verify --slug <slug> --cwd <worktree>`. Chybí-li, řekni
-týmu, ať spustí `pflanzer worktree setup --slug <slug>` a vítěze commitne.
+Kód vítěze je ve **worktree target repa** (větev `pflanzer/<slug>-<X>`,
+ADR-0009). **Cestu nehledej ručně** (datová složka se liší podle
+`PFLANZER_DATA`) — rovnou spusť `pflanzer session_3 --slug <slug>`: tool
+worktree vítěze najde sám, a když chybí, řekne to i s příkazem. Ship gate nic
+nekopíruje a na GitHub URL se neptá.
 URL buildru (Bolt / v0 / Lovable) je jen fallback u `--prefer-hosted`
 projektů (`--repo-urls`); skeleton pro `pilot` / `production` nikdy.
 
 ## Krok 1 — Gates jen na vítěze
 
 ```bash
-pflanzer session_3 --slug $ARGUMENTS
-pflanzer session_3 --slug $ARGUMENTS --variants A    # výslovně vítěz
+pflanzer session_3 --slug <slug>
+pflanzer session_3 --slug <slug> --variants A    # výslovně vítěz
 ```
 
 Jiná varianta než vítěz Rozhodnutí jen s `--rationale "…"` (zapíše se do
@@ -86,8 +89,8 @@ Zástupce kroku Provoz (20 min) potvrdí **checklist**:
 Podepiš (zapíše se i do decision logu v target repu):
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
-pflanzer checkpoint --slug $ARGUMENTS --list    # stav všech oken
+pflanzer checkpoint --slug <slug> provoz --by "<jméno>" --note "<deploy, monitoring, rollback>"
+pflanzer checkpoint --slug <slug> --list    # stav všech oken
 ```
 
 Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
@@ -98,7 +101,7 @@ sub-agenta **`devops-platform-expert`** nad deploy plánem a checklistem výše
 a zapiš návrh:
 
 ```bash
-pflanzer checkpoint --slug $ARGUMENTS provoz --ai --agent devops-platform-expert \
+pflanzer checkpoint --slug <slug> provoz --ai --agent devops-platform-expert \
   --note "<předkontrola: rollback, on-call, první hodina, flag>"
 ```
 

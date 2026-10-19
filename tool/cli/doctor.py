@@ -304,7 +304,7 @@ def check_pushed(repo: Path, has_origin: bool) -> list[dict[str, str]]:
     if untracked or dirty:
         bad = untracked + dirty
         return [_check(name, FAIL, f"necommitnuté: {', '.join(bad)}",
-                       f"`{_git_add_command(repo)} && git commit -m 'chore(pflanzer): init' && git push`")]
+                       f"`{_git_add_command(repo)} && git commit -m 'chore(pflanzer): init' && git push -u origin HEAD`")]
     if not has_origin:
         return [_check(name, FAIL, "bez originu nelze ověřit push", "Přidej origin a pushni.")]
 

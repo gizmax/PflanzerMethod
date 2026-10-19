@@ -9,7 +9,10 @@ description: Handoff (/pm handoff) — balíček per role (PR-ready) + metriky p
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
-Argumenty: `$ARGUMENTS` = projekt slug (jinak `pflanzer status`).
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 
 Předpoklad: Rozhodnutí = Go a proběhl `/pm ship`. Jinak řekni, který krok chybí.
 
@@ -18,8 +21,8 @@ Ukaž lidský výstup toolu a předej jeho **Doporučení**; `--json` jen pro č
 ## Krok 1 — Generování
 
 ```bash
-pflanzer handoff --slug $ARGUMENTS       # balíček per role do výstupní složky
-pflanzer handoff_pr --slug $ARGUMENTS    # PR-ready podklady + metriky pilotu
+pflanzer handoff --slug <slug>       # balíček per role do výstupní složky
+pflanzer handoff_pr --slug <slug>    # PR-ready podklady + metriky pilotu
 pflanzer data                            # kde výstupy leží (~/.pflanzer)
 ```
 

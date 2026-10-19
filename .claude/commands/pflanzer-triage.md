@@ -31,10 +31,10 @@ Pokud všechny `ok` nebo `deferred` → status projektu posune na `triage`.
 2. **Spusť 4 paralelní sub-agents** v JEDNÉ zprávě s 4 Agent tool calls:
 
 ```
-Agent(subagent_type="discovery-readiness", prompt="Run Discovery Readiness Gate for slug=$ARGUMENTS. Read data/charters/$ARGUMENTS.md. Return JSON per agent definition.")
-Agent(subagent_type="security-triage", prompt="Run Security & Data Triage for slug=$ARGUMENTS. Return JSON.")
-Agent(subagent_type="legal-triage", prompt="Run Legal & Privacy Triage for slug=$ARGUMENTS. Return JSON.")
-Agent(subagent_type="platform-triage", prompt="Run Platform Triage for slug=$ARGUMENTS. Return JSON.")
+Agent(subagent_type="discovery-readiness", prompt="Run Discovery Readiness Gate for slug=<slug>. Read $(pflanzer data)/charters/<slug>.md. Return JSON per agent definition.")
+Agent(subagent_type="security-triage", prompt="Run Security & Data Triage for slug=<slug>. Return JSON.")
+Agent(subagent_type="legal-triage", prompt="Run Legal & Privacy Triage for slug=<slug>. Return JSON.")
+Agent(subagent_type="platform-triage", prompt="Run Platform Triage for slug=<slug>. Return JSON.")
 ```
 
    Každý sub-agent vrátí JSON s polem `track`, `status`, `artefact_md`,

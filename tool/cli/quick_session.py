@@ -290,13 +290,18 @@ def _write_acceptance_feature(
         crits = [c.strip(" -*\t") for c in (criteria_md or "").splitlines() if c.strip()]
         for i, crit in enumerate(crits, 1):
             lines += [f"  Scénář: Kritérium {i}", f"    Pak {crit}", ""]
-        if metric:
+        if not crits:
+            # Kostra chování — builder ji doplní pro svou variantu (testovatelné kroky).
             lines += [
-                "  Scénář: Metrika úspěchu",
-                "    Pokud je varianta nasazená pro cílové uživatele",
-                f"    Pak se měří: {metric}",
+                "  Scénář: Uživatel vyřeší problém hlavním tokem",
+                "    Pokud jsem uživatel v situaci ze zadání",
+                "    Když použiji novou funkci",
+                "    Pak se problém ze zadání vyřeší bez obcházení a bez chyby",
                 "",
             ]
+        if metric:
+            # Metrika se měří po nasazení (/pm retro), ne testem — proto jen komentář.
+            lines += [f"  # Metrika úspěchu (měří se po nasazení, ne testem): {metric}", ""]
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return str(out)
@@ -406,7 +411,7 @@ def bootstrap(
     # 1. Charter
     name = short_name(hook)
     xyz = (
-        f"Problém k vyřešení: **{hook}**. Ověříme ho na třech funkčních "
+        f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na třech funkčních "
         f"variantách, mezi kterými se rozhodne nad běžícím kódem. {profile['label']}."
     )
     charter = CharterInput(

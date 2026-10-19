@@ -722,7 +722,9 @@ def build_pr(slug: str) -> dict[str, Any]:
     crit_lines = _criticals_md(ctx, w[0] if w else None)
     model = MODEL_FAMILY.get(builder)
 
-    pr_title = f"feat({slug}): {trim_words(name, 60)}"
+    # Název PR = co vítěz dělá (popis varianty), ne useknutá věta zadání.
+    desc_title = (_winner_description(w) or "").strip().rstrip(".")
+    pr_title = f"feat({slug}): {trim_words(desc_title or name, 60)}"
     summary = _gate_summary(gates) if gates else None
     ai_line = ai_stand_in_line(slug)
     sign_line = signatures_line(slug)
@@ -841,8 +843,8 @@ def _winner_description(w: Any) -> str | None:
 def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     """Krátký copy-paste blok: commit s trailery, push, labely, `gh pr create` (tělo z --pr-body)."""
     wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
-    branch_owner = parts["branch_owner"]
-    reviewer = branch_owner if (branch_owner and " " not in branch_owner) else None
+    # Review dělá někdo, kdo u Buildu nebyl — ne branch owner/builder.
+    reviewer = None
     label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
     label_create = "\n".join(
         f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
@@ -853,6 +855,7 @@ def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     return f"""## Otevři PR
 
 Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).
+Reviewera přidejte ručně (`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl.
 
 ```bash
 cd {wb['work_dir']}

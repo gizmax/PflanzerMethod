@@ -10,6 +10,10 @@ description: Kickoff (/pm start, 15 min) — zadání na 1 stránku + jména zá
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 Argumenty: `$ARGUMENTS` = volitelně problém v 1 větě. Kickoff vede Decider
 + jádro (ADR-0021). Cíl: **zadání na 1 stránku + jména pro všech 6 kroků
 cesty + zabookovaná okna**. Žádný dlouhý wizard.
@@ -24,7 +28,7 @@ Ukaž lidský výstup a jeho Doporučení. Pokud „připraveno ke Kickoffu: ne"
 vypiš, co chybí (origin, vyplněný `INTEGRATION_GUIDE` — vývojář v Claude Code
 napíše „vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“ a zkontroluje,
 `CONSTITUTION`, test/lint/build, CI, preview deploy, pushnutý init:
-`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push`), a zeptej se přes AskUserQuestion:
+`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`), a zeptej se přes AskUserQuestion:
 *Opravit teď / Pokračovat vědomě (uveď riziko) / Zastavit.* Bez preview
 deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
 
@@ -144,7 +148,7 @@ Ukaž lidský výstup toolu (s brand line) a předej jeho **Doporučení**; dopl
 
 Připomeň commit i s tím, co Kickoff vytvořil: `.pflanzer/decisions/`
 a `tests/acceptance/` (vedle `docs`, `.pflanzer`, `tests`):
-`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): kickoff" && git push`.
+`git add -A docs .pflanzer tests .gitignore && git commit -m "chore(pflanzer): kickoff" && git push -u origin HEAD`.
 Specy v `.pflanzer/specs/` se necommitují.
 
 ### Pozvánky pro okna (napiš rovnou, nečekej na další pokyn)

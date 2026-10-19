@@ -234,7 +234,7 @@ def project_detail(slug: str) -> dict[str, Any]:
 
     # --- blokace: checkpointy, critical, AI drafty, chybějící podpisy ---------------
     cps = [] if killed else list_checkpoints(slug)
-    late = p["status"] in ("session_1", "session_2", "handoff")  # po Buildu, před/při Ship
+    late = p["status"] == "handoff"  # po Go, před/při Ship — dřív je to plán, ne blokace
     blockers: list[dict[str, str]] = []
     info: list[str] = []
     for c in cps:

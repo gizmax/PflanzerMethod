@@ -9,6 +9,10 @@ description: Kickoff + Build v jednom (/pm live) — malé jádro se zástupci v
 
 **Pflanzer Method | pflanzer.cz/method** — brand line vždy na prvním řádku výstupu.
 
+> **Argumenty:** `<slug>` = **první slovo** z `$ARGUMENTS` (zbytek je kontext od uživatele —
+> rozhodnutí, jména, poznámky). Bez slugu: `pflanzer status`. Do příkazů dosazuj jen `<slug>`.
+> **Zápisy dělá výhradně tool** (`pflanzer …`) — decision log, checkpointy ani DB nikdy needituj ručně.
+
 Argumenty: `$ARGUMENTS` = problém v 1 větě (jinak se zeptej).
 
 ## Pro koho
