@@ -34,6 +34,7 @@ GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.t
 GATES_FILENAME = "pflanzer.gates.yml"
 
 sys.path.insert(0, str(PLUGIN_ROOT))
+from tool.cli.apprun import workspace_packages  # noqa: E402
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
@@ -111,26 +112,105 @@ GENERIC_GATE_EXAMPLES: dict[str, dict[str, Any]] = {
 JVM_PRINT_SCAN = r"! grep -rnE 'System\.(out|err)\.print|printStackTrace\(' src/main"
 
 
+def _read_json(p: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _pkg_deps(pkg: dict[str, Any]) -> set[str]:
+    return set((pkg.get("dependencies") or {})) | set((pkg.get("devDependencies") or {}))
+
+
+def _node_presets(target: Path) -> dict[str, dict[str, Any]]:
+    """Node / monorepo (npm workspaces) presets. Nástroj se do šablony dostane jen tehdy, když
+    je deklarovaný v package.json (`npx --no-install`, nikdy stahování ze sítě); jinak je řádek
+    zakomentovaný s vysvětlením. Cíl: šablona nikdy nedá horší skóre než autodetekce."""
+    pkg = _read_json(target / "package.json")
+    scripts = pkg.get("scripts") or {}
+    ws_dirs = workspace_packages(target)
+    pkgs = [(target, pkg)] + [(w, _read_json(w / "package.json")) for w in ws_dirs]
+    all_deps = set().union(*(_pkg_deps(p) for _d, p in pkgs))
+
+    def rel(d: Path) -> str:
+        return str(d.relative_to(target)) or "."
+
+    out: dict[str, dict[str, Any]] = {}
+
+    def script_gate(gate: str, script: str, cmd: str) -> None:
+        if script in scripts:
+            out[gate] = {"cmd": cmd}
+        else:
+            out[f"#{gate}"] = {"_note": f"package.json nemá script `{script}` — doplňte ho "
+                                        "a odkomentujte.", "cmd": cmd}
+
+    script_gate("build", "build", "npm run build")
+    # types: tsc per balíček s tsconfig.json, jen kde je typescript deklarovaný
+    ts_dirs = [d for d, p in pkgs if (d / "tsconfig.json").exists()]
+    ts_ok = [d for d, p in pkgs if (d / "tsconfig.json").exists()
+             and ("typescript" in _pkg_deps(p) or "typescript" in _pkg_deps(pkg))]
+    if ts_dirs and len(ts_ok) == len(ts_dirs):
+        cmds = ["npx --no-install tsc --noEmit" if d == target
+                else f"(cd {rel(d)} && npx --no-install tsc --noEmit)" for d in ts_dirs]
+        out["types"] = {"cmd": " && ".join(cmds)}
+    elif ts_dirs:
+        out["#types"] = {"_note": "tsconfig.json je, ale `typescript` není v devDependencies — "
+                                  "přidejte ho (bez toho by `npx tsc` stahoval ze sítě).",
+                         "cmd": "npx --no-install tsc --noEmit"}
+    else:
+        out["#types"] = {"_note": "žádný tsconfig.json — projekt není TypeScript.",
+                         "cmd": "npx --no-install tsc --noEmit"}
+    script_gate("lint", "lint", "npm run lint")
+    script_gate("tests", "test", "npm test")
+    if "vitest" in all_deps and ({"@vitest/coverage-v8", "@vitest/coverage-istanbul"} & all_deps):
+        out["coverage"] = {"cmd": "npx --no-install vitest run --coverage",
+                           "parse": r"regex:All files\s*\|\s*[\d.]+\s*\|\s*(?P<metric>[\d.]+)",
+                           **COVERAGE_THRESHOLDS}
+    else:
+        out["#coverage"] = {
+            "_note": "vitest + @vitest/coverage-v8 nejsou v závislostech — bez nich by "
+                     "`npx vitest` stahoval ze sítě. U node:test: "
+                     "`node --test --experimental-test-coverage`.",
+            "cmd": "npx --no-install vitest run --coverage",
+            "parse": r"regex:All files\s*\|\s*[\d.]+\s*\|\s*(?P<metric>[\d.]+)",
+            **COVERAGE_THRESHOLDS}
+    out["smoke"] = {"builtin": True}
+    # acceptance: node:test (`*.test.js`) před Playwrightem; kořen i workspace balíčky
+    node_cmds: list[str] = []
+    pw_dir = False
+    for d, _p in pkgs:
+        acc = d / "tests" / "acceptance"
+        if not acc.is_dir():
+            continue
+        if next(acc.glob("*.test.*"), None) is not None and next(acc.glob("*.spec.*"), None) is None:
+            glob = "tests/acceptance/*.test.*"
+            node_cmds.append(f"node --test {glob}" if d == target
+                             else f"(cd {rel(d)} && node --test {glob})")
+        elif next(acc.glob("*.spec.*"), None) is not None:
+            pw_dir = True
+    if node_cmds:
+        out["acceptance"] = {"cmd": " && ".join(node_cmds)}
+    elif pw_dir and "@playwright/test" in all_deps:
+        out["acceptance"] = {"cmd": "npx --no-install playwright test tests/acceptance"}
+    else:
+        out["#acceptance"] = {
+            "_note": "tests/acceptance/ s testy nenalezeno (nebo chybí @playwright/test) — "
+                     "node:test: `node --test tests/acceptance/*.test.js`.",
+            "cmd": "npx --no-install playwright test tests/acceptance"}
+    out["security"] = {"builtin": True}
+    out["#security"] = {"cmd": "npm audit --audit-level=high"}
+    out["a11y"] = {"builtin": True}
+    out["observability"] = {"builtin": True}
+    return out
+
+
 def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
     """Per-stack gate specs. `gate` = active entry, `#gate` = commented example."""
     security = {"security": {"builtin": True}}
     if stack == "node":
-        # Mirrors the legacy Node autodetection in quality_gates.py.
-        return {
-            "build": {"cmd": "npm run build"},
-            "types": {"cmd": "npx tsc --noEmit"},
-            "lint": {"cmd": "npm run lint"},
-            "tests": {"cmd": "npm test"},
-            "coverage": {"cmd": "npx vitest run --coverage",
-                         "parse": r"regex:All files\s*\|\s*[\d.]+\s*\|\s*(?P<metric>[\d.]+)",
-                         **COVERAGE_THRESHOLDS},
-            "smoke": {"builtin": True},
-            "acceptance": {"cmd": "npx playwright test tests/acceptance"},
-            **security,
-            "#security": {"cmd": "npm audit --audit-level=high"},
-            "a11y": {"builtin": True},
-            "observability": {"builtin": True},
-        }
+        return _node_presets(target)
     if stack == "python":
         return {
             "#build": {"cmd": "python -m build"},
@@ -195,8 +275,11 @@ def _yaml_scalar(value: Any) -> str:
 
 
 def _gate_block(gate: str, spec: dict[str, Any], commented: bool) -> list[str]:
-    lines = [f"{gate}:"] + [f"  {k}: {_yaml_scalar(v)}" for k, v in spec.items()]
-    return [f"# {line}" for line in lines] if commented else lines
+    note = spec.get("_note")
+    lines = [f"{gate}:"] + [f"  {k}: {_yaml_scalar(v)}" for k, v in spec.items()
+                            if not k.startswith("_")]
+    lines = [f"# {line}" for line in lines] if commented else lines
+    return ([f"# {note}"] if note else []) + lines
 
 
 def render_gates_template(target: Path) -> tuple[str, str | None]:
@@ -319,6 +402,9 @@ shadow_pm = "<jméno PdM>"
 # [preview]
 # command = "npm run dev -- --port {{port}}"
 # smoke_paths = ["/", "/rezervace"]
+# Monorepo (npm workspaces: web + api): `{{api_port}}` = port API části (port + 1001), každá
+# varianta má vlastní, takže varianty nesdílí API port. PORT i API_PORT jdou i do env.
+# command = "npx concurrently \\"PORT={{api_port}} npm run dev -w apps/api\\" \\"npm run dev -w apps/web -- --port {{port}} --strictPort\\""
 
 # Vygenerováno: {date.today().isoformat()}
 """, encoding="utf-8")

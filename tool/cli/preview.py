@@ -9,6 +9,7 @@ pushnutí kódu mimo firmu.
     pflanzer preview up --slug S [--password P] [--tunnel auto|cloudflared|none]
                         [--host 127.0.0.1|0.0.0.0] [--base-port 8601] [--deadline TEXT]
     pflanzer preview status --slug S
+    pflanzer preview restart --slug S [--variants A,C]   (po Iterate; zachová heslo a tunel)
     pflanzer preview down --slug S
 
 Příkaz aplikace: `.pflanzer/project.toml` `[preview] command = "… {port}"`, jinak
@@ -474,6 +475,18 @@ def status(slug: str, *, probe: bool = True) -> dict[str, Any]:
             "tunnel": state.get("tunnel"), "variants": out}
 
 
+def _spawn_proxy(log: Path, host: str, proxy_port: int, app_port: int, name: str,
+                 password: str) -> subprocess.Popen:
+    env = {**os.environ, "PFLANZER_PREVIEW_PASSWORD": password, "PYTHONPATH": str(REPO_ROOT)}
+    with open(log, "ab") as plog:
+        return subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "_proxy",
+             "--listen-host", host, "--listen-port", str(proxy_port),
+             "--app-port", str(app_port), "--variant", name],
+            env=env, stdin=subprocess.DEVNULL, stdout=plog, stderr=subprocess.STDOUT,
+            start_new_session=True)
+
+
 def _fail_text(name: str, v: dict[str, Any], why: str) -> str:
     log = apprun.tail(Path(v["log"]))
     return (f"Varianta {name} nenaběhla: {why}.\n  Příkaz: {v.get('command')}\n"
@@ -496,8 +509,10 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
 
     old = load_state(slug)
     if old and any(any(_variant_running(v).values()) for v in old.get("variants", {}).values()):
-        raise ValueError(f"Preview projektu ‚{slug}‘ už běží. Zastavte ho "
-                         f"`pflanzer preview down --slug {slug}`, nebo ukažte stav "
+        raise ValueError(f"Preview projektu ‚{slug}‘ už běží. Po Iterate (nový kód) ho "
+                         f"restartujte `pflanzer preview restart --slug {slug}` — zachová "
+                         "heslo, porty i odkazy (tunel). Úplné zastavení: "
+                         f"`pflanzer preview down --slug {slug}`; stav: "
                          f"`pflanzer preview status --slug {slug}`.")
     dirs = _primary_dirs(slug)
     have_cf = shutil.which("cloudflared") is not None
@@ -523,6 +538,10 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                     port == app_port + 1 and not apprun.port_free(port, host)):
                 raise ValueError(f"Port {port} je obsazený. Zvolte jiný základ: "
                                  f"`--base-port {base_port + 100}`.")
+        if "{api_port}" in (apprun.read_preview_config(path).get("command") or "") and \
+                not apprun.port_free(apprun.api_port_for(app_port), "127.0.0.1"):
+            raise ValueError(f"API port {apprun.api_port_for(app_port)} (`{{api_port}}`) je "
+                             f"obsazený. Zvolte jiný základ: `--base-port {base_port + 100}`.")
         extras: list[tuple[str, Path, apprun.RunSpec, int]] = []
         for idx, (role, per) in enumerate(secondary.items(), start=1):
             if name not in per:
@@ -591,15 +610,8 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             app = apprun.start_app(spec, log)
             procs[name] = app
             v["app_pid"], v["app_started"] = app.pid, apprun.proc_started(app.pid)
-            env = {**os.environ, "PFLANZER_PREVIEW_PASSWORD": password,
-                   "PYTHONPATH": str(REPO_ROOT)}
-            with open(d / f"{slug}-{name}-proxy.log", "ab") as plog:
-                proxy = subprocess.Popen(
-                    [sys.executable, str(Path(__file__).resolve()), "_proxy",
-                     "--listen-host", host, "--listen-port", str(proxy_port),
-                     "--app-port", str(app_port), "--variant", name],
-                    env=env, stdin=subprocess.DEVNULL, stdout=plog, stderr=subprocess.STDOUT,
-                    start_new_session=True)
+            proxy = _spawn_proxy(d / f"{slug}-{name}-proxy.log", host, proxy_port, app_port,
+                                 name, password)
             v["proxy_pid"], v["proxy_started"] = proxy.pid, apprun.proc_started(proxy.pid)
             save_state(slug, state)
         for name, _path, _spec, _port, _extras in plan:
@@ -683,6 +695,117 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             "prototype_url_stored": stored}
 
 
+def _wait_port_free(port: int, timeout: float = 8.0) -> bool:
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if apprun.port_free(port, "127.0.0.1"):
+            return True
+        time.sleep(0.2)
+    return apprun.port_free(port, "127.0.0.1")
+
+
+def parse_variants(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    return [x.strip().upper() for x in re.split(r"[,\s]+", raw) if x.strip()] or None
+
+
+def restart(slug: str, *, variants: list[str] | None = None,
+            timeout: float | None = None) -> dict[str, Any]:
+    """Restartuje procesy aplikace variant (nový kód po Iterate); heslo, porty, proxy a tunel
+    zůstávají, takže odkazy zástupců dál fungují."""
+    state = load_state(slug)
+    if not state or not state.get("variants"):
+        raise ValueError(f"Preview projektu ‚{slug}‘ neběží. Spusťte ho "
+                         f"`pflanzer preview up --slug {slug}`.")
+    if timeout is None:
+        timeout = float(os.environ.get("PFLANZER_PREVIEW_TIMEOUT", "90"))
+    names = variants or list(state["variants"])
+    unknown = [n for n in names if n not in state["variants"]]
+    if unknown:
+        raise ValueError(f"Varianta {', '.join(unknown)} v preview není "
+                         f"(jsou: {', '.join(state['variants'])}).")
+    d = preview_dir()
+    password = state["password"]
+    host = state.get("host", "127.0.0.1")
+    restarted: list[str] = []
+    warnings: list[str] = []
+    procs: dict[str, subprocess.Popen] = {}
+    for name in names:
+        v = state["variants"][name]
+        pids = _pids(v)
+        for key, (pid, started) in pids.items():  # jen aplikace; proxy a tunel nechat být
+            if key not in ("proxy", "tunnel") and _alive(pid, started):
+                apprun.kill_group(pid)
+        wt = Path(v["worktree"])
+        ports = [v["app_port"]] + [e["app_port"] for e in (v.get("extra") or {}).values()]
+        busy = [p for p in ports if not _wait_port_free(p)]
+        if busy:
+            raise ValueError(f"Port {busy[0]} varianty {name} po zastavení pořád drží jiný "
+                             "proces; ukončete ho, nebo použijte `preview down` a `up`.")
+        urls = {r: e["url"] for r, e in (v.get("extra") or {}).items()}
+
+        def _links(roles: Any, urls: dict[str, str] = urls) -> dict[str, str]:
+            out: dict[str, str] = {}
+            for r in roles:
+                out[f"{role_env_name(r)}_URL"] = urls[r]
+                out[f"PFLANZER_{role_env_name(r)}_URL"] = urls[r]
+            return out
+
+        for role, e in (v.get("extra") or {}).items():
+            sspec = apprun.detect_run(Path(e["worktree"]), e["app_port"], role=role,
+                                      config_wt=wt)
+            if sspec is None:
+                warnings.append(f"Repo {role} (varianta {name}) se nespustilo — nevím jak.")
+                continue
+            sspec.env = {**_links(r for r in urls if r != role), **sspec.env}
+            log = Path(e["log"])
+            log.write_bytes(b"")
+            ep = apprun.start_app(sspec, log)
+            procs[f"{name}:{role}"] = ep
+            e.update(command=sspec.command, app_pid=ep.pid, app_started=apprun.proc_started(ep.pid))
+        spec = apprun.detect_run(wt, v["app_port"])
+        if spec is None:
+            raise ValueError(f"Pro variantu {name} nevím, jak spustit aplikaci "
+                             "(viz `[preview] command` v .pflanzer/project.toml).")
+        spec.env = {**_links(urls), **spec.env}
+        log = Path(v["log"])
+        log.write_bytes(b"")
+        app = apprun.start_app(spec, log)
+        procs[name] = app
+        v.update(command=spec.command, app_pid=app.pid, app_started=apprun.proc_started(app.pid))
+        if not _alive(v.get("proxy_pid") or 0, v.get("proxy_started", "")):
+            if not apprun.port_free(v["proxy_port"], host):
+                warnings.append(f"Proxy varianty {name} nežije a její port drží jiný proces.")
+            else:
+                px = _spawn_proxy(d / f"{slug}-{name}-proxy.log", host, v["proxy_port"],
+                                  v["app_port"], name, password)
+                v["proxy_pid"], v["proxy_started"] = px.pid, apprun.proc_started(px.pid)
+        if v.get("tunnel_pid") and not _alive(v["tunnel_pid"], v.get("tunnel_started", "")):
+            warnings.append(f"Tunel varianty {name} nežije — odkaz {v.get('tunnel_url')} "
+                            "nefunguje; `preview down` a `up` otevře nový.")
+        save_state(slug, state)
+    failures: list[str] = []
+    for name in names:
+        v = state["variants"][name]
+        ok, st = apprun.wait_http(f"http://127.0.0.1:{v['proxy_port']}/", timeout=timeout,
+                                  proc=procs.get(name), auth=(USER, password))
+        if ok:
+            restarted.append(name)
+        else:
+            alive = _variant_running(v)
+            why = ("aplikace skončila" if not alive.get("app", True)
+                   else f"do {int(timeout)} s neodpověděla" + (f" (status {st})" if st else ""))
+            failures.append(_fail_text(name, v, why))
+    if failures:
+        raise RuntimeError("\n\n".join(failures))
+    return {"slug": slug, "restarted": restarted, "password": password, "user": USER,
+            "warnings": warnings,
+            "variants": {n: {"url": v.get("url"), "app_port": v["app_port"],
+                             "proxy_port": v["proxy_port"]}
+                         for n, v in state["variants"].items()}}
+
+
 _ROUTE_RES = (
     re.compile(r"""\b(?:app|router|server|api)\.(?:get|post|put|all|use)\(\s*['"`](/[^'"`:*?]*)['"`]"""),
     re.compile(r"""@\w+\.(?:get|post|route|api_route)\(\s*['"](/[^'"{<:]*)['"]"""),
@@ -698,7 +821,13 @@ _SPA_DEPS = ("react-router", "react-router-dom", "vue-router", "@tanstack/react-
 
 
 def is_spa(wt: Path) -> bool:
-    """SPA = index.html s mount bodem (`<div id="root">`) + vite / router v package.json."""
+    """SPA = index.html s mount bodem (`<div id="root">`) + vite / router v package.json.
+
+    Monorepo (npm workspaces): hledá se i v balíčcích (typicky `apps/web`)."""
+    return any(_is_spa_dir(d) for d in [wt, *apprun.workspace_packages(wt)])
+
+
+def _is_spa_dir(wt: Path) -> bool:
     try:
         for cand in (wt / "index.html", wt / "public" / "index.html"):
             if cand.is_file() and _SPA_ROOT_RE.search(cand.read_text(encoding="utf-8", errors="replace")):
@@ -714,6 +843,9 @@ def is_spa(wt: Path) -> bool:
         return False
 
 
+_COMPONENT_DIRS = ("components", "component", "ui", "hooks", "lib", "utils", "shared",
+                   "layouts")  # .tsx/.vue tady je komponenta, ne stránka
+_COMPONENT_EXTS = (".tsx", ".jsx", ".vue", ".svelte")
 _SKIP_PARTS = ("test", "spec", "docs/", "node_modules", ".pflanzer", "fixtures", "__tests__")
 
 
@@ -741,6 +873,8 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
                 if not r.startswith("/"):
                     r = "/" + r
                 r = r.rstrip("/") or "/"
+                if r == "/api" or r.startswith("/api/"):
+                    continue  # API trasa není stránka, na kterou by vedl odkaz
                 if r != "/" and r not in routes:
                     routes.append(r)
     if spa:  # nové .tsx/.jsx soubory jsou komponenty, ne cesty
@@ -753,6 +887,9 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
                 (".html", ".ejs", ".pug", ".hbs", ".njk", ".jinja", ".jinja2", ".tsx", ".jsx",
                  ".vue", ".svelte")):
             continue
+        if low.endswith(_COMPONENT_EXTS) and any(
+                part in _COMPONENT_DIRS for part in Path(low).parts[:-1]):
+            continue  # React/Vue komponenta (Wizard.tsx) mimo pages/routes není stránka
         stem = Path(n).stem.lower()
         if stem not in ("index", "layout", "base", "app", "main", "_app", "page"):
             r = "/" + stem
@@ -809,15 +946,30 @@ def hub_running() -> bool:
     return apprun.http_get(HUB_URL, timeout=1.0) in (200, 401)
 
 
+def _variants_phrase(n: int) -> tuple[str, str]:
+    """(„jednu variantu“ / „tři varianty“ …) pro 4. pád, („jedna varianta“ …) pro 1. pád."""
+    words = {1: "jednu variantu", 2: "dvě varianty", 3: "tři varianty", 4: "čtyři varianty"}
+    return words.get(n, f"{n} variant"), \
+        {1: "jedna varianta"}.get(n, words.get(n, f"{n} variant"))
+
+
 def share_message(res: dict[str, Any], hub: str | None) -> str:
     rows = "\n".join(f"  Varianta {n}: {v['url']}" for n, v in res["variants"].items())
     until = res.get("deadline") or "[doplňte termín]"
-    msg = ("Dobrý den, připravili jsme tři varianty k rozhodnutí. Není to hotový produkt, "
+    count = len(res["variants"])
+    acc, _nom = _variants_phrase(count)
+    if count == 1:
+        todo = ("projděte variantu (zabere to asi 5 minut) a napište, co fungovalo a co ne.")
+    else:
+        every = "obě varianty" if count == 2 else f"všechny {acc}" if count < 5 else \
+            f"všech {count} variant"
+        todo = (f"projděte {every} (zabere to asi {5 * count} minut) a u každé napište, "
+                "co fungovalo a co ne.")
+    msg = (f"Dobrý den, připravili jsme {acc} k rozhodnutí. Není to hotový produkt, "
            "zajímá nás váš dojem.\n"
            f"{rows}\n"
            f"Přihlášení: uživatel {res['user']}, heslo {res['password']}\n"
-           "Co udělat: projděte všechny tři varianty (zabere to asi 15 minut) a u každé "
-           "napište, co fungovalo a co ne.\n"
+           f"Co udělat: {todo}\n"
            f"Do kdy: {until}.")
     if hub:
         msg += f"\nZpětnou vazbu zapište sem: {hub}"
@@ -878,6 +1030,11 @@ def main(argv: list[str] | None = None) -> None:
     ps = sub.add_parser("status", help="Co běží")
     ps.add_argument("--slug", required=True)
     ps.add_argument("--json", **js)
+    pr = sub.add_parser("restart", help="Restartuje aplikace variant (po Iterate); heslo, "
+                                        "porty a tunel zůstanou")
+    pr.add_argument("--slug", required=True)
+    pr.add_argument("--variants", default=None, help="např. A,C (jinak všechny)")
+    pr.add_argument("--json", **js)
     pd = sub.add_parser("down", help="Ukončí varianty, proxy i tunely")
     pd.add_argument("--slug", required=True)
     pd.add_argument("--json", **js)
@@ -899,8 +1056,16 @@ def _dispatch(args: argparse.Namespace) -> None:
         lines, nxt, msg = _up_view(res)
         res["message"] = msg
         tips = tips_for_project(slug, "async", {})
-        emit(res, title=f"Preview běží ({len(res['variants'])} varianty)", lines=lines,
+        emit(res, title=f"Preview běží ({_variants_phrase(len(res['variants']))[1]})", lines=lines,
              next_step=nxt, tips=tips, warnings=res["warnings"], as_json=args.json)
+    elif args.cmd == "restart":
+        res = restart(slug, variants=parse_variants(args.variants))
+        lines = [f"Varianta {n}: {v['url']}" for n, v in res["variants"].items()]
+        lines.append(f"Heslo zůstává: uživatel {res['user']}, heslo {res['password']}")
+        emit(res, title="Preview restartováno: " + ", ".join(res["restarted"]), lines=lines,
+             next_step="Odkazy zástupců fungují dál; stav: "
+                       f"`pflanzer preview status --slug {slug}`.",
+             warnings=res["warnings"], as_json=args.json)
     elif args.cmd == "status":
         res = status(slug)
         if not res["variants"]:

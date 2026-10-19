@@ -826,7 +826,7 @@ def build_pr(slug: str, repo: str | None = None,
     model = MODEL_FAMILY.get(builder)
 
     # Název PR = co vítěz dělá (popis varianty), ne useknutá věta zadání.
-    desc_title = (_winner_description(w) or "").strip().rstrip(".")
+    desc_title = _PO_ITERATE_PREFIX.sub("", (_winner_description(w) or "").strip()).strip().rstrip(".")
     # Název PR = první celá část popisu (před ; — :), ať se neuseká uprostřed věty.
     desc_title = re.split(r"\s*[;—]\s*|\s+-\s+", desc_title)[0].strip()
     pr_title = f"feat({slug}): {trim_words(desc_title or name, 60)}"
@@ -986,6 +986,25 @@ def _ship_parts(slug: str) -> dict[str, Any]:
     return parts
 
 
+# „C po Iterate: …“ je poznámka k variantě, ne název změny — do titulku PR nepatří.
+_PO_ITERATE_PREFIX = re.compile(r"^\S{1,12}\s+po\s+Iterate\s*[:—–-]\s*", re.I)
+
+
+def _built_phrase(names: list[str]) -> str:
+    """„3 funkčních variantách“ / „jedné společné variantě“ podle skutečného počtu variant."""
+    n = len(names)
+    if n <= 1:
+        return "jedné společně postavené variantě (mob)" if names == ["mob"] else "jedné variantě"
+    return {2: "dvou funkčních variantách", 3: "třech funkčních variantách"}.get(
+        n, f"{n} funkčních variantách")
+
+
+def _variants_line(names: list[str]) -> str:
+    if len(names) <= 1:
+        return "jedna společná varianta" + (f" ({names[0]})" if names else "")
+    return f"{len(names)} " + ("postaveny" if len(names) < 5 else "postaveno") + f" ({'/'.join(names)})"
+
+
 def _winner_description(w: Any) -> str | None:
     """První odstavec popisu vítěze (ne boilerplate), nebo None."""
     desc = real(w[4]) if w else None
@@ -1141,8 +1160,10 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     winner_md = "" if w else "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
     first = real(p[4]) or name
     if w:
-        first = re.sub(r"Ověříme ho na třech funkčních variantách[^.]*\.",
-                       f"Ověřili jsme na třech funkčních variantách; vyhrála {w[0]}.", first)
+        verb = (f"Ověřili jsme na {_built_phrase(pr['variants'])}"
+                + ("." if len(pr["variants"]) <= 1 else f"; vyhrála {w[0]}."))
+        first = re.sub(r"Ověříme ho na (?:třech funkčních variantách|jedné společně postavené "
+                       r"variantě)[^.]*\.", verb, first)
     changes = [first]
     if pr["metrics"][0]:
         changes.append(f"Metrika úspěchu: {pr['metrics'][0]}")
@@ -1261,7 +1282,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 ## Původ kódu a podíl AI
 
 {ai_md}- **Nástroj (builder)**: `{builder}`{f" · **Model**: {pr['model']}" if pr['model'] else ''}
-- **Varianty**: {len(pr['variants'])} postaveny ({'/'.join(pr['variants'])}), do PR jde vítěz {w[0]}
+- **Varianty**: {_variants_line(pr['variants'])}, do PR jde {'tato varianta' if len(pr['variants']) <= 1 else 'vítěz ' + w[0]}
 {f"- **U klávesnice**: {', '.join(pr['keyboard'])}" + chr(10) if pr['keyboard'] else ''}
 - **Kontrola `{wb['feat_branch']}`** (read-only, historie se nepřepisuje):
 {prov_warn}

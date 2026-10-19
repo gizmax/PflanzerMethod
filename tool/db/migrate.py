@@ -35,6 +35,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("shadow_pm", "TEXT"),
         # Mob mode autoresearch (Sprint 4 — ADR-0016)
         ("session_mode", "TEXT DEFAULT 'parallel'"),
+        # Okna z Kickoffu (kdy je Build, checkpointy, Rozhodnutí): JSON list [{okno, kdy}]
+        ("windows_json", "TEXT"),
         # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
         ("path_owners_json", "TEXT"),
         ("core_json", "TEXT"),

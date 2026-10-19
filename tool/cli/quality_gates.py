@@ -129,6 +129,7 @@ class Stack:
     deps: dict[str, str] | None = None
     has_tsconfig: bool = False
     needs_install: bool = False
+    workspaces: list[Path] = field(default_factory=list)  # npm/yarn workspace balíčky
     other: str | None = None  # maven | gradle | dotnet | go (jen když není Node ani Python)
 
     @property
@@ -261,7 +262,10 @@ def detect_stack_info(path: Path) -> Stack:
         else:
             st.package_manager = "npm"
         st.needs_install = bool(st.deps)
-    st.has_tsconfig = (path / "tsconfig.json").exists()
+    if st.node:
+        st.workspaces = apprun.workspace_packages(path)
+    st.has_tsconfig = (path / "tsconfig.json").exists() or any(
+        (w / "tsconfig.json").exists() for w in st.workspaces)
     st.python = any((path / f).exists() for f in ("pyproject.toml", "setup.py", "requirements.txt"))
     if not st.node and not st.python:
         found = detect_stack(path)
@@ -483,16 +487,49 @@ def gate_build(ctx: Ctx) -> GateResult:
         rc, out, err = _run(["npm", "run", "build"], ctx.path, timeout=180)
         if rc == 0:
             size_kb = 0
-            for d in ("dist", "build", "out"):
-                dist = ctx.path / d
-                if dist.exists():
-                    size_kb = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file()) // 1024
-                    break
+            for base in [ctx.path, *st.workspaces]:  # monorepo: výstup leží v balíčcích
+                for d in ("dist", "build", "out"):
+                    dist = base / d
+                    if dist.is_dir():
+                        size_kb += sum(f.stat().st_size for f in dist.rglob("*")
+                                       if f.is_file()) // 1024
+                        break
             return GateResult("build", "pass", f"Build OK, výstup {size_kb} KB", metric=size_kb)
         return GateResult("build", "fail", _tail(out + err, 500))
     if st.python:
         return _python_build(ctx)
     return _skip("build", "neznámý stack (bez package.json / pyproject.toml)")
+
+
+def _node_types(ctx: Ctx) -> GateResult:
+    """`tsc --noEmit` v kořeni i v každém workspace balíčku s tsconfig.json (`-p <balíček>`)."""
+    st = ctx.stack
+    dirs = [d for d in [ctx.path, *st.workspaces] if (d / "tsconfig.json").exists()]
+    local = [ctx.path / "node_modules" / ".bin" / "tsc",
+             *(d / "node_modules" / ".bin" / "tsc" for d in st.workspaces)]
+    tsc = next((t for t in local if t.exists()), None)
+    if tsc is None and not _has("tsc"):
+        where = ", ".join(str(d.relative_to(ctx.path)) or "." for d in dirs)
+        return _unverified("types", "chybí typescript",
+                           f"tsconfig.json je ({where}), ale typescript není nainstalovaný — "
+                           "spusťte `npm install` (nic se nestahuje automaticky)")
+    errors = 0
+    fails: list[str] = []
+    for d in dirs:
+        rel = str(d.relative_to(ctx.path)) or "."
+        cand = [d / "node_modules" / ".bin" / "tsc", ctx.path / "node_modules" / ".bin" / "tsc"]
+        exe = next((str(c) for c in cand if c.exists()), str(tsc) if tsc else "tsc")
+        cmd = [exe, "--noEmit"] + ([] if d == ctx.path else ["-p", rel])
+        rc, out, err = _run(cmd, ctx.path, timeout=120)
+        if rc != 0:
+            n = (out + err).count("error TS")
+            errors += n
+            fails.append(f"{rel}: {n} TS chyb\n{_tail(out + err, 500)}")
+    scope = f" ({len(dirs)} balíčků)" if len(dirs) > 1 else ""
+    if not fails:
+        return GateResult("types", "pass", f"tsc --noEmit bez chyb{scope}", metric=0)
+    return GateResult("types", "fail", f"{errors} TS chyb\n" + "\n".join(fails)[:700],
+                      metric=errors)
 
 
 def gate_types(ctx: Ctx) -> GateResult:
@@ -504,16 +541,7 @@ def gate_types(ctx: Ctx) -> GateResult:
             return _skip("types", "bez tsconfig.json - projekt není TypeScript")
         if (s := _needs_deps(ctx, "types")):
             return s
-        tsc = ctx.path / "node_modules" / ".bin" / "tsc"
-        if not tsc.exists() and not _has("tsc"):
-            return _unverified("types", "chybí typescript",
-                               "tsconfig.json je, ale typescript není nainstalovaný")
-        cmd = [str(tsc)] if tsc.exists() else ["tsc"]
-        rc, out, err = _run(cmd + ["--noEmit"], ctx.path, timeout=120)
-        if rc == 0:
-            return GateResult("types", "pass", "tsc --noEmit bez chyb", metric=0)
-        errors = out.count("error TS")
-        return GateResult("types", "fail", f"{errors} TS chyb\n{_tail(out, 500)}", metric=errors)
+        return _node_types(ctx)
     if st.python:
         configured = (ctx.path / "mypy.ini").exists() or any(
             "mypy" in (ctx.path / f).read_text(encoding="utf-8", errors="ignore")
@@ -868,13 +896,22 @@ def _a11y_heuristic(ctx: Ctx, files: list[Path]) -> GateResult:
                       metric=0)
 
 
+def _is_html_ctype(ctype: str) -> bool:
+    """Prázdný content-type = neznámý (necháme projít); jinak jen text/html a xhtml."""
+    c = (ctype or "").lower()
+    return not c or "html" in c
+
+
 def _a11y_spa(run: AppRun) -> GateResult:
     """SPA: statická kontrola jen nad vyrenderovaným DOM; bez prohlížeče NEOVĚŘENO."""
     if run.render is None:
         return _unverified("a11y", "SPA — bez headless prohlížeče nelze ověřit",
                            f"{render.INSTALL_HINT} (a11y nad prázdnou kostrou by nic neověřila)"
                            + (f"; {run.render_why}" if run.render_why else ""))
-    pages = [(p.path, p.status, p.html, "text/html") for p in run.render.pages if not p.broken]
+    ctypes = {pg[0]: (pg[3] or "") for pg in run.pages}
+    # JSON / textové endpointy (např. /api/bikes) nejsou stránky; Chromium je obalí do <html>.
+    pages = [(p.path, p.status, p.html, "text/html") for p in run.render.pages
+             if not p.broken and _is_html_ctype(ctypes.get(p.path, ""))]
     res = _a11y_from_pages(replace(run, pages=pages)) if pages else None
     if res is None:
         return GateResult("a11y", "fail", "a11y: SPA se nevyrenderovala, nebylo co zkontrolovat",
@@ -889,7 +926,9 @@ def _a11y_from_pages(run: AppRun) -> GateResult | None:
     for path, st, body, ctype in run.pages:
         if st is None or st >= 400 or not body.strip():
             continue
-        if "html" not in ctype.lower() and not body.lstrip().startswith(("<!", "<h", "<H")):
+        if ctype and not _is_html_ctype(ctype):
+            continue
+        if not ctype and not body.lstrip().startswith(("<!", "<h", "<H")):
             continue
         checked += 1
         findings += [(path, sev, msg) for sev, msg in a11y_html.analyze(body)]
@@ -1171,7 +1210,7 @@ def _do_app_run(ctx: Ctx) -> AppRun:
     paths = [str(p) for p in paths if str(p).strip()] if isinstance(paths, list) else []
     paths = [p if p.startswith("/") else "/" + p for p in paths] or ["/"]
     port = apprun.free_port()
-    spec = apprun.detect_run(ctx.path, port)
+    spec = apprun.detect_run(ctx.path, port, api_port=apprun.free_port())
     if spec is None:
         return AppRun("nospec")
     if (missing := _needs_deps(ctx, "smoke")) is not None:
@@ -1802,17 +1841,23 @@ def a11y_reasons(details: str, limit: int = 3) -> list[str]:
     Důvody se slučují (stejný text na víc stránkách = „(2 stránky)“), závažné jdou první.
     """
     seen: dict[str, int] = {}
+    first_path: dict[str, str] = {}
     for line in (details or "").splitlines()[1:]:
         text = line.strip()
         if text.startswith("…"):
             continue
-        m = re.match(r"^(?:závažné|doporučení)\s*·\s*(?:\S+?):\s*(.+)$", text)
-        msg = (m.group(1) if m else text).strip()
+        m = re.match(r"^(?:závažné|doporučení)\s*·\s*(\S+?):\s*(.+)$", text)
+        msg = (m.group(2) if m else text).strip()
         if msg:
             seen[msg] = seen.get(msg, 0) + 1
+            first_path.setdefault(msg, m.group(1) if m else "/")
     out = []
     for msg, n in list(seen.items())[:limit]:
-        out.append(msg if n < 2 else f"{msg} ({n} {'stránky' if n < 5 else 'stránek'})")
+        if n >= 2:
+            out.append(f"{msg} ({n} {'stránky' if n < 5 else 'stránek'})")
+        else:  # jediná stránka: uveď cestu, ať jde nález dohledat (kromě kořene)
+            p = first_path[msg]
+            out.append(msg if p == "/" else f"{p}: {msg}")
     return out
 
 

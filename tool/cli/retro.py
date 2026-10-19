@@ -92,6 +92,9 @@ DEFAULT_DELIVERABLES = {
     "t90": "Hlavní metrika proti cíli z Kickoffu a co si odnést do dalšího projektu",
 }
 
+# `t42_project_metric` = měření metriky z Kickoffu v jejím vlastním horizontu (např. „do 6 týdnů“).
+PROJECT_METRIC_RE = re.compile(r"^t\d{1,3}_project_metric$")
+
 EMPTY_MARKERS = {"", "-", "—", "tbd", "n/a"}
 
 # Soubory, které do větve přidal sám nástroj (init, guard, worktree); do reuse se nepočítají.
@@ -500,7 +503,7 @@ def record(
     if milestone not in MILESTONES:
         raise ValueError(f"milestone musí být jedno z {MILESTONES}")
     known = {m for ms in RECOMMENDED_METRICS.values() for m in ms}
-    if metric not in known:
+    if metric not in known and not PROJECT_METRIC_RE.match(metric):
         print(f"[retro] warn: `{metric}` není doporučený název metriky "
               f"({', '.join(sorted(known))}); zapisuji i tak.", file=sys.stderr)
     actor = current_actor()
@@ -627,6 +630,12 @@ def _primary_metric(project: dict[str, Any], latest: dict[tuple[str, str], dict[
             reading = {"milestone": key[0], "metric": key[1], "value": r["value"],
                        "unit": r["unit"]}
             break
+    if reading is None:
+        for (ms, metric), r in latest.items():
+            if PROJECT_METRIC_RE.match(metric) and r["value"] is not None and ms in MILESTONE_LABELS:
+                reading = {"milestone": ms, "metric": metric, "value": r["value"],
+                           "unit": r["unit"]}
+                break
     return {"text": text, "reading": reading}
 
 
@@ -982,7 +991,8 @@ def _reminder_items(
     if hz and hz[0] not in MILESTONE_DAYS.values():
         days, mtext = hz
         nearest = next((m for m in MILESTONES if MILESTONE_DAYS[m] >= days), MILESTONES[-1])
-        metrics = list(RECOMMENDED_METRICS[nearest])
+        # Měří se metrika projektu z Kickoffu (ne obecný rework z T+60).
+        metrics = [f"t{days}_project_metric"]
         items.append({
             "milestone": f"t{days}",
             "label": f"T+{days}",

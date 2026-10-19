@@ -297,7 +297,7 @@ def render_summary_md(agg: dict[str, Any]) -> str:
 # Souhrn feedbacku — {agg['project_name']}
 
 > Slug: `{agg['slug']}` · Staženo: {today} · Stav projektu: `{agg['project_status']}`
-> Async (3–5 dní) → vstup pro Rozhodnutí (Go / Iterate / Kill).
+> Async → vstup pro Rozhodnutí (Go / Iterate / Kill).
 
 ## Přehled
 

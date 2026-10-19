@@ -58,6 +58,7 @@ from tool.cli.session import rp_range_errors  # noqa: E402
 from tool.cli.tier import TIER_LABELS, validate_tier  # noqa: E402
 from tool.cli.ux import (  # noqa: E402
     CzechArgumentParser,
+    async_days,
     did_you_mean,
     die,
     emit,
@@ -414,6 +415,8 @@ def bootstrap(
     leading_metric: str | None = None,
     guardrail_metric: str | None = None,
     title: str | None = None,
+    session_mode: str | None = None,
+    windows: Any = None,
 ) -> dict[str, Any]:
     """Založí projekt: Charter + role + jména kroků cesty + odložený triage.
 
@@ -439,6 +442,12 @@ def bootstrap(
         core: jména jádra (3–4 lidé; > 5 unikátních = warning).
         title: krátký název projektu (≤ 50 znaků) pro status, reporty a PR title;
             bez něj se odvodí z hooku (první věta/klauzule).
+        session_mode: 'parallel' (3 varianty A/B/C, výchozí) | 'mob' (jedna společná varianta,
+            ADR-0016). Uloží se k projektu; `worktree setup`, `prompts` a `/pm build` ho pak
+            použijí bez `--mode`. Doporučení (`recommend_mode`) se jen ukáže, nic nevynucuje.
+        windows: okna z Kickoffu (kdy je Build, checkpointy, Rozhodnutí): objekt
+            `{"Build": "st 21.10. 9:00-12:00"}`, nebo seznam textů / `{"okno", "kdy"}`.
+            Uloží se k projektu a ukáže ve `status`.
         leading_metric / guardrail_metric: nepovinné; když chybí, uloží se None
             (do PR/SHIP se nic nedosazuje).
         target_repos: volitelně více repozitářů (audit N8) — list
@@ -461,6 +470,8 @@ def bootstrap(
                          f"{', '.join(RISK_PROFILES)} (throwaway = demo, pilot = 5–20 uživatelů, "
                          "production = ostrý provoz).")
     profile = RISK_PROFILES[risk_profile]
+    session_mode = _normalize_session_mode(session_mode)
+    windows_list = _normalize_windows(windows)
     slug = slug or slugify(hook)
     path_owners, short_signers = _split_shorthand_owners(path_owners)
     owners_by_step = _normalize_path_owners(path_owners)  # fail fast, before any write
@@ -518,9 +529,12 @@ def bootstrap(
         raise ValueError(f"title je moc dlouhý ({len(title.strip())} znaků, max {TITLE_MAX}). "
                          "Krátký název projektu, např. „Online objednávka“.")
     name = title.strip() if title else short_title(hook)
+    built = ("jedné společně postavené variantě (mob), o které se rozhodne"
+             if session_mode == "mob" else
+             "třech funkčních variantách, mezi kterými se rozhodne")
     xyz = (
-        f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na třech funkčních "
-        f"variantách, mezi kterými se rozhodne nad běžícím kódem. {profile['label']}."
+        f"Problém k vyřešení: **{hook.rstrip('.')}**. Ověříme ho na {built} "
+        f"nad běžícím kódem. {profile['label']}."
     )
     charter = CharterInput(
         slug=slug,
@@ -599,12 +613,15 @@ def bootstrap(
             "target_branch_owner = COALESCE(?, target_branch_owner), "
             "shadow_pm = COALESCE(?, shadow_pm), "
             "path_owners_json = COALESCE(?, path_owners_json), "
-            "core_json = COALESCE(?, core_json) "
+            "core_json = COALESCE(?, core_json), "
+            "session_mode = ?, windows_json = COALESCE(?, windows_json) "
             "WHERE id = ?",
             (target_repo_url, primary_branch, profile.get("production_readiness_target", 0),
              acceptance_criteria_md, target_branch_owner, shadow_pm,
              json.dumps(owners_by_step, ensure_ascii=False) if owners_by_step else None,
              json.dumps(core, ensure_ascii=False) if core else None,
+             session_mode,
+             json.dumps(windows_list, ensure_ascii=False) if windows_list else None,
              project_id),
         )
         if repos_json:
@@ -626,12 +643,27 @@ def bootstrap(
                 "target_repos": [r.to_dict() for r in repos],
                 "production_readiness_target": profile.get("production_readiness_target", 0),
                 "path_owners": owners_by_step, "ai_signers": signers_by_step,
-                "core": core, "metric": metric,
+                "core": core, "metric": metric, "session_mode": session_mode,
+                "windows": windows_list,
                 "ai_stand_ins": ai_stand_ins, "warnings": warnings,
             },
         )
 
     feature_path = _write_acceptance_feature(slug, hook, metric, acceptance_criteria_md)
+
+    # Doporučení režimu se jen ukáže (rozhoduje člověk), nic nevynucuje.
+    room = {n.strip().lower() for n in (core or []) if n and n.strip()} or {
+        owner_display(v, k).lower() for k, v in (owners_by_step or {}).items()}
+    rec_mode, rec_why = recommend_mode(
+        production_target=int(profile.get("production_readiness_target", 0) or 0),
+        risk_profile=risk_profile, room_size=len(room),
+        has_veto_role=bool(owners_by_step) and not is_ai_owner(
+            (owners_by_step or {}).get("bezpecnost")))
+    if session_mode == rec_mode:
+        mode_note = f"Režim {session_mode}: {rec_why}"
+    else:
+        mode_note = (f"Zvolený režim: {session_mode}. Doporučení metody je {rec_mode} "
+                     f"({rec_why}) — je to jen doporučení, rozhodujete vy.")
 
     return {
         "project_id": project_id,
@@ -647,6 +679,9 @@ def bootstrap(
         "path_owners": owners_by_step,
         "ai_signers": signers_by_step,
         "core": core,
+        "session_mode": session_mode, "windows": windows_list,
+        "mode_recommendation": {"mode": rec_mode, "rationale": rec_why},
+        "mode_note": mode_note,
         "target_repos": [r.to_dict() for r in repos],
         "charter_path": str(DATA_ROOT / "charters" / f"{slug}.md"),
         "acceptance_feature_path": feature_path,
@@ -660,6 +695,50 @@ def bootstrap(
         ),
         "next_step": f"/pm build {slug}",
     }
+
+
+SESSION_MODES = ("parallel", "mob")
+
+
+def _normalize_session_mode(mode: str | None) -> str:
+    """'parallel' | 'mob' (velikost písmen nerozhoduje); None -> parallel. Jinak česká chyba."""
+    if mode is None or not str(mode).strip():
+        return "parallel"
+    m = str(mode).strip().lower()
+    if m not in SESSION_MODES:
+        near = did_you_mean(m, SESSION_MODES)
+        raise ValueError(f"Neznámý session_mode „{mode}“." + (f" Myslel jste „{near}“?" if near else "")
+                         + " Použij: parallel (3 varianty A/B/C, výchozí) nebo mob (jedna "
+                           "společná varianta u jednoho monitoru, ADR-0016).")
+    return m
+
+
+def _normalize_windows(raw: Any) -> list[dict[str, str]]:
+    """Okna z Kickoffu -> [{"okno": …, "kdy": …}]. Přijme objekt, seznam textů nebo objektů."""
+    if raw in (None, "", [], {}):
+        return []
+    bad = ValueError("„windows“ ve specu: zadej objekt {\"Build\": \"st 21.10. 9:00-12:00\", "
+                     "\"Rozhodnutí\": \"pá 30.10. 10:00\"}, nebo seznam textů "
+                     "[\"Build st 21.10. 9:00-12:00\"].")
+    out: list[dict[str, str]] = []
+    if isinstance(raw, dict):
+        items: list[Any] = [{"okno": k, "kdy": v} for k, v in raw.items()]
+    elif isinstance(raw, list):
+        items = raw
+    else:
+        raise bad
+    for it in items:
+        if isinstance(it, str) and it.strip():
+            out.append({"okno": it.strip(), "kdy": ""})
+        elif isinstance(it, dict):
+            name = str(it.get("okno") or it.get("name") or it.get("window") or "").strip()
+            when = str(it.get("kdy") or it.get("when") or it.get("termin") or "").strip()
+            if not name:
+                raise bad
+            out.append({"okno": name, "kdy": when})
+        else:
+            raise bad
+    return out
 
 
 def _has_column(conn: Any, table: str, column: str) -> bool:
@@ -848,9 +927,16 @@ def _hook_from_project(slug: str) -> str:
     return hook
 
 
-def builder_prompts(slug: str, hook: str, n_variants: int = 3,
+def project_session_mode(slug: str) -> str:
+    """Uložený režim projektu (`projects.session_mode`), jinak parallel."""
+    with transaction() as conn:
+        row = conn.execute("SELECT session_mode FROM projects WHERE slug = ?", (slug,)).fetchone()
+    return (row[0] if row and row[0] in SESSION_MODES else None) or "parallel"
+
+
+def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
                     prefer_hosted: bool = False,
-                    mode: str = "parallel") -> dict[str, Any]:
+                    mode: str | None = None) -> dict[str, Any]:
     """Generate copy-paste prompts pro buildery (Build, v0.5).
 
     Modes:
@@ -860,11 +946,32 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
       v 1 worktree, max 5 lidí u monitoru). Per ADR-0016.
 
     prefer_hosted (paralelní only): mix s Bolt/v0/Lovable.
+
+    `mode=None` -> režim uložený v projektu (Kickoff `session_mode`). Po Iterate se staví
+    jen varianty druhého kola (`status.iterate_plan`) a do promptů jde „Cíl tohoto kola“.
+    V mob modu je jedna společná varianta `mob`; n_variants = počet iterací (default 2).
     """
-    if mode not in ("parallel", "mob"):
-        raise ValueError(f"mode must be 'parallel' or 'mob', got '{mode}'")
-    if not 1 <= n_variants <= 3:
-        raise ValueError("n_variants must be 1..3")
+    from tool.cli.status import iterate_plan
+
+    with transaction() as conn:
+        if not conn.execute("SELECT 1 FROM projects WHERE slug = ?", (slug,)).fetchone():
+            raise ValueError(project_not_found_message(slug))
+    mode = mode or project_session_mode(slug)
+    if mode not in SESSION_MODES:
+        raise ValueError(f"Neznámý režim „{mode}“. Použij parallel nebo mob.")
+    if n_variants is not None and not 1 <= n_variants <= 3:
+        raise ValueError("Počet variant (--n) musí být 1 až 3.")
+    plan = iterate_plan(slug)
+    focus = (plan or {}).get("focus")
+    angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
+    if mode == "parallel" and plan:      # druhé kolo: jen varianty, které pokračují
+        angles = [a for a in VARIANT_ANGLES if a[0] in plan["variants"]] or VARIANT_ANGLES
+    if n_variants is None:
+        n_variants = len(angles) if mode == "parallel" else 2
+    n_variants = min(n_variants, len(angles))
+    if focus:
+        angles = [(nm, ang, f"{brief}.\nCíl tohoto kola: {focus.rstrip('.')}")
+                  for nm, ang, brief in angles]
 
     rec = recommend_for_slug(slug, prefer_hosted_preview=prefer_hosted)
     if rec["blocked"]:
@@ -916,8 +1023,6 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
     has_feature = _feature_exists(slug, repos)
     feature_repo = _feature_repo(slug, repos)
 
-    angles = VARIANT_ANGLES if mode == "parallel" else MOB_ITERATION_ANGLES
-
     prompts: list[VariantPrompt] = []
     heads: dict[str, str] = {}
     common_text = ""
@@ -931,6 +1036,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
                 has_feature=has_feature, stack=stack,
             )
             placeholder_url = f"local://pflanzer/{slug}-mob{run_hint}"
+            angle = f"iterace {i + 1}/{n_variants}: {angle}"
+            name = "mob"                      # jedna společná varianta, jedno jméno
         else:
             facilitator, head, tail = _render_builder_prompt_parts(
                 hook, brief, constraints, builder, slug=slug, variant=name, repos=repos,
@@ -958,6 +1065,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
         "blocked": False,
         "slug": slug,
         "mode": mode,
+        "iterate_focus": focus,
+        "variants_in_play": [p.name for p in prompts] if plan else None,
         "diversity_hint": rec.get("diversity_hint", ""),
         "keyboard": keyboard,
         "stack": stack.stack, "check_commands": stack.commands or [],
@@ -967,7 +1076,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int = 3,
             else (repos[0].role if repos else None)),
         "check_commands_by_repo": {
             r.role: stack_profile(pth / r.workspace if r.workspace else pth).commands or []
-            for r, pth in (variant_worktrees(slug, repos, "A") if repos else [])},
+            for r, pth in (variant_worktrees(slug, repos, "mob" if mode == "mob" else "A")
+                           if repos else [])},
         "push_hint": (
             f"Commitni a pushni tests/acceptance/{slug}.feature — worktrees se klonují z originu "
             "a jinak ho neuvidí."
@@ -1022,7 +1132,8 @@ def _feature_repo(slug: str, repos: list[TargetRepo] | None = None) -> str | Non
     rel = Path("tests") / "acceptance" / f"{slug}.feature"
     if (Path.cwd() / rel).is_file():
         return "."
-    for repo, path in (variant_worktrees(slug, repos, "A") if repos else []):
+    for repo, path in ([*variant_worktrees(slug, repos, "A"), *variant_worktrees(slug, repos, "mob")]
+                       if repos else []):
         for base in ([path / repo.workspace] if repo.workspace else []) + [path]:
             if (base / rel).is_file():
                 return repo.role
@@ -1120,8 +1231,8 @@ def stack_profile(path: Path | None) -> StackProfile:
 def _detect_stack_for(slug: str, repos: list[TargetRepo]) -> StackProfile:
     """Stack of the primary repo: its variant A worktree if present, else cwd."""
     candidates: list[Path] = []
-    if repos:
-        wt = variant_worktrees(slug, repos, "A")[0][1]
+    for variant in ("A", "mob") if repos else ():
+        wt = variant_worktrees(slug, repos, variant)[0][1]
         candidates.append(wt / repos[0].workspace if repos[0].workspace else wt)
     candidates.append(Path.cwd())
     for c in candidates:
@@ -1607,7 +1718,8 @@ def record_voting(
     shown = [f"{v['name']} {v['prototype_url']}" for v in result.get("variants", [])
              if v.get("prototype_url")]
     result["next_step"] = (
-        (f"Async: pošli zástupcům odkazy na varianty ({', '.join(shown)}) a dej jim 3–5 dní. "
+        (f"Async: pošli zástupcům odkazy na {'variantu' if len(shown) == 1 else 'varianty'} "
+         f"({', '.join(shown)}) a dej jim {async_days(slug)}. "
          if shown else "Async: nejdřív doplň preview URL variant (viz varování), jinak je zástupci "
                        "neuvidí. ")
         + f"Pak `/pm feedback {slug}` a `/pm decide {slug}`."
@@ -1766,7 +1878,7 @@ def render_handoff(slug: str) -> str:
 ## Co dál
 
 1. Owner každé role s commitment ≥ 2 začíná pracovat **dnes**.
-2. Async: **3–5 pracovních dní** — zástupci klikají a komentují (hub nebo `pflanzer feedback add`).
+2. Async: **{async_days(proj[2])}** — zástupci klikají a komentují (hub nebo `pflanzer feedback add`).
 3. Sběr feedbacku: `/pm feedback`.
 4. Rozhodnutí (Go / Iterate / Kill): `/pm decide {proj[2]}`.
 5. Před produkcí: Checkpoint Bezpečnost & právo a Checkpoint Provozu, pak `/pm ship`.
@@ -1790,13 +1902,14 @@ def write_handoff(slug: str) -> Path:
 # --------------------------------------------------------------------------
 
 
-BOOTSTRAP_EXAMPLE = """pflanzer quick_session bootstrap --spec - <<'EOF'
+BOOTSTRAP_EXAMPLE = """pflanzer quick_session bootstrap --spec .pflanzer/specs/moje-appka-kickoff.json
+(soubor zapiš nástrojem Write; obsah:)
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
  "risk_profile": "pilot", "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"},
- "core": ["Petr", "Tomáš"]}
-EOF"""
+ "core": ["Petr", "Tomáš"], "session_mode": "parallel",
+ "windows": {"Build": "st 21.10. 9:00-12:00", "Rozhodnutí": "pá 30.10. 10:00"}}"""
 
 
 BOOTSTRAP_EPILOG = """Pole specu (JSON):
@@ -1806,7 +1919,9 @@ BOOTSTRAP_EPILOG = """Pole specu (JSON):
              (hodnota = jméno, nebo AI / AI:agent; ne u byznys a vývoj),
              ai_signers {bezpecnost|provoz|design|produkt: "jméno člověka, který AI draft
              podepíše"} — nebo zkráceně v path_owners: "AI:security-expert / Pavel Šnek",
-             target_repo_url, target_repos, target_branch
+             target_repo_url, target_repos, target_branch,
+             session_mode (parallel = 3 varianty A/B/C, výchozí | mob = jedna společná varianta),
+             windows {"Build": "st 21.10. 9:00-12:00", …} — okna z Kickoffu (ukáže je `status`)
 
 Příklad:
 """ + BOOTSTRAP_EXAMPLE
@@ -1855,6 +1970,11 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
             f"{a['label']} (AI {a['agent']}, {a['signer']})" if a["signer"].startswith("AI pre-check")
             else f"{a['label']} (AI {a['agent']}, podepisuje {a['signer']})"
             for a in out["ai_stand_ins"]))
+    if out.get("windows"):
+        lines.append("Okna: " + " · ".join(
+            w["okno"] + (f" {w['kdy']}" if w.get("kdy") else "") for w in out["windows"]))
+    if out.get("mode_note"):
+        lines.append(out["mode_note"])
     if out.get("acceptance_feature_path"):
         lines.append(f"Akceptační scénáře: `{out['acceptance_feature_path']}`")
     if out.get("acceptance_commit_hint"):
@@ -1881,6 +2001,13 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
     compact = bool(out.get("variant_heads")) and bool(out.get("common_text"))
     lines = ([] if compact else
              [f"Varianta {p['name']} — {p['angle']} ({p['builder']})" for p in out["prompts"]])
+    if out.get("iterate_focus"):
+        lines.append(f"Druhé kolo po Iterate — cíl tohoto kola: {out['iterate_focus']}")
+    if out.get("variants_in_play"):
+        lines.append("Staví se jen: " + ", ".join(out["variants_in_play"])
+                     + " (ostatní varianty skončily)")
+    if out.get("mode") == "mob":
+        lines.append("Mob mode: jedna společná varianta `mob`, jedna větev a jeden worktree")
     if out.get("keyboard"):
         lines.append(f"U klávesnice: {out['keyboard']} (zástupce kroku Vývoj)")
     if out.get("stack"):
@@ -1947,7 +2074,7 @@ def main() -> None:
     p = CzechArgumentParser(prog="pflanzer quick_session", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    spec_help = "JSON soubor, nebo `-` pro stdin (`--spec - <<'EOF' … EOF`)"
+    spec_help = "JSON soubor (zapiš nástrojem Write; `-` čte stdin)"
     raw = argparse.RawDescriptionHelpFormatter
     p_boot = sub.add_parser(
         "bootstrap", help="Kickoff: Charter + role + jména kroků cesty + odložený triage",
@@ -1956,16 +2083,19 @@ def main() -> None:
                         help=spec_help + ". Pole: {hook, decider_name, risk_profile, slug?, role_owners?, "
                              "metric?, kill_criteria?, path_owners?{byznys,produkt,design,vyvoj,bezpecnost,provoz; "
                              "hodnota jméno nebo AI / AI:agent [/ podepisující]}, ai_signers?{krok: jméno}, core?[], "
-                             "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url'), tier?}")
+                             "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url'), tier?, "
+                             "session_mode? (parallel|mob), windows? {okno: termín}}")
     p_boot.add_argument("--json", action="store_true", help="Strojový výstup")
 
     p_prompts = sub.add_parser("prompts", help="Prompty pro buildery (Build)")
     p_prompts.add_argument("--slug", required=True)
     p_prompts.add_argument("--hook", default=None,
                            help="Problem statement; bez něj se vezme z projektu (Kickoff)")
-    p_prompts.add_argument("--n", type=int, default=3)
-    p_prompts.add_argument("--mode", choices=["parallel", "mob"], default="parallel",
-                           help="parallel = 3 angles paralelně; mob = sequential iterations (per ADR-0016)")
+    p_prompts.add_argument("--n", type=int, default=None,
+                           help="Počet variant (default: 3, po Iterate jen ty, co pokračují; mob: 2 iterace)")
+    p_prompts.add_argument("--mode", choices=["parallel", "mob"], default=None,
+                           help="parallel = 3 varianty paralelně; mob = jedna společná varianta "
+                                "(ADR-0016). Default: režim uložený v projektu")
     p_prompts.add_argument("--prefer-hosted", action="store_true",
                            help="Opt-in pro Bolt/v0/Lovable (parallel only). Default = claude-code 3×.")
     p_prompts.add_argument("--json", action="store_true", help="Strojový výstup")
@@ -2008,7 +2138,7 @@ def main() -> None:
             emit(out, title="Handoff po Buildu je hotový",
                  lines=[f"Jednostránkový souhrn: `{path}`",
                         "Obsahuje: co děláme, varianty, kdo co dělá, kill kritéria, co dál."],
-                 next_step=f"`/pm feedback {args.slug}` (Async 3–5 pracovních dní)",
+                 next_step=f"`/pm feedback {args.slug}` (Async {async_days(args.slug)})",
                  tips=([] if args.json else tips_for_project(args.slug, "async", limit=2)),
                  as_json=args.json)
         else:

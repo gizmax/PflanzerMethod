@@ -16,7 +16,7 @@ Rozhraní:
     (všechny příkazy mají --json pro strojový výstup; default je lidský výstup)
 
 Pravidla:
-- **Go vyžaduje `--winner`** (vítězná varianta A/B/C existující v Buildu).
+- **Go vyžaduje `--winner`** (vítězná varianta existující v Buildu: A/B/C, u mob mode `mob`).
 - **Otevřený critical feedback na vítězi blokuje Go**, pokud není
   `--override-critical "<důvod>"` (důvod jde do audit logu i decision logu).
   Vyřešený critical (`resolve`) neblokuje.
@@ -188,7 +188,7 @@ def get_winner(conn: Any, project_id: int) -> str | None:
         "ORDER BY id DESC LIMIT 1", (project_id,),
     ).fetchone()
     if row:
-        m = re.search(r"\*\*Vítěz\*\*:\s*\*\*([A-C])\*\*", row[0] or "")
+        m = re.search(r"\*\*Vítěz\*\*:\s*\*\*([\w-]+)\*\*", row[0] or "")
         if m:
             return m.group(1)
     return None
@@ -278,7 +278,7 @@ def prep(slug: str) -> dict[str, Any]:
 
     with transaction() as conn:
         proj = conn.execute(
-            "SELECT id, status, kill_criteria, xyz_hypothesis, decider_name "
+            "SELECT id, status, kill_criteria, xyz_hypothesis, decider_name, session_mode "
             "FROM projects WHERE slug = ?", (slug,),
         ).fetchone()
         if not proj:
@@ -286,6 +286,7 @@ def prep(slug: str) -> dict[str, Any]:
         project_id, status, kill, xyz, decider = (
             int(proj[0]), proj[1], proj[2], proj[3], proj[4],
         )
+        session_mode = proj[5] or "parallel"
 
         sess1 = conn.execute(
             "SELECT id FROM sessions WHERE project_id = ? AND type = 1",
@@ -321,6 +322,7 @@ def prep(slug: str) -> dict[str, Any]:
     return {
         "slug": slug,
         "project_status": status,
+        "session_mode": session_mode,
         "decider": decider or current_actor(),
         "xyz": xyz,
         "kill_criteria": kill,
@@ -434,15 +436,14 @@ def record_decision(
                          + " Možnosti: go, iterate, kill.")
     if not rationale or not rationale.strip():
         raise ValueError("--rationale je POVINNÉ (decision log: kdo, co, proč; DORA / AI Act čl. 14).")
-    winner = winner.strip().upper() if winner else None
-    if winner and winner not in VALID_VARIANTS:
-        raise ValueError(f"--winner musí být jedna z {', '.join(VALID_VARIANTS)}, ne '{winner}'.")
+    winner = winner.strip() if winner else None
     override_critical = strip_reason(override_critical) or None
     rationale = strip_reason(rationale) or rationale
     checkpoints = [c.strip() for c in (checkpoints or []) if c and c.strip()]
     if decision == "go" and not winner:
         raise ValueError(
-            "Go vyžaduje --winner <A|B|C> (vítězná varianta, kterou půjde Ship). "
+            "Go vyžaduje --winner <varianta> (vítězná varianta, kterou půjde Ship; "
+            "u mob mode `mob`, jinak A, B nebo C). "
             f"Příklad: pflanzer session_2 decide --slug {slug} go --winner A --rationale \"…\""
         )
     if decision != "go":
@@ -477,9 +478,12 @@ def record_decision(
         variants = [r[0] for r in conn.execute(
             "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
             "WHERE s.project_id = ? AND s.type = 1", (project_id,)).fetchall()]
-        if decision == "go" and winner not in variants:
+        if winner:   # velikost písmen nerozhoduje: `a` = `A`, `MOB` = `mob`
+            by_lower = {v.lower(): v for v in variants}
+            winner = by_lower.get(winner.lower(), winner.upper() if not variants else winner)
+        if winner and winner not in variants:
             raise ValueError(
-                f"Varianta '{winner}' v Buildu neexistuje (jsou: {', '.join(sorted(variants)) or 'žádné'})."
+                f"--winner {winner}: varianta '{winner}' v Buildu neexistuje (jsou: {', '.join(sorted(variants)) or 'žádné'})."
             )
 
         # Critical na vítězi blokuje Go (poražené varianty do produkce nejdou).
@@ -711,6 +715,9 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         lines.append("Hlasy jádra: " + ", ".join(
             f"{v['variant']} {v['score']:.2f} ({count(v['votes'], 'hlas', 'hlasy', 'hlasů')})"
             for v in ranked[:3]))
+    if out.get("session_mode") == "mob" or [v["variant"] for v in out["variants"]] == ["mob"]:
+        lines.append("Mob mode: stavěla se jedna společná varianta, takže není co porovnávat. "
+                     "Decider rozhoduje, jestli výsledek jde do Shipu (Go), nebo se doladí (Iterate).")
     fb = out["feedback_summary"]
     sev = ", ".join(f"{severity_label(k)}: {n}" for k, n in
                     sorted(fb["by_severity"].items(), key=lambda kv: ["critical", "high", "medium",
@@ -785,7 +792,7 @@ def main() -> None:
                        help="rozhodnutí (alternativa k --decision)")
     p_dec.add_argument("--decision", default=None, metavar="{go,iterate,kill}")
     p_dec.add_argument("--rationale", default=None, help="důvod, 1–2 věty (povinné)")
-    p_dec.add_argument("--winner", default=None, help="vítěz A|B|C (povinné u Go)")
+    p_dec.add_argument("--winner", default=None, help="vítěz: varianta z Buildu (A, B, C; u mob mode `mob`); povinné u Go")
     p_dec.add_argument("--decider", default=None,
                        help="override; default = decider_name z projektu")
     p_dec.add_argument("--override-critical", default=None, metavar="DŮVOD",

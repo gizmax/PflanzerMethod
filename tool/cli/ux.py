@@ -212,7 +212,8 @@ def read_spec(arg: str | Path, *, example: str = "") -> dict[str, Any]:
         path = Path(arg)
         if not path.is_file():
             raise ValueError(f"Soubor se specem {path} neexistuje. "
-                             "Spec můžeš poslat i přes stdin: --spec - <<'EOF' … EOF")
+                             "Zapiš JSON do souboru (nástrojem Write, např. "
+                             ".pflanzer/specs/<slug>-kickoff.json) a zadej jeho cestu: --spec cesta.json")
         raw = path.read_text(encoding="utf-8")
         origin = f"ze souboru {path}"
     if not raw.strip():
@@ -259,6 +260,23 @@ def project_not_found_message(slug: str) -> str:
     msg += (" Existující projekty: " + ", ".join(slugs) + "." if slugs
             else " Zatím žádný projekt nemáte — založíte ho přes /pm start.")
     return msg + " Přehled: pflanzer status"
+
+
+ASYNC_FULL = "3–5 dní"
+ASYNC_AFTER_ITERATE = "1–2 dny"
+
+
+def async_days(slug: str) -> str:
+    """Okno Asyncu: po Iterate (druhé kolo opravuje jen konkrétní věci) kratší než poprvé."""
+    try:
+        from tool.cli.db import transaction
+        with transaction() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM sessions s JOIN projects p ON p.id = s.project_id "
+                "WHERE p.slug = ? AND s.type = 3 LIMIT 1", (slug,)).fetchone()
+        return ASYNC_AFTER_ITERATE if row else ASYNC_FULL
+    except Exception:  # noqa: BLE001 — advisory only
+        return ASYNC_FULL
 
 
 def project_not_found(slug: str) -> NoReturn:
