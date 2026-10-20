@@ -160,7 +160,8 @@ LOCKFILE_ADVICE = {
                     "worktrees (`npm ci`) ho potřebuje.",
     "pyproject.toml": "Commitni lockfile (`uv lock` nebo `poetry lock`) — Python worktrees "
                       "pak mají stejné verze.",
-    "requirements.txt": "Připni verze (`pip freeze > requirements.txt`) nebo přejdi na `uv lock`.",
+    "requirements.txt": "Připni verze: v aktivním `.venv` spusť `pip freeze > requirements.txt` "
+                        "a commitni; nebo přidej `pyproject.toml` a `uv lock`.",
     "Cargo.toml": "Commitni Cargo.lock (`cargo generate-lockfile`).",
     "go.mod": "Commitni go.sum (`go mod tidy`).",
     "Gemfile": "Commitni Gemfile.lock (`bundle install`).",
@@ -482,7 +483,9 @@ def _human(repo: Path, rows: list[dict[str, str]]):
     if fails:
         nxt = f"oprav ✗ ({fails[0]['check']}): {fails[0]['advice']} — pak `pflanzer doctor` znovu"
     else:
-        nxt = "restartuj Claude Code v tomto repu a spusť `/pm start`"
+        nxt = ("restartuj Claude Code v tomto repu a spusť `/pm start` "
+               "(projekt přes víc repozitářů: `pflanzer init` a `pflanzer doctor` v každém "
+               "repu zvlášť, `/pm start` jen z primárního — webového — repa)")
     return title, lines, nxt, [], tips_for("doctor", {})
 
 

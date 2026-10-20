@@ -53,9 +53,11 @@ from tool.cli._compat import (  # noqa: E402
     ai_stand_in_line,
     count,
     exit_if_project_missing,
+    local_date,
     signatures_line,
     tips,
 )
+from tool.cli.charter import reviewer_hint  # noqa: E402
 from tool.cli.db import audit, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     BRAND,
@@ -781,7 +783,9 @@ def build_pr(slug: str, repo: str | None = None,
         badges = "\n".join(f"- **{role}**: {line}" for role, line, _a, _t in per)
         applicable, total = sum(a for _r, _l, a, _t in per), sum(t for _r, _l, _a, t in per)
     dec_user = ctx["decision"][1] if ctx["decision"] else None
-    dec_ts = str(ctx["decision"][2])[:10] if ctx["decision"] else None
+    dec_day = local_date(ctx["decision"][2]) if ctx["decision"] else None  # jako decision log
+    dec_ts = dec_day.isoformat() if dec_day else (
+        str(ctx["decision"][2])[:10] if ctx["decision"] else None)
 
     branch = w[6] if w and w[6] else (f"pflanzer/{slug}-{w[0]}" if w else None)
     head_sha = w[7] if w else None
@@ -1088,7 +1092,7 @@ git push -u origin {b['branch']}
 Projekt má {len(repos)} repa ({', '.join(b['role'] for b in repos)}); PR se otevírají v každém repu
 a v těle se odkazují jako „Související PR v <repo> repu“. Autor commitu = dev u klávesnice;
 AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně
-(`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl. Mergujte společně.
+(`--reviewer <github-handle>`). {reviewer_hint(slug)} Mergujte společně.
 
 ### 0. Decision log
 
@@ -1123,7 +1127,7 @@ def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     return f"""## Otevři PR
 
 Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).
-Reviewera přidejte ručně (`--reviewer <github-handle>`): někoho, kdo u Buildu nebyl.
+Reviewera přidejte ručně (`--reviewer <github-handle>`). {reviewer_hint(slug)}
 
 ```bash
 {decision_log_lines(slug)}cd {wb['work_dir']}

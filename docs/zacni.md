@@ -287,8 +287,19 @@ nenastavujete:
 - **Build:** `pflanzer worktree setup` vyrobí worktrees A/B/C pro **každé** repo
   a prompt ukáže, kde je které repo a že sekundární je připojené přes `--add-dir`.
   Měnit se smí jen repa projektu.
-- **Preview:** `pflanzer preview up` spustí u každé varianty všechna repa. Web
-  najde API v proměnné `API_URL` (obecně `<ROLE>_URL`). Heslo je jen před webem.
+- **Příprava:** `pflanzer init` patří do **každého** repa projektu; `/pm start`
+  (a ostatní `/pm` kroky) spouštějte z **primárního** (web) repa.
+- **Preview:** `pflanzer preview up` spustí u každé varianty všechna repa. Adresu
+  API nikdy nehardcodujte (ani port); aplikace ji bere z proměnné
+  (obecně `<ROLE>_URL`):
+  - **v prohlížeči** (kód UI): `import.meta.env.VITE_API_URL` (Vite),
+    `process.env.NEXT_PUBLIC_API_URL` (Next), `process.env.REACT_APP_API_URL` (CRA),
+    např. `fetch(`${import.meta.env.VITE_API_URL}/slots`)`;
+  - **na serveru** (SSR, skripty): `API_URL` (absolutní adresa na tomto počítači).
+
+  V preview je prohlížečová proměnná **relativní cesta** `/__pflanzer/api` za
+  heslem preview: proxy ji přepošle na API stejné varianty, takže kolegové přes
+  tunel nebo síť nesahají na svůj localhost a API je chráněné stejným heslem.
   Neumí-li se repo spustit samo, doplňte do `.pflanzer/project.toml`
   `[preview.api]` s `command = "… {port} …"`.
 - **Ship:** quality gates jedou na vítěze, PR vznikne **v každém repu** a PR

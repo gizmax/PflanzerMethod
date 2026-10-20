@@ -16,9 +16,12 @@ Příkaz aplikace: `.pflanzer/project.toml` `[preview] command = "… {port}"`, 
 autodetekce (viz `tool/cli/apprun.py`). Port aplikace = base-port + i*10, proxy = +1.
 Multi-repo projekt (`target_repos` s rolemi): pro každou variantu se spustí všechna repa;
 sekundární běží na portu app+1000+idx (idx = pořadí repa, primární = 0) a primární dostane
-env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (např. `API_URL=http://127.0.0.1:9601`). Příkaz
-sekundárního repa: `[preview.<role>] command = "… {port} …"`, jinak autodetekce. Proxy je jen
-před primárním; `down` ukončí vše.
+env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (server, absolutní, např. `API_URL=http://127.0.0.1:9601`)
+a pro prohlížeč `VITE_<ROLE>_URL`, `NEXT_PUBLIC_<ROLE>_URL`, `REACT_APP_<ROLE>_URL` = relativní
+`/__pflanzer/<role>`. Proxy (s heslem) před primárním tuto cestu směruje na sekundární repo
+dané varianty (bez prefixu), takže prohlížeč nikdy nesahá na localhost ani mimo heslo.
+Příkaz sekundárního repa: `[preview.<role>] command = "… {port} …"`, jinak autodetekce.
+`down` ukončí vše.
 Stav (PID, porty, heslo) je v `<datová složka>/preview/<slug>.json`, logy vedle.
 
 Jen stdlib. Procesy běží na pozadí (vlastní process group) i po skončení příkazu.
@@ -56,6 +59,7 @@ USER = "pflanzer"
 DEFAULT_BASE_PORT = 8601
 LABEL_MARK = "data-pflanzer-label"
 TUNNEL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+ROUTE_PREFIX = "/__pflanzer/"
 HOP_BY_HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te",
               "trailers", "transfer-encoding", "upgrade"}
 HUB_URL = "http://localhost:8000/method/"
@@ -102,7 +106,22 @@ def inject_label(html: bytes, variant: str) -> bytes:
     return html[:m.end()] + label_html(variant) + html[m.end():]
 
 
-def _make_handler(app_port: int, password: str, variant: str) -> type:
+def split_route(path: str, routes: dict[str, int]) -> tuple[str | None, str | None]:
+    """`/__pflanzer/<role>/x?q` -> (role, `/x?q`); jiná cesta -> (None, path); neznámá role -> (None, None)."""
+    if not path.startswith(ROUTE_PREFIX):
+        return None, path
+    m = re.match(r"([^/?#]+)(.*)$", path[len(ROUTE_PREFIX):], re.S)
+    if not m or m.group(1) not in routes:
+        return None, None
+    tail = m.group(2)
+    if not tail.startswith("/"):
+        tail = "/" + tail
+    return m.group(1), tail
+
+
+def _make_handler(app_port: int, password: str, variant: str,
+                  routes: dict[str, int] | None = None) -> type:
+    routes = routes or {}
     expected = f"{USER}:{password}".encode()
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -135,10 +154,10 @@ def _make_handler(app_port: int, password: str, variant: str) -> type:
             if self.command != "HEAD":
                 self.wfile.write(body)
 
-        def _rewrite_location(self, loc: str) -> str:
+        def _rewrite_location(self, loc: str, port: int = app_port, prefix: str = "") -> str:
             parts = urlsplit(loc)
-            if parts.netloc in (f"127.0.0.1:{app_port}", f"localhost:{app_port}"):
-                return (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+            if parts.netloc in (f"127.0.0.1:{port}", f"localhost:{port}"):
+                return prefix + (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
             return loc
 
         def _is_upgrade(self) -> bool:
@@ -189,30 +208,39 @@ def _make_handler(app_port: int, password: str, variant: str) -> type:
                             extra={"WWW-Authenticate": 'Basic realm="Pflanzer preview", '
                                                        'charset="UTF-8"'})
                 return
-            if self._is_upgrade():
+            role, tpath = split_route(self.path, routes)
+            if tpath is None:
+                self._reply(404, "Neznámé repo v /__pflanzer/.\n".encode())
+                return
+            if role is None and self._is_upgrade():
                 self._tunnel()
                 return
+            port = routes[role] if role else app_port
+            prefix = f"{ROUTE_PREFIX}{role}" if role else ""
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else None
             headers = {k: v for k, v in self.headers.items()
                        if k.lower() not in HOP_BY_HOP | {"host", "authorization",
                                                          "accept-encoding", "content-length"}}
-            headers["Host"] = f"127.0.0.1:{app_port}"
+            headers["Host"] = f"127.0.0.1:{port}"
             headers["Accept-Encoding"] = "identity"
             if body is not None:
                 headers["Content-Length"] = str(len(body))
-            conn = http.client.HTTPConnection("127.0.0.1", app_port, timeout=60)
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
             try:
-                conn.request(self.command, self.path, body=body, headers=headers)
+                conn.request(self.command, tpath, body=body, headers=headers)
                 resp = conn.getresponse()
             except (OSError, http.client.HTTPException) as exc:
-                self._reply(502, f"Aplikace varianty {variant} neodpovídá ({exc}).\n".encode())
+                self._reply(502, f"Aplikace varianty {variant}"
+                                 f"{' (repo ' + role + ')' if role else ''} "
+                                 f"neodpovídá ({exc}).\n".encode())
                 conn.close()
                 return
             try:
                 out = [(k, v) for k, v in resp.getheaders() if k.lower() not in HOP_BY_HOP]
                 ctype = resp.getheader("Content-Type", "")
-                inject = (ctype.lower().startswith("text/html") and self.command != "HEAD"
+                inject = (role is None and ctype.lower().startswith("text/html")
+                          and self.command != "HEAD"
                           and not resp.getheader("Content-Encoding")
                           and resp.status not in (204, 304))
                 data = resp.read() if inject else None
@@ -224,7 +252,7 @@ def _make_handler(app_port: int, password: str, variant: str) -> type:
                     if kl in ("date", "server"):
                         continue  # send_response() je přidá sám; backendová kopie by je zdvojila
                     if kl == "location":
-                        v = self._rewrite_location(v)
+                        v = self._rewrite_location(v, port, prefix)
                     if data is not None and kl == "content-length":
                         continue
                     self.send_header(k, v)
@@ -255,8 +283,9 @@ class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def serve_proxy(listen_host: str, listen_port: int, app_port: int, password: str,
-                variant: str) -> None:
-    srv = _Server((listen_host, listen_port), _make_handler(app_port, password, variant))
+                variant: str, routes: dict[str, int] | None = None) -> None:
+    srv = _Server((listen_host, listen_port),
+                  _make_handler(app_port, password, variant, routes))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -269,9 +298,11 @@ def _proxy_main(argv: list[str]) -> None:
     ap.add_argument("--listen-port", type=int, required=True)
     ap.add_argument("--app-port", type=int, required=True)
     ap.add_argument("--variant", required=True)
+    ap.add_argument("--route", action="append", default=[], metavar="ROLE=PORT")
     a = ap.parse_args(argv)
+    routes = {r: int(p) for r, _, p in (x.partition("=") for x in a.route)}
     serve_proxy(a.listen_host, a.listen_port, a.app_port,
-                os.environ.get("PFLANZER_PREVIEW_PASSWORD", ""), a.variant)
+                os.environ.get("PFLANZER_PREVIEW_PASSWORD", ""), a.variant, routes)
 
 
 # --------------------------------------------------------------------------
@@ -398,6 +429,19 @@ def role_env_name(role: str) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", role.upper()).strip("_") or "REPO"
 
 
+def browser_env(roles: Any) -> dict[str, str]:
+    """Env pro prohlížečový kód primární aplikace: relativní cesta za heslem proxy.
+
+    Vite pustí do prohlížeče jen `VITE_*`, Next `NEXT_PUBLIC_*`, CRA `REACT_APP_*`.
+    """
+    out: dict[str, str] = {}
+    for r in roles:
+        n = role_env_name(r)
+        for pre in ("VITE_", "NEXT_PUBLIC_", "REACT_APP_"):
+            out[f"{pre}{n}_URL"] = f"{ROUTE_PREFIX}{r}"
+    return out
+
+
 def _secondary_dirs(slug: str) -> dict[str, dict[str, Path]]:
     """Sekundární repa multi-repo projektu: role -> {varianta: worktree}. Jedno repo = {}."""
     try:
@@ -502,13 +546,14 @@ def status(slug: str, *, probe: bool = True) -> dict[str, Any]:
 
 
 def _spawn_proxy(log: Path, host: str, proxy_port: int, app_port: int, name: str,
-                 password: str) -> subprocess.Popen:
+                 password: str, routes: dict[str, int] | None = None) -> subprocess.Popen:
     env = {**os.environ, "PFLANZER_PREVIEW_PASSWORD": password, "PYTHONPATH": str(REPO_ROOT)}
     with open(log, "ab") as plog:
         return subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "_proxy",
              "--listen-host", host, "--listen-port", str(proxy_port),
-             "--app-port", str(app_port), "--variant", name],
+             "--app-port", str(app_port), "--variant", name,
+             *[a for r, p in (routes or {}).items() for a in ("--route", f"{r}={p}")]],
             env=env, stdin=subprocess.DEVNULL, stdout=plog, stderr=subprocess.STDOUT,
             start_new_session=True)
 
@@ -628,7 +673,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                     out[f"PFLANZER_{role_env_name(r)}_URL"] = urls[r]
                 return out
 
-            link_env = _links(urls)
+            link_env = {**_links(urls), **browser_env(urls)}
             for role, swt, sspec, port in extras:
                 elog = d / f"{slug}-{name}-{role}.log"
                 elog.write_bytes(b"")
@@ -645,7 +690,8 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             procs[name] = app
             v["app_pid"], v["app_started"] = app.pid, apprun.proc_started(app.pid)
             proxy = _spawn_proxy(d / f"{slug}-{name}-proxy.log", host, proxy_port, app_port,
-                                 name, password)
+                                 name, password,
+                                 {role: port for role, _w, _s, port in extras})
             v["proxy_pid"], v["proxy_started"] = proxy.pid, apprun.proc_started(proxy.pid)
             save_state(slug, state)
         for name, _path, _spec, _port, _extras in plan:
@@ -811,7 +857,7 @@ def restart(slug: str, *, variants: list[str] | None = None,
         if spec is None:
             raise ValueError(f"Pro variantu {name} nevím, jak spustit aplikaci "
                              "(viz `[preview] command` v .pflanzer/project.toml).")
-        spec.env = {**_links(urls), **spec.env}
+        spec.env = {**_links(urls), **browser_env(urls), **spec.env}
         log = Path(v["log"])
         log.write_bytes(b"")
         app = apprun.start_app(spec, log)
@@ -822,7 +868,8 @@ def restart(slug: str, *, variants: list[str] | None = None,
                 warnings.append(f"Proxy varianty {name} nežije a její port drží jiný proces.")
             else:
                 px = _spawn_proxy(d / f"{slug}-{name}-proxy.log", host, v["proxy_port"],
-                                  v["app_port"], name, password)
+                                  v["app_port"], name, password,
+                                  {r: e["app_port"] for r, e in (v.get("extra") or {}).items()})
                 v["proxy_pid"], v["proxy_started"] = px.pid, apprun.proc_started(px.pid)
         if v.get("tunnel_pid") and not _alive(v["tunnel_pid"], v.get("tunnel_started", "")):
             warnings.append(f"Tunel varianty {name} nežije — odkaz {v.get('tunnel_url')} "
