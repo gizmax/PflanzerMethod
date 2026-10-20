@@ -94,6 +94,57 @@ def guide_template_for(path: Path) -> Path:
     return TEMPLATE_PATH
 
 
+GUIDE_PLACEHOLDER_RE = re.compile(r"<[^<>\n]*(?:\s\||\|\s|\s[^<>\n]*\s|doplň|vyplň)[^<>\n]*>")
+
+
+def _guide_templates() -> list[Path]:
+    return sorted(TEMPLATE_PATH.parent.glob("INTEGRATION_GUIDE*.md.template"))
+
+
+def guide_template_label(template: Path) -> str:
+    """Čitelný stack šablony z jejího nadpisu: `(Go)` → Go, bez závorky → obecná/React."""
+    try:
+        head = template.read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError):
+        return template.name
+    m = re.search(r"\(([^)]+)\)\s*$", head)
+    return m.group(1) if m else ("obecná (bez rozpoznaného stacku / React)")
+
+
+def guide_origin(text: str) -> Path | None:
+    """Šablona, ze které INTEGRATION_GUIDE vznikl (podle prvního řádku), nebo None."""
+    first = (text.strip().splitlines() or [""])[0].strip()
+    for t in _guide_templates():
+        try:
+            if t.read_text(encoding="utf-8").splitlines()[0].strip() == first:
+                return t
+        except (OSError, IndexError):
+            continue
+    return None
+
+
+def guide_mismatch(repo: Path, text: str) -> tuple[Path, Path] | None:
+    """(původní šablona, šablona dnešního stacku), když guide vznikl pro jiný stack; jinak None."""
+    origin = guide_origin(text)
+    if origin is None:
+        return None
+    expected = guide_template_for(repo)
+    return (origin, expected) if origin != expected else None
+
+
+def guide_is_untouched(text: str) -> bool:
+    """Guide je beze změny proti některé šabloně, nebo má nevyplněné `<…>` placeholdery."""
+    origin = guide_origin(text)
+    if origin is None:
+        return False
+    try:
+        if text.strip() == origin.read_text(encoding="utf-8").strip():
+            return True
+    except OSError:
+        return False
+    return bool(GUIDE_PLACEHOLDER_RE.search(text))
+
+
 # Python artefakty, které `pip install -e .` / pytest / build vyrábí a které nepatří do PR.
 PYTHON_IGNORES = ("*.egg-info/", "__pycache__/", ".pytest_cache/", ".ruff_cache/",
                   ".coverage", "htmlcov/", "dist/", "build/")
@@ -499,8 +550,24 @@ def init(target_repo: Path, force: bool = False) -> dict[str, Any]:
     docs_dir = target_repo / "docs"
     docs_dir.mkdir(exist_ok=True)
     guide = docs_dir / "INTEGRATION_GUIDE.md"
+    mismatch = None
     if guide.exists() and not force:
-        actions.append("docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
+        gtext = guide.read_text(encoding="utf-8", errors="replace")
+        mismatch = guide_mismatch(target_repo, gtext)
+        if mismatch and guide_is_untouched(gtext) and mismatch[1].exists():
+            guide.write_text(mismatch[1].read_text(encoding="utf-8"), encoding="utf-8")
+            actions.append(
+                "přegenerováno: docs/INTEGRATION_GUIDE.md (šablona byla pro "
+                f"{guide_template_label(mismatch[0])}, repo je teď {guide_template_label(mismatch[1])}; "
+                "nic jste v ní nevyplnili)")
+        elif mismatch:
+            actions.append(
+                "POZOR: docs/INTEGRATION_GUIDE.md vznikl pro "
+                f"{guide_template_label(mismatch[0])}, ale repo je teď "
+                f"{guide_template_label(mismatch[1])} — už ho máte upravený, nepřepisuji; "
+                "projděte ho podle reality repa, nebo `pflanzer init --force` (přepíše)")
+        else:
+            actions.append("docs/INTEGRATION_GUIDE.md už existuje (skip; --force pro overwrite)")
     else:
         template = guide_template_for(target_repo)
         if not template.exists():

@@ -117,6 +117,7 @@ class WorktreeSetup:
     guard: list[dict[str, Any]] = field(default_factory=list)
     init_missing: list[dict[str, Any]] = field(default_factory=list)
     copied_inputs: list[str] = field(default_factory=list)  # Kickoff soubory zkopírované z cwd
+    builder_notes: list[str] = field(default_factory=list)  # odkud je builder pro trailer
 
 
 _REPO_URL_RE = re.compile(
@@ -1217,7 +1218,8 @@ def _copy_kickoff_inputs(slug: str, worktrees: list[Path]) -> list[str]:
 
 
 def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
-          run_guard: bool = True, fix_gitignore: bool = True) -> WorktreeSetup:
+          run_guard: bool = True, fix_gitignore: bool = True,
+          builder: str | None = None) -> WorktreeSetup:
     """Setup worktrees pro Build projektu `slug`.
 
     Args:
@@ -1225,7 +1227,13 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
         install_deps: auto npm/pnpm/yarn install per worktree (JS repa).
         mode: 'parallel' (A/B/C) | 'mob' (1 worktree); None → projects.session_mode.
         run_guard: data leakage guard per worktree (N13).
+        builder: builder pro trailer `AI-Assisted` (manual | claude-code | …); jinak
+            z uložených variant, jinak výchozí `claude-code` s upozorněním.
     """
+    if builder is not None:
+        builder = builder.strip().lower()
+        if not builder:
+            raise ValueError("--builder nesmí být prázdný (např. manual, claude-code, cursor).")
     proj = load_project(slug)
     mode = mode or proj.get("session_mode") or "parallel"
     if mode not in ("parallel", "mob"):
@@ -1242,6 +1250,18 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
 
     builders = _variant_builders(int(proj["id"]))
     variants = PARALLEL_VARIANTS if mode == "parallel" else MOB_VARIANTS
+    builder_notes: list[str] = []
+    if builder:
+        builders = {v: builder for v in variants}
+        builder_notes.append(
+            f"Builder pro trailer: `{builder}` (zadáno `--builder`)."
+            + (" Commity bez traileru `AI-Assisted` — kód je psaný ručně." if builder == "manual" else ""))
+    elif not builders:
+        builder_notes.append(
+            f"Builder zatím není zvolen — trailer `AI-Assisted` je předvyplněný na "
+            f"`{DEFAULT_BUILDER}`. Píšete kód ručně nebo jiným nástrojem? Nastavte "
+            f"`pflanzer worktree setup --slug {slug} --builder manual` (nebo cursor, codex-cli, …); "
+            "stejně to opraví `pflanzer record`, jakmile zapíše jiného buildera.")
     repo_results: list[dict[str, Any]] = []
     guard_rows: list[dict[str, str]] = []
     init_missing: list[dict[str, Any]] = []
@@ -1303,8 +1323,49 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
         package_manager=primary_res["package_manager"],
         install_results=primary_res["install_results"],
         mode=mode, repos=repo_results, guard=guard_rows, init_missing=init_missing,
-        copied_inputs=copied_inputs,
+        copied_inputs=copied_inputs, builder_notes=builder_notes,
     )
+
+
+def sync_builders(slug: str, builders: dict[str, str], target_repo_url: str | None = None
+                  ) -> list[str]:
+    """Srovná `pflanzer.builder` ve worktrees s buildery zapsanými přes `record`.
+
+    Vrací varování: kde se builder změnil a existující commity už nesou jiný
+    trailer `AI-Assisted` (tool historii nepřepisuje; provenance check v Ship to ukáže).
+    """
+    from tool.cli.extract import locate_worktree
+    warnings: list[str] = []
+    for name, new in builders.items():
+        wt = locate_worktree(slug, name, target_repo_url)
+        if wt is None or not new:
+            continue
+        rc, old, _ = _git(wt, "config", "--worktree", "--get", "pflanzer.builder")
+        old = old.strip() if rc == 0 else ""
+        if old == new:
+            continue
+        _git(wt, "config", "--worktree", "pflanzer.builder", new)
+        # commity na větvi (mimo origin/*) s trailerem jiným, než odpovídá novému builderu
+        rc, log, _ = _git(wt, "log", "HEAD", "--not", "--remotes", "--format=%h\x1f"
+                          "%(trailers:key=AI-Assisted,valueonly,separator=%x2C)")
+        wrong: list[str] = []
+        if rc == 0:
+            for line in log.splitlines():
+                sha, _, ai = line.partition("\x1f")
+                ai = ai.strip()
+                if new == "manual" and ai:
+                    wrong.append(f"{sha} ({ai})")
+                elif new != "manual" and ai != new:
+                    wrong.append(f"{sha} ({ai or 'bez traileru'})")
+        line = (f"Varianta {name}: builder v trailerech změněn {old or '—'} → {new}; nové commity "
+                f"ponesou {'žádný AI-Assisted trailer' if new == 'manual' else 'AI-Assisted: ' + new}.")
+        if wrong:
+            line += (f" Už existující commity mají jiný trailer ({', '.join(wrong[:5])}"
+                     f"{'…' if len(wrong) > 5 else ''}) — tool historii nepřepisuje, provenance "
+                     "check v Ship na to upozorní; před Ship je případně přepište "
+                     "(`git rebase` s úpravou zprávy).")
+        warnings.append(line)
+    return warnings
 
 
 # --------------------------------------------------------------------------
@@ -1808,6 +1869,7 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     hooks = {r["hook"]["status"] for r in s.repos}
     lines.append("Commit trailery (původ AI kódu): "
                  + ("nainstalovány" if hooks <= {"installed", "ok"} else ", ".join(sorted(hooks))))
+    lines.extend(s.builder_notes)
     if s.guard:
         lines.append(guard_summary(s.guard, s.slug))
     py = [x for r in s.repos for x in r["install_results"] if x.get("kind") == "python"]
@@ -1884,6 +1946,9 @@ def main() -> None:
                               "Default: projects.session_mode, jinak parallel")
     p_setup.add_argument("--no-install", "--skip-install", dest="no_install", action="store_true",
                          help="Přeskočí install závislostí (rychlejší, ale brány v Ship se přeskočí)")
+    p_setup.add_argument("--builder", default=None,
+                         help="Čím se kód píše, pro trailer AI-Assisted: manual (bez trailer), "
+                              "claude-code, cursor, codex-cli, … Default: z `record`, jinak claude-code")
     p_setup.add_argument("--no-guard", action="store_true", help="Přeskočit data leakage guard")
     p_setup.add_argument("--strict", action="store_true", help="Nenulový exit při nálezu guardu")
     p_setup.add_argument("--json", **js)
@@ -1935,6 +2000,7 @@ def main() -> None:
 def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "setup":
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode,
+                  builder=args.builder,
                   run_guard=not args.no_guard)
         title, lines, nxt = _setup_view(s)
         tpl = write_vote_template(args.slug, s.mode)

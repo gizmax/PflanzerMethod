@@ -32,6 +32,11 @@ from tool.cli._compat import (  # noqa: E402
     signature_conditions,
 )
 from tool.cli.db import transaction  # noqa: E402
+from tool.cli.handoff_pr import (  # noqa: E402
+    SCORE_DISCLAIMER,
+    open_feedback_digest,
+    open_feedback_lines,
+)
 from tool.cli.ux import BRAND_LINE, CzechArgumentParser, die, emit  # noqa: E402
 
 MAX_LINES = 40
@@ -98,7 +103,7 @@ def _decision_reason(conn: Any, pid: int) -> str:
     if not m:
         return ""
     from tool.cli.session_2 import strip_reason
-    return _shorten(_clean(strip_reason(m.group(1))), 200)
+    return _clean(strip_reason(m.group(1)))      # celý důvod Go (zmiňuje-li rizika, jsou tady)
 
 
 def _gate_rows(conn: Any, pid: int, winner: str | None) -> list[dict[str, str]]:
@@ -127,11 +132,12 @@ def _gate_info(rows: list[dict[str, str]], target: int | None) -> dict[str, Any]
         gate_label,
         gates_summary_line,
         unverified_gates,
+        unverified_human,
         warned_gates,
     )
     score = int(aggregate_score(
         [SimpleNamespace(gate_type=r["gate"], status=r["status"]) for r in rows])["gate_score"])  # type: ignore[arg-type]
-    unv = [gate_label(u["gate"]) for u in unverified_gates(rows)]
+    unv = [unverified_human(u) for u in unverified_gates(rows)]
     failed = [gate_label(r["gate"]) for r in rows if r["status"] == "fail"]
     return {"ran": True, "score": score, "target": target, "unverified": unv,
             "failed": list(dict.fromkeys(failed)),
@@ -184,6 +190,7 @@ def collect(slug: str) -> dict[str, Any]:
         winner = get_winner(conn, pid) if decided and sess[0] == "go" else None
         reason = _decision_reason(conn, pid) if decided else ""
         crit = open_criticals(conn, pid)
+        all_crit, all_remarks = crit, open_remarks(conn, pid)
         if winner:
             crit = [c for c in crit if c["variant"] == winner]
         high = [r for r in open_remarks(conn, pid, winner) if r["severity"] == "high"]
@@ -226,7 +233,7 @@ def collect(slug: str) -> dict[str, Any]:
     if gates.get("warned"):
         risks.append("Varování: " + _more(gates["warned"], 4))
     if gates["unverified"]:
-        risks.append("Neověřené brány: " + _more(gates["unverified"], 4))
+        risks.append("Neověřeno: " + _more(gates["unverified"], 4))
     from tool.cli.quality_gates import gate_risk_notes
     personal = [n for n in gate_risk_notes(
         [], [{"gate": g} for g in gates.get("unverified_raw", [])],
@@ -253,6 +260,7 @@ def collect(slug: str) -> dict[str, Any]:
         "cost": {"person_days": n_people, "ai": nums["ai_cost"], "tier": p.get("tier"),
                  "target": p.get("production_readiness_target")},
         "quality": gates, "risks": risks,
+        "open_feedback": open_feedback_digest(all_crit, all_remarks, winner),
         "risk_counts": {"critical": len(crit), "important": len(high), "overridden": len(overridden),
                         "conditions": len(conds), "unverified_gates": len(gates["unverified"])},
         "signatures": sigs, "outcome": nums, "lessons": [x["text"] for x in lessons],
@@ -296,8 +304,12 @@ def render_summary_md(data: dict[str, Any]) -> str:
     out += ["", "## Kvalita"]
     q = data["quality"]
     out.append(q["sentence"] if q["ran"] else "Brány zatím neběžely (spustí je Ship).")
+    if q["ran"]:
+        out.append(SCORE_DISCLAIMER)
     out += ["", "## Rizika"]
     out += [f"- {r}" for r in data["risks"]] or ["- Žádné otevřené riziko."]
+    out += ["", "## Otevřené připomínky", ""]
+    out += open_feedback_lines(data["open_feedback"], data["slug"])
     out += ["", "## Kdo podepsal"]
     out.append(" · ".join(s["text"] for s in data["signatures"]) or "Okna zatím nikdo nepodepsal.")
     out += ["", "## Výsledek po nasazení"]

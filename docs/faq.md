@@ -350,7 +350,7 @@ sdílení znovu.
 
 Metoda zatím nemá vlastní data, tak je sbírejte. Tool je zapisuje do handoffu:
 
-- čas Kickoff → merge,
+- dny od Go do merge,
 - skóre kontrol vítěze,
 - počet kol Iterate,
 - kolik kódu vítěze přežije 30 dní v `main`,
@@ -362,8 +362,8 @@ v produkci beze změny (cíl ≥ 80 %), za jak dlouho se dostal do produkce
 (cíl ≤ 14 dní) a nastaví připomínky za 7, 30, 60 a 90 dní. Hlavní cesta
 končí Shipem, ale bez těchto čísel se metoda nedá zlepšovat.
 
-U **throwaway** dema se kód nepředává do produkce: handoff vyrobí jen `SHIP.md`
-a `README.md` (co ukázat, jak spustit, co je fake) a retro nepočítá přežití
+U **throwaway** dema se kód nepředává do produkce: `pflanzer ship` vyrobí `SHIP.md`,
+`pflanzer handoff --slug S` přidá `README.md` (co ukázat, jak spustit, co je fake) a retro nepočítá přežití
 kódu ani T+30/60/90. Měří se jen metrika dema v jejím termínu (jedna připomínka).
 
 Aktualizace: `pflanzer update`.

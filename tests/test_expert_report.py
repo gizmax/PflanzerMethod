@@ -95,7 +95,7 @@ def test_summary_after_go_with_numbers(project: dict[str, Any], vote: Callable[.
     assert "Zbytek počká" in md                                      # celý důvod, ne první věta
     assert "1,2 M tokenů, odhad ≈ $4.20 (≈ 97 Kč)" in md
     assert "Skóre" in md and "Neověřeno" in md
-    assert "Neověřené brány: akceptační testy" in md
+    assert "Neověřeno: akceptační testy" in md
     assert "9 dní (cíl ≤ 14) — cíl splněn" in md
     assert "85 % (cíl ≥ 80 %) — cíl splněn" in md
     assert len(md.splitlines()) <= 40

@@ -124,7 +124,9 @@ Kickoff jde i z terminálu: zapište spec do `kickoff.json` a spusťte
 ```json
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
  "risk_profile": "pilot", "personal_data": false,
- "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů", "target_repo_url": "https://github.com/firma/appka",
+ "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",
+ "kill_criteria": "do 30 dnů přehled otevře méně než 5 lidí",
+ "target_repo_url": "https://github.com/firma/appka",
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"}}
 ```

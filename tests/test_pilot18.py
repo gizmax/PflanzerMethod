@@ -146,7 +146,7 @@ def test_open_remarks_reach_decision_log_ship_md_and_pr(
     assert "- [ ] (Drobné, Eva) Drobnost v patičce" in pr["body"]
     assert "Jen na poražené variantě" not in pr["body"]
     ship = handoff_pr.render_ship_md(slug)
-    assert "## Otevřené připomínky k vítězi" in ship
+    assert "## Otevřené připomínky" in ship
     assert "- [ ] (Důležité, Petr) Formulář odmítne objednávku bez nápisu" in ship
     # lidský výstup handoff_pr
     view = handoff_pr._human_ship_md(slug, repo_cwd / "SHIP.md")

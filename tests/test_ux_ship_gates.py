@@ -105,7 +105,7 @@ def test_summary_line_names_missing_gates() -> None:
     ]
     # méně než 5 běžících bran: poctivě „orientační“
     line2 = quality_gates.gates_summary_line(100, results)
-    assert line2 == ("Skóre 100 ze 100. Spočteno jen ze 2 bran — orientační. "
+    assert line2 == ("Skóre 100 ze 100. Spočteno jen ze 2 automatických kontrol — orientační. "
                      "Neověřeno: typová kontrola.")
     many = [quality_gates.GateResult(g, "pass")
             for g in ("build", "tests", "lint", "security", "a11y")]
@@ -113,7 +113,7 @@ def test_summary_line_names_missing_gates() -> None:
                                       "SKIP: coverage se nespouští (definuj příkaz)"),
              quality_gates.GateResult("types", "skipped", "SKIP: mypy není nakonfigurovaný")]
     line = quality_gates.gates_summary_line(76, many)
-    assert line == ("Skóre 76 ze 100. Spočteno nad 5 branami. "
+    assert line == ("Skóre 76 ze 100. Spočteno z 5 automatických kontrol. "
                     "Neověřeno: pokrytí testy, typová kontrola.")
     full = quality_gates.skip_reasons(many)
     assert full == ["coverage — coverage se nespouští (definuj příkaz)",

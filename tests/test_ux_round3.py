@@ -134,11 +134,11 @@ def _gates(*, acceptance: str = "unverified", types: str = "skip") -> list[GateR
 
 def test_summary_line_separates_unverified_from_not_applicable() -> None:
     line = quality_gates.gates_summary_line(100, _gates(types="none"))
-    assert line == ("Skóre 100 ze 100. Spočteno nad 5 branami. "
-                    "Neověřeno: akceptační testy (chybí @playwright/test).")
+    assert line == ("Skóre 100 ze 100. Spočteno z 5 automatických kontrol. "
+                    "Neověřeno: akceptační testy — neměřeno, chybí @playwright/test.")
     both = quality_gates.gates_summary_line(100, _gates())
-    assert both.startswith("Skóre 100 ze 100. Spočteno nad 5 branami. Neověřeno: "
-                           "akceptační testy (chybí @playwright/test), typová kontrola")
+    assert both.startswith("Skóre 100 ze 100. Spočteno z 5 automatických kontrol. Neověřeno: "
+                           "akceptační testy — neměřeno, chybí @playwright/test; typová kontrola")
     plain = quality_gates.gates_summary_line(100, _gates(acceptance="none", types="skip"))
     assert "Neověřeno: akceptační" not in plain and "typová kontrola" in plain
 
@@ -181,7 +181,7 @@ def test_ship_state_production_unverified_acceptance_does_not_pass_pilot_warns()
     assert "gates:acceptance-neověřeno" in prod["blocked_by"] and not prod["ready"]
     assert prod["verdict"].startswith("nesplňuje práh")
     pilot = handoff_pr._ship_state(_ship_ctx(80))
-    assert pilot["ready"] and "⚠" in pilot["verdict"] and "acceptance" in pilot["verdict"]
+    assert pilot["ready"] and "⚠" in pilot["verdict"] and "akceptační testy" in pilot["verdict"]
 
 
 # --- 3. SHIP.md na jednu stránku + zástup ---------------------------------------------------

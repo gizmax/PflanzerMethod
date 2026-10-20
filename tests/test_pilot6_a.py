@@ -237,7 +237,7 @@ def test_vote_without_urls_one_warning(project: dict[str, Any]) -> None:
     hits = [w for w in out["warnings"] if "preview URL" in w]
     assert len(hits) == 1
     assert "varianty A, B, C zatím nemají preview URL" in hits[0]
-    assert "pflanzer preview up" in hits[0]
+    assert "pflanzer share --slug" in hits[0]
 
 
 # ------------------------------------------------------------ 12 worktree / help

@@ -120,7 +120,7 @@ def test_ship_md_past_tense_and_no_empty_winner_heading(
                       "variantách, mezi kterými se rozhodne nad běžícím kódem. Pilot.", slug))
     md = handoff_pr.render_ship_md(slug)
     assert "## Vítěz" not in md
-    assert "Ověřili jsme na třech funkčních variantách; vyhrála A" in md
+    assert "Ověřeno na třech funkčních variantách; vyhrála A" in md
     assert "Ověříme ho" not in md
     assert md.index("## Co se mění") < md.index("Vítěz A")
 

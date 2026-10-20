@@ -38,7 +38,7 @@ Structures 1-2-4-All a pre-mortem, z AI-DLC princip „AI navrhuje, lidé
 validují". Diferenciátor je spojení celého cyklu — soutěžní varianty na
 reálném repu, async feedback, formální rozhodnutí a cesta do produkce
 (srovnání: [`09`](09-srovnani-existujici-metody.md)). Důkazy o její
-účinnosti zatím neexistují; proto tool měří piloty (čas Kickoff → merge,
+účinnosti zatím neexistují; proto tool měří piloty (dny od Go do merge,
 gate score, kola Iterate, přežití kódu, `/pm retro`).
 
 ## Kdy použít

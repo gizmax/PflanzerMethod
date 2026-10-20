@@ -477,6 +477,13 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
             },
         )
 
+    try:
+        from tool.cli.worktree import sync_builders
+        warnings.extend(sync_builders(
+            slug, {v["name"]: v["builder"] for v in persisted_variants}, target_repo_url))
+    except Exception as e:  # noqa: BLE001 — trailer sync nesmí shodit zápis Buildu
+        warnings.append(f"Builder v trailerech worktrees se nepodařilo srovnat: {e}")
+
     summary_md = render_summary_md(slug, project_id, session_id, spec, persisted_variants, idx_to_role)
     summary_path = project_dir / "_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")
@@ -497,7 +504,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
     elif no_url_variants:
         warnings.append(
             f"Varianty {', '.join(no_url_variants)} zatím nemají preview URL — zástupci v Asyncu "
-            f"nemají na co klikat. Spusťte `pflanzer preview up --slug {slug}` (nebo "
+            f"nemají na co klikat. Sdílejte je přes `pflanzer share --slug {slug}` (nebo "
             f"`pflanzer worktree set-url --slug {slug} --variant X --url https://…`).")
     return {
         "project_id": project_id,

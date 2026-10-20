@@ -84,7 +84,7 @@ Placeholdery `TODO` v balíčcích jsou záměr — doplní tým podle kontextu.
 Do balíčku nepiš osobní údaje.
 
 **Metriky pilotu** (tool je zapíše, slouží k vylepšení metody): čas
-Kickoff → merge · gate score vítěze · počet kol Iterate · kolik kódu vítěze
+dny od Go do merge · gate score vítěze · počet kol Iterate · kolik kódu vítěze
 přežije 30 dní v `main` · AI náklady.
 
 ## AI code provenance

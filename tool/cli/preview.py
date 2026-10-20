@@ -1201,6 +1201,41 @@ def _added_routes(wt: Path, spa: bool | None = None) -> list[str]:
     return routes
 
 
+def _fetch_following(url: str, *, max_redirects: int = 3, timeout: float = 5.0,
+                     ) -> tuple[int | None, str]:
+    """GET s následováním max `max_redirects` přesměrování (3xx + Location); (status, tělo).
+
+    `/` často přesměruje (např. 302 na `/krok/1`) — odkazy se hledají až na cílové stránce.
+    """
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a: Any, **k: Any) -> None:  # noqa: D401
+            return None
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    cur = url
+    for hop in range(max_redirects + 1):
+        try:
+            with opener.open(urllib.request.Request(cur), timeout=timeout) as r:
+                return int(r.status), r.read(1_000_000).decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            loc = e.headers.get("Location") if e.headers else None
+            if e.code in (301, 302, 303, 307, 308) and loc and hop < max_redirects:
+                cur = urllib.parse.urljoin(cur, loc)
+                continue
+            try:
+                body = e.read(1_000_000).decode("utf-8", "replace")
+            except OSError:
+                body = ""
+            return int(e.code), body
+        except (urllib.error.URLError, OSError, ValueError):
+            return None, ""
+    return None, ""
+
+
 def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
     """⚠ text, když varianta přidala novou cestu, ale na `/` na ni nevede žádný odkaz.
 
@@ -1213,7 +1248,10 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
         routes = _added_routes(wt, spa=False)
         if not routes:
             return None
-        st, body, _ct = apprun.http_fetch(f"http://127.0.0.1:{app_port}/", timeout=5.0)
+        root = f"http://127.0.0.1:{app_port}/"
+        st, body, _ct = apprun.http_fetch(root, timeout=5.0)
+        if st is not None and 300 <= st < 400:  # `/` přesměrovává → odkazy hledat až na cíli
+            st, body = _fetch_following(root, max_redirects=3, timeout=5.0)
         if st is None or st >= 400 or not body:
             return None
         hrefs = [h.split("#")[0].split("?")[0].rstrip("/") or "/"

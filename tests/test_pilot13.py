@@ -73,7 +73,7 @@ def test_after_vote_without_preview_urls_next_is_preview_up(
     slug = project["slug"]
     vote(slug)
     d = status.project_detail(slug)
-    assert d["next_step"] == f"pflanzer preview up --slug {slug}"
+    assert d["next_step"] == f"pflanzer share --slug {slug}"
     assert "preview" in d["phase"]
 
 
