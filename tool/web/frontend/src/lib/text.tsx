@@ -29,12 +29,13 @@ export function stripMd(text: string): string {
 }
 
 /** Fáze projektu lidsky (status v DB je interní). */
-export function phaseLabel(status: string): string {
+export function phaseLabel(status: string, buildRunning = false): string {
   switch (status) {
     case "draft":
     case "charter":
       return "Kickoff — zadání se připravuje";
     case "triage":
+      if (buildRunning) return "Build běží — varianty se ukážou po zápisu Buildu (`pflanzer record`)";
       return "Kickoff hotový — čeká se na Build";
     case "session_1":
       return "Async — čekáme na váš feedback";

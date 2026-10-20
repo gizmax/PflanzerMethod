@@ -12,8 +12,8 @@ function voteSummary(v: VoteOut): string {
 }
 
 /** Tiché hlasování před Rozhodnutím. Hub nezapisuje rozhodnutí, jen ukáže výsledek a příkaz. */
-export function SilentVote({ slug, variants, identityName }: {
-  slug: string; variants: string[]; identityName: string | null;
+export function SilentVote({ slug, variants, identityName, compact = false }: {
+  slug: string; variants: string[]; identityName: string | null; compact?: boolean;
 }) {
   const [st, setSt] = useState<VotesState | null>(null);
   const [choice, setChoice] = useState<VoteChoice>("go");
@@ -24,15 +24,21 @@ export function SilentVote({ slug, variants, identityName }: {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!identityName) { setSt(null); return; }
+    // změna identity = čistý formulář; vlastní uložený hlas nové identity se načte níže
+    setSt(null); setChoice("go"); setWinner(""); setComment(""); setIter([]); setErr(null);
+    if (!identityName) return;
+    let cancelled = false;
     api.getVotes(slug).then((s) => {
+      if (cancelled) return;
       setSt(s);
       if (s.mine) { setChoice(s.mine.choice); setWinner(s.mine.winner ?? ""); setComment(s.mine.comment);
         setIter(s.mine.iterate_variants ?? []); }
-    }).catch(() => setSt(null));
+    }).catch(() => { if (!cancelled) setSt(null); });
+    return () => { cancelled = true; };
   }, [slug, identityName]);
 
   if (!identityName) {
+    if (compact) return null;
     return <p className="text-sm text-muted">Pro tiché hlasování se nejdřív vyberte nahoře („Kdo jste?“).</p>;
   }
   if (!st || !st.enabled) return null;
@@ -56,16 +62,21 @@ export function SilentVote({ slug, variants, identityName }: {
 
   const waiting = st.voters.filter((v) => !v.voted).map((v) => v.name);
   return (
-    <section className="pf-card space-y-3" aria-labelledby="vote-h">
-      <h2 id="vote-h">Tiché hlasování před Rozhodnutím</h2>
+    <section className={compact ? "pf-card border-accent space-y-3" : "pf-card space-y-3"}
+      aria-labelledby={compact ? "vote-compact-h" : "vote-h"}>
+      <h2 id={compact ? "vote-compact-h" : "vote-h"}>
+        {compact ? "Hlasujte: Go / Iterate / Kill" : "Tiché hlasování před Rozhodnutím"}
+      </h2>
       <p className="text-sm text-muted">
-        Každý pošle svou volbu a jednu větu. Dokud nehlasují všichni (nebo Decider neodkryje hlasy),
-        ostatní volby nejsou vidět. Decider hlasuje poslední. Hub nic nezapisuje do rozhodnutí.
+        {compact
+          ? "Tiché hlasování: pošlete volbu a jednu větu, ostatní ji neuvidí, dokud nehlasují všichni nebo Decider hlasy neodkryje."
+          : "Každý pošle svou volbu a jednu větu. Dokud nehlasují všichni (nebo Decider neodkryje hlasy), ostatní volby nejsou vidět. Decider hlasuje poslední. Hub nic nezapisuje do rozhodnutí."}
       </p>
       {!st.revealed && (
         <p className="text-sm">
           Hlasovalo {st.voters.length - waiting.length} z {st.voters.length}
           {waiting.length > 0 ? <> · čeká se na: {waiting.join(", ")}</> : null}.
+          {st.is_decider && waiting.length > 0 ? <> Chybí {waiting.length} {waiting.length === 1 ? "hlas" : waiting.length < 5 ? "hlasy" : "hlasů"}.</> : null}
         </p>
       )}
       {st.can_vote && (

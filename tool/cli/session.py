@@ -507,12 +507,8 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         "summary_path": str(summary_path),
         "warnings": warnings,
         "next_step": (
-            "Async: sdílej preview"
-            + (" URL variant (" + ", ".join(f"{v['name']} {v['prototype_url']}"
-                                          for v in persisted_variants if v["prototype_url"]) + ")"
-               if any(v["prototype_url"] for v in persisted_variants) else "")
-            + f" zástupcům kroků cesty ({async_days(slug)}). Feedback sbírej přes `/pm feedback {slug}`, "
-            f"pak `/pm decide {slug}`."
+            f"Sběr feedbacku ({async_days(slug)}): `pflanzer share --slug {slug}` pošle zástupcům "
+            f"jednu zprávu s variantami; feedback pak `/pm feedback {slug}` a `/pm decide {slug}`."
         ),
     }
 
@@ -601,7 +597,7 @@ def render_summary_md(
 
 ## Další krok
 
-1. Sdílej preview URL variant zástupcům kroků cesty (Async, {async_days(slug)}).
+1. `pflanzer share --slug {slug}` — varianty + hub, jedna zpráva pro zástupce (sběr feedbacku, {async_days(slug)}).
 2. `/pm feedback {slug}` — stáhne a agreguje feedback do DB.
 3. `/pm decide {slug}` — Rozhodnutí (Go / Iterate max 1× / Kill, Decider hlasuje poslední).
 """
@@ -667,9 +663,9 @@ def main() -> None:
         f"{v['name']} ({v['builder']})" for v in out["variants"]))
     owners = _owners_for(out["slug"])
     sec = owners.get("bezpecnost")
-    nxt = (f"{sec or 'zástupce bezpečnosti'} podepíše okno do 48 h: `pflanzer checkpoint --slug "
-           f"{out['slug']} bezpecnost --by {sec or 'JMÉNO'} --note …`; zástupci zatím píšou feedback "
-           f"(`/pm feedback {out['slug']}`)")
+    nxt = (f"Sdílejte varianty se zástupci: `pflanzer share --slug {out['slug']}` (jedna zpráva, "
+           f"heslo zvlášť). Mezitím {sec or 'zástupce bezpečnosti'} podepíše okno do 48 h: "
+           f"`pflanzer checkpoint --slug {out['slug']} bezpecnost --by {sec or 'JMÉNO'} --note …`")
     emit(out, title=f"Build zapsán: {out['slug']}", lines=lines, warnings=out["warnings"],
          next_step=nxt, tips=tips(out["slug"], "build", {}), as_json=args.json)
 

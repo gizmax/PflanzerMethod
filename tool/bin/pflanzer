@@ -76,8 +76,8 @@ case "$SUB" in
     echo "Build nemá jeden příkaz — vede ho /pm build (Claude Code). Kroky v terminálu:"
     echo "  pflanzer worktree setup --slug S     # worktrees: $VARIANTS (+ další repa projektu)"
     echo "  pflanzer prompts --slug S            # prompty pro buildery ($VARIANTS)"
-    echo "  pflanzer share --slug S              # varianty + hub + hotová zpráva pro kolegy"
     echo "  pflanzer record --spec spec.json     # zápis Buildu (šablona: .pflanzer/specs/S-vote.json)"
+    echo "  pflanzer share --slug S              # pak sdílení: varianty + hub + hotová zpráva pro kolegy"
     echo "Další krok vždy ukáže: pflanzer status" ;;
   help|-h|--help)
     echo "Pflanzer Method | pflanzer.cz/method"
@@ -88,8 +88,8 @@ case "$SUB" in
     echo "  pflanzer start --spec kickoff.json   # 1. Kickoff bez Claude Code (ukázka: pflanzer start --help)"
     echo "  pflanzer build                 # 2. Build: nápověda (worktrees, prompty, preview)"
     echo "  pflanzer prompts --slug S      #    prompty pro buildery"
-    echo "  pflanzer share --slug S        # 3. sdílení: varianty + hub + jedna zpráva pro kolegy; down ukončí"
-    echo "  pflanzer record --spec spec.json   # 4. zápis hodnocení Buildu"
+    echo "  pflanzer record --spec spec.json   # 3. zápis hodnocení Buildu"
+    echo "  pflanzer share --slug S        # 4. sdílení: varianty + hub + jedna zpráva pro kolegy; down ukončí"
     echo "  pflanzer feedback add --slug S --variant A --role R --by JMÉNO --severity … --text …   # 5. feedback (Async)"
     echo "  pflanzer decide --slug S go --winner A --rationale …   # 6. Rozhodnutí"
     echo "  pflanzer ship --slug S         # 7. Ship: quality gates + SHIP.md + text PR (PR otevře vlastník repa)"

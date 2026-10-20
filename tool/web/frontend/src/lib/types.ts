@@ -101,6 +101,8 @@ export type ProjectDetail = {
   /** zabitý projekt: důvod a poučení */
   kill?: { reason: string | null; lessons: { text: string; by: string | null }[] } | null;
   risk_profile?: "throwaway" | "pilot" | "production";
+  /** worktrees existují, ale Build ještě není zapsaný (`pflanzer record`) */
+  build_running?: boolean;
 };
 
 export type MissingInfo = {

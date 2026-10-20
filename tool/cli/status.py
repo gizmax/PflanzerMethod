@@ -97,7 +97,7 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
             if missing_preview:   # zástupci bez odkazu nic neuvidí → nejdřív preview
                 return ("Build hotový — varianty bez preview URL",
                         "pflanzer preview up --slug <slug>")
-            return "Build hotový — čeká se na Async", "/pm feedback"
+            return "Build zapsaný — čeká se na sdílení", "pflanzer share --slug <slug>"
         if critical:
             return f"Async — {critical}× kritické otevřené", "/pm feedback"
         return "Async — feedback je", "/pm decide"
@@ -738,7 +738,7 @@ def detail_lines(d: dict[str, Any]) -> list[str]:
         return lines
     res = f", vyřešených {fb['resolved']}" if fb.get("resolved") else ""
     lines.append(f"Feedback: {fb['total']} (kritické otevřené: {fb['critical']}{res}){dec}{win}")
-    cps = [c for c in d["checkpoints"] if c["window"] != "zadani"]
+    cps = list(d["checkpoints"])   # včetně Zadání (podepíše se samo při Kickoffu)
     lines.append("Podpisy: " + " · ".join(f"{c['label']} — {c['state_text']}" for c in cps))
     lines += d.get("info", [])
     if d["gate_score"] is not None:

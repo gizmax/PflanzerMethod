@@ -34,7 +34,8 @@ Test 30 sekund je na začátku [`docs/zacni.md`](docs/zacni.md).
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # jednou na stroj
 cd /cesta/k/vasemu/repu && pflanzer init     # jednou na repo (vyplňte docs/INTEGRATION_GUIDE.md)
-git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push
+git add -A docs .pflanzer tests .gitignore .claude/settings.json   # + lockfile (package-lock.json / pnpm-lock.yaml / yarn.lock) a .github, pokud existují; přesný příkaz vypíše `pflanzer doctor`
+git commit -m "chore(pflanzer): init" && git push
 pflanzer doctor          # je repo připravené? řekne i co opravit
 /pm start                # v Claude Code: Kickoff, 15 min (bez Claude Code: pflanzer start --spec kickoff.json)
 ```
@@ -42,7 +43,7 @@ pflanzer doctor          # je repo připravené? řekne i co opravit
 Nebo v Claude Code rovnou `/pm` — v čerstvém repu provede `init` i `doctor`
 samo. **Jediný příkaz, který si musíte pamatovat, je `/pm`**; řekne, kde
 projekt je, a doporučí jeden další krok (nenajdete-li ho, zkuste `/pflanzer:pm`).
-Celá cesta jedním příkazem na krok (`start` → `build` → `share` → `record` →
+Celá cesta jedním příkazem na krok (`start` → `build` → `record` → `share` →
 sběr feedbacku → `decide` → `ship` → `retro`) je na jedné stránce v
 [`docs/zacni.md`](docs/zacni.md); výjimky ve [`docs/faq.md`](docs/faq.md).
 

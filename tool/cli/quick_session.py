@@ -55,8 +55,8 @@ from tool.cli.db import (  # noqa: E402
     transaction,
 )
 from tool.cli.roles import persist_roles  # noqa: E402
+from tool.cli.session import ALLOWED_BUILDERS, rp_range_errors  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
-from tool.cli.session import rp_range_errors  # noqa: E402
 from tool.cli.tier import (  # noqa: E402
     MOB_ITERATIONS,
     PRODUCTION_MIN_LEAN,
@@ -1007,14 +1007,16 @@ def recommend_mode(
     """
     # Hard blocks (production)
     if production_target >= 70:
+        label = {"production": "Produkční projekt", "pilot": "Pilot"}.get(risk_profile, "Projekt")
         return "parallel", (
-            f"Production target {production_target} ≥ 70 — paralelní pro "
-            "% LOC reuse a per-variant audit trail. Mob = sunk-cost commitment."
+            f"{label} má práh {production_target} ze 100 — tři paralelní varianty dávají "
+            "nejlepší šanci ho splnit a Decider má z čeho vybírat; jedna společná varianta "
+            "žádnou náhradu nemá."
         )
     if risk_profile == "production":
         return "parallel", (
-            "Risk profile 'production' — 3 varianty dají Decideri real choice; "
-            "mob produces 1 artefact = no fallback."
+            "Produkční projekt — tři varianty dají Decideri skutečnou volbu; "
+            "jedna společná varianta znamená žádnou náhradu, když nevyjde."
         )
     # Hard blocks (room geometry per cognitive-load perspektiva)
     if room_size > 5:
@@ -1511,7 +1513,9 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
             "běžícím `next dev` a preview pak vrací 500: neběž ho, když preview této varianty "
             f"běží; pokud ho potřebuješ, hned po něm spusť `pflanzer preview restart --slug "
             f"{slug} --variants {'<VARIANTA>' if mob else variant}`. Dev odznak Next překrývá "
-            "rohy UI (CTA): v `next.config` nastav `devIndicators: false`.")
+            "rohy UI (CTA): v `next.config` nastav `devIndicators: false`."
+            f"\n{n + 8}. Přístupnost (Next): v `app/layout.tsx` exportuj `metadata` s `title` "
+            "a dej `<html lang=\"cs\">`; bez toho selže brána přístupnosti.")
     venv_rule = ""
     if stack.stack == "python" and not stack.nextjs:
         venv_rule = (f"\n{n + 7}. Python: `.venv/bin` je v PATH (Makefile volá `python` / `pytest` "
@@ -2228,6 +2232,9 @@ VOTE_EPILOG = """Pole specu (JSON):
   role_preferences [{role_idx, user_value, effort, risk, strategic_fit,
   commitment_level, rationale}]}], decider_call {shortlist, rationale,
   veto_register, parking_lot}, real_urls? {varianta: url}
+
+builder = jedna z hodnot: """ + ", ".join(sorted(ALLOWED_BUILDERS)) + """
+(pokud stavíte ručně bez AI, dej `manual`).
 
 role_idx = číslo role v katalogu 1–18 (docs/methodology/02-role-catalog.md), NE číslo
 kroku cesty 1–6. Např. 2 = Produkt manažer, 4 = Frontend, 6 = UX / Designer,

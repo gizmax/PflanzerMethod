@@ -116,7 +116,7 @@ def test_windows_have_signer_and_ready_command(env: dict) -> None:
     c = env["client"]
     ws = {w["window"]: w for w in c.get("/api/projects/demo/windows",
                                          headers=who("x")).json()["windows"]}
-    assert set(ws) == {"bezpecnost", "provoz", "design"}
+    assert set(ws) == {"zadani", "bezpecnost", "provoz", "design"}
     assert ws["bezpecnost"]["signer"] == "Pavel Šnek"
     assert ws["bezpecnost"]["command"] == (
         'pflanzer checkpoint --slug demo bezpecnost --by "Pavel Šnek" --note "co jsem ověřil"')
@@ -233,7 +233,7 @@ def test_windows_endpoint_shows_merged_window(env: dict, monkeypatch: pytest.Mon
     monkeypatch.setattr(expert, "_merged_window", lambda db, pid: True)
     ws = {w["window"]: w for w in env["client"].get(
         "/api/projects/demo/windows", headers=who("x")).json()["windows"]}
-    assert set(ws) == {"bezpecnost-provoz", "design"}
+    assert set(ws) == {"zadani", "bezpecnost-provoz", "design"}
     assert ws["bezpecnost-provoz"]["label"] == "Bezpečnost a provoz"
     assert ws["bezpecnost-provoz"]["command"].startswith(
         'pflanzer checkpoint --slug demo bezpecnost-provoz --by "Pavel Šnek"')

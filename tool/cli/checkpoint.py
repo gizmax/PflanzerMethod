@@ -333,7 +333,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
     if not note.strip():
         raise ValueError("--note je povinné: co se v okně ověřilo / co chybí.\nPříklad:\n" + USAGE)
     if ai and window == "zadani":
-        raise ValueError("Zadání (Kickoff) AI nepodepíše — podepisuje Decider. Použij --by <jméno>.")
+        raise ValueError("Zadání (Kickoff) AI nepodepíše — podepisuje Decider (jménem, ne rolí). Použij --by <jméno Decidera>.")
     if ai and window == "design":
         raise ValueError("Design za AI je zapsaný už v Kickoffu; okno design potvrzuje člověk "
                          '(PdM): --by "<jméno>" --note "co jste zkontrolovali".')
@@ -416,6 +416,14 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                     warnings.append(signer_guidance(window, owners, risk))
         else:
             who = by.strip()
+            if window == "zadani" and who.lower() in ("decider", "šéf", "sef"):
+                raise ValueError(
+                    "--by má být jméno Decidera, ne slovo „Decider“"
+                    + (f" (zástupce kroku Byznys: {owner})" if owner else "")
+                    + ". Zadání se podepíše samo při Kickoffu (jménem Decidera), ručně jen když "
+                    "Kickoff šel bez metriky nebo kill kritéria.\n"
+                    f'Příklad: pflanzer checkpoint --slug {slug} zadani --by "{owner or "<jméno>"}" '
+                    '--note "…"')
             status = "blocked" if blocked else "ok"
             head = "BLOKOVÁNO" if blocked else "OK"
             countersigned = bool(prior and prior[0] == "pending"

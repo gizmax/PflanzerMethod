@@ -84,7 +84,7 @@ def test_after_vote_with_urls_next_is_feedback(project: dict[str, Any]) -> None:
         real_urls={n: f"https://example.com/{n}" for n in ("A", "B")},
         votes=[{"name": n, "builder": "claude-code", "description": n,
                 "role_preferences": [_pref()]} for n in ("A", "B")])
-    assert status.project_detail(slug)["next_step"] == f"/pm feedback {slug}"
+    assert status.project_detail(slug)["next_step"] == f"pflanzer share --slug {slug}"
 
 
 # --- 2. podpisy v charteru ----------------------------------------------------------------------

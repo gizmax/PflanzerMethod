@@ -1,7 +1,7 @@
 """Preview variant pro Async — `pflanzer preview up|down|status --slug S`.
 
 Spustí aplikaci z worktree každé varianty (A/B/C), před každou postaví malý
-reverse proxy s heslem (HTTP Basic, uživatel `pflanzer`) a štítkem „Varianta X
+reverse proxy s heslem (HTTP Basic, libovolné uživatelské jméno, rozhoduje heslo) a štítkem „Varianta X
 k rozhodnutí — není to hotový produkt“ vloženým do HTML. Volitelně přidá
 Cloudflare quick tunnel, aby zástupci klikli odkudkoli bez Vercelu a bez
 pushnutí kódu mimo firmu.
@@ -122,7 +122,7 @@ def split_route(path: str, routes: dict[str, int]) -> tuple[str | None, str | No
 def _make_handler(app_port: int, password: str, variant: str,
                   routes: dict[str, int] | None = None) -> type:
     routes = routes or {}
-    expected = f"{USER}:{password}".encode()
+    expected_pw = password.encode()
 
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.0"
@@ -141,7 +141,9 @@ def _make_handler(app_port: int, password: str, variant: str,
                 given = base64.b64decode(hdr[6:].strip(), validate=True)
             except ValueError:
                 return False
-            return hmac.compare_digest(given, expected)
+            # Uživatelské jméno je libovolné (jako u hubu); rozhoduje jen heslo, v konstantním čase.
+            _user, sep, given_pw = given.partition(b":")
+            return hmac.compare_digest(given_pw, expected_pw) and bool(sep)
 
         def _reply(self, code: int, body: bytes, ctype: str = "text/plain; charset=utf-8",
                    extra: dict[str, str] | None = None) -> None:
@@ -203,7 +205,7 @@ def _make_handler(app_port: int, password: str, variant: str,
 
         def _proxy(self) -> None:
             if not self._authorized():
-                self._reply(401, "Přihlášení je potřeba (uživatel pflanzer a heslo od "
+                self._reply(401, "Přihlášení je potřeba (heslo od "
                                  "organizátora).\n".encode(),
                             extra={"WWW-Authenticate": 'Basic realm="Pflanzer preview", '
                                                        'charset="UTF-8"'})
