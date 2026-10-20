@@ -47,6 +47,8 @@ export default function CompareVariants() {
   const won = detail?.project.status === "handoff" && detail.decision?.decision === "go"
     ? detail.decision.winner : null;
   const login = detail ? previewLoginText(detail) : null;
+  // Náhled za Basic auth: iframe by skončil jako šedý box s 401 (stav jde z jiné domény nezjistit).
+  const protectedPreview = !!detail?.preview_login;
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -91,7 +93,16 @@ export default function CompareVariants() {
                 <p className="text-sm text-muted">Varianta k rozhodnutí — není hotový produkt.</p>
                 {v.description_md && <p className="text-sm"><Md text={v.description_md} /></p>}
 
-                {desktop && hasPreview && (
+                {desktop && hasPreview && protectedPreview && (
+                  <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded border border-line bg-soft p-4 text-center">
+                    <p className="text-sm">Náhled je za heslem — klikněte na Otevřít náhled.</p>
+                    <a href={v.prototype_url} target="_blank" rel="noopener noreferrer"
+                      className="pf-button-secondary">
+                      Otevřít náhled<span className="sr-only"> varianty {v.name} v novém okně</span>
+                    </a>
+                  </div>
+                )}
+                {desktop && hasPreview && !protectedPreview && (
                   <div>
                     <div className="aspect-video overflow-hidden rounded border border-line bg-soft">
                       <iframe src={v.prototype_url} title={`Náhled varianty ${v.name}`} className="h-full w-full"

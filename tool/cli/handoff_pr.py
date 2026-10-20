@@ -92,8 +92,11 @@ from tool.cli.session_2 import (  # noqa: E402
     describe_critical,
     get_winner,
     open_criticals,
+    open_remarks,
     overridden_critical_md,
     overridden_criticals,
+    remarks_checklist,
+    remarks_line,
     resolved_criticals,
     strip_reason,
 )
@@ -469,6 +472,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
         resolved = resolved_criticals(conn, project_id)
         overridden = [c for c in overridden_criticals(conn, project_id)
                       if winner and c["variant"] == winner[0]]
+        remarks = open_remarks(conn, project_id, winner[0]) if winner else []
         owners = path_owners(conn, project_id)
         dev_owners = [
             r[0] for r in conn.execute(
@@ -487,7 +491,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "variant_names": variant_names, "dev_owners": dev_owners,
             "winner_basis": winner_basis, "open_critical": criticals,
             "resolved_critical": resolved, "overridden_critical": overridden,
-            "path_owners": owners}
+            "open_remarks": remarks, "path_owners": owners}
 
 
 def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
@@ -900,6 +904,10 @@ def build_pr(slug: str, repo: str | None = None,
     ov_md = overridden_critical_md(ctx.get("overridden_critical") or [])
     if ov_md:
         body_lines += ov_md.rstrip("\n").splitlines() + [""]
+    remarks = ctx.get("open_remarks") or []
+    remark_lines = remarks_checklist(remarks)
+    if remark_lines:
+        body_lines += ["## Otevřené připomínky k vítězi (neblokují merge)", *remark_lines, ""]
     if decider_line:
         body_lines += ["## Decider", decider_line, ""]
     if kill:
@@ -975,6 +983,7 @@ def build_pr(slug: str, repo: str | None = None,
         "keyboard": keyboard, "variants": variants, "warnings": warnings,
         "failures": failures, "critical_lines": crit_lines, "model": model,
         "resolved_critical": resolved_on_win, "ai_stand_in": ai_line,
+        "remarks": remarks, "remark_lines": remark_lines,
         "signatures": sign_line, "conditions": cond_lines,
         "decider_line": decider_line,
     }
@@ -1259,6 +1268,16 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         people_md += ("## Podmínky z podpisů oken\n\nPodepsáno s podmínkami; PR je musí splnit "
                       "(checklist je i v těle PR):\n\n" + "\n".join(cond_lines) + "\n\n")
 
+    if pr.get("remark_lines"):
+        shown = pr["remark_lines"][:10]
+        more = len(pr["remark_lines"]) - len(shown)
+        people_md += ("## Otevřené připomínky k vítězi\n\n"
+                      "Neblokují merge; checklist je i v těle PR "
+                      "(`pflanzer session_2 resolve --feedback-id N` je odškrtne):\n\n"
+                      + "\n".join(shown)
+                      + (f"\n- …a dalších {more} (`pflanzer feedback list --slug {slug}`)"
+                         if more else "") + "\n\n")
+
     pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
     md = f"""{BRAND}
 
@@ -1437,6 +1456,8 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     for x in pr["failures"][:1]:
         lines.append(f"Selhalo {x[0]}: {x[1]}")
     lines += pr["critical_lines"][:1]
+    if pr.get("remarks"):
+        lines.append(remarks_line(len(pr["remarks"])))
     warnings = list(pr["warnings"])
     if state["blocked_by"] and not human:
         warnings.append("PR půjde jako draft: " + ", ".join(state["blocked_by"]))
@@ -1445,7 +1466,7 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
            + "spustí `gh pr create` z konce SHIP.md ("
            + ("z worktree vítěze v každém repu: " + ", ".join(b["role"] for b in pr["repos"])
               if multi else "z worktree vítěze") + ").")
-    return {"lines": lines[:6], "warnings": warnings, "next_step": nxt,
+    return {"lines": lines[:7], "warnings": warnings, "next_step": nxt,
             "ctx": {"open_critical": bool(pr["critical_lines"]),
                     "below_threshold": state["score"] < state["target"]}}
 

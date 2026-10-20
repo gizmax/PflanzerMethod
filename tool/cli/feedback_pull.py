@@ -41,6 +41,62 @@ STEP_LABELS = {"produkt": "Produkt", "design": "Design", "vyvoj": "Vývoj",
                "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
 
 
+SEVERITY_RANK = {k: i for i, k in enumerate(SEVERITY_ORDER)}
+
+
+def clip_text(text: str | None, limit: int | None = 120) -> str:
+    """Text na jeden řádek, případně zkrácený na ~limit znaků (na hranici slova)."""
+    t = " ".join((text or "").split())
+    if limit and len(t) > limit:
+        t = t[: limit - 1].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
+    return t
+
+
+def sort_feedback(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Critical -> major -> minor (potom podle id)."""
+    return sorted(rows, key=lambda r: (SEVERITY_RANK.get(r.get("severity"), 9), r.get("id") or 0))
+
+
+def _variant_of(r: dict[str, Any]) -> str:
+    return str(r.get("variant_name") or r.get("variant") or "?")
+
+
+def feedback_row_line(r: dict[str, Any], limit: int | None = 120) -> str:
+    """„A · Provoz (Karel Horák) · Vysoké · text“ — varianta · role (jméno) · závažnost · text."""
+    who = r.get("submitted_by") or "autor neznámý"
+    dept = r.get("department") or "?"
+    return (f"{_variant_of(r)} · {dept} ({who}) · {severity_label(r.get('severity') or '')}"
+            f" · {clip_text(r.get('rationale'), limit)}")
+
+
+def open_resolved(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(otevřené, vyřešené), každé řazené critical -> major -> minor."""
+    return (sort_feedback([r for r in rows if not r.get("resolved_at")]),
+            sort_feedback([r for r in rows if r.get("resolved_at")]))
+
+
+def top_disputes(rows: list[dict[str, Any]], n: int = 3) -> list[dict[str, Any]]:
+    """Top spory k Rozhodnutí: otevřené připomínky, nejzávažnější první; při shodě závažnosti
+    z nejčastěji zmiňovaného kroku cesty (téma = krok)."""
+    open_rows = [r for r in rows if not r.get("resolved_at")]
+    freq: dict[str, int] = defaultdict(int)
+    for r in open_rows:
+        freq[_norm(r.get("department"))] += 1
+    ranked = sorted(open_rows, key=lambda r: (SEVERITY_RANK.get(r.get("severity"), 9),
+                                              -freq[_norm(r.get("department"))],
+                                              r.get("id") or 0))
+    return [{"id": r["id"], "variant": _variant_of(r), "department": r.get("department"),
+             "severity": r.get("severity"), "submitted_by": r.get("submitted_by"),
+             "text": (r.get("rationale") or "").strip(),
+             "department_open": freq[_norm(r.get("department"))]} for r in ranked[:n]]
+
+
+def dispute_lines(disputes: list[dict[str, Any]], limit: int = 120) -> list[str]:
+    return [f"Spor {i}: #{d['id']} " + feedback_row_line(
+        {**d, "variant": d["variant"], "rationale": d["text"]}, limit)
+        for i, d in enumerate(disputes, 1)]
+
+
 def variant_in_play(slug: str, agg: dict[str, Any] | None = None) -> str:
     """Varianta, která je ve hře (po Iterate jen pokračující; jinak shortlist/vítěz); jinak A."""
     try:
@@ -121,6 +177,7 @@ def aggregate(slug: str) -> dict[str, Any]:
         # Feedback ke všem variantám projektu (i po Iterate)
         cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
         resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
+        res_note = "f.resolved_note" if "resolved_note" in cols else "NULL"
         rows = conn.execute(
             f"""
             SELECT f.id, f.variant_id, v.name AS variant_name, v.builder,
@@ -128,7 +185,7 @@ def aggregate(slug: str) -> dict[str, Any]:
                    f.severity, f.department, f.category,
                    f.score, f.rationale, f.ai_act_dimension, f.wcag_level,
                    f.is_ai_only, f.submitted_by, f.submitted_at,
-                   {resolved} AS resolved_at
+                   {resolved} AS resolved_at, {res_note} AS resolved_note
             FROM feedback f
             JOIN variants v ON v.id = f.variant_id
             JOIN sessions s ON s.id = v.session_id
@@ -324,6 +381,23 @@ def render_summary_md(agg: dict[str, Any]) -> str:
             f"> Kritická připomínka na vítězi blokuje Go, dokud se nevyřeší "
             f"(`pflanzer session_2 resolve`) nebo ji Decider výslovně nepřebije s důvodem.\n"
         )
+    texts_section = ""
+    if agg["raw_feedback"]:
+        blocks = []
+        for v in sorted({_variant_of(r) for r in agg["raw_feedback"]}):
+            op, done = open_resolved([r for r in agg["raw_feedback"] if _variant_of(r) == v])
+            rows_md = [f"- **{severity_label(r['severity'])}** · {r.get('department') or '?'} "
+                       f"({r.get('submitted_by') or 'autor neznámý'}) · #{r['id']}: "
+                       f"{clip_text(r.get('rationale'), None)}" for r in op]
+            rows_md += [f"- ~~{severity_label(r['severity'])}~~ vyřešeno · "
+                        f"{r.get('department') or '?'} ({r.get('submitted_by') or 'autor neznámý'}) "
+                        f"· #{r['id']}: {clip_text(r.get('rationale'), None)}"
+                        + (f" — _{r['resolved_note']}_" if r.get("resolved_note") else "")
+                        for r in done]
+            blocks.append(f"### Varianta {v}\n\n" + "\n".join(rows_md))
+        texts_section = ("\n## Připomínky podle varianty (plné texty)\n\n"
+                         "> Od nejzávažnější; vyřešené na konci. Audit discovery debtu čte "
+                         "tyto texty.\n\n" + "\n\n".join(blocks) + "\n")
     silent_section = ""
     if agg.get("silent_reps"):
         who = ", ".join(f"{r['label']} ({r['name']})" for r in agg["silent_reps"])
@@ -366,7 +440,7 @@ def render_summary_md(agg: dict[str, Any]) -> str:
 | Krok | Připomínek |
 |------|-----------|
 {dept_rows}
-{crit_section}{silent_section}
+{crit_section}{texts_section}{silent_section}
 ## Co dál
 
 1. Otevřené kritické řeší Decider **před** Rozhodnutím (oprava, nebo vědomé přebití s důvodem).
@@ -397,6 +471,12 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
     if not crit:
         for v in sorted(agg["by_variant"])[:3]:
             lines.append(f"Varianta {v}: {severity_text(agg['by_variant_severity'].get(v, {}))}")
+    open_rows, _done = open_resolved(agg["raw_feedback"])
+    shown = [r for r in open_rows if r["severity"] != "critical"][:3]
+    for r in shown:
+        lines.append(f"#{r['id']} " + feedback_row_line(r))
+    if len([r for r in open_rows if r["severity"] != "critical"]) > len(shown):
+        lines.append("…všechny texty: `pflanzer feedback list --slug " + slug + "`")
     if silent:
         lines.append("Ještě bez feedbacku: " + ", ".join(f"{r['label']} ({r['name']})"
                                                         for r in silent))
@@ -422,7 +502,7 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
         nxt = f"`pflanzer session_2 prep --slug {slug}`"
     if summary_path:
         lines.append(f"Souhrn: {display_path(summary_path)}")
-    return (f"Feedback {slug}", lines[:8], warns, nxt,
+    return (f"Feedback {slug}", lines[:14], warns, nxt,
             {"silent_reps": bool(silent), "open_critical": bool(crit)})
 
 

@@ -112,22 +112,40 @@ _WINDOW_LABELS = {"zadani": "Zadání", "design": "Design", "bezpecnost": "Bezpe
                   "pravo": "Právo", "data": "Data", "podpora": "Podpora"}
 
 
+def _window_ai_evidence(r: dict[str, Any]) -> bool:
+    """AI náhrada okna = skutečný `--ai` podpis (AI draft / potvrzený AI draft) nebo vlastník „AI:…“.
+
+    Podpis jiným člověkem než zástupcem kroku (`zástup`, `autor kódu`) AI náhradou NENÍ.
+    """
+    return bool((r.get("ai_agent") or "").strip() or (r.get("owner_ai") or "").strip()
+                or (r.get("signer_kind") or "").strip() == "AI draft")
+
+
+def ai_stand_in_steps(slug: str) -> set[str]:
+    """Kroky cesty (klíče jako v path_owners), za které stála AI náhrada podle oken/podpisů."""
+    step_of = {"zadani": "byznys", "bezpecnost": "bezpecnost", "pravo": "bezpecnost",
+               "provoz": "provoz", "design": "design"}
+    return {step_of[r["window"]] for r in checkpoint_rows(slug)
+            if r.get("window") in step_of and _window_ai_evidence(r)}
+
+
 def ai_stand_in_line(slug: str) -> str | None:
     """„Design: AI (ux-expert), potvrdila Pavla · Bezpečnost: AI (security-expert), potvrdil Petr (autor kódu)“.
 
-    Jen okna, kde za krok stála AI náhrada (`ai_agent` vyplněn nebo signer_kind AI draft / zástup /
-    autor kódu). None = žádná AI náhrada.
+    Jen okna, kde za krok stála AI náhrada: skutečný `--ai` podpis (`ai_agent` / AI draft) nebo
+    vlastník kroku „AI:…“ v Kickoffu. Podpis cizím člověkem (`zástup`) AI náhradou není.
+    None = žádná AI náhrada.
     """
     parts: list[str] = []
     for r in checkpoint_rows(slug):
-        kind = (r.get("signer_kind") or "").strip()
-        agent = (r.get("ai_agent") or "").strip()
-        if not agent and kind not in ("AI draft", "zástup", "autor kódu"):
+        if not _window_ai_evidence(r):
             continue
+        kind = (r.get("signer_kind") or "").strip()
+        agent = (r.get("ai_agent") or "").strip() or (r.get("owner_ai") or "").strip()
         label = _WINDOW_LABELS.get(r.get("window") or "", (r.get("window") or "?").capitalize())
         who = (r.get("signed_by") or "").strip()
         ai = f"AI ({agent})" if agent else "AI"
-        if who and r.get("state") == "ok":
+        if who and r.get("state") == "ok" and kind != "AI draft":
             extra = f" ({kind})" if kind in ("autor kódu", "zástup") else ""
             verb = "potvrdila" if who.split()[0].lower().endswith("a") else "potvrdil"
             parts.append(f"{label}: {ai}, {verb} {who}{extra}")

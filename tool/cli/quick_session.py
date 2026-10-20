@@ -1362,7 +1362,7 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
                  "test hlavního toku (ne všechny scénáře)" if throwaway
                  else "implementace musí projít všemi scénáři")
     feature_line = (
-        f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
+        f"3. Přečti `tests/acceptance/{slug}.feature` (kostra akceptačních scénářů — doplň konkrétní scénáře podle Charteru) — "
         f"{scenarios}. Akceptační test(y) k nim napiš do "
         f"`{acc_file}`{acc_note} (běžný test runner projektu"
         f"{'; v TS projektu .test.ts, ne .js' if acc_file.endswith('.ts') or acc_file.endswith('.ts(x)') else ''}"
@@ -2099,6 +2099,10 @@ VOTE_EPILOG = """Pole specu (JSON):
   role_preferences [{role_idx, user_value, effort, risk, strategic_fit,
   commitment_level, rationale}]}], decider_call {shortlist, rationale,
   veto_register, parking_lot}, real_urls? {varianta: url}
+
+role_idx = číslo role v katalogu 1–18 (docs/methodology/02-role-catalog.md), NE číslo
+kroku cesty 1–6. Např. 2 = Produkt manažer, 4 = Frontend, 6 = UX / Designer,
+7 = Security, 15 = DevOps.
 
 Příklad:
 """ + VOTE_EXAMPLE

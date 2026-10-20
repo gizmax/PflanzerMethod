@@ -159,10 +159,11 @@ def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]
             raise ProjectNotFound(slug)
         cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
         resolved = "f.resolved_at" if "resolved_at" in cols else "NULL"
+        res_note = "f.resolved_note" if "resolved_note" in cols else "NULL"
         sql = f"""
             SELECT f.id, v.name AS variant, f.department, f.severity, f.score,
                    f.rationale, f.is_ai_only, f.submitted_by, f.submitted_at,
-                   {resolved} AS resolved_at
+                   {resolved} AS resolved_at, {res_note} AS resolved_note
             FROM feedback f
             JOIN variants v ON v.id = f.variant_id
             JOIN sessions s ON s.id = v.session_id
@@ -199,25 +200,25 @@ def _counts(rows: list[dict[str, Any]]) -> str:
 
 
 def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], str, dict[str, Any]]:
+    """Lidský výpis: počty po variantách, pak řádky „varianta · role (jméno) · závažnost · text“
+    od critical po minor; vyřešené zvlášť."""
+    from tool.cli.feedback_pull import feedback_row_line, open_resolved
+
     variants = sorted({r["variant"] for r in rows})
     lines = [f"Varianta {v}: {_counts([r for r in rows if r['variant'] == v])}" for v in variants[:3]]
-    crit = [r for r in rows if r["severity"] == "critical" and not r.get("resolved_at")]
-    for r in crit[:2]:
-        text = r["rationale"].replace("\n", " ").strip()
-        text = text if len(text) <= 80 else text[:79].rsplit(" ", 1)[0] + "…"
-        lines.append(f"Otevřené kritické #{r['id']}: {r['submitted_by']} "
-                     f"(krok {r['department']}) na {r['variant']} — „{text}“")
-    if len(crit) > 2:
-        n_more = len(crit) - 2
-        lines.append("…a " + count(n_more, "další otevřený kritický", "další otevřené kritické",
-                                  "dalších otevřených kritických"))
+    open_rows, done_rows = open_resolved(rows)
+    lines += [f"#{r['id']} {feedback_row_line(r)}" for r in open_rows]
+    lines += [f"Vyřešeno #{r['id']} {feedback_row_line(r)}"
+              + (f" — {r['resolved_note']}" if r.get("resolved_note") else "")
+              for r in done_rows]
+    crit = [r for r in open_rows if r["severity"] == "critical"]
     if crit:
         nxt = (f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
                f"--by JMÉNO --note \"…\"`")
     else:
         nxt = f"`pflanzer feedback_pull --slug {slug}` (souhrn + kdo ještě mlčí)"
     return (f"Feedback {slug}: {count(len(rows), 'připomínka', 'připomínky', 'připomínek')}",
-            lines[:6], nxt, {"open_critical": bool(crit)})
+            lines, nxt, {"open_critical": bool(crit)})
 
 
 def main() -> None:

@@ -16,7 +16,12 @@ nasbíraném mezi Session 1 a Session 2.
 
 ## Vstupy
 
-- `data/feedback/<slug>-summary.md` (vygeneroval `tool/cli/feedback_pull.py`).
+- `data/feedback/<slug>-summary.md` (vygeneroval `tool/cli/feedback_pull.py`) — sekce
+  „Připomínky podle varianty (plné texty)“ nese celé znění každé připomínky; z ní
+  posuzuj dimenze 1 a 2. Chybí-li sekce nebo jsou jen počty, nehodnoť to jako dluh
+  zástupců (nedávej dimenzím 1 a 2 skóre 0): napiš do `recommendations`, že audit
+  nemá texty, a načti je přes `pflanzer feedback list --json` (nebo pusť
+  `pflanzer feedback_pull` znovu).
 - `data/charters/<slug>.md` — pro porovnání claims s XYZ hypotézou + JTBD.
 - `data/sessions/<slug>/_summary.md` — pro OST node mapping per varianta.
 - DB tabulka `feedback`: full rows pro hlubší analýzu (rationale text mining).
