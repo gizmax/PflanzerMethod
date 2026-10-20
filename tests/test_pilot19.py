@@ -26,7 +26,7 @@ def test_go_below_commitment_points_to_vote_not_feedback(
     with pytest.raises(ValueError) as exc:
         session_2.record_decision(slug=slug, decision="go", winner="A", rationale="A")
     msg = str(exc.value)
-    assert "commitment_level" in msg and "vote --spec" in msg and "feedback_pull" not in msg
+    assert "commitment_level" in msg and "record --spec" in msg and "feedback_pull" not in msg
 
 
 def test_feedback_without_author_is_refused(project: dict[str, Any], vote: Callable[..., Any],

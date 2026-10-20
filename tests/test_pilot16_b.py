@@ -39,7 +39,7 @@ def test_parse_conditions_semicolon_repeat_and_dedup() -> None:
 
 def test_conditions_stored_survive_resign_and_block(tmp_db: Path, bare_repo: Path) -> None:
     slug = "usmev"
-    bootstrap_project(slug=slug, target_repo_url=file_url(bare_repo))
+    bootstrap_project(personal_data=True, slug=slug, target_repo_url=file_url(bare_repo))
     out = checkpoint.sign(slug, "bezpecnost", by="Lucie", note="OK s podmínkami",
                           conditions=["CSRF; rate limit", "DPA"])
     assert out["conditions"] == ["CSRF", "rate limit", "DPA"]
@@ -73,6 +73,8 @@ def test_checkpoint_cli_has_conditions_flag(tmp_db: Path, bare_repo: Path,
 def test_conditions_in_pr_body_ship_md_and_compliance(
         worktree_project: dict[str, Any]) -> None:
     slug = worktree_project["slug"]
+    with transaction() as conn:   # osobní data = okna bezpečnost a provoz zvlášť
+        conn.execute("UPDATE projects SET data_class = 'L3' WHERE slug = ?", (slug,))
     checkpoint.sign(slug, "bezpecnost", by="Lucie", note="OK s podmínkami",
                     conditions="CSRF; rate limit; čl. 13")
     _vote(slug)
@@ -154,7 +156,7 @@ def test_feedback_add_by_overrides_git_author(tmp_db: Path, bare_repo: Path,
 
 def test_security_tip_disappears_after_signature(tmp_db: Path, bare_repo: Path) -> None:
     slug = "tip"
-    bootstrap_project(slug=slug, target_repo_url=file_url(bare_repo))
+    bootstrap_project(personal_data=True, slug=slug, target_repo_url=file_url(bare_repo))
     assert any("3 vět" in t for t in ux.tips_for("checkpoint_bezpecnost", {}, limit=5))
     assert not any("3 vět" in t for t in ux.tips_for(
         "checkpoint_bezpecnost", {"security_signed": True}, limit=5))
@@ -305,7 +307,10 @@ def test_hub_cannot_write_decisions_or_signatures() -> None:
     """Hub smí zapisovat jen feedback (a varianty); žádné rozhodnutí ani podpis okna."""
     writes = {(m.upper(), path) for path, ops in hub.app.openapi()["paths"].items()
               for m in ops if m.upper() in ("POST", "PUT", "PATCH", "DELETE")}
-    assert writes == {("POST", "/api/feedback"), ("POST", "/api/projects/{slug}/variants")}
+    # Tiché hlasování jen ukládá informativní volby; rozhodnutí zapisuje výhradně `pflanzer decide`.
+    assert writes == {("POST", "/api/feedback"), ("POST", "/api/projects/{slug}/variants"),
+                      ("POST", "/api/projects/{slug}/votes"),
+                      ("POST", "/api/projects/{slug}/votes/reveal")}
 
 
 def test_identity_note_in_hub_ui() -> None:

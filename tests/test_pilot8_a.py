@@ -392,5 +392,5 @@ def test_aliases_ship_decide_build_and_did_you_mean() -> None:
     assert build.returncode == 0 and "worktree setup" in build.stdout
     typo = _cli("shpi")
     assert typo.returncode == 2 and "ship" in typo.stderr
-    helptext = _cli("help").stdout
+    helptext = _cli("help", "--all").stdout
     assert helptext.index("pflanzer ship") < helptext.index("pflanzer session_2")

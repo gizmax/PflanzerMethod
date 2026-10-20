@@ -17,7 +17,8 @@ OWNERS = {"byznys": "Dana", "produkt": "Petr", "design": "Eva", "vyvoj": "TomÃ¡Å
 
 
 def _boot(bare_repo: Path, slug: str = "snek", **kw: Any) -> dict[str, Any]:
-    return bootstrap_project(slug=slug, target_repo_url=file_url(bare_repo), **kw)
+    return bootstrap_project(slug=slug, target_repo_url=file_url(bare_repo), **kw,
+                      personal_data=True)
 
 
 # ------------------------------------------------------------------ G1

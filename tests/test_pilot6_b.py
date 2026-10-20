@@ -126,7 +126,9 @@ def test_retro_reminders_add_horizon_without_duplicates(monkeypatch: Any) -> Non
                         lambda slug, p: {m: ("Karel", "t") for m in retro.MILESTONES})
     _p, _start, _src, items = retro._reminder_items("s", "2026-10-01")
     labels = [it["label"] for it in items]
-    assert labels == ["T+7", "T+14", "T+30", "T+60", "T+90"]
+    # horizont 14 dní se zapisuje do nejbližšího milníku T+30 — připomínka to říká
+    assert labels == ["T+7", "Metrika z Kickoffu (T+14, zapíše se jako T+30)", "T+30", "T+60",
+                      "T+90"]
     assert items[1]["due"] == date(2026, 10, 15)
     project["primary_lagging_metric"] = "tržby do 30 dnů"
     _p, _s, _src, items = retro._reminder_items("s", "2026-10-01")

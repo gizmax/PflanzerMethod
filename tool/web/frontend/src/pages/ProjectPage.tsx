@@ -8,6 +8,13 @@ import { Md, formatDate, ownerLabel, phaseLabel } from "../lib/text";
 import { PATH_STEPS } from "../lib/identity";
 import { buildTask, firstName, previewLoginText, splitHypothesis } from "../lib/task";
 import { useIdentity, usePageTitle } from "../lib/hooks";
+import { CopyButton } from "../components/CopyButton";
+import { MissingBanner } from "../components/MissingBanner";
+import { SignWindows } from "../components/SignWindows";
+import { SilentVote } from "../components/SilentVote";
+
+type Tab = "ukol" | "facilitator";
+const FACILITATOR_TAB = "Pro Decidera a facilitátora";
 
 export default function ProjectPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -15,6 +22,7 @@ export default function ProjectPage() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [identity, setIdentity] = useIdentity();
+  const [tab, setTab] = useState<Tab | null>(null);
 
   usePageTitle(data?.project.name ?? "Projekt");
 
@@ -46,6 +54,8 @@ export default function ProjectPage() {
   const killed = project.status === "killed";
   const login = previewLoginText(data);
   const hyp = project.xyz_hypothesis ? splitHypothesis(project.xyz_hypothesis, data.risk_profile) : null;
+  // Výchozí pohled podle role: Decider rovnou na záložku pro Decidera, ostatní na svou úlohu.
+  const activeTab: Tab = tab ?? (task.key === "decider" ? "facilitator" : "ukol");
 
   return (
     <div className="space-y-6">
@@ -66,6 +76,18 @@ export default function ProjectPage() {
         </p>
       )}
 
+      <div role="tablist" aria-label="Pohled na projekt" className="flex flex-wrap gap-2">
+        {([["ukol", "Moje úloha"], ["facilitator", FACILITATOR_TAB]] as [Tab, string][]).map(([k, l]) => (
+          <button key={k} type="button" role="tab" id={`tab-${k}`} aria-selected={activeTab === k}
+            aria-controls={`panel-${k}`}
+            className={activeTab === k ? "pf-button" : "pf-button-secondary"} onClick={() => setTab(k)}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "ukol" && (
+        <div role="tabpanel" id="panel-ukol" aria-labelledby="tab-ukol" className="space-y-6">
       {chosen && (
         <section className="pf-card border-accent space-y-2" aria-labelledby="won-h">
           <h2 id="won-h">Vybrána varianta {chosen.winner}</h2>
@@ -102,7 +124,10 @@ export default function ProjectPage() {
             )}
           </ol>
           {task.command && (
-            <pre className="overflow-x-auto rounded-md bg-soft p-3 text-sm whitespace-pre-wrap break-words"><code>{task.command}</code></pre>
+            <>
+              <pre className="overflow-x-auto rounded-md bg-soft p-3 text-sm whitespace-pre-wrap break-words"><code>{task.command}</code></pre>
+              <CopyButton text={task.command} />
+            </>
           )}
           {variants.length > 0 && (
             <p className="text-sm text-muted">
@@ -113,6 +138,7 @@ export default function ProjectPage() {
           <Link to={`/${slug}/compare`} className="pf-button w-full sm:w-auto">Otevřít varianty</Link>
         </section>
       )}
+      {inAsync && slug && <MissingBanner slug={slug} />}
       {(data.variants_dropped?.length ?? 0) > 0 && (
         <p className="text-sm text-muted">
           Po Iterate pokračují varianty {(data.variants_in_play ?? []).join(", ")};
@@ -128,6 +154,18 @@ export default function ProjectPage() {
       {hyp && (
         <section className="pf-card space-y-1" aria-labelledby="hyp-h">
           <h2 id="hyp-h">Co chceme ověřit</h2>
+          <p className="whitespace-pre-line"><Md text={hyp.text} />{hyp.scope ? <> {hyp.scope}</> : null}</p>
+        </section>
+      )}
+        </div>
+      )}
+
+      {activeTab === "facilitator" && (
+        <div role="tabpanel" id="panel-facilitator" aria-labelledby="tab-facilitator" className="space-y-6">
+          {inAsync && slug && <MissingBanner slug={slug} />}
+      {hyp && (
+        <section className="pf-card space-y-1" aria-labelledby="hyp-full-h">
+          <h2 id="hyp-full-h">Co chceme ověřit</h2>
           <p className="whitespace-pre-line"><Md text={hyp.text} />{hyp.scope ? <> {hyp.scope}</> : null}</p>
           {project.primary_lagging_metric && (
             <p className="text-sm text-muted">Podle čeho poznáme úspěch: <Md text={project.primary_lagging_metric} /></p>
@@ -158,8 +196,14 @@ export default function ProjectPage() {
         )}
       </section>
 
+      {slug && <SignWindows slug={slug} />}
+      {slug && (
+        <SilentVote slug={slug} identityName={identity?.name ?? null}
+          variants={(data.variants_in_play?.length ? data.variants_in_play : names)} />
+      )}
+
       <details className="pf-card">
-        <summary className="pf-summary">Detail projektu</summary>
+        <summary className="pf-summary" aria-label="Detail projektu: AI Act, role, kontroly">Detail projektu (AI Act, role, kontroly)</summary>
         <div className="mt-3 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <KeyValue k="Sponzor" v={project.sponsor_name} />
@@ -174,14 +218,13 @@ export default function ProjectPage() {
               <table className="w-full text-sm">
                 <caption className="sr-only">Role v místnosti</caption>
                 <thead className="text-left text-muted border-b border-line">
-                  <tr><th scope="col" className="py-2">#</th><th scope="col">Role</th>
+                  <tr><th scope="col" className="py-2">Role</th>
                     <th scope="col">Stav</th><th scope="col">Zástupce</th></tr>
                 </thead>
                 <tbody>
                   {roles.map((r) => (
                     <tr key={r.id} className="border-b border-line">
-                      <td className="py-2 font-mono">{r.catalog_idx}</td>
-                      <td>{r.catalog_label}</td>
+                      <td className="py-2">{r.catalog_label}</td>
                       <td>{r.status}</td>
                       <td>{r.human_owner || "—"}</td>
                     </tr>
@@ -196,7 +239,7 @@ export default function ProjectPage() {
               <ul className="grid gap-2 md:grid-cols-2">
                 {triage.map((t) => (
                   <li key={t.id} className="rounded border border-line p-3 text-sm">
-                    <span className="font-semibold">{t.track}</span> · {t.status}
+                    <span className="font-semibold">{TRACK_LABEL[t.track] ?? t.track}</span> · {t.status}
                     <span className="block text-muted">Podepsal(a): {t.signed_by || "—"}</span>
                   </li>
                 ))}
@@ -205,9 +248,15 @@ export default function ProjectPage() {
           )}
         </div>
       </details>
+        </div>
+      )}
     </div>
   );
 }
+
+const TRACK_LABEL: Record<string, string> = {
+  discovery: "Zadání", security: "Bezpečnost", legal: "Právo a soukromí", platform: "Provoz",
+};
 
 function KeyValue({ k, v }: { k: string; v: ReactNode }) {
   return (

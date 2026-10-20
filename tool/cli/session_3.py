@@ -149,7 +149,7 @@ def _security_unsigned_by_human(triage_gate: dict[str, Any]) -> bool:
 
 def _provoz_done(windows: list[dict[str, Any]], checkpoints: list[str]) -> bool:
     """Okno provozu je podepsané (nebo ho tento běh dostal přes --checkpoint)."""
-    if any(w["window"] == "provoz" and w["state"] == "ok" for w in windows):
+    if any(w["window"] in ("provoz", "bezpecnost-provoz") and w["state"] == "ok" for w in windows):
         return True
     return any(re.match(r"\s*provoz\b", c, re.I) for c in checkpoints)
 
@@ -935,7 +935,9 @@ def _render_report(
     elif target <= 0:
         verdict_block = (
             f"## Verdikt: informativně (throwaway, práh 0)\n\n"
-            f"Skóre **{w_score}/100** nic neblokuje; kód nejde do produkce.\n"
+            f"Skóre **{w_score}/100** nic neblokuje; kód nejde do produkce.\n\n"
+            f"Je to demo: před pilotem založte nový Kickoff s risk profilem pilot "
+            f"(`/pm start`), teprve tam naběhne triage, okno Bezpečnost a provoz a práh 80.\n"
         )
     elif w_score >= target and _hard_failed(w):
         verdict_block = (
@@ -1101,7 +1103,9 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
     elif out.get("risk_profile") == "throwaway" and not human:
         title = f"Ship {slug}: Throwaway: skóre je informativní, Ship neblokuje"
-        lines = [f"Vítěz {w['variant']}: {short}"]
+        lines = [f"Vítěz {w['variant']}: {short}",
+                 "Demo: před pilotem nový Kickoff s risk profilem pilot (triage a okna "
+                 "bezpečnost a provoz se u dema nevyžadují)."]
     elif out["production_ready"]:
         title = f"Ship {slug}: připraveno"
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]

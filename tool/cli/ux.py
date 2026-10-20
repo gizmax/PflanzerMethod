@@ -60,7 +60,7 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
     "after_vote": [
         ("multi_variants", "Pošlete zástupcům odkazy na všechny varianty a termín Asyncu, ne víc."),
         ("single_variant", "Pošlete zástupcům odkaz na společnou variantu a termín Asyncu, ne víc."),
-        (None, "Hlasujte za to, co uvidí uživatel, ne za kód. Důvod jednou větou."),
+        (None, "Hodnoťte to, co uvidí uživatel, ne za kód. Důvod jednou větou."),
     ],
     "async": [
         (None, "Dobrý feedback: co jsem zkoušel → co se stalo → co jsem čekal → co navrhuji. "
@@ -113,7 +113,7 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
                "nebo Decider vědomě přebije `--override-critical`."),
     ],
     "after_resolve": [
-        (None, "Na vítězi žádný critical nezbývá → decide go."),
+        (None, "Žádné Kritické nezbývá → decide go."),
     ],
     "iterate": [
         (None, "Iterate = jedno kolo navíc a jen na to, co se mění. Druhé Iterate není — "

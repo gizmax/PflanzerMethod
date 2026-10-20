@@ -1236,7 +1236,7 @@ def _reminder_items(
         metrics = [f"t{days}_project_metric"]
         items.append({
             "milestone": f"t{days}",
-            "label": f"T+{days}",
+            "label": f"Metrika z Kickoffu (T+{days}, zapíše se jako {MILESTONE_LABELS[nearest]})",
             "due": start + timedelta(days=days),
             "owner": owners[nearest][0],
             "owner_source": "horizont metriky z Kickoffu",
@@ -1253,7 +1253,7 @@ def _reminder_items(
         metric = f"t{days}_project_metric"
         items.append({
             "milestone": f"kill{days}",
-            "label": f"Kill kritérium (T+{days})",
+            "label": f"Kill kritérium (T+{days}, zapíše se jako {MILESTONE_LABELS[nearest]})",
             "due": start + timedelta(days=days),
             "owner": owners["t30"][0] if "t30" in owners else owners[nearest][0],
             "owner_source": "kill kritérium z Kickoffu",

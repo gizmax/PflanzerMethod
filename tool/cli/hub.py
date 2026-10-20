@@ -5,7 +5,7 @@ Při prvním spuštění připraví venv (~/.pflanzer/hub-venv) a sestaví front
 
 Usage:
     pflanzer hub [--port 8000] [--host 127.0.0.1] [--password HESLO] [--rebuild]
-                 [--tunnel auto|cloudflared|none]
+                 [--tunnel auto|cloudflared|none|off]
 
 Auth: na localhostu běží dev režim bez přihlášení (zástupce si vybere jméno v UI).
 Při `--host 0.0.0.0` hub zapne sdílené heslo (HTTP Basic) — zadané `--password`,
@@ -177,9 +177,16 @@ def main() -> None:
                    help="sdílené heslo (HTTP Basic); u --host 0.0.0.0 se bez něj vygeneruje")
     p.add_argument("--rebuild", action="store_true", help="znovu sestavit frontend")
     p.add_argument("--tunnel", choices=["auto", "cloudflared", "none"], default="none",
+                   type=lambda v: "none" if v == "off" else v,  # `off` = alias jako u preview
                    help="cloudflared quick tunnel (jako preview up); auto = když je v PATH; "
                         "vyžaduje heslo (vygeneruje se)")
     args = p.parse_args()
+    # Výstup do roury (agent, log) je jinak bufferovaný a URL by se nevypsala včas.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):
+            pass
     try:
         use_tunnel = resolve_tunnel(args.tunnel)
     except ValueError as exc:
@@ -200,7 +207,7 @@ def main() -> None:
     url = f"http://{'localhost' if args.host in ('127.0.0.1', '0.0.0.0') else args.host}:{args.port}"
     print(BRAND_LINE)
     print()
-    print(f"Hub: {url}/method/" if has_ui else f"API: {url}/api/docs")
+    print(f"Hub: {url}/method/" if has_ui else f"API: {url}/api/docs", flush=True)
     print(f"DB:  {DB_PATH}  (sdílená s CLI)")
     print("Zástupci tu klikají na varianty a píšou feedback; pak `/pm feedback <slug>`.")
     auth_env, notes = plan_auth(args.host, args.password, dict(os.environ),

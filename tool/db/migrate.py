@@ -84,6 +84,8 @@ ADDITIVE_TABLES: tuple[str, ...] = (
     "outcomes",
     # Audit N16: Claude Code token usage snapshots (tool/cli/ai_usage.py)
     "ai_usage",
+    # Tiché hlasování zástupců v hubu (tool/web/backend/api/expert.py)
+    "decision_votes",
 )
 
 

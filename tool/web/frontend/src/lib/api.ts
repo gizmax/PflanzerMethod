@@ -1,5 +1,7 @@
 import { getIdentity } from "./identity";
-import type { Feedback, Project, ProjectDetail, Variant } from "./types";
+import type {
+  Feedback, MissingInfo, Project, ProjectDetail, SignWindow, Variant, VoteChoice, VotesState,
+} from "./types";
 
 const API_BASE = "/api";
 
@@ -31,6 +33,17 @@ export const api = {
   listProjects: () => request<Project[]>("/projects"),
   getProject: (slug: string) =>
     request<ProjectDetail>(`/projects/${encodeURIComponent(slug)}`),
+  getMissing: (slug: string) =>
+    request<MissingInfo>(`/projects/${encodeURIComponent(slug)}/missing`),
+  getWindows: (slug: string) =>
+    request<{ windows: SignWindow[] }>(`/projects/${encodeURIComponent(slug)}/windows`),
+  getVotes: (slug: string) =>
+    request<VotesState>(`/projects/${encodeURIComponent(slug)}/votes`),
+  castVote: (slug: string, v: { choice: VoteChoice; winner: string | null; comment: string }) =>
+    request<VotesState>(`/projects/${encodeURIComponent(slug)}/votes`,
+      { method: "POST", body: JSON.stringify(v) }),
+  revealVotes: (slug: string) =>
+    request<VotesState>(`/projects/${encodeURIComponent(slug)}/votes/reveal`, { method: "POST" }),
   listVariants: (slug: string) =>
     request<Variant[]>(`/projects/${encodeURIComponent(slug)}/variants`),
   listFeedback: (slug: string) =>

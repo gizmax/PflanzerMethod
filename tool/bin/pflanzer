@@ -18,11 +18,11 @@ if [ "$#" -eq 0 ]; then
   echo "  pflanzer start       # Kickoff bez Claude Code (--spec kickoff.json)"
   echo "  pflanzer doctor      # je target repo připravené ke Kickoffu?"
   echo "  pflanzer checkpoint  # podpis okna (zadani | bezpecnost | pravo | provoz | design)"
-  echo "  pflanzer build       # nápověda k Buildu (worktrees, prompty, preview)"
+  echo "  pflanzer build       # nápověda k Buildu (worktrees, prompty, sdílení)"
   echo "  pflanzer feedback    # feedback zástupců (Async)"
   echo "  pflanzer decide      # Rozhodnutí (go | iterate | kill)"
   echo "  pflanzer ship        # Ship: quality gates + PR"
-  echo "  pflanzer hub         # web hub pro feedback"
+  echo "  pflanzer share       # varianty + hub + zpráva pro kolegy"
   echo ""
   echo "Vše: pflanzer help"
   exit 0
@@ -50,7 +50,7 @@ case "$SUB" in
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/session_3.py" "$@" ;;
   decide)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/session_2.py" decide "$@" ;;
-  vote)
+  record|vote)  # `vote` = skrytý kompatibilní alias (zápis hodnocení Buildu)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" vote "$@" ;;
   prompts)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" prompts "$@" ;;
@@ -74,42 +74,40 @@ case "$SUB" in
     echo "Build nemá jeden příkaz — vede ho /pm build (Claude Code). Kroky v terminálu:"
     echo "  pflanzer worktree setup --slug S     # worktrees: $VARIANTS (+ další repa projektu)"
     echo "  pflanzer prompts --slug S            # prompty pro buildery ($VARIANTS)"
-    echo "  pflanzer preview up --slug S         # spustí varianty s heslem a odkazy"
-    echo "  pflanzer vote --spec spec.json       # zápis Buildu (šablona: .pflanzer/specs/S-vote.json)"
+    echo "  pflanzer share --slug S              # varianty + hub + hotová zpráva pro kolegy"
+    echo "  pflanzer record --spec spec.json     # zápis Buildu (šablona: .pflanzer/specs/S-vote.json)"
     echo "Další krok vždy ukáže: pflanzer status" ;;
   help|-h|--help)
     echo "Pflanzer Method | pflanzer.cz/method"
     echo ""
     echo "Usage: pflanzer <příkaz> [args]"
     echo ""
-    echo "Cesta projektem:"
-    echo "  pflanzer status                # kde projekt stojí a co je další krok"
-    echo "  pflanzer start --spec kickoff.json   # Kickoff bez Claude Code (ukázka: pflanzer start --help)"
-    echo "  pflanzer build                 # nápověda k Buildu (worktrees, prompty, preview, zápis)"
-    echo "  pflanzer preview up --slug S   # spustí varianty (všechna repa) s heslem (+ tunel); down|status"
-    echo "  pflanzer vote --spec spec.json # zápis Buildu (hlasování jádra)"
-    echo "  pflanzer feedback              # feedback zástupců (Async)"
-    echo "  pflanzer hub                   # web hub pro feedback (http://localhost:8000/method/)"
-    echo "  pflanzer decide --slug S go --winner A --rationale …   # Rozhodnutí (alias session_2 decide)"
-    echo "  pflanzer ship --slug S         # Ship: quality gates + PR (alias session_3)"
+    echo "Cesta projektem (v tomto pořadí):"
+    echo "  pflanzer start --spec kickoff.json   # 1. Kickoff bez Claude Code (ukázka: pflanzer start --help)"
+    echo "  pflanzer build                 # 2. Build: nápověda (worktrees, prompty, preview)"
+    echo "  pflanzer prompts --slug S      #    prompty pro buildery"
+    echo "  pflanzer share --slug S        # 3. sdílení: varianty + hub + jedna zpráva pro kolegy; down ukončí"
+    echo "  pflanzer record --spec spec.json   # 4. zápis hodnocení Buildu"
+    echo "  pflanzer feedback              # 5. feedback zástupců (Async)"
+    echo "  pflanzer decide --slug S go --winner A --rationale …   # 6. Rozhodnutí"
+    echo "  pflanzer ship --slug S         # 7. Ship: quality gates + PR"
     echo "  pflanzer checkpoint --slug S zadani|bezpecnost|pravo|provoz|design --by JMÉNO --note …"
-    echo "  pflanzer checkpoint --slug S bezpecnost --ai --note …   # AI draft (ADR-0023), podepíše člověk"
+    echo "  pflanzer status                # kde projekt stojí a co je další krok"
     echo "  pflanzer doctor                # je target repo připravené ke Kickoffu?"
     echo ""
-    echo "Správa:"
-    echo "  pflanzer root      # kořen metody (docs/, tool/)"
-    echo "  pflanzer db        # cesta k SQLite DB"
-    echo "  pflanzer data      # datová složka (DB, charters, feedback, ...)"
-    echo "  pflanzer update    # git pull + migrace + update pluginu"
+    echo "Správa: root (kořen metody), db (cesta k DB), data (datová složka), update (git pull + migrace)"
     echo ""
     echo "Všechny příkazy mají lidský výstup; --json dá strojový. --spec - čte JSON ze stdin."
-    echo ""
-    echo "Všechny moduly:"
-    ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | sed 's/^/  pflanzer /' ;;
+    echo "Všechny moduly včetně pomocných: pflanzer help --all"
+    if [ "${1:-}" = "--all" ]; then
+      echo ""
+      echo "Všechny moduly:"
+      ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | sed 's/^/  pflanzer /'
+    fi ;;
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"
     if [ ! -f "$SCRIPT" ]; then
-      CMDS="root db data update help start ship decide vote prompts build $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
+      CMDS="root db data update help start ship decide record prompts build $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
       # shellcheck disable=SC2086
       NEAR="$(python3 -c 'import difflib,sys; m=difflib.get_close_matches(sys.argv[1], sys.argv[2:], n=1, cutoff=0.6); print(m[0] if m else "")' "$SUB" $CMDS)"
       echo "Pflanzer Method | pflanzer.cz/method" >&2

@@ -25,6 +25,50 @@ QUICK_BUILD_MINUTES = 30
 
 RISK_PROFILE_NAMES: tuple[str, ...] = ("throwaway", "pilot", "production")
 
+# Jedna otázka „Jak vážné to je?“: česká slova z Kickoffu -> kanonický risk profil.
+RISK_PROFILE_ALIASES = {
+    "demo": "throwaway", "prototyp": "throwaway", "zahodit": "throwaway",
+    "ostre": "production", "ostré": "production", "ostry": "production",
+    "ostrý": "production", "ostra": "production", "produkce": "production",
+}
+SENSITIVE_DATA_CLASSES = ("L3", "L4")
+PRODUCTION_MIN_LEAN = "Ostré nasazení = minimálně Lean"
+
+
+def normalize_risk_profile(value: Any) -> str | None:
+    """`throwaway|pilot|production` nebo česky `demo|pilot|ostre`; neznámé -> None."""
+    v = str(value or "").strip().lower()
+    v = RISK_PROFILE_ALIASES.get(v, v)
+    return v if v in RISK_PROFILE_NAMES else None
+
+
+def is_sensitive(*, personal_data: Any = None, data_class: str | None = None,
+                 ai_act_tier: str | None = None) -> bool:
+    """Osobní data / citlivá třída dat / AI Act high+ -> projekt potřebuje i právo (Full u ostrého)."""
+    if personal_data in (True, 1) or str(personal_data).strip().lower() in ("true", "ano", "yes", "1"):
+        return True
+    if str(data_class or "").strip().upper() in SENSITIVE_DATA_CLASSES:
+        return True
+    return str(ai_act_tier or "").strip().lower() in ("high", "unacceptable")
+
+
+def derive_tier(risk_profile: str, *, sensitive: bool = False) -> tuple[str, str]:
+    """Stupeň z odpovědi „Jak vážné to je?“ a věta, proč (+ jak přebít).
+
+    throwaway -> quick, pilot -> lean, production -> lean; production + osobní data /
+    regulované -> full. Explicitní `tier` ve specu tohle přebíjí.
+    """
+    if risk_profile == "throwaway":
+        t, why = "quick", "demo, které nejde k uživatelům"
+    elif risk_profile == "pilot":
+        t, why = "lean", "pilot s reálnými uživateli"
+    elif sensitive:
+        t, why = "full", "ostré nasazení s osobními daty / regulovaným obsahem"
+    else:
+        t, why = "lean", "ostré nasazení"
+    return t, (f"Stupeň {TIER_LABELS[t]} jsem odvodil z odpovědi „jak vážné to je“: {why}. "
+               "Chcete jiný? Přidejte `tier` (quick|lean|full).")
+
 
 def window_label(tier: str) -> str:
     """Czech days wording of the between-session window: "3 dny" / "3–5 dní" / "5–7 dní"."""
@@ -98,7 +142,7 @@ def project_tier(slug: str) -> str:
 
 TIER_MEANING = {
     "quick": "rychlé ověření směru, Kickoff + Build v jednom (60–90 min), `/pm live`; "
-             "bezpečnost se dohání před pilotem",
+             "bez triage a oken, před pilotem nový Kickoff",
     "lean": "výchozí: Build 3 h, checkpoint bezpečnosti 20 min, `/pm start` → `/pm build`",
     "full": "regulované / governance: Build 5–6 h, 4 triage tracky povinné, "
             "`/pm roles` → `/pm triage` → `/pm build`",

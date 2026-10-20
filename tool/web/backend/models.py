@@ -145,6 +145,19 @@ class Feedback(SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=utcnow)
 
 
+class DecisionVote(SQLModel, table=True):
+    """Tiché hlasování zástupců před Rozhodnutím (jen názor; rozhodnutí zapisuje CLI)."""
+    __tablename__ = "decision_votes"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
+    voter: str
+    choice: str  # go | iterate | kill
+    winner: str | None = None
+    comment: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"  # type: ignore[assignment]
 

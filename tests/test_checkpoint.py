@@ -26,7 +26,7 @@ def test_fresh_pilot_is_blocked_by_deferred_triage(project: dict[str, Any]) -> N
 
 
 def test_windows_sign_all_tracks(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="okna", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="okna", target_repo_url=file_url(bare_repo),
                       metric="konverze +5 %", kill_criteria="bez liftu po 2 týdnech",
                       path_owners=OWNERS)
     # Kickoff se zadáním podepíše discovery sám.

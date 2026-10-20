@@ -58,8 +58,12 @@ from tool.cli.session import persist as persist_session  # noqa: E402
 from tool.cli.session import rp_range_errors  # noqa: E402
 from tool.cli.tier import (  # noqa: E402
     MOB_ITERATIONS,
+    PRODUCTION_MIN_LEAN,
     QUICK_BUILD_MINUTES,
     TIER_LABELS,
+    derive_tier,
+    is_sensitive,
+    normalize_risk_profile,
     project_tier,
     validate_tier,
 )
@@ -195,18 +199,35 @@ def short_name(hook: str, max_len: int = 80) -> str:
     return _cut_at_word(hook, max_len - 1, " ").rstrip(" ,.;:-") + "…"
 
 
-def _set_triage_deferred(project_id: int, profile: dict[str, Any]) -> None:
+THROWAWAY_TRIAGE_MARK = "Throwaway demo"
+
+
+def _set_triage_deferred(project_id: int, profile: dict[str, Any],
+                         risk_profile: str = "pilot", merged: bool = False) -> None:
     """Kickoff nemá 48h pre-read — triage se označí jako deferred.
 
     Úplné vynechání triage = Captured-by-tool risk, proto status='deferred'
     (ne skipped) s TODO: Checkpoint Bezpečnost & právo (20 min) do 48 h po
     Buildu, před Ship.
     """
-    note = (
-        "**Deferred** — Kickoff přes `/pm start`. Checkpoint Bezpečnost & právo "
-        "(20 min) proběhne do 48 h po Buildu, před Ship.\n"
-    )
+    if risk_profile == "throwaway":
+        note = (f"**{THROWAWAY_TRIAGE_MARK}** — triage ani okna bezpečnost a provoz se nevyžadují "
+                "(AI pre-check je jen informativní). Před pilotem: nový Kickoff s risk profilem "
+                "pilot, pak naběhne plný Lean.\n")
+    elif merged:
+        note = ("**Deferred** — Kickoff přes `/pm start`. Okno Bezpečnost a provoz "
+                "(jedno, 20 min) proběhne do 48 h po Buildu, před Ship.\n")
+    else:
+        note = (
+            "**Deferred** — Kickoff přes `/pm start`. Checkpoint Bezpečnost & právo "
+            "(20 min) proběhne do 48 h po Buildu, před Ship.\n"
+        )
     with transaction() as conn:
+        if risk_profile != "throwaway":
+            # Povýšení throwaway -> pilot/production (nový Kickoff): demo poznámka pryč, plný Lean.
+            conn.execute(
+                "UPDATE triage SET artefact_md = ? WHERE project_id = ? AND status = 'deferred' "
+                "AND artefact_md LIKE ?", (note, project_id, f"%{THROWAWAY_TRIAGE_MARK}%"))
         for track in ("discovery", "security", "legal", "platform"):
             # Skip security if profile flags it as required (= must run real triage)
             status = "deferred"
@@ -424,6 +445,9 @@ def bootstrap(
     title: str | None = None,
     session_mode: str | None = None,
     windows: Any = None,
+    personal_data: Any = None,
+    data_class: str | None = None,
+    ai_act_tier: str | None = None,
 ) -> dict[str, Any]:
     """Založí projekt: Charter + role + jména kroků cesty + odložený triage.
 
@@ -464,12 +488,17 @@ def bootstrap(
         target_branch: base branch pro jednorepo případ (default 'main').
         throwaway_rationale: jen pro risk_profile='throwaway' (ADR-0005 v0.4);
             default = use case „discovery-only pilot“ (interní demo).
-        tier: 'quick' | 'lean' | 'full' (ADR-0017). Spec ho respektuje. Default podle
-            risk profilu: throwaway -> Quick, pilot -> Lean, production -> Lean.
-            `/pm live` posílá `tier: "quick"` výslovně.
+        tier: 'quick' | 'lean' | 'full' (ADR-0017). Spec ho respektuje. Bez něj se
+            odvodí z risk profilu („Jak vážné to je?“): throwaway -> Quick, pilot -> Lean,
+            production -> Lean, production + osobní data / regulované -> Full.
+            `/pm live` posílá `tier: "quick"` výslovně. Ostré nasazení s `quick` se
+            zvedne na Lean.
+        personal_data: true = projekt zpracovává osobní data (pilot dostane i okno Právo,
+            ostré nasazení Full); `data_class` (L1-L4) a `ai_act_tier` (high) mají stejný efekt.
 
     Returns dict: project_id, slug, roles_count, warnings, ...
     """
+    risk_profile = normalize_risk_profile(risk_profile) or risk_profile
     if risk_profile not in RISK_PROFILES:
         near = did_you_mean(str(risk_profile), RISK_PROFILES)
         raise ValueError(f"Neznámý risk_profile „{risk_profile}“."
@@ -485,8 +514,17 @@ def bootstrap(
     signers_by_step = _normalize_ai_signers(ai_signers, short_signers)
     if signers_by_step and not owners_by_step:
         raise ValueError("ai_signers dává smysl jen spolu s path_owners (kroky s AI náhradou).")
-    tier = (validate_tier(tier, profile["capacity_profile"]) if tier
-            else DEFAULT_TIER_BY_RISK[risk_profile])
+    sensitive = is_sensitive(personal_data=personal_data, data_class=data_class,
+                             ai_act_tier=ai_act_tier)
+    if tier:
+        tier = validate_tier(tier, profile["capacity_profile"])
+        tier_note = (f"Stupeň {TIER_LABELS[tier]}: zadán výslovně ve specu." )
+        if tier == "quick" and risk_profile == "production":
+            tier = "lean"
+            tier_note = (f"{PRODUCTION_MIN_LEAN}: stupeň Quick jsem zvedl na Lean "
+                         "(triage a okna bezpečnost a provoz jsou u ostrého provozu povinné).")
+    else:
+        tier, tier_note = derive_tier(risk_profile, sensitive=sensitive)
     ai_stand_ins: list[dict[str, str]] = []
     ai_warnings: list[str] = []
     if owners_by_step:
@@ -544,6 +582,16 @@ def bootstrap(
         f"nad běžícím kódem."
         + (f" Měřítko úspěchu: {metric.strip().rstrip('.')}." if (metric or "").strip() else "")
     )  # risk profil (profile["label"]) patří jen do metadat, ne do tvrzení o tom, co se mění
+    dc = str(data_class or "").strip().upper()
+    if dc and dc not in ("L1", "L2", "L3", "L4"):
+        raise ValueError(f"data_class „{data_class}“ není platná třída dat. Použij L1 až L4 "
+                         "(L3 = osobní / citlivá data).")
+    if not dc and is_sensitive(personal_data=personal_data):
+        dc = "L3"                       # osobní data = minimálně třída L3
+    dc = dc or profile["data_class"]
+    act = str(ai_act_tier or "").strip().lower() or profile["ai_act_tier"]
+    if act not in ("minimal", "limited", "high", "unacceptable"):
+        raise ValueError(f"ai_act_tier „{ai_act_tier}“ neznám. Použij minimal | limited | high.")
     charter = CharterInput(
         slug=slug,
         name=name,
@@ -558,8 +606,8 @@ def bootstrap(
         kill_criteria=kill_criteria or profile["kill_criteria"],
         capacity_profile=profile["capacity_profile"],
         capacity_person_days=profile["capacity_person_days"],
-        ai_act_tier=profile["ai_act_tier"],
-        data_class=profile["data_class"],
+        ai_act_tier=act,
+        data_class=dc,
         throwaway_or_evolve=profile["throwaway_or_evolve"],
         # ADR-0005 v0.4: throwaway needs a rationale naming one of the use cases.
         throwaway_rationale=(
@@ -598,7 +646,9 @@ def bootstrap(
             warnings.append(w.lstrip("⚠ ").strip())
 
     # 3. Triage — deferred; okna ho podepisují (`pflanzer checkpoint`).
-    _set_triage_deferred(project_id, profile)
+    from tool.cli.checkpoint import is_merged_profile
+    merged_windows = is_merged_profile(risk_profile, tier, dc, act)
+    _set_triage_deferred(project_id, profile, risk_profile, merged_windows)
     if metric and (kill_criteria or profile.get("kill_criteria")) and owners_by_step:
         # Zadání z Kickoffu (problém + metrika + kill + jména 6 kroků) = discovery checkpoint.
         from tool.cli.checkpoint import sign as sign_checkpoint
@@ -680,6 +730,9 @@ def bootstrap(
         "risk_profile": risk_profile,
         "roles_count": len(selected),
         "tier": tier,
+        "tier_note": tier_note,
+        "merged_window": merged_windows,
+        "personal_data": sensitive,
         "decider": decider_name,
         "ai_stand_ins": ai_stand_ins,
         "production_readiness_target": profile.get("production_readiness_target", 0),
@@ -698,6 +751,12 @@ def bootstrap(
             "z originu a jinak ho Build neuvidí." if feature_path else None),
         "warnings": list(dict.fromkeys(warnings)),
         "defer_note": (
+            "Throwaway demo: triage se nespouští a okna bezpečnost a provoz se nevyžadují. "
+            "Před pilotem nový Kickoff s risk profilem pilot."
+            if risk_profile == "throwaway" else
+            "Triage odložený (Kickoff nemá 48h pre-read). Okno Bezpečnost a provoz "
+            "(jedno, 20 min) proběhne do 48 h po Buildu, před Ship."
+            if merged_windows else
             "Triage odložený (Kickoff nemá 48h pre-read). Checkpoint Bezpečnost & "
             "právo proběhne do 48 h po Buildu, před Ship."
         ),
@@ -1541,7 +1600,7 @@ pflanzer worktree setup --slug {slug} --mode mob
 """
         if total_iterations == 1:
             timing = (f"- **Stavba: 1 kolo × {QUICK_BUILD_MINUTES} min** (Quick). Druhá iterace není; "
-                      "po ní rovnou zápis do toolu (`pflanzer vote`).")
+                      "po ní rovnou zápis do toolu (`pflanzer record`).")
         else:
             timing = "- **Hard break 25 min** (observer fatigue)"
         facilitator = f"""{setup_block}**Tým u 1 monitoru** (max 5 lidí — víc = zúžit scope nebo přesunout zástupce na okna):
@@ -2074,7 +2133,7 @@ def write_handoff(slug: str) -> Path:
 BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.json
 (soubor zapiš nástrojem Write; obsah:)
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
- "risk_profile": "pilot", "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",
+ "risk_profile": "pilot", "personal_data": false, "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"},
  "core": ["Petr", "Tomáš"], "session_mode": "parallel",
@@ -2082,8 +2141,10 @@ BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.
 
 
 BOOTSTRAP_EPILOG = """Pole specu (JSON):
-  povinné:   hook, decider_name, risk_profile (throwaway | pilot | production)
-  nepovinné: slug, title (krátký název ≤ 50 znaků), metric, kill_criteria, tier (quick | lean | full), core [jména],
+  povinné:   hook, decider_name, risk_profile (throwaway | pilot | production; česky demo | pilot | ostre)
+  nepovinné: personal_data (true = osobní údaje; ostré + osobní data = Full), data_class (L1–L4),
+             ai_act_tier, slug, title (krátký název ≤ 50 znaků), metric, kill_criteria,
+             tier (quick | lean | full; bez něj se odvodí z risk_profile), core [jména],
              path_owners {byznys, produkt, design, vyvoj, bezpecnost, provoz}
              (hodnota = jméno, nebo AI / AI:agent; ne u byznys a vývoj),
              ai_signers {bezpecnost|provoz|design|produkt: "jméno člověka, který AI draft
@@ -2133,6 +2194,8 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
         f"{TIER_LABELS.get(out.get('tier') or '', out.get('tier'))}.",
         f"Decider: {out['decider']}",
     ]
+    if out.get("tier_note"):
+        lines.insert(1, out["tier_note"])
     if owners:
         lines.append("Kroky cesty: " + " · ".join(
             f"{label} {owner_display(owners[k], k)}" for k, label in PATH_STEPS.items()))
@@ -2146,6 +2209,12 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
     if out.get("windows"):
         lines.append("Okna: " + " · ".join(
             w["okno"] + (f" {w['kdy']}" if w.get("kdy") else "") for w in out["windows"]))
+    if out.get("risk_profile") == "throwaway":
+        lines.append("Demo: triage ani okna bezpečnost a provoz se nevyžadují; před pilotem "
+                     "nový Kickoff s risk profilem pilot.")
+    elif out.get("merged_window"):
+        lines.append("Pilot bez osobních dat: bezpečnost a provoz jsou jedno okno "
+                     "(Bezpečnost a provoz, 20 min, jeden podpis); právo jen při osobních datech.")
     if out.get("mode_note"):
         lines.append(out["mode_note"])
     if out.get("acceptance_feature_path"):

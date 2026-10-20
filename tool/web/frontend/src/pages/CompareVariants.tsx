@@ -130,7 +130,7 @@ export default function CompareVariants() {
                         : v.my_feedback ? "Dát další feedback" : "Dát feedback"}
                     </Link>
                   )}
-                  {hasPreview && (
+                  {hasPreview && !(desktop && protectedPreview) && (
                     <a href={v.prototype_url} target="_blank" rel="noopener noreferrer"
                       className="pf-button-secondary w-full">
                       Otevřít náhled<span className="sr-only"> varianty {v.name} v novém okně</span>

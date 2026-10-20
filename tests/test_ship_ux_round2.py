@@ -232,6 +232,8 @@ def test_ship_md_ai_stand_in_section_and_czech_labels(worktree_project: dict[str
     from tool.cli import checkpoint
 
     slug = worktree_project["slug"]
+    with transaction() as conn:   # osobní data = okna bezpečnost a provoz zvlášť
+        conn.execute("UPDATE projects SET data_class = 'L3' WHERE slug = ?", (slug,))
     with transaction() as conn:
         conn.execute("UPDATE projects SET path_owners_json = ? WHERE slug = ?",
                      (json.dumps({"bezpecnost": "AI", "provoz": "Karel", "byznys": "Dana",
@@ -315,7 +317,7 @@ def test_resolve_points_to_go_on_winner(project: dict[str, Any], vote: Callable[
                                       "--by", "Petr", "--note", "ok"])
     session_2.main()
     text = capsys.readouterr().out
-    assert "Na vítězi (A/B) žádný kritický nezbývá" in text
+    assert "Na shortlistu A/B žádný kritický nezbývá" in text   # Rozhodnutí ještě nepadlo
     assert f"decide --slug {slug} go --winner A" in text
     assert "resolve --slug" not in text.split("Další krok")[1].split("Doporučení")[0]
 

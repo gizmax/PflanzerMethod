@@ -189,7 +189,8 @@ def test_ship_output_line_for_open_remarks() -> None:
 def _lean(bare: Path, slug: str = "kvasek", **kw: Any) -> dict[str, Any]:
     kw.setdefault("path_owners", dict(OWNERS))
     kw.setdefault("core", ["Eva Nováková", "Petr Svoboda", "Tomáš Dvořák"])
-    return bootstrap_project(slug=slug, target_repo_url=file_url(bare), tier="lean", **kw)
+    return bootstrap_project(slug=slug, target_repo_url=file_url(bare), tier="lean", **kw,
+                      personal_data=True)
 
 
 def test_foreign_human_signature_is_not_ai_stand_in(tmp_db: Path, bare_repo: Path) -> None:

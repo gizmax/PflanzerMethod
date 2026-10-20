@@ -32,7 +32,7 @@ napíše „vyplň docs/INTEGRATION_GUIDE.md podle tohoto repa“ a zkontroluje,
 `CONSTITUTION`, test/lint/build, CI, preview deploy, pushnutý init:
 `git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`), a zeptej se přes AskUserQuestion:
 *Opravit teď / Pokračovat vědomě (uveď riziko) / Zastavit.* Bez preview
-deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
+deploye Build proběhne, ale sběr feedbacku nemá na co klikat — řekni to nahlas.
 
 ## Krok 1 — Sběr (AskUserQuestion, max 3 bloky)
 
@@ -48,17 +48,25 @@ deploye Build proběhne, ale Async nemá na co klikat — řekni to nahlas.
    - **[stejný člověk jako X]** (nabídni konkrétní jména z už zadaných kroků),
    - **[AI náhrada]** — **jen tam, kde ADR-0023 dovolí** (viz tabulka níže).
    Pak které z lidí je **jádro** (3–4, celou dobu) a které **okno**.
-3. **Rámec:** risk profile `throwaway | pilot | production` · **stupeň**
-   `quick | lean | full` (default **Lean**: Build 3 h, Async 3–5 dní;
-   Quick = `/pm live`; Full = regulované, okno 5–7 dní — tabulka v
-   `docs/methodology/00-lean-pflanzer.md` § Tři stupně) · zabookovaná okna
-   (Build 3 h, checkpoint B&P 20 min, Rozhodnutí 60–90 min, checkpoint
-   provozu 20 min). Okna (kdy je Build, checkpointy, Rozhodnutí) jdou do specu
-   jako `windows` — tool je uloží a ukáže ve `status`; nezapisuj je jen do
-   odpovědi. **Režim stavby:** `session_mode` `parallel` (výchozí, 3 varianty
-   A/B/C) nebo `mob` (jedna společná varianta u jednoho monitoru, max 5 lidí,
-   ADR-0016). Zeptej se jednou větou, jen když to Decider nebo jádro zmínilo;
-   tool po zápisu ukáže doporučení režimu (jen doporučení, nevynucuje).
+3. **Rámec — ptej se jen na jedno: „Jak vážné to je?“** `demo` (throwaway) ·
+   `pilot` · `ostré` (production), plus jednou větou: jsou v datech osobní
+   údaje, ano/ne. **Zbytek odvoď a jen oznam, s možností přebít:**
+   - risk profile: demo → `throwaway`, pilot → `pilot`, ostré → `production`;
+   - **stupeň** `quick | lean | full`: výchozí **Lean** (Build 3 h, sběr
+     feedbacku 3–5 dní); demo/malý interní tool → `quick` (`/pm live`);
+     osobní data u ostrého nebo regulované prostředí → `full`
+     (tabulka v `docs/methodology/00-lean-pflanzer.md` § Tři stupně);
+   - **okna** (Build 3 h, checkpoint B&P 20 min, Rozhodnutí 60–90 min,
+     checkpoint provozu 20 min) navrhni z kalendáře a zabookuj; jdou do specu
+     jako `windows` — tool je uloží a ukáže ve `status`; nezapisuj je jen do
+     odpovědi;
+   - **prahy Shipu** (pilot 80 / production 85; throwaway informativně) z profilu;
+   - **režim stavby** `session_mode` je `parallel`. `mob` (jedna společná
+     varianta u jednoho monitoru, max 5 lidí, ADR-0016) je **výjimka, ne
+     otázka** — nabídni ho jen když ho Decider nebo jádro samo zmíní.
+   Odvozené hodnoty ukaž v jednom řádku („Odvodil jsem: pilot, Lean, Build 3 h,
+   práh 80 — přebít?“); přebití se zapíše do specu. `quick` nejde s
+   audit-grade (ten je vždy Full).
 
 **AI náhrada (ADR-0023) — nabízej jen podle tabulky:**
 
@@ -86,7 +94,7 @@ Autor kódu (Vývoj) nemá podepisovat bezpečnost u osobních dat — tool varu
 **Kdo podepíše bezpečnost & právo, když security není** — nabízej v tomto
 pořadí, **nikdy ne autora kódu jako default**:
 a. někdo z firmy s mandátem (DPO, IT security, compliance — stačí 20 min),
-b. Decider vědomě převezme riziko (`pflanzer session_3 --slug S
+b. Decider vědomě převezme riziko (`pflanzer ship --slug S
    --override-triage --rationale "…"`, v decision logu je jeho jméno) —
    u pilotu bez osobních dat,
 c. autor kódu až jako poslední možnost, u interního nástroje bez osobních
@@ -119,7 +127,7 @@ Spec zapiš nástrojem **Write** do `.pflanzer/specs/<slug>-kickoff.json`
 v target repu (necommituje se, složka je v `.gitignore` z `init`) a pak:
 
 ```bash
-pflanzer quick_session bootstrap --spec .pflanzer/specs/<slug>-kickoff.json
+pflanzer start --spec .pflanzer/specs/<slug>-kickoff.json
 ```
 
 Obsah souboru (heredoc `--spec - <<'EOF'` je jen záložní varianta —
@@ -209,7 +217,7 @@ Posílá je člověk; ty jen napíšeš text.
    z projektu) a termín, ne „domluvte s provozem“,
 4. jinak `/pm build`.
 
-Nikdy dvě otázky najednou. Žargon (Async, Decider, checkpoint, stupeň Lean)
+Nikdy dvě otázky najednou. Žargon (Sběr feedbacku (Async), Decider, checkpoint, stupeň Lean)
 vysvětli při prvním použití jednou větou; „připraveno ke Kickoffu“ z doctoru
 neopakuj, jen otevřené výhrady jednou větou.
 
@@ -224,11 +232,11 @@ Na konci **jeden** další krok:
 - Neptej se na víc než výše a nenabízej AI náhradu byznysu ani vývoji — detail (triage, roles, plný Charter) je
   volitelný a patří do regulovaných projektů (`/pm roles`, `/pm triage`).
 - Nezaváděj Sessions, Slices ani jiné výrazy; terminologie: Kickoff, Build,
-  Async, Rozhodnutí, Ship.
-- Nezakládej projekt mimo `pflanzer quick_session bootstrap`.
+  Sběr feedbacku (Async), Rozhodnutí, Ship.
+- Nezakládej projekt mimo `pflanzer start`.
 
 ## Reference
 
 - `docs/decisions/0021-mala-skupina-cela-cesta.md`
 - `docs/decisions/0022-inspirace-z-trhu.md`
-- `docs/zacni.md` § Je repo připravené?
+- `docs/faq.md` § Je repo připravené?

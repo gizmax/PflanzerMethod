@@ -33,11 +33,11 @@ Argumenty: `$ARGUMENTS` = `[sloveso] [slug]` — obojí volitelné.
   blokuje bezpečnostní heuristika Bashe, proto nikdy nedoporučuj heredoc, vždy
   `--spec soubor.json` (Write).
 - Režim stavby (`parallel` | `mob`) je uložený v projektu z Kickoffu: `worktree
-  setup`, `quick_session prompts` i `/pm build` ho berou odtud, `--mode` nepiš.
+  setup`, `prompts` i `/pm build` ho berou odtud, `--mode` nepiš.
 - Žargon při **prvním** použití v odpovědi vysvětli jednou větou, pak už ne:
-  Async (3–5 dní, po Iterate 1–2 dny, kdy zástupci sami proklikají preview a napíšou feedback) ·
+  Sběr feedbacku (Async; 3–5 dní, po Iterate 1–2 dny, kdy zástupci sami proklikají preview a napíšou feedback) ·
   Decider (člověk s mandátem říct Go i Kill) · checkpoint (20min okno
-  s podpisem) · stupeň Lean (výchozí průběh: Build 3 h, Async 3–5 dní) ·
+  s podpisem) · stupeň Lean (výchozí průběh: Build 3 h, sběr feedbacku 3–5 dní) ·
   worktree (oddělená kopie repa) · quality gate (automatická kontrola).
 - Po Kickoffu neopakuj „připraveno ke Kickoffu“ z `doctor`; zmiň jen
   otevřené výhrady, jednou větou.
@@ -68,10 +68,10 @@ v toolu `pflanzer`; `pflanzer-*` commandy jsou interní implementace kroků.
 | *(žádné)* | — (`pflanzer status`) | stav + jeden další krok |
 | `status` | — | totéž, výslovně |
 | `doctor` | — (`pflanzer doctor`) | je repo připravené ke Kickoffu? |
-| `start` | `pflanzer-charter` | **Kickoff** 15 min — zadání + jména 6 kroků |
+| `start` | `pflanzer-charter` | **Kickoff** 15 min — zadání + jména 6 kroků; ptá se jen „Jak vážné to je? demo / pilot / ostré“ |
 | `build` | `pflanzer-session-1` | **Build** 3 h (Lean) — 3 varianty paralelně |
 | `live` | `pflanzer` | Kickoff + Build v jednom (**Quick**, 60–90 min; malý interní tool) |
-| `feedback` | `pflanzer-feedback-pull` | **Async** 3–5 dní (po Iterate 1–2 dny) — feedback zástupců |
+| `feedback` | `pflanzer-feedback-pull` | **Sběr feedbacku** (Async) 3–5 dní (po Iterate 1–2 dny) — feedback zástupců |
 | `decide` | `pflanzer-session-2` | **Rozhodnutí** 60–90 min — Go / Iterate / Kill |
 | `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu, SHIP.md |
 | `handoff` | `pflanzer-handoff` | balíček per role + metriky pilotu |
@@ -111,7 +111,7 @@ commandu po svém.
   Build?“, „co když nemáme security?“): nejdřív `pflanzer status` (pro
   aktivní projekt `--slug S`), pak odpověz **podle metody** — přečti
   příslušnou pasáž (`docs/methodology/00-lean-pflanzer.md`, FAQ
-  v `docs/zacni.md`, ADR-0021 / ADR-0023), ne jen z obsahu repa. Odpověď
+  v `docs/faq.md`, ADR-0021 / ADR-0023), ne jen z obsahu repa. Odpověď
   max ~8 řádků, se jmény z projektu, a **jeden** další krok. Speciální
   případy viz sekce „Typické otázky“ níže.
 - Neznámé sloveso → ukaž tabulku sloves a zeptej se přes AskUserQuestion.
@@ -129,7 +129,9 @@ Doporučení. Ukaž ho doslova, doplň, **kdo má přijít** (okno), a zeptej se
 přes AskUserQuestion, jestli krok spustit. Víc projektů → tabulka (slug /
 fáze / další krok) a výběr.
 
-**Žádný projekt:** nic se neptej na možnosti. Rovnou spusť `pflanzer doctor`
+**Žádný projekt:** nic se neptej na možnosti. Zjisti, jestli je repo
+inicializované (existuje `.pflanzer/project.toml` a `docs/INTEGRATION_GUIDE.md`).
+Není-li, jdi rovnou do sekce „Od nuly“ níže. Je-li, spusť `pflanzer doctor`
 a podle výsledku doporuč **jediný** krok:
 
 - „připraveno ke Kickoffu: ano“ → „Další krok: `/pm start` — Decider + jádro,
@@ -137,6 +139,26 @@ a podle výsledku doporuč **jediný** krok:
   větou, ne jako rovnocennou volbu.)
 - „ne“ → vypiš, co chybí a jak to opravit (doctor to říká), a krok „oprav a
   spusť znovu `/pm`“.
+
+### 2c. Od nuly (repo ještě není inicializované)
+
+Chybí-li `.pflanzer/project.toml` nebo `docs/INTEGRATION_GUIDE.md`, **udělej to
+sám**, uživatel nemá nic přepisovat ručně:
+
+1. `pflanzer init` (ukaž stručný výstup).
+2. **Vyplň `docs/INTEGRATION_GUIDE.md` z repa:** přečti repo (struktura složek,
+   auth, API klient, state, logger, feature flags, test runner, skripty) a
+   dokument vyplň; `.pflanzer/CONSTITUTION.md` jen zkontroluj. Nic si
+   nevymýšlej — co z repa nevyčteš, označ „doplní vývojář“.
+3. Ukaž `git diff --stat` a stručný diff a zeptej se **jednou** přes
+   AskUserQuestion: „Zkontrolovat a commitnout + pushnout?“ (člověk výsledek
+   zkontroluje). Po jednom potvrzení proveď celé najednou:
+   `git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push -u origin HEAD`.
+4. `pflanzer doctor`; při „ne“ opravuj, co jde (a řekni, co musí člověk), při
+   „ano“ **rovnou pokračuj Kickoffem** (delegace na `pflanzer-charter`, bez
+   další otázky „chcete pokračovat?“).
+
+Restart Claude Code po `init` neřeš, pokud `/pm` už běží — `/pm` už je k dispozici.
 
 Jsou-li u projektu kroky s AI náhradou (`pflanzer status` je uvádí), připomeň,
 kdo je podepíše.
@@ -162,10 +184,10 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
   `/pm build`; ber to jako synonymum a řekni uživateli `/pm live <slug>`.
 - **Build už proběhl, chybí jen zápis** (v target repu worktrees s commity
   `pflanzer/<slug>-…`, preview případně běží, `pflanzer status` hlásí „Build
-  běží“ / další krok `pflanzer vote`): nikdy neříkej „stavba neproběhla“ a
+  běží“ / další krok `pflanzer record`): nikdy neříkej „stavba neproběhla“ a
   nenabízej restart Buildu. Nabídni **zápis hlasování** — šablona je v
   `.pflanzer/specs/<slug>-vote.json` (vytvořil ji `worktree setup`) — a jako
-  další krok `pflanzer vote --spec .pflanzer/specs/<slug>-vote.json`.
+  další krok `pflanzer record --spec .pflanzer/specs/<slug>-vote.json`.
 
 ### 2a. Typické otázky (volný text v `/pm`)
 
@@ -177,7 +199,7 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
    reálná data. Nabídni **AI pre-check** (`security-expert`) jako podklad,
    ne jako podpis.
 3. Bez odpovědi do **48 h** eskaluj na Decidera: rozhodne a zapíše to —
-   buď převezme riziko (`pflanzer session_3 --slug S --override-triage
+   buď převezme riziko (`pflanzer ship --slug S --override-triage
    --rationale "…"`, v decision logu je jeho jméno; jen pilot bez osobních
    dat), nebo projekt zastaví.
 
@@ -209,7 +231,7 @@ pflanzer doctor            # v aktuálním repu; volitelně --target DIR, --json
 ```
 
 Ukaž checklist a „připraveno ke Kickoffu: ano/ne" a Doporučení z výstupu.
-Při „ne" vypiš, co chybí a jak to opravit (viz `docs/zacni.md` § Je repo
+Při „ne" vypiš, co chybí a jak to opravit (viz `docs/faq.md` § Je repo
 připravené?; INTEGRATION_GUIDE vývojář nechá vyplnit v Claude Code a
 zkontroluje, 5 min). Další krok: při „ano“ `/pm start`, jinak oprava a znovu
 `/pm doctor`. Commit všeho najednou, když chybí push:

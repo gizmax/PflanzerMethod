@@ -1,0 +1,134 @@
+import { FormEvent, useEffect, useState } from "react";
+import { api } from "../lib/api";
+import type { VoteChoice, VotesState } from "../lib/types";
+import { CopyButton } from "./CopyButton";
+
+const LABEL: Record<VoteChoice, string> = { go: "Go", iterate: "Iterate", kill: "Kill" };
+
+/** Tiché hlasování před Rozhodnutím. Hub nezapisuje rozhodnutí, jen ukáže výsledek a příkaz. */
+export function SilentVote({ slug, variants, identityName }: {
+  slug: string; variants: string[]; identityName: string | null;
+}) {
+  const [st, setSt] = useState<VotesState | null>(null);
+  const [choice, setChoice] = useState<VoteChoice>("go");
+  const [winner, setWinner] = useState("");
+  const [comment, setComment] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!identityName) { setSt(null); return; }
+    api.getVotes(slug).then((s) => {
+      setSt(s);
+      if (s.mine) { setChoice(s.mine.choice); setWinner(s.mine.winner ?? ""); setComment(s.mine.comment); }
+    }).catch(() => setSt(null));
+  }, [slug, identityName]);
+
+  if (!identityName) {
+    return <p className="text-sm text-muted">Pro tiché hlasování se nejdřív vyberte nahoře („Kdo jste?“).</p>;
+  }
+  if (!st || !st.enabled) return null;
+
+  async function run(fn: () => Promise<VotesState>) {
+    setBusy(true); setErr(null);
+    try { setSt(await fn()); } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      try { setErr(JSON.parse(m).detail ?? "Nepodařilo se uložit."); } catch { setErr("Nepodařilo se uložit."); }
+    } finally { setBusy(false); }
+  }
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (choice === "go" && !winner) { setErr("U volby Go vyberte variantu."); return; }
+    void run(() => api.castVote(slug, { choice, winner: choice === "go" ? winner : null, comment }));
+  }
+
+  const waiting = st.voters.filter((v) => !v.voted).map((v) => v.name);
+  return (
+    <section className="pf-card space-y-3" aria-labelledby="vote-h">
+      <h2 id="vote-h">Tiché hlasování před Rozhodnutím</h2>
+      <p className="text-sm text-muted">
+        Každý pošle svou volbu a jednu větu. Dokud nehlasují všichni (nebo Decider neodkryje hlasy),
+        ostatní volby nejsou vidět. Decider hlasuje poslední. Hub nic nezapisuje do rozhodnutí.
+      </p>
+      {!st.revealed && (
+        <p className="text-sm">
+          Hlasovalo {st.voters.length - waiting.length} z {st.voters.length}
+          {waiting.length > 0 ? <> · čeká se na: {waiting.join(", ")}</> : null}.
+        </p>
+      )}
+      {st.can_vote && (
+        <form onSubmit={submit} className="space-y-3">
+          <fieldset>
+            <legend className="pf-label">{st.is_decider ? "Vaše volba (Decider)" : "Vaše volba"}</legend>
+            <div className="flex flex-wrap gap-3">
+              {(Object.keys(LABEL) as VoteChoice[]).map((c) => (
+                <label key={c} className="flex min-h-[44px] items-center gap-2">
+                  <input type="radio" name="vote" checked={choice === c} onChange={() => setChoice(c)}
+                    className="h-5 w-5 accent-[rgb(var(--c-accent))]" />
+                  {LABEL[c]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {choice === "go" && (
+            <div>
+              <label htmlFor="vote-winner" className="pf-label">Vítězná varianta</label>
+              <select id="vote-winner" className="pf-input" value={winner} onChange={(e) => setWinner(e.target.value)}>
+                <option value="">— vyberte —</option>
+                {variants.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label htmlFor="vote-comment" className="pf-label">Proč, jednou větou</label>
+            <input id="vote-comment" className="pf-input" value={comment} maxLength={300}
+              onChange={(e) => setComment(e.target.value)} />
+          </div>
+          {err && <p role="alert" className="pf-error">{err}</p>}
+          <button type="submit" className="pf-button" disabled={busy}>
+            {st.mine ? "Změnit hlas" : "Odeslat hlas"}
+          </button>
+        </form>
+      )}
+      {!st.can_vote && st.mine && !st.revealed && (
+        <p className="text-sm">Váš hlas je uložený: <strong>{LABEL[st.mine.choice]}</strong>. Ostatním se neukazuje.</p>
+      )}
+      {st.is_decider && !st.revealed && (
+        <p className="text-sm">Decider hlasuje až po odkrytí ostatních.</p>
+      )}
+      {st.can_reveal && (
+        <button type="button" className="pf-button-secondary" disabled={busy}
+          onClick={() => void run(() => api.revealVotes(slug))}>Odkrýt hlasy</button>
+      )}
+      {!st.is_decider && !st.revealed && !st.can_reveal && st.decider && (
+        <p className="text-sm text-muted">Hlasy odkryje {st.decider}.</p>
+      )}
+      {st.revealed && (
+        <div className="space-y-2">
+          <h3>Výsledek</h3>
+          {st.tally && (
+            <p className="text-sm">Go {st.tally.go} · Iterate {st.tally.iterate} · Kill {st.tally.kill}</p>
+          )}
+          <ul className="space-y-1 text-sm">
+            {st.votes.map((v, i) => (
+              <li key={i}>
+                <strong>{v.voter}</strong>: {LABEL[v.choice]}{v.winner ? ` (${v.winner})` : ""}
+                {v.comment ? ` — ${v.comment}` : ""}
+              </li>
+            ))}
+          </ul>
+          {!st.decider_voted && st.decider && (
+            <p className="text-sm text-muted">Decider ({st.decider}) ještě nehlasoval.</p>
+          )}
+          {st.command && (
+            <>
+              <p className="text-sm">Rozhodnutí zapíše Decider příkazem (upravte důvod):</p>
+              <pre className="overflow-x-auto rounded-md bg-soft p-3 text-sm whitespace-pre-wrap break-words"><code>{st.command}</code></pre>
+              <CopyButton text={st.command} />
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
