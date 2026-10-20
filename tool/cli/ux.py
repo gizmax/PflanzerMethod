@@ -109,7 +109,7 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
                "ne do koše."),
     ],
     "after_critical": [
-        (None, "Autor + vývojář: oprav ve vítězné variantě, pak `pflanzer session_2 resolve …`; "
+        (None, "Autor + vývojář: oprav ve vítězné variantě, pak `pflanzer decide resolve …`; "
                "nebo Decider vědomě přebije `--override-critical`."),
     ],
     "after_resolve": [

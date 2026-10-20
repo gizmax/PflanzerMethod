@@ -2371,7 +2371,7 @@ def main() -> None:
              lines=human_gate_lines(out["summary_line"], rows, per_gate=True),
              next_step=(f"oprav {', '.join(failing)} a spusť znovu: "
                         f"`pflanzer quality_gates --path {args.path}`" if failing
-                        else "bez blokace; pro Ship vítěze: `pflanzer session_3 --slug <slug>`"),
+                        else "bez blokace; pro Ship vítěze: `pflanzer ship --slug <slug>`"),
              tips=tips_for("ship", {}) [:1], as_json=args.json)
         return
 
@@ -2406,7 +2406,7 @@ def main() -> None:
                 f"{'splněn' if out['production_ready'] else 'nesplněn nebo málo důkazů'}"],
          next_step=(f"oprav {', '.join(failing)} a spusť znovu: "
                     f"`pflanzer quality_gates --slug {out['slug']} --variant {out['variant']}`"
-                    if failing else f"`pflanzer session_3 --slug {out['slug']}`"),
+                    if failing else f"`pflanzer ship --slug {out['slug']}`"),
          as_json=args.json)
 
 

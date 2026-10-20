@@ -150,7 +150,7 @@ def add_feedback(
         "id": fid, "slug": slug, "variant": variant.upper(), "department": department,
         "role_matched": role_id is not None, "severity": sev, "score": val,
         "submitted_by": actor, "focus_variants": focus, "category": category,
-        "blocks_go": sev == "critical" and variant.upper() in focus,
+        "blocks_go": sev == "critical" and variant.upper() in {f.upper() for f in focus},
     }
 
 
@@ -224,7 +224,7 @@ def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], s
               for r in done_rows]
     crit = [r for r in open_rows if r["severity"] == "critical"]
     if crit:
-        nxt = (f"`pflanzer session_2 resolve --slug {slug} --feedback-id {crit[0]['id']} "
+        nxt = (f"`pflanzer decide resolve --slug {slug} --feedback-id {crit[0]['id']} "
                f"--by JMÉNO --note \"…\"`")
     else:
         nxt = f"`pflanzer feedback_pull --slug {slug}` (souhrn + kdo ještě mlčí)"
@@ -279,21 +279,26 @@ def main() -> None:
             if res["severity"] == "critical":
                 fid, sl = res["id"], res["slug"]
                 if res["blocks_go"]:
-                    lines.append(f"Kritické na {res['variant']} blokuje Go, dokud se nevyřeší.")
+                    if res["variant"].upper() == "MOB":
+                        lines.append("Kritické na společné variantě blokuje Go, dokud ho nevyřešíte "
+                                     f"(`pflanzer decide resolve --slug {sl} --feedback-id {fid} …`), "
+                                     "nebo Iterate/Kill.")
+                    else:
+                        lines.append(f"Kritické na {res['variant']} blokuje Go, dokud se nevyřeší.")
                     if is_business_critical(res["department"], res.get("category")):
                         nxt = (f"Byznysový critical: zvažte Kill (problém je vyřešen jinde) nebo "
                                f"vědomé `--override-critical \"důvod\"` Deciderem při Go "
-                               f"(`pflanzer session_2 decide --slug {sl} go --winner "
+                               f"(`pflanzer decide --slug {sl} go --winner "
                                f"{res['variant']} …`)")
                     else:
                         nxt = (f"oprav to ve variantě {res['variant']} a pak "
-                               f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
+                               f"`pflanzer decide resolve --slug {sl} --feedback-id {fid} "
                                f"--by JMÉNO --note \"co se opravilo\"`; nebo Decider přebije při Go: "
                                f"`--override-critical \"důvod\"`")
                 else:
                     lines.append(f"Kritické na {res['variant']} Go neblokuje, pokud vyhraje jiná "
                                  f"varianta ({'/'.join(res['focus_variants']) or '—'}).")
-                    nxt = (f"`pflanzer session_2 resolve --slug {sl} --feedback-id {fid} "
+                    nxt = (f"`pflanzer decide resolve --slug {sl} --feedback-id {fid} "
                            f"--by JMÉNO --note \"proč je to mimo vítěze\"`, nebo nech být: "
                            f"`pflanzer feedback list --slug {sl}`")
                 phase = "after_critical"
@@ -301,7 +306,7 @@ def main() -> None:
                 nxt, phase = f"`pflanzer feedback list --slug {res['slug']}`", "async"
             # Tip, který jen opakuje „Další krok“ (resolve / override), se nevypisuje podruhé.
             shown = [t for t in tips(res["slug"], phase, {}, limit=3)
-                     if "session_2 resolve" not in t and "--override-critical" not in t][:2]
+                     if "decide resolve" not in t and "--override-critical" not in t][:2]
             emit(res, title=f"Feedback #{res['id']} zapsán", lines=lines,
                  next_step=nxt, tips=shown, as_json=args.json)
         else:

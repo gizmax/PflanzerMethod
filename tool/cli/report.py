@@ -53,15 +53,29 @@ def _clean(text: Any) -> str:
     return "" if t.lower() in retro.EMPTY_MARKERS or _PLACEHOLDER.search(t) else t
 
 
+_ABBREV = {"např", "tj", "tzn", "tzv", "atd", "apod", "resp", "cca", "mj", "vs", "str", "č", "ev", "příp"}
+
+
+def _first_sentence(t: str) -> str:
+    """První věta; tečka za číslem (řadovka „2.“) a za zkratkou (např., tj.) není konec věty."""
+    for m in re.finditer(r"[.!?](?=\s|$)", t):
+        head = t[: m.start()]
+        word = re.split(r"\s", head)[-1] if head else ""
+        if m.group() == "." and (word.isdigit() or word.lower().strip("(") in _ABBREV
+                                 or (len(word) == 1 and word.isalpha())):
+            continue
+        return t[: m.end()]
+    return t
+
+
+def _shorten(t: str, limit: int) -> str:
+    return t if len(t) <= limit else t[: limit - 1].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+
+
 def _sentence(text: Any, limit: int = 160) -> str:
-    """První věta (nebo prvních `limit` znaků) bez zalomení."""
+    """První věta (nebo prvních `limit` znaků po slovech) bez zalomení."""
     t = _clean(text)
-    if not t:
-        return ""
-    m = re.match(r"(.+?[.!?])(\s|$)", t)
-    if m:
-        t = m.group(1)
-    return t if len(t) <= limit else t[: limit - 1].rsplit(" ", 1)[0] + "…"
+    return _shorten(_first_sentence(t), limit) if t else ""
 
 
 def _more(items: list[str], n: int = 3) -> str:
@@ -84,7 +98,7 @@ def _decision_reason(conn: Any, pid: int) -> str:
     if not m:
         return ""
     from tool.cli.session_2 import strip_reason
-    return _sentence(strip_reason(m.group(1)))
+    return _shorten(_clean(strip_reason(m.group(1))), 200)
 
 
 def _gate_rows(conn: Any, pid: int, winner: str | None) -> list[dict[str, str]]:
@@ -220,7 +234,8 @@ def collect(slug: str) -> dict[str, Any]:
     if personal:
         risks.append(personal[0][0].upper() + personal[0][1:])
     if killed:
-        risks = [r for r in risks if not r.startswith(("Kritické", "Důležité"))]
+        risks = [r.replace("otevřené:", "neuzavřeno při Killu:", 1)
+                 if r.startswith(("Kritické", "Důležité")) else r for r in risks]
 
     goal = _sentence(p.get("xyz_hypothesis"))
     nxt = detail["next_step"]
@@ -284,7 +299,7 @@ def render_summary_md(data: dict[str, Any]) -> str:
     o = data["outcome"]
     if data["status"] == "killed":
         out.append("Do produkce nic nešlo."
-                   + (" Poučení: " + "; ".join(data["lessons"]) if data["lessons"]
+                   + (" Poučení: " + " · ".join(x.strip().rstrip(".;") + "." for x in data["lessons"]) if data["lessons"]
                       else " Poučení zatím není zapsané."))
     elif o["throwaway"]:
         out.append("Throwaway demo nejde do produkce, přežití kódu se neměří.")

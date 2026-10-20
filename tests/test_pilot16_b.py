@@ -174,7 +174,7 @@ def test_status_after_go_with_open_critical_points_to_resolve(
                                 text="chybí CSRF", author="Lucie")
     d = status.project_detail(slug)
     crit = next(b for b in d["blockers"] if b["kind"] == "critical")
-    assert crit["command"].startswith("pflanzer session_2 resolve")
+    assert crit["command"].startswith("pflanzer decide resolve")
     assert f"--feedback-id {res['id']}" in crit["command"]
     assert "/pm feedback" not in crit["command"]
 

@@ -388,7 +388,7 @@ def render_summary_md(agg: dict[str, Any]) -> str:
             f"\n## Otevřené kritické ({len(agg['critical_flags'])})\n\n"
             f"{crit_rows}\n\n"
             f"> Kritická připomínka na vítězi blokuje Go, dokud se nevyřeší "
-            f"(`pflanzer session_2 resolve`) nebo ji Decider výslovně nepřebije s důvodem.\n"
+            f"(`pflanzer decide resolve`) nebo ji Decider výslovně nepřebije s důvodem.\n"
         )
     texts_section = ""
     if agg["raw_feedback"]:
@@ -455,7 +455,7 @@ def render_summary_md(agg: dict[str, Any]) -> str:
 1. Otevřené kritické řeší Decider **před** Rozhodnutím (oprava, nebo vědomé přebití s důvodem).
 2. Kdo ještě nenapsal, dostane připomínku; mlčení nevetovací role po termínu = souhlas,
    u bezpečnosti ne.
-3. `pflanzer session_2 prep --slug {agg['slug']}`, pak Rozhodnutí.
+3. `pflanzer decide prep --slug {agg['slug']}`, pak Rozhodnutí.
 """
 
 
@@ -499,7 +499,7 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
     if crit:
         first = next((c for c in crit if c["variant"] in agg["focus_variants"]), crit[0])
         nxt = (f"vyřeš kritické #{first['id']} s autorem ({first.get('submitted_by') or '?'}): "
-               f"`pflanzer session_2 resolve --slug {slug} --feedback-id {first['id']} "
+               f"`pflanzer decide resolve --slug {slug} --feedback-id {first['id']} "
                f"--by JMÉNO --note \"…\"`")
     elif silent:
         r = silent[0]
@@ -508,7 +508,7 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
                f"--role {r['step']} "
                f"--severity major --text \"…\" --author {r['name']}`")
     else:
-        nxt = f"`pflanzer session_2 prep --slug {slug}`"
+        nxt = f"`pflanzer decide prep --slug {slug}`"
     if summary_path:
         lines.append(f"Souhrn: {display_path(summary_path)}")
     return (f"Feedback {slug}", lines[:14], warns, nxt,

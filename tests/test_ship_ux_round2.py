@@ -297,7 +297,7 @@ def test_second_go_error_shows_force_example(project: dict[str, Any],
     session_2.record_decision(slug=slug, decision="go", winner="A", rationale="A vede")
     with pytest.raises(ValueError, match=r"--force.*--rationale") as exc:
         session_2.record_decision(slug=slug, decision="go", winner="B", rationale="B")
-    assert f"pflanzer session_2 decide --slug {slug} go --winner B --force --rationale" in str(
+    assert f"pflanzer decide --slug {slug} go --winner B --force --rationale" in str(
         exc.value)
 
 
@@ -332,7 +332,7 @@ def test_feedback_add_critical_next_step(project: dict[str, Any], vote: Callable
                                       "--text", "Hesla v URL", "--author", "Lucie"])
     feedback.main()
     text = capsys.readouterr().out
-    assert "blokuje Go" in text and "session_2 resolve" in text
+    assert "blokuje Go" in text and "decide resolve" in text
     assert "--override-critical" in text
 
 

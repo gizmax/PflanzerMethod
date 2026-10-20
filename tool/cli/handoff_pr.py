@@ -551,7 +551,7 @@ def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
 {who}
 >
 > Decider může přebít jen s důvodem do decision logu:
-> `pflanzer session_3 --slug {slug} --override-triage --rationale "…"`
+> `pflanzer ship --slug {slug} --override-triage --rationale "…"`
 """
     return top, section
 
@@ -1363,7 +1363,7 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
                       + "".join(f"> {m}\n" for m in who[:4])
                       + (f"> Další okna: `pflanzer status --slug {slug}`. " if len(who) > 4
                          else "> ")
-                      + f"Decider může přebít: `pflanzer session_3 --slug {slug} "
+                      + f"Decider může přebít: `pflanzer ship --slug {slug} "
                         "--override-triage --rationale \"…\"`\n")
     ovc_md = overridden_critical_md(parts["ctx"].get("overridden_critical") or [])
     threshold_md = (ovc_md + "\n" if ovc_md else "") + (
@@ -1425,7 +1425,7 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         more = len(pr["remark_lines"]) - len(shown)
         people_md += ("## Otevřené připomínky k vítězi\n\n"
                       "Neblokují merge; checklist je i v těle PR "
-                      "(`pflanzer session_2 resolve --feedback-id N` je odškrtne):\n\n"
+                      "(`pflanzer decide resolve --feedback-id N` je odškrtne):\n\n"
                       + "\n".join(shown)
                       + (f"\n- …a dalších {more} (`pflanzer feedback list --slug {slug}`)"
                          if more else "") + "\n\n")

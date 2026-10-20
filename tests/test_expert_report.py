@@ -91,8 +91,8 @@ def test_summary_after_go_with_numbers(project: dict[str, Any], vote: Callable[.
     data = report.collect(slug)
     md = report.render_summary_md(data)
     assert "**Go** (vítěz A) — Dana Deciderová (Decider)" in md
-    assert "Proč: A je nejrychlejší a pokrývá hlavní scénář." in md
-    assert "Zbytek počká" not in md                                  # jen jedna věta
+    assert "Proč: A je nejrychlejší a pokrývá hlavní scénář. Zbytek počká." in md
+    assert "Zbytek počká" in md                                      # celý důvod, ne první věta
     assert "1,2 M tokenů, odhad ≈ $4.20 (≈ 97 Kč)" in md
     assert "Skóre" in md and "Neověřeno" in md
     assert "Neověřené brány: akceptační testy" in md
