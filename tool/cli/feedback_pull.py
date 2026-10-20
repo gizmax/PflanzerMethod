@@ -32,13 +32,26 @@ FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 NO_FEEDBACK_MSG = (
     "Zatím žádný feedback. Zástupci ho píšou v hubu, nebo ho zapiš za ně: "
-    "pflanzer feedback add --slug {slug} --variant A --role \"Bezpečnost\" "
+    "pflanzer feedback add --slug {slug} --variant {variant} --role \"Bezpečnost\" "
     "--severity major --text \"co je špatně\"."
 )
 SEVERITY_ORDER = ("critical", "high", "medium", "low")
 # Kroky cesty (klíč v path_owners_json) -> zobrazený název a texty, kterými se píše oddělení.
 STEP_LABELS = {"produkt": "Produkt", "design": "Design", "vyvoj": "Vývoj",
                "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
+
+
+def variant_in_play(slug: str, agg: dict[str, Any] | None = None) -> str:
+    """Varianta, která je ve hře (po Iterate jen pokračující; jinak shortlist/vítěz); jinak A."""
+    try:
+        from tool.cli.status import iterate_plan
+        plan = iterate_plan(slug)
+        if plan and plan.get("variants"):
+            return str(plan["variants"][0])
+    except Exception:  # noqa: BLE001 — jen příklad v nápovědě
+        pass
+    focus = (agg or {}).get("focus_variants") or []
+    return str(focus[0]) if focus else "A"
 
 
 def _norm(text: str | None) -> str:
@@ -402,7 +415,8 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
     elif silent:
         r = silent[0]
         nxt = (f"ozvi se {r['name']} ({r['label']}); jeho připomínku zapíšeš: "
-               f"`pflanzer feedback add --slug {slug} --variant A --role {r['step']} "
+               f"`pflanzer feedback add --slug {slug} --variant {variant_in_play(slug, agg)} "
+               f"--role {r['step']} "
                f"--severity major --text \"…\" --author {r['name']}`")
     else:
         nxt = f"`pflanzer session_2 prep --slug {slug}`"
@@ -432,7 +446,8 @@ def main() -> None:
     if agg["feedback_count"] == 0:
         emit({}, title=f"Feedback {args.slug}: zatím nic",
              lines=["Nikdo zatím nenapsal žádnou připomínku."],
-             next_step=NO_FEEDBACK_MSG.format(slug=args.slug),
+             next_step=NO_FEEDBACK_MSG.format(slug=args.slug,
+                                              variant=variant_in_play(args.slug, agg)),
              tips=tips(args.slug, "async", {"silent_reps": bool(agg["silent_reps"])}))
         sys.exit(1)
 

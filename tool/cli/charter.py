@@ -334,9 +334,30 @@ class CharterInput:
             )
 
 
+_NO_SPONSOR_RE = re.compile(r"(?i)^\s*(?:[-—–]?|none|n/?a|žádn\w*|bez\s+sponzora|nen[ií]|tbd|doplnit|pending)\s*$")
+
+
+def ship_threshold(c: CharterInput) -> int | None:
+    """Práh Shipu podle risk profilu: production (regulated/audit-grade) 85, pilot 80, throwaway None."""
+    if c.throwaway_or_evolve == "throwaway":
+        return None
+    return 85 if c.capacity_profile in ("regulated", "audit-grade") else 80
+
+
+def has_sponsor(c: CharterInput) -> bool:
+    """Samostatný sponzor (jiný než Decider); prázdný/placeholder/Decider = bez sponzora."""
+    name = (c.sponsor_name or "").strip()
+    if _NO_SPONSOR_RE.match(name):
+        return False
+    return name.casefold() != (c.decider_name or "").strip().casefold()
+
+
 def render_charter_md(c: CharterInput) -> str:
     """Render Charter to markdown per ADR-0004 template."""
     today = date.today().isoformat()
+    thr = ship_threshold(c)
+    thr_text = (f"quality gates ≥ {thr}/100" if thr is not None
+                else "quality gates informativně, throwaway do produkce nejde")
     backup_line = f"- Backup Decider: {c.backup_decider}" if c.backup_decider else "- Backup Decider: —"
     if c.throwaway_or_evolve == "throwaway":
         output_block = (
@@ -346,7 +367,7 @@ def render_charter_md(c: CharterInput) -> str:
     else:
         output_block = (
             "- Evolve = default (ADR-0005 v0.4): winner varianta jde do produkce; "
-            "prod deploy podmíněn Shipem (quality gates ≥ 80/100) + sign-off.\n"
+            f"prod deploy podmíněn Shipem ({thr_text}) + sign-off.\n"
         )
 
     path_block = ""
@@ -372,6 +393,9 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
             "\n## Jádro (celou dobu, max 5 lidí naráz)\n"
             + "\n".join(f"- {n}" for n in c.core) + "\n"
         )
+    sponsor_line = (f"- Sponsor: {c.sponsor_name}" if has_sponsor(c)
+                    else "- Sponsor: bez samostatného sponzora (rozhoduje Decider)")
+    sponsor_sign = "- Sponsor podpis: _PENDING_\n" if has_sponsor(c) else ""
     repo_line = f"\n- **Target repo**: {c.target_repo_url}" if c.target_repo_url else ""
     metrics = [(label, val) for label, val in (
         ("Primary lagging metric", c.primary_lagging_metric),
@@ -393,7 +417,7 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
 ## Decider + eskalační řetězec (ADR-0001)
 - Decider: **{c.decider_name}** · mandát od: {c.decider_mandate_from}
 - CPO / sponzor (eskalační kontakt): **{c.cpo_escalation_contact}**
-- Sponsor: {c.sponsor_name}
+{sponsor_line}
 {backup_line}
 - **Eskalační protokol**: aplikuje se kanonický Decider eskalační protokol
   z `docs/decisions/0001-decider-model.md` (Scenario A/B/C). Charter ho
@@ -424,8 +448,7 @@ Každý krok má právě jedno jméno; jeden člověk smí zastupovat víc krok�
 
 ## Sign-off
 - Decider podpis (datum + jméno): _PENDING — povinné před Buildem_
-- Sponsor podpis: _PENDING_
-- Checkpoint Bezpečnost & právo (do 48 h po Buildu): _PENDING_
+{sponsor_sign}- Checkpoint Bezpečnost & právo (do 48 h po Buildu): _PENDING_
 - Checkpoint Provoz (před Ship): _PENDING_
 """
 

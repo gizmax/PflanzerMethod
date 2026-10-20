@@ -62,6 +62,19 @@ JSON spec format:
 }
 ```
 
+   **Podmínky a blokace.** Každý track vrací podmínky se stabilním ID (`conditions`:
+   `[{"id": "K1", "text": "…"}]`, v `artefact_md` řádky `- [K1] text` pod `## Podmínky`;
+   Security `K`, Legal `D`, Platform `PROD-B`, Discovery `C`). Nástroj je uloží, podpis okna
+   (`pflanzer checkpoint …`) je převezme do podmínek okna (podepisující je tím potvrzuje;
+   vědomé odpuštění: `--waive K3 --rationale "proč"`), SHIP.md, PR checklist a `compliance.md`
+   je ukážou a `pflanzer quick_session prompts` je přidá builderům jako „Omezení z triage“
+   (security/legal/platform). Po triage `pflanzer status` řekne, že triage změnila zadání —
+   zvaž úpravu Charteru.
+
+   **Opt-out z Discovery.** Výsledek `discovery` s `status: "deferred"`, `signed_by` = jméno
+   Decidera, `rationale: "opt-out: <důvod>"`. Opt-out jako `ok`, bez důvodu nebo se špatným
+   `discovery_debt_score` (číslo 0–10) CLI odmítne s českou chybou a příkladem.
+
 4. **Verifikuj output**:
    - Read `data/triage/<slug>/_summary.md`.
    - Pokud overall='blocked', shrň důvody uživateli a navrhni nápravu.

@@ -263,21 +263,31 @@ def project_not_found_message(slug: str) -> str:
     return msg + " Přehled: pflanzer status"
 
 
-ASYNC_FULL = "3–5 dní"
+ASYNC_FULL = "3–5 dní"          # výchozí (Lean); jinak `tier.window_label`
 ASYNC_AFTER_ITERATE = "1–2 dny"
 
 
 def async_days(slug: str) -> str:
-    """Okno Asyncu: po Iterate (druhé kolo opravuje jen konkrétní věci) kratší než poprvé."""
+    """Okno Asyncu podle stupně projektu (`tier.window_label`); po Iterate kratší než poprvé.
+
+    Jediný zdroj pro „dej jim 3–5 dní“ i status „Full 5–7 dní“.
+    """
+    from tool.cli.tier import window_label
+
+    tier = "lean"
     try:
         from tool.cli.db import transaction
         with transaction() as conn:
             row = conn.execute(
-                "SELECT 1 FROM sessions s JOIN projects p ON p.id = s.project_id "
-                "WHERE p.slug = ? AND s.type = 3 LIMIT 1", (slug,)).fetchone()
-        return ASYNC_AFTER_ITERATE if row else ASYNC_FULL
+                "SELECT p.tier, EXISTS(SELECT 1 FROM sessions s WHERE s.project_id = p.id "
+                "AND s.type = 3) FROM projects p WHERE p.slug = ?", (slug,)).fetchone()
+        if row and row[1]:
+            return ASYNC_AFTER_ITERATE
+        if row and row[0] in ("quick", "lean", "full"):
+            tier = row[0]
     except Exception:  # noqa: BLE001 — advisory only
-        return ASYNC_FULL
+        pass
+    return window_label(tier)
 
 
 def project_not_found(slug: str) -> NoReturn:

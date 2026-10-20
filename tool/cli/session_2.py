@@ -829,7 +829,7 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                f"(`pflanzer session_2 decide --slug {slug} iterate --variants {','.join(focus or ['A'])} --iterate-focus \"…\" --rationale \"…\"`)")
     elif not out["ready_for_decision"]:
         nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — sežeň víc hlasů "
-               f"a feedbacku: `pflanzer feedback add --slug {slug} --variant A --role Produkt "
+               f"a feedbacku: `pflanzer feedback add --slug {slug} --variant {(focus or ['A'])[0]} --role Produkt "
                "--severity major --text \"…\"`")
     else:
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "

@@ -150,6 +150,8 @@ pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno z Kickoffu>" \
   --note "<co ověřeno>"                       # veto: přidej --blocked
   # podepisuje s výhradami? přidej: --conditions "CSRF; rate limit; čl. 13"
   # (podmínky pak nesou SHIP.md, checklist PR i compliance.md; z --note je tool neodhaduje)
+  # re-sign okna podmínky slučuje (nikdy nepřepisuje); okno už bylo podepsané → řekne, co přibylo
+  # podmínky z triage (K1…, D1…, PROD-B1…) podpis převezme; odpustit: --waive K3 --rationale "proč"
 ```
 
 ### Když je krok Bezpečnost & právo zastoupen AI

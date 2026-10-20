@@ -871,6 +871,84 @@ def _excerpt(md: str, n: int = 1500) -> str:
     return md[: n // 3].rstrip() + "\n\n[…]\n\n" + md[-(n * 2 // 3):].lstrip()
 
 
+_BASIS_RE = re.compile(
+    r"(?i)(?:čl\.?|článek|art\.?)?\s*6\s*(?:/|\(|odst\.?\s*)\s*1\s*(?:\)|/)?\s*(?:/|\(|písm\.?\s*)?\s*([a-f])\b")
+
+
+def _bases(text: str) -> list[str]:
+    out: list[str] = []
+    for m in _BASIS_RE.finditer(text or ""):
+        b = f"čl. 6/1/{m.group(1).lower()}"
+        if b not in out:
+            out.append(b)
+    return out
+
+
+def _compliance_facts(ctx: dict[str, Any], legal: Any, sec: Any, pii_hit: Any,
+                      steps: str) -> dict[str, Any]:
+    """Právní základ, subjekty, kategorie a retence z Legal/Security triage a podpisu okna Právo.
+
+    Čím novější a lidsky podepsané, tím přednější: poznámka podpisu okna Právo (DPIA) >
+    artefakt Legal triage > artefakt Security triage > zadání. Co nelze zjistit, zůstane „doplnit“.
+    """
+    slug = ctx["project_tuple"][2]
+    try:
+        from tool.cli._compat import checkpoint_rows
+        rows = {r["window"]: r for r in checkpoint_rows(slug)}
+    except Exception:  # noqa: BLE001
+        rows = {}
+    law = rows.get("pravo") or {}
+    law_ok = law.get("state") == "ok" and bool(law.get("signed_by"))
+    if not law_ok and (rows.get("bezpecnost") or {}).get("state") == "ok":
+        law = rows.get("bezpecnost") or {}
+        law_ok = False
+    note = str(law.get("note") or "") if law.get("state") == "ok" else ""
+    legal_md = str(legal["artefact_md"] or "") if legal else ""
+    sec_md = str(sec["artefact_md"] or "") if sec else ""
+    # artefakt Legal obsahuje i bloky podpisů (`<!-- cp:… -->`); pro fakta stačí text triage
+    legal_core = legal_md.split("<!-- cp:")[0]
+    who = law.get("signed_by")
+    basis = _bases(note)
+    src = f"podle podpisu okna Právo: {who}" if basis and law_ok else None
+    if not basis:
+        # RoPA řádek / „základ …“ v artefaktu Legal triage
+        lines = [ln for ln in legal_core.splitlines()
+                 if re.search(r"(?i)z[áa]klad|lawful|ropa", ln)]
+        basis = _bases("\n".join(lines)) or _bases(legal_core)
+        src = "z Legal triage — ověřit podpisem DPIA" if basis else None
+    if basis:
+        lawful = f"{', '.join(basis)} GDPR ({src})"
+    elif legal_md:
+        lawful = "doplnit (z Legal triage)"
+    else:
+        lawful = "doplnit; Legal triage zatím neběžela"
+
+    def keyed(text: str, pat: str) -> str | None:
+        m = re.search(r"(?im)^[\s\-*]*(?:" + pat + r")\s*[:：]\s*(.+)$", text)
+        return m.group(1).strip().rstrip(".") if m else None
+
+    subj = keyed(legal_core, r"subjekty\s+údajů|data\s+subjects|dotčené\s+osoby")
+    subjects = (f"{subj} (z Legal triage)" if subj else
+                f"{str(pii_hit.group(0)).lower()} (podle zadání) — potvrdit" if pii_hit
+                and re.match(r"(?i)(zákazn|čtenář|uživatel|zaměstn|pacient|student)", pii_hit.group(0))
+                else "doplnit")
+    cat = keyed(legal_core, r"kategorie\s+údajů|categories\s+of\s+data|kategorie")
+    if cat:
+        categories = f"{cat} (z Legal triage)"
+    else:
+        m = re.search(r"(?i)data\s+class\s+(L\d)\s*\(([^)]+)\)", sec_md)
+        categories = (f"{m.group(2).strip()} ({m.group(1)}, ze Security triage)" if m
+                      else "doplnit (per Security triage Data Classification)")
+    ret = re.search(r"(?i)retenc\w*[^.;\n]{3,80}", note) or re.search(
+        r"(?i)retenc\w*[^.;\n]{3,80}", legal_core) or re.search(
+        r"(?i)retenc\w*[^.;\n]{3,80}", sec_md)
+    retention = (f"{ret.group(0).strip()} (z triage; detail v `data.md` § Privacy classification)"
+                 if ret else "per `data.md` § Privacy classification")
+    return {"lawful": lawful, "subjects": subjects, "categories": categories,
+            "retention": retention,
+            "dpia": (f"{who}" if law_ok and law.get("window") == "pravo" else None)}
+
+
 def render_compliance(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     legal_triage = next((t for t in ctx["triage"] if t["track"] == "legal"), None)
@@ -905,14 +983,21 @@ def render_compliance(ctx: dict[str, Any]) -> str:
     pii = (f"ano, podle zadání (zmínka: „{pii_hit.group(0)}“) — upřesnit kategorie"
            if pii_hit else "v zadání se osobní údaje nezmiňují — potvrdit")
     risk = ctx.get("risk_profile")
-    legal_basis = ("doplnit (z Legal triage)" if legal_triage and legal_triage["artefact_md"]
-                   else "doplnit; Legal triage zatím neběžela")
 
     decision_attrib = []
     for d in ctx["decisions"]:
-        decision_attrib.append(
-            f"- **{d['type']}** by {d['atribuce_user']} @ {d['atribuce_ts']}"
-        )
+        who = str(d["atribuce_user"] or "").strip()
+        if not who or who.lower() == "unknown":
+            # Charter založil Kickoff — autor je Decider z DB; jinak poctivě „neznámý“.
+            who = (f"{p[6]} (Decider, Kickoff)" if d["type"] == "charter" and p[6]
+                   else "neznámý autor")
+        decision_attrib.append(f"- **{d['type']}** by {who} @ {d['atribuce_ts']}")
+    facts = _compliance_facts(ctx, legal_triage, sec_triage, pii_hit, steps)
+    lawful, subjects, categories, retention = (
+        facts["lawful"], facts["subjects"], facts["categories"], facts["retention"])
+    dpia_done = facts["dpia"]
+    dpia_box = (f"- [x] DPIA finalized — podepsáno oknem Právo ({dpia_done})" if dpia_done
+                else "- [ ] DPIA finalized (pokud ≥ 2 triggery)")
 
     return f"""# Compliance handoff — {p[1]}
 
@@ -937,10 +1022,10 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - Kroky cesty a zástupci: {steps or 'doplnit'}
 - Kroky s AI náhradou: {ai_line or 'žádné'}
 - Osobní údaje: {pii}
-- Lawful basis: {legal_basis}
-- Data subjects: doplnit
-- Categories of data: doplnit (per Security triage Data Classification)
-- Retention: per `data.md` § Privacy classification
+- Lawful basis: {lawful}
+- Data subjects: {subjects}
+- Categories of data: {categories}
+- Retention: {retention}
 - Recipients (3rd parties): doplnit ({reg['recipients']})
 
 ## AI Act risk register entry
@@ -970,7 +1055,7 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 
 ## Pre-production gate
 
-- [ ] DPIA finalized (pokud ≥ 2 triggery)
+{dpia_box}
 - [ ] AI Act tech doc (Annex IV) drafted (pokud high-risk)
 - [ ] Privacy Notice update merged
 - [ ] DPA signed for all AI vendors

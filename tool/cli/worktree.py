@@ -579,7 +579,35 @@ def _install_python(wt: Path) -> dict[str, Any]:
     out_res: dict[str, Any] = {**res, "status": "ok", "cmd": "python3 -m venv .venv"}
     if missing:
         out_res["dev_tools_missing"] = missing
+    client = _testclient_dep(wt, decl)
+    if client:
+        # Testovací klient Starletty/FastAPI (httpx / httpx2) — bez něj padá `TestClient` už při
+        # importu a builder nemá jak ověřit akceptační testy. Doinstalujeme jako pytest/ruff.
+        _run([py, "-m", "pip", "install", "-q", "--disable-pip-version-check", client],
+             cwd=wt, timeout=600)
+        out_res["testclient_missing"] = client
     return out_res
+
+
+def _testclient_dep(wt: Path, decl: dict[str, Any]) -> str | None:
+    """`httpx` / `httpx2`, pokud FastAPI/Starlette projekt nemá testovací klienta v `.venv`.
+
+    Ověřuje se skutečným importem `starlette.testclient`; hlášku čteme z chyby (nové verze
+    Starletty chtějí `httpx2`, starší `httpx`).
+    """
+    if not ({"fastapi", "starlette"} & set(decl.get("names") or ())):
+        return None
+    rc, out, err = _run([str(wt / ".venv" / "bin" / "python"), "-c",
+                         "import starlette.testclient"], cwd=wt, timeout=60)
+    if rc == 0:
+        return None
+    m = re.search(r"\b(httpx2|httpx)\b", out + err)
+    return m.group(1) if m else None
+
+
+def _testclient_hint(dep: str) -> str:
+    return (f'`[dependency-groups] dev = ["pytest", "{dep}"]` nebo extras `dev` v pyproject, '
+            f"případně `{dep}` do requirements-dev.txt")
 
 
 def _install_deps(worktrees: list[Path], pm: str | None) -> list[dict[str, Any]]:
@@ -1784,6 +1812,13 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
         if miss:
             lines.append(f"Dev nástroje ({', '.join(miss)}) nejsou v pyproject — doplňte je, "
                          "ať je má každý.")
+        clients = sorted({x["testclient_missing"] for x in py if x.get("testclient_missing")})
+        if clients:
+            lines.append(
+                f"Testovací klient FastAPI/Starlette (`{'`, `'.join(clients)}`) chyběl — "
+                "`starlette.testclient` bez něj padá už při importu. Doinstalováno do `.venv`; "
+                f"přidejte ho do dev závislostí ({_testclient_hint(clients[0])}), ať ho má každý "
+                "a CI.")
     node = [x for r in s.repos for x in r["install_results"]
             if x.get("status") in ("ok", "cached") and x.get("kind") != "python"]
     if node:

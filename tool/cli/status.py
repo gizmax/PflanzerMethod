@@ -511,6 +511,14 @@ def project_detail(slug: str) -> dict[str, Any]:
     info: list[str] = []
     if nxt.startswith("pflanzer vote --spec "):
         info.append(_vote_spec_hint(slug))
+    if not killed:
+        try:
+            from tool.cli.triage import triage_changed_brief
+            brief = triage_changed_brief(slug)
+        except Exception:  # noqa: BLE001 — poradní věta nesmí shodit status
+            brief = None
+        if brief:
+            info.append(brief)
     for c in cps:
         if c["window"] == "zadani":
             continue
