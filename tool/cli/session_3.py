@@ -71,6 +71,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     repos_summary_line,
     run_repo_gates,
     save_repo_gates,
+    score_sentence,
     skip_reason,
     spa_line,
     unverified_gates,
@@ -188,8 +189,9 @@ def _multi_repo_gates(
     for b in blocks[1:]:
         if b["path"] is None:
             raise ValueError(
-                f"Chybí worktree repa {b['role']} varianty {variant} ({tilde(b['expected_path'])}); "
-                f"bez něj Ship neověří celý kód. Spusť `pflanzer worktree setup --slug {slug}`.")
+                f"Ship zatím nejde: chybí pracovní kopie repa {b['role']} pro variantu {variant} "
+                f"({tilde(b['expected_path'])}), bez ní nejde ověřit celý kód. "
+                f"Vytvoř ji: `pflanzer worktree setup --slug {slug}`.")
         entries.append(run_repo_gates(b["path"], b["role"], b["base"]))
     return entries
 
@@ -237,21 +239,21 @@ def _select_variants(
         "SELECT id FROM sessions WHERE project_id = ? AND type = 1", (project_id,),
     ).fetchone()
     if not sess1:
-        raise ValueError("Projekt nemá žádný Build (varianty). Spusť `/pm build` nejdřív.")
+        raise ValueError("Ship zatím nejde: projekt nemá žádný Build (varianty). Začni `/pm build`.")
     rows = conn.execute(
         "SELECT id, name, builder, preference_score FROM variants "
         "WHERE session_id = ? ORDER BY preference_score DESC", (sess1[0],),
     ).fetchall()
     if not rows:
-        raise ValueError("Build nemá žádné varianty.")
+        raise ValueError("Ship zatím nejde: Build nevytvořil žádnou variantu. Spusť `/pm build` znovu.")
     by_name = {r[1]: (int(r[0]), r[1], r[2], float(r[3] or 0)) for r in rows}
     decided = get_winner(conn, project_id)
 
     if explicit:
         if decided and set(explicit) != {decided} and not (rationale or "").strip():
             raise ValueError(
-                f"Rozhodnutí = {decided}. Jiná varianta jen s --rationale; pro samotné skóre "
-                "použij `pflanzer quality_gates --path …`."
+                f"Vítěz z Rozhodnutí je {decided}. Jinou variantu ověříš jen s důvodem "
+                "(`--rationale \"…\"`); pro samotné skóre použij `pflanzer quality_gates --path …`."
             )
         names, source = explicit, "explicit (--variants)"
     elif decided and decided in by_name:
@@ -262,9 +264,20 @@ def _select_variants(
         names, source = [rows[0][1]], "nejvyšší skóre z Buildu (bez vítěze a shortlistu)"
     missing = [n for n in names if n not in by_name]
     if missing:
-        raise ValueError(f"Varianta {', '.join(missing)} v Buildu neexistuje "
-                         f"(jsou: {', '.join(sorted(by_name))}).")
+        raise ValueError(f"Varianta {', '.join(missing)} v Buildu není. "
+                         f"Vyber z: {', '.join(sorted(by_name))}.")
     return [by_name[n] for n in names], source, decided
+
+
+def _before_ship_step(status: str, slug: str) -> str:
+    """Další krok, když projekt ještě není v Rozhodnutí s Go (bez interních názvů stavů)."""
+    decide = f'`pflanzer decide --slug {slug} go --winner X --rationale "…"`'
+    if status in ("session_2", "decide"):
+        return f"Řekne ho v Rozhodnutí: {decide} (X = vítězná varianta)."
+    if status in ("triage", "session_1"):
+        return (f"Nejdřív doběhne Build (`pflanzer status --slug {slug}` ukáže další krok), "
+                f"pak Rozhodnutí: {decide}.")
+    return f"Zapiš ho: {decide} (X = vítězná varianta)."
 
 
 def hardening_run(
@@ -283,12 +296,14 @@ def hardening_run(
     checkpoints = [c.strip() for c in (checkpoints or []) if c and c.strip()]
     if override_triage and not (override_rationale or "").strip():
         raise ValueError(
-            "--override-triage vyžaduje --rationale \"…\" (zapisuje se do decision logu)."
+            "Přebití chybějících podpisů potřebuje důvod (`--rationale \"…\"`), "
+            "zapíše se do decision logu."
         )
 
     if override_threshold and not (override_rationale or "").strip():
         raise ValueError(
-            "--override-threshold vyžaduje --rationale \"…\" (zapisuje se do decision logu)."
+            "Ship pod prahem potřebuje důvod (`--rationale \"…\"`), "
+            "zapíše se do decision logu."
         )
 
     with transaction() as conn:
@@ -304,12 +319,12 @@ def hardening_run(
         decider_name = proj[5]
         if status == "killed":
             raise ValueError(
-                "Projekt skončil Killem, Ship není možný. "
+                "Ship nejde: projekt skončil Killem. "
                 f"Poučení: `pflanzer retro lesson --slug {slug} --text \"…\"`.")
         if status != "handoff":
             raise ValueError(
-                f"Project status='{status}'. Ship vyžaduje Go v Rozhodnutí "
-                f"(`pflanzer session_2 decide --slug {slug} go --winner A --rationale \"…\"`)."
+                "Ship zatím nejde: Decider ještě neřekl Go. "
+                f"{_before_ship_step(status, slug)}"
             )
         selected, source, decided = _select_variants(conn, project_id, variants,
                                                      override_rationale)
@@ -422,8 +437,6 @@ def hardening_run(
     if informational:
         blocked_by.append(f"ship:neni-vitez (Rozhodnutí = {decided})")
     w_repos: list[dict[str, Any]] = winner["gates"].get("repos") or []
-    summary_line = (winner["gates"]["summary_line"] if w_repos
-                    else gates_summary_line(w_score, winner["gates"]["results"]))
     spa_note = spa_line(winner["gates"]["results"])
     warnings: list[str] = list(warnings_pre)
     if target > 0:
@@ -459,13 +472,15 @@ def hardening_run(
     if override_threshold:
         if target <= 0 or gate_ready:
             raise ValueError(
-                f"--override-threshold se použije jen pod prahem projektu (skóre {w_score}/100, "
-                f"práh {target}) nebo při selhání bran build / tests / smoke; "
-                "tady není co přebíjet."
+                f"Výjimku z prahu nepotřebuješ: skóre {w_score} ze 100"
+                + (" je informativní (throwaway)." if target <= 0
+                   else f" splňuje práh {target} a žádná klíčová brána (sestavení, testy, "
+                        "spuštění aplikace) nepadá. Pusť Ship bez `--override-threshold`.")
             )
         if blocked_by:
-            print(f"[ship gate] --override-threshold nelze použít, dokud blokuje "
-                  f"{', '.join(blocked_by)} (triage má vlastní override, minimum bran ne).",
+            print(f"[ship gate] Výjimku z prahu zatím nejde použít, protože Ship blokuje "
+                  f"{', '.join(blocked_by)}. Nejdřív to vyřeš (chybějící podpisy lze přebít "
+                  "přes `--override-triage --rationale \"…\"`).",
                   file=sys.stderr)
         else:
             with transaction() as conn:
@@ -492,6 +507,11 @@ def hardening_run(
                    f"production_ready=false")
         production_ready = False
 
+    summary_line = (
+        score_sentence(w_score, target, None, [], verdict, extra="Po repech: " + " · ".join(
+            f"{e['role']} {int(e['gate_score'])}/100" for e in w_repos) + ".")
+        if w_repos else gates_summary_line(w_score, winner["gates"]["results"],
+                                           target=target, verdict=verdict))
     with transaction() as conn:
         # run_gates přepisuje gate_score_latest po každé variantě; finální = vítěz
         # (u informativního porovnání se vrací původní hodnota).
@@ -775,8 +795,7 @@ def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
         "",
         f"- **{role}**: **{winner['variant']}** (větev `{ext.get('branch') or '—'}` "
         f"@ `{(ext.get('head_sha') or '—')[:10]}`)",
-        f"- **Skóre**: {summary_line or str(winner['gates']['gate_score']) + '/100'} "
-        f"(práh {target}) — {verdict}",
+        f"- {summary_line or score_sentence(winner['gates']['gate_score'], target, None, [], verdict)}",
         f"- **Brány**: {winner['gates'].get('applicable_gates')} z {winner['gates'].get('total_gates')} "
         f"aplikovatelných, stack `{winner['gates'].get('stack')}`",
     ]
@@ -964,11 +983,11 @@ def _render_report(
         verdict_block = (
             f"## Verdikt: jen informativní porovnání\n\n"
             f"Vítěz z Rozhodnutí je **{decided}** a tento běh ho nehodnotil. Varianta "
-            f"**{w['variant']}** má **{summary_line}** (práh {target}); to NEmění vítěze ani "
+            f"**{w['variant']}** má {summary_line} To NEmění vítěze ani "
             f"production_ready. Ship vítěze: `pflanzer session_3 --slug {slug}`.\n"
         )
     elif summary_line:
-        verdict_block += f"\nBrány: {summary_line}.\n"
+        verdict_block += f"\n{summary_line}\n"
     if spa_line(w["gates"]["results"]):
         verdict_block += f"\n{spa_line(w['gates']['results'])}.\n"
     if warnings:
@@ -1067,7 +1086,7 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
     """(titulek, řádky, varování, další krok, ctx pro tipy) lidského výstupu Shipu."""
     w = out["winner"]
     target = out["production_readiness_target"]
-    short = w["summary_line"]  # v terminálu jen jména bran; důvody SKIP jsou celé v reportu
+    short = w["summary_line"].replace("**", "")  # v terminálu jen jména bran; důvody SKIP jsou celé v reportu
     human = out["triage"].get("human_blockers") or []
     below = w["gate_score"] < target and not out["production_ready"]
     ctx = {"below_threshold": below, "missing_signatures": bool(human)}
@@ -1133,10 +1152,12 @@ def main() -> None:
 
     ex = f'pflanzer session_3 --slug {args.slug} --{{flag}} --rationale "Důvod, proč přebíjíme"'
     if args.override_triage and not (args.rationale or "").strip():
-        die("--override-triage vyžaduje --rationale s důvodem (zapisuje se do decision logu).",
+        die("Přebití chybějících podpisů potřebuje důvod (`--rationale \"…\"`), "
+            "zapíše se do decision logu.",
             ex.format(flag="override-triage"))
     if args.override_threshold and not (args.rationale or "").strip():
-        die("--override-threshold vyžaduje --rationale s důvodem (zapisuje se do decision logu).",
+        die("Ship pod prahem potřebuje důvod (`--rationale \"…\"`), "
+            "zapíše se do decision logu.",
             ex.format(flag="override-threshold"))
 
     try:
@@ -1151,7 +1172,7 @@ def main() -> None:
             override_threshold=args.override_threshold,
         )
     except json.JSONDecodeError:
-        die("--repo-urls a --method-overrides čekají JSON objekt.",
+        die("`--repo-urls` a `--method-overrides` musí být JSON objekt (varianta -> hodnota).",
             '--repo-urls \'{"A": "https://github.com/firma/repo"}\'')
     except (ExtractionError, ValueError) as e:
         exit_if_project_missing(e)

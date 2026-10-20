@@ -232,7 +232,7 @@ def variant_findings(slug: str, name: str, limit: int = 8) -> list[str]:
     out = []
     for sev, cat, why in rows[:limit]:
         text = " ".join(str(why or "").split())
-        out.append(f"[{sev}] {cat}: {text[:200]}")
+        out.append(f"[{severity_label(sev)}] {cat}: {text[:200]}")
     if len(rows) > limit:
         out.append(f"… a dalších {len(rows) - limit} (viz `pflanzer feedback_pull`)")
     return out

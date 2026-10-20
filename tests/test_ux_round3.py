@@ -134,12 +134,13 @@ def _gates(*, acceptance: str = "unverified", types: str = "skip") -> list[GateR
 
 def test_summary_line_separates_unverified_from_not_applicable() -> None:
     line = quality_gates.gates_summary_line(100, _gates(types="none"))
-    assert line == "100/100 ze 5 spuštěných · NEOVĚŘENO: acceptance (chybí @playwright/test)"
+    assert line == ("Skóre 100 ze 100. Spočteno nad 5 branami. "
+                    "Neověřeno: akceptační testy (chybí @playwright/test).")
     both = quality_gates.gates_summary_line(100, _gates())
-    assert both.startswith("100/100 ze 5 spuštěných · 1 brána neběžela (types)")
-    assert both.endswith("NEOVĚŘENO: acceptance (chybí @playwright/test)")
+    assert both.startswith("Skóre 100 ze 100. Spočteno nad 5 branami. Neověřeno: "
+                           "akceptační testy (chybí @playwright/test), typová kontrola")
     plain = quality_gates.gates_summary_line(100, _gates(acceptance="none", types="skip"))
-    assert "NEOVĚŘENO" not in plain and "spuštěných" not in plain
+    assert "Neověřeno: akceptační" not in plain and "typová kontrola" in plain
 
 
 def test_verdict_has_warning_when_unverified_and_production_fails() -> None:
@@ -191,7 +192,7 @@ def test_signatures_mark_foreign_signer_as_zastup(voted: dict[str, Any]) -> None
     checkpoint.sign(slug, "provoz", by="Kdokoli Cizí", note="rollback a on-call prošli")
     assert "Provoz: Kdokoli Cizí (zástup)" in (handoff_pr.signatures_line(slug) or "")
     pr = handoff_pr.build_pr(slug)
-    assert "## Podpisy oken" in pr["body"] and "(zástup)" in pr["body"]
+    assert "<summary>Podpisy oken</summary>" in pr["body"] and "(zástup)" in pr["body"]
 
 
 # --- 4. feedback_pull vs prep ------------------------------------------------------------------

@@ -75,7 +75,8 @@ def test_ship_runs_gates_in_every_repo(duo: dict[str, Any]) -> None:
     w = out["winner"]
     assert [r["role"] for r in w["repos"]] == ["web", "api"]
     assert all(r["gate_score"] == 100 for r in w["repos"])
-    assert w["summary_line"] == "web: 100/100 · api: 100/100 (celkem 100/100)"
+    assert w["summary_line"].startswith("**Skóre 100 ze 100")
+    assert "Po repech: web 100/100 · api 100/100." in w["summary_line"]
     assert w["gate_score"] == 100
     # větev i SHA jsou per repo, rozsah diffu taky
     api = w["repos"][1]
@@ -109,7 +110,7 @@ def test_missing_second_worktree_fails_loud(duo: dict[str, Any]) -> None:
     git(duo["wt_web"], "worktree", "prune")
     out = session_3.hardening_run(slug="duo")
     err = next(e for e in out["errors"] if e["variant"] == "A")
-    assert "worktree repa api" in err["error"] and "worktree setup" in err["error"]
+    assert "pracovní kopie repa api" in err["error"] and "worktree setup" in err["error"]
     assert out["winner"]["variant"] != "A"  # varianta s neověřeným repem nevyhrává
 
 
@@ -139,7 +140,7 @@ def test_ship_md_has_push_and_pr_for_both_repos(duo: dict[str, Any]) -> None:
     assert "duo-A-api" in md and "--repo api" in md and "--repo web" in md
     assert '--related "web=$PR_WEB"' in md       # druhé PR odkazuje na první
     assert 'gh pr edit "$PR_WEB"' in md          # první PR se doplní o odkaz na druhé
-    assert "web: 100/100 · api: 100/100" in md
+    assert "Po repech: web 100/100 · api 100/100" in md
     assert "Rozsah: web:" in md and "api: +" in md
     # každý PR míří do base svého repa
     assert md.count("--base main") == 2

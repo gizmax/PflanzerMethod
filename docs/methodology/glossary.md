@@ -6,6 +6,25 @@
 > Updated po dual-track design (`docs/research/dual-track-design/`)
 > a output consistency audit (`docs/research/output-consistency/`).
 
+## Závazné termíny ve výstupech
+
+Tyto termíny se ve výstupech toolu (CLI, hub, PR, SHIP.md, decision log) používají vždy stejně.
+
+| Termín | Význam |
+|---|---|
+| **brána** | Jedna automatická kontrola kvality (např. testy, lint, bezpečnost). |
+| **skóre bran** | Souhrn všech bran jako číslo `X/100`. |
+| **práh** | Minimální skóre bran, od kterého Ship projde (pilot 80, production 85). |
+| **podpis okna** | Okno = krátká kontrola jedné role (příkaz `checkpoint`); podpis okna říká, že role výsledek viděla a souhlasí. |
+| **zástupce kroku** | Člověk, který zastupuje jeden krok cesty (Produkt, Design, Vývoj, Bezpečnost & právo, Provoz). |
+| **Rozhodnutí** | Setkání Decidera: **Go** (jde se do Shipu), **Iterate** (jedno další kolo), **Kill** (konec). |
+| **závaznost** | Jak moc se tým za variantu postaví, stupnice 0–3 (v datech `commitment_level`); na Go stačí 60 %. |
+| **Sběr feedbacku** | Fáze Async: zástupci píší připomínky k variantám (hub nebo offline). |
+| **závažnost** | Tři úrovně: **Kritické** (blokuje nasazení), **Důležité**, **Drobné**. |
+
+Mapování závažnosti: CLI vstup `critical` = Kritické; `major` / `high` = Důležité; `minor` / `medium` / `low` = Drobné.
+V databázi zůstávají hodnoty `critical`, `high`, `medium`, `low`; hub formulář nabízí `critical`, `high`, `low`.
+
 ## Track terms (v0.4)
 
 ### Track P (Preferred)

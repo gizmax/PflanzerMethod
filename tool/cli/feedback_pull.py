@@ -26,7 +26,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, display_path, transaction  # noqa: E402
-from tool.cli.ux import CzechArgumentParser, die, emit, severity_label  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    SEVERITY_DISPLAY_ORDER,
+    CzechArgumentParser,
+    die,
+    emit,
+    group_severity_counts,
+    severity_label,
+)
 
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
@@ -53,7 +60,7 @@ def clip_text(text: str | None, limit: int | None = 120) -> str:
 
 
 def sort_feedback(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Critical -> major -> minor (potom podle id)."""
+    """Kritické -> Důležité -> Drobné (potom podle id)."""
     return sorted(rows, key=lambda r: (SEVERITY_RANK.get(r.get("severity"), 9), r.get("id") or 0))
 
 
@@ -70,7 +77,7 @@ def feedback_row_line(r: dict[str, Any], limit: int | None = 120) -> str:
 
 
 def open_resolved(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """(otevřené, vyřešené), každé řazené critical -> major -> minor."""
+    """(otevřené, vyřešené), každé řazené Kritické -> Důležité -> Drobné."""
     return (sort_feedback([r for r in rows if not r.get("resolved_at")]),
             sort_feedback([r for r in rows if r.get("resolved_at")]))
 
@@ -307,8 +314,9 @@ def aggregate(slug: str) -> dict[str, Any]:
 
 
 def severity_text(counts: dict[str, int]) -> str:
-    """„Kritické 1, Vysoké 2“ (jen nenulové), nebo „bez připomínek“."""
-    parts = [f"{severity_label(k)} {counts[k]}" for k in SEVERITY_ORDER if counts.get(k)]
+    """„Kritické 1, Důležité 2“ (jen nenulové), nebo „bez připomínek“."""
+    grouped = group_severity_counts(counts)
+    parts = [f"{severity_label(k)} {grouped[k]}" for k in SEVERITY_DISPLAY_ORDER if grouped.get(k)]
     return ", ".join(parts) or "bez připomínek"
 
 
@@ -358,7 +366,8 @@ def critical_summary_lines(crits: list[dict[str, Any]], focus: list[str], winner
 def render_summary_md(agg: dict[str, Any]) -> str:
     """Souhrn feedbacku pro Rozhodnutí (v0.5)."""
     sev_table = "\n".join(
-        f"| {severity_label(s)} | {agg['by_severity'].get(s, 0)} |" for s in SEVERITY_ORDER
+        f"| {severity_label(s)} | {group_severity_counts(agg['by_severity']).get(s, 0)} |"
+        for s in SEVERITY_DISPLAY_ORDER
     )
     var_rows = "\n".join(
         f"| {v} | {data['count']} | {severity_text(agg['by_variant_severity'].get(v, {}))} "

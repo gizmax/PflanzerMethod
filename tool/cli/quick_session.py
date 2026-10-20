@@ -1009,7 +1009,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
                              "tuto variantu výslovně neuvádí")
             found = variant_findings(slug, nm)
             if found:
-                lines.append(f"Nálezy k variantě {nm} (oprav před dalším kolem; critical nejdřív):")
+                lines.append(f"Nálezy k variantě {nm} (oprav před dalším kolem; Kritické nejdřív):")
                 lines += [f"- {f}" for f in found]
             revise[nm] = f"Přístup varianty: {ang}.\n" + "\n".join(lines)
     elif focus:

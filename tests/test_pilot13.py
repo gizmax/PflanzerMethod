@@ -147,7 +147,7 @@ def test_iterate_prompts_each_variant_gets_only_its_own_goal(
     for name, text in by.items():
         assert f"Uprav existující variantu {name} podle nálezů" in text
         assert f"Postav variantu {name}" not in text
-    assert "[critical]" in by["B"] and "formulář nejde odeslat na mobilu" in by["B"]
+    assert "[Kritické]" in by["B"] and "formulář nejde odeslat na mobilu" in by["B"]
     assert "chybí potvrzení objednávky" not in by["B"]
     assert "A: přidat" not in by["B"] and "B: opravit" not in by["A"]
 

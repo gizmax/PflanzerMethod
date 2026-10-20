@@ -175,7 +175,8 @@ def plural(n: int, one: str, few: str, many: str) -> str:
 # DB drží critical|high|medium|low, zobrazuje se česky.
 # ---------------------------------------------------------------------------
 
-SEVERITY_LABELS = {"critical": "Kritické", "high": "Vysoké", "medium": "Střední", "low": "Nízké"}
+# Zobrazení: tři úrovně — Kritické (blokuje nasazení) / Důležité / Drobné.
+SEVERITY_LABELS = {"critical": "Kritické", "high": "Důležité", "medium": "Drobné", "low": "Drobné"}
 _SEVERITY_ALIASES = {"critical": "critical", "major": "high", "high": "high",
                      "medium": "medium", "minor": "low", "low": "low"}
 
@@ -191,8 +192,25 @@ def normalize_severity(value: str) -> str:
     return _SEVERITY_ALIASES[key]
 
 
+SEVERITY_DISPLAY_ORDER = ("critical", "high", "low")
+
+
+def severity_group(db_value: str) -> str:
+    """DB value → zobrazená úroveň (medium se sloučí s low = Drobné)."""
+    return "low" if db_value == "medium" else db_value
+
+
+def group_severity_counts(counts: dict[str, int]) -> dict[str, int]:
+    """{critical, high, medium, low} → {critical, high, low} (medium + low = Drobné)."""
+    out: dict[str, int] = {}
+    for k, n in counts.items():
+        g = severity_group(k)
+        out[g] = out.get(g, 0) + n
+    return out
+
+
 def severity_label(db_value: str) -> str:
-    """DB value → česky (Kritické / Vysoké / Střední / Nízké)."""
+    """DB value → česky (Kritické / Důležité / Drobné; medium i low = Drobné)."""
     return SEVERITY_LABELS.get(db_value, db_value)
 
 
