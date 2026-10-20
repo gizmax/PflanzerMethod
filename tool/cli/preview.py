@@ -568,13 +568,39 @@ def _fail_text(name: str, v: dict[str, Any], why: str) -> str:
 
 
 PERSONAL_DATA_NET_WARNING = (
-    "Projekt má osobní data (L3+): varianty běží v místní síti přes HTTP bez šifrování — "
+    "Projekt má citlivou třídu dat (L3+): varianty běží v místní síti přes HTTP bez šifrování — "
     "používejte jen testovací data, ne skutečné osobní údaje; mimo síť `--tunnel cloudflared` "
     "(HTTPS).")
 
 
+_WEEKDAYS = ("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
+
+
+def _today():
+    import datetime as _dt
+    return _dt.date.today()
+
+
+def default_deadline(slug: str) -> str:
+    """Termín sběru feedbacku z okna Asyncu (horní mez dní, pracovní dny), např. „pátek 23. 10.“."""
+    import datetime as _dt
+    import re as _re
+    try:
+        from tool.cli.ux import async_days
+        nums = [int(n) for n in _re.findall(r"\d+", async_days(slug))]
+    except Exception:  # noqa: BLE001
+        nums = []
+    left = max(nums) if nums else 5
+    d = _today()
+    while left > 0:
+        d += _dt.timedelta(days=1)
+        if d.weekday() < 5:
+            left -= 1
+    return f"{_WEEKDAYS[d.weekday()]} {d.day}. {d.month}."
+
+
 def has_personal_data(slug: str) -> bool:
-    """Projekt s třídou dat L3/L4 (osobní údaje)? Bez DB / projektu False."""
+    """Projekt s citlivou třídou dat L3/L4? Bez DB / projektu False."""
     try:
         from tool.cli import db
         conn = db.get_connection()
@@ -1297,7 +1323,7 @@ def share_message(res: dict[str, Any], hub: str | None, contact: str | None = No
     """Zpráva pro kolegy: nikdy neradí příkazy CLI (kolegové tool nemají)."""
     contact = contact or "PdM"
     rows = "\n".join(f"  Varianta {n}: {v['url']}" for n, v in res["variants"].items())
-    until = res.get("deadline") or "[doplňte termín]"
+    until = res.get("deadline") or default_deadline(res.get("slug") or "")
     count = len(res["variants"])
     acc, _nom = _variants_phrase(count)
     if count == 1:

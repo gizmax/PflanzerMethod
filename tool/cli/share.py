@@ -89,9 +89,9 @@ def _say(msg: str) -> None:
     sys.stderr.flush()
 
 
-def share_text(hub_url: str, deadline: str | None) -> str:
+def share_text(hub_url: str, deadline: str | None, slug: str = "") -> str:
     """Zpráva pro kolegy bez hesla (heslo jde zvlášť). Žádné příkazy CLI."""
-    until = deadline or "[doplňte termín]"
+    until = deadline or preview.default_deadline(slug)
     return ("Dobrý den, připravili jsme varianty k rozhodnutí. Není to hotový produkt, "
             "zajímá nás váš dojem.\n"
             f"Adresa: {hub_url}\n"
@@ -207,7 +207,7 @@ def up(slug: str, *, tunnel: str = "auto", password: str | None = None,
         hub_url = str(data.get("lan_url") or f"http://{preview._lan_ip()}:{port}/method/")
     else:
         hub_url = f"http://127.0.0.1:{port}/method/"
-    body = share_text(hub_url, deadline)
+    body = share_text(hub_url, deadline, slug)
     build_recorded = _build_recorded(slug)
     if not build_recorded:
         warnings.insert(0, NOT_RECORDED_WARNING.format(slug=slug))

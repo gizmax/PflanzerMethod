@@ -38,7 +38,7 @@ než si myslíte.
 
 | Kdo | Kolik času |
 |-----|-----------|
-| Celkem lidé | **~6–8 člověkodnů** za celý pilot (~8 dní kalendářně) |
+| Celkem lidé | **~6–8 člověkodnů** za pilot Lean (~8 dní kalendářně); demo Quick ~5, ostré nasazení ~14 (plán z Kickoffu, `report summary` ho uvádí se zdrojem) |
 | Decider (sponzor) | **15 min** Kickoff + **90 min** Rozhodnutí |
 | Bezpečnost & právo | **20 min** (checkpoint nad běžícími variantami) |
 | Provoz | **20 min** checkpoint + domluva preview a Ship s vývojáři |

@@ -15,8 +15,9 @@ regulované banky, nativní mobilní appky ani projekt bez člověka, který sm�
 
 ## Kolik to stojí
 
-~6–8 člověkodnů za celý pilot, žádná licence navíc kromě Claude Code.
-Decider dá **15 min + 90 min**, bezpečnost & právo a provoz po **20 min**.
+Plán z Kickoffu podle stupně a risk profilu: pilot Lean **~6–8 člověkodnů**,
+demo Quick ~5, ostré nasazení ~14 (`report summary` uvádí číslo se zdrojem).
+Žádná licence navíc kromě Claude Code. Decider dá **15 min + 90 min**, bezpečnost & právo a provoz po **20 min**.
 Tabulka a text pro šéfa: [`faq.md`](faq.md#kolik-to-stojí).
 
 ## Checklist před startem
@@ -70,7 +71,9 @@ Na každém kroku stačí jeden příkaz (v Claude Code `/pm <krok>`).
 
 Slug (krátký) vypíše Kickoff; lze ho zadat i ve specu (`"slug"`). Po sběru feedbacku
 (po Rozhodnutí) zastavíš sdílení: `pflanzer share down --slug S`. Report pro vedení:
-`pflanzer report summary --slug S`.
+`pflanzer report summary --slug S`. Termín ve zprávě kolegům se spočítá z délky sběru
+feedbacku; vlastní zadáš `pflanzer share --slug S --deadline "pátek 17:00"`.
+Souhrn feedbacku: `/pm feedback` (terminál `pflanzer feedback_pull --slug S`).
 **Kde jste?** `/pm` řekne fázi a jeden další krok. Rozhodnutí se zapisují do
 repa (`.pflanzer/decisions/<slug>.md`) — commitněte je. Spěcháte? `/pm live
 "co řešíme"` spojí Kickoff a Build (stupeň Quick, 60–90 min).

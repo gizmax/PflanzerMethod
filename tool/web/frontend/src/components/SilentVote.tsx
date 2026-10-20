@@ -16,7 +16,7 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
   slug: string; variants: string[]; identityName: string | null; compact?: boolean;
 }) {
   const [st, setSt] = useState<VotesState | null>(null);
-  const [choice, setChoice] = useState<VoteChoice>("go");
+  const [choice, setChoice] = useState<VoteChoice | "">("");
   const [winner, setWinner] = useState("");
   const [comment, setComment] = useState("");
   const [iter, setIter] = useState<string[]>([]);
@@ -25,7 +25,7 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
 
   useEffect(() => {
     // změna identity = čistý formulář; vlastní uložený hlas nové identity se načte níže
-    setSt(null); setChoice("go"); setWinner(""); setComment(""); setIter([]); setErr(null);
+    setSt(null); setChoice(""); setWinner(""); setComment(""); setIter([]); setErr(null);
     if (!identityName) return;
     let cancelled = false;
     api.getVotes(slug).then((s) => {
@@ -53,6 +53,7 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
   }
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (!choice) { setErr("Vyberte Go, Iterate nebo Kill."); return; }
     if (choice === "go" && !winner) { setErr("U volby Go vyberte variantu."); return; }
     void run(() => api.castVote(slug, {
       choice, winner: choice === "go" ? winner : null, comment,
@@ -60,6 +61,7 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
     }));
   }
 
+  const idp = compact ? "vc" : "vf";
   const waiting = st.voters.filter((v) => !v.voted).map((v) => v.name);
   return (
     <section className={compact ? "pf-card border-accent space-y-3" : "pf-card space-y-3"}
@@ -85,8 +87,8 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
             <legend className="pf-label">{st.is_decider ? "Vaše volba (Decider)" : "Vaše volba"}</legend>
             <div className="flex flex-wrap gap-3">
               {(Object.keys(LABEL) as VoteChoice[]).map((c) => (
-                <label key={c} className="flex min-h-[44px] items-center gap-2">
-                  <input type="radio" name="vote" checked={choice === c} onChange={() => setChoice(c)}
+                <label key={c} htmlFor={`${idp}-vote-${c}`} className="flex min-h-[44px] items-center gap-2">
+                  <input id={`${idp}-vote-${c}`} type="radio" name="vote" value={c} checked={choice === c} onChange={() => setChoice(c)}
                     className="h-5 w-5 accent-[rgb(var(--c-accent))]" />
                   {LABEL[c]}
                 </label>

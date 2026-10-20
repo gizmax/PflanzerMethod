@@ -178,7 +178,12 @@ def validate_ai_stand_ins(path_owners: dict[str, str], *, risk_profile: str,
                 "Design zastupuje AI u production projektu — pokud je aplikace pro "
                 "zákazníky, potřeba člověk před Ship."
             )
-        if step in ("bezpecnost", "provoz") and risk_profile != "throwaway":
+        if step == "provoz" and risk_profile == "production":
+            if not named:   # AI s pojmenovaným podepisujícím člověkem je v pořádku (nehlásit)
+                warnings.append(
+                    "Ostré nasazení: okno Provoz podepisuje člověk z provozu (může potvrdit "
+                    "AI návrh) — vývojář z jádra stačí jen u pilotu.")
+        elif step in ("bezpecnost", "provoz") and risk_profile != "throwaway":
             warnings.append(
                 f"{label}: AI připraví jen draft; podpis člověka je nutný před Ship "
                 f"({'do 48 h' if step == 'bezpecnost' else 'vývojář z jádra stačí u pilotu'})."

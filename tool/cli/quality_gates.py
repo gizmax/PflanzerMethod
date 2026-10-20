@@ -1658,6 +1658,18 @@ def _run_adapter_gate(gate: str, spec: Any, adapter: Path, path: Path,
                       metric=metric, duration_s=duration)
 
 
+def _native_acceptance_stack(path: Path) -> bool:
+    """Stack, který umí acceptance nativně (Go/Node/Python) - adaptér ji nesmí vypnout jen chybějícím klíčem."""
+    try:
+        return _other_stack(path) == "go" or _is_node_project(path) or _is_python_project(path)
+    except OSError:
+        return False
+
+
+def _native_acceptance_fallback(path: Path) -> GateResult:
+    return gate_acceptance(_make_ctx(path)[0])
+
+
 def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> list[GateResult]:
     try:
         specs = load_gates_adapter(adapter)
@@ -1669,6 +1681,7 @@ def _run_adapter(adapter: Path, path: Path, cwd_base: Path | None = None) -> lis
               f"known: {list(GATE_TYPES)}", file=sys.stderr)
     return [
         _run_adapter_gate(g, specs[g], adapter, path, cwd_base) if g in specs
+        else _native_acceptance_fallback(path) if g == "acceptance" and _native_acceptance_stack(path)
         else (_skip("types", "typy kontroluje kompilátor (brána build)")
               if g == "types" and _other_stack(path) else
               _unavailable(g, "není definovaná", f"doplň ji do {adapter.name}"))
