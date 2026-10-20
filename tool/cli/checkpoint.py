@@ -380,8 +380,10 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                 and "Kickoff" not in (leg[1] or "")[:80]
             if not separate and "pravo" not in _last_audit(conn, pid):
                 raise ValueError(
-                    "Právo se podepisuje spolu s bezpečností (plný triage ho neodložil): "
-                    f'`pflanzer checkpoint --slug {slug} bezpecnost --by "<jméno>" '
+                    "Samostatné okno Právo (DPIA) vzniká jen když plný triage odloží právo "
+                    "(legal = deferred/blocked, např. DPIA) a security je ok. Tady právo "
+                    "odloženo není, proto se podepisuje spolu s bezpečností — podepište místo "
+                    f'toho: `pflanzer checkpoint --slug {slug} bezpecnost --by "<jméno>" '
                     '--note "co jste ověřili"`.')
             # Právo (DPIA) podepisuje ten, koho jmenoval plný triage (typicky DPO), ne vlastník
             # kroku Bezpečnost & právo.
@@ -497,6 +499,19 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                                (pid,)).fetchone()
             if lg2 and lg2[0] in ("ok", "blocked"):
                 tracks = [t for t in tracks if t != "legal"]   # DPIA podpis okna Právo zůstává
+        if ai:
+            # ADR-0023: AI návrh nikdy nepřepíše ani nesníží podpis člověka.
+            for t in tracks:
+                row = conn.execute(
+                    "SELECT status, signed_by FROM triage WHERE project_id = ? AND track = ?",
+                    (pid, t)).fetchone()
+                human = _human(str(row[1] or "")) if row else None
+                if row and row[0] == "ok" and human and not str(row[1]).startswith("AI"):
+                    raise ValueError(
+                        f"Okno {label} už podepsal {human} — AI návrh se nezapíše a nic se "
+                        "nezměnilo (AI nepřepisuje podpis člověka, ADR-0023). Nový podpis "
+                        f'(i s dalšími podmínkami): `pflanzer checkpoint --slug {slug} {window} '
+                        '--by "<jméno>" --note "co jste ověřili"`.')
         # Podmínky: re-sign je SLUČUJE s dřívějšími (nikdy nepřepisuje); podmínky z triage
         # podpis převezme, nebo je vědomě odpustí (--waive ID --rationale …).
         from tool.cli.triage import triage_conditions

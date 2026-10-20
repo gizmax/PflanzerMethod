@@ -11,6 +11,7 @@ a JSON with a `track` field + `status` + artefact_md. This module:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sqlite3
@@ -806,6 +807,35 @@ TRIAGE_SPEC_EXAMPLE = (
 )
 
 
+TRIAGE_SPEC_JSON = """{
+  "slug": "moje-appka",
+  "results": [
+    {"track": "discovery", "status": "ok", "signed_by": "Dana Nováková",
+     "rationale": "persona a JTBD ověřeny s 5 uživateli", "artefact_md": "# Discovery\\n…"},
+    {"track": "security", "status": "ok", "signed_by": "Jana Svobodová",
+     "rationale": "datový tok a hrozby prošly",
+     "conditions": [{"id": "K1", "text": "logy bez osobních údajů"}],
+     "artefact_md": "# Security\\n…"},
+    {"track": "legal", "status": "deferred", "signed_by": "Marie Dvořáková (DPO)",
+     "rationale": "DPIA se dokončuje",
+     "conditions": [{"id": "D1", "text": "DPIA hotová před Shipem"}],
+     "artefact_md": "# Legal\\n…"},
+    {"track": "platform", "status": "ok", "signed_by": "Karel Dvořák",
+     "rationale": "sandbox a runtime schváleny", "artefact_md": "# Platform\\n…"}
+  ]
+}"""
+
+TRIAGE_EPILOG = (
+    "Spec (soubor, nebo `-` pro stdin) = JSON se `slug` a čtyřmi výsledky v `results` — "
+    "po jednom pro track discovery, security, legal, platform:\n\n" + TRIAGE_SPEC_JSON + "\n\n"
+    "status: ok | blocked | deferred. `signed_by` je podpis ČLOVEKA, který track ověřil "
+    "(prázdné = čeká na podpis, track se zapíše jako pending). `rationale` = proč; "
+    "`conditions` (volitelně) = podmínky [{id, text}], které převezme podpis okna. "
+    "Odložené právo (DPIA) u security ok = samostatné okno `checkpoint … pravo`.\n"
+    "Příklad: pflanzer triage --spec triage.json"
+)
+
+
 def run_from_json(path: Path | str) -> dict[str, Any]:
     spec = read_spec(path, example=TRIAGE_SPEC_EXAMPLE)
     if "slug" not in spec or not isinstance(spec.get("results"), list):
@@ -814,7 +844,9 @@ def run_from_json(path: Path | str) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = CzechArgumentParser(prog="pflanzer triage", description=__doc__.split("\n")[0])
+    parser = CzechArgumentParser(prog="pflanzer triage", description=__doc__.split("\n")[0],
+                                 epilog=TRIAGE_EPILOG,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--spec", required=True,
                         help="JSON se 4 výsledky triage (soubor, nebo `-` pro stdin)")
     parser.add_argument("--json", action="store_true", help="Výstup jako JSON")

@@ -93,6 +93,41 @@ bezpečnost & právo → security + legal, provoz → platform). Ship tedy bloku
 nepodepsané či zablokované okno a AI draft bez podpisu člověka; throwaway
 neblokuje nic.
 
+### Triage bez Claude Code
+
+U stupně Full (ostré s osobními údaji) `pflanzer start` doporučí `/pm triage`. Bez
+Claude Code zapište výsledky čtyř tracků do `triage.json` a spusťte
+`pflanzer triage --spec triage.json` (stejné schéma ukáže `pflanzer triage --help`):
+
+```json
+{
+  "slug": "moje-appka",
+  "results": [
+    {"track": "discovery", "status": "ok", "signed_by": "Dana Nováková",
+     "rationale": "persona a JTBD ověřeny s 5 uživateli", "artefact_md": "# Discovery\n…"},
+    {"track": "security", "status": "ok", "signed_by": "Jana Svobodová",
+     "rationale": "datový tok a hrozby prošly",
+     "conditions": [{"id": "K1", "text": "logy bez osobních údajů"}],
+     "artefact_md": "# Security\n…"},
+    {"track": "legal", "status": "deferred", "signed_by": "Marie Dvořáková (DPO)",
+     "rationale": "DPIA se dokončuje",
+     "conditions": [{"id": "D1", "text": "DPIA hotová před Shipem"}],
+     "artefact_md": "# Legal\n…"},
+    {"track": "platform", "status": "ok", "signed_by": "Karel Dvořák",
+     "rationale": "sandbox a runtime schváleny", "artefact_md": "# Platform\n…"}
+  ]
+}
+```
+
+`status` je `ok`, `blocked` nebo `deferred`. `signed_by` je **podpis člověka**, který
+track ověřil; prázdné znamená, že track čeká na podpis (`pending`). `conditions`
+jsou volitelné podmínky, které převezme podpis okna (viz `pflanzer checkpoint
+--help`). Po triage podepisují okna lidé (`pflanzer checkpoint … --by "<jméno>"`);
+AI návrh (`--ai`) už podepsané okno nikdy nepřepíše. Právo (DPIA) je samostatné okno
+`checkpoint … pravo` jen když triage legal odložil (`deferred`) a security je `ok`;
+jinak ho podepíšete spolu s bezpečností. Podmínky z odloženého legal tracku
+(např. DPIA) patří do okna Právo.
+
 ### …security, která nám nechce podepsat
 
 Vyžádejte si písemný důvod a rozlište, jestli chybí podklady, nebo je riziko

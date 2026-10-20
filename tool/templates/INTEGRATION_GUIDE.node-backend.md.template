@@ -1,0 +1,83 @@
+# INTEGRATION_GUIDE.md — pro vibe-coding session v tomto repu (Node backend)
+
+> **Tento soubor čte Claude Code / Codex CLI jako PRVNÍ věc** v každé Pflanzer
+> session. Repo je Node backend (Express / Fastify / Koa / Nest), ne frontend:
+> UI komponenty ani React zde nepředpokládej. Updatuj při velkých změnách architektury.
+
+## Stack a prostředí
+
+- Node: <20 | 22> (`.nvmrc` / `engines`), jazyk: <TypeScript | JavaScript>
+- Framework: <Express | Fastify | Koa | Nest>
+- Závislosti: `<npm ci | pnpm i --frozen-lockfile>` (lockfile se commituje)
+- Spuštění lokálně: `<npm run dev>` — port čti z proměnné prostředí `PORT`
+
+## Auth pattern
+
+- Provider: <OIDC / OAuth2 | session cookie | JWT | API klíč | žádná auth>
+- Kde se ověřuje: <middleware | guard | hook>
+- Chráněný endpoint: `<příklad>`
+
+## API a datová vrstva
+
+- Routing: `<kde jsou routy, např. src/routes/>`
+- Validace vstupu: <zod | joi | ajv | ručně> — každý endpoint validuje tělo i parametry
+- Chyby API: <RFC 7807 Problem Details | vlastní formát>
+- DB: <Prisma | TypeORM | knex | SQL | žádná>
+- **Vibe-coded varianty NESMÍ generovat migrace** — změny schématu jdou do samostatného PR s labelem `db-migration`.
+
+## Logger / observability
+
+- Logger: <pino | winston> — žádné `console.log` v produkčním kódu
+- Health endpoint: `GET /health` (použije ho smoke brána)
+- Tracing / metriky: <OpenTelemetry | žádné>
+
+## Feature flags
+
+- Provider: <LaunchDarkly | Unleash | proměnná prostředí | žádné>
+- **V preview a Buildu jsou flagy vždy ZAPNUTÉ**: Pflanzer spouští aplikaci s
+  `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; default OFF platí až pro produkci po Shipu.
+- Nová funkce musí být dosažitelná z API (např. `GET /` vrací odkaz / popis).
+
+## Struktura repa
+
+```
+src/                 # routy, služby, middleware
+tests/acceptance/    # akceptační testy (supertest / vitest / jest)
+package.json         # skripty: build, test, lint, start
+```
+
+## Testy
+
+- Test runner: <vitest | jest | node:test> (`npm test`)
+- HTTP testy: <supertest> proti aplikaci bez naslouchání na portu
+- Pokrytí: <c8 | jest --coverage> | žádný práh
+- Nový kód bez testu se nemerguje; Builder po každém kroku pustí testy a commituje jen zelené.
+
+## Lint, typy, formát
+
+- Lint: <eslint> ; formát: <prettier>; typy: `tsc --noEmit`
+- Pre-commit: <husky | žádný>
+
+## CI
+
+- CI: <GitHub Actions | GitLab CI | jiné> — build + lint + test musí projít před mergem do `main`.
+- Preview prostředí: <Fly.io | Render | staging | lokálně + port-forward>
+
+## AI code provenance
+
+- Autor commitu = dev u klávesnice (`<jméno / GH handle>`), ručí za kód jako
+  za vlastní. AI nikdy jako autor — žádný `Co-Authored-By: Claude` trailer.
+- Trailery (zapisuje Pflanzer tool): `Pflanzer-Variant: <slug>-A`,
+  `Pflanzer-Session: 1` (1 = Build, 2 = Rozhodnutí, ship = Ship), `AI-Assisted: claude-code` (nebo codex-cli, cursor).
+- PR labely: `ai-generated` + `pflanzer:<slug>`; PR body má sekci „AI provenance".
+- Licence a IP: vygenerovaný kód podléhá stejné code review a licence policy
+  jako lidský (`<odkaz na firemní licence policy>`); SBOM + secret scan v CI.
+- Review: `<CODEOWNERS / reviewers>` — žádný „AI review-only", approve dává člověk.
+- **Do promptů NIKDY prod data ani cizí licencovaný kód** — jen syntetická
+  data dle Data Classification (`<L1 | L2 | L3>`).
+
+## Folder for Pflanzer artefakty
+
+Artefakty Pflanzer Method (Charter, handoffs) drží v `docs/pflanzer/<slug>/` (název = slug projektu),
+ne v root. Kód varianty v `src/<slug>/`. Po Rozhodnutí winner branche
+se merguje, ostatní se mažou.

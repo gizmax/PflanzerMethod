@@ -113,6 +113,7 @@ def _gate_info(rows: list[dict[str, str]], target: int | None) -> dict[str, Any]
         gate_label,
         gates_summary_line,
         unverified_gates,
+        warned_gates,
     )
     score = int(aggregate_score(
         [SimpleNamespace(gate_type=r["gate"], status=r["status"]) for r in rows])["gate_score"])  # type: ignore[arg-type]
@@ -120,6 +121,8 @@ def _gate_info(rows: list[dict[str, str]], target: int | None) -> dict[str, Any]
     failed = [gate_label(r["gate"]) for r in rows if r["status"] == "fail"]
     return {"ran": True, "score": score, "target": target, "unverified": unv,
             "failed": list(dict.fromkeys(failed)),
+            "warned": warned_gates(rows),
+            "unverified_raw": [u["gate"] for u in unverified_gates(rows)],
             "sentence": gates_summary_line(score, rows, target=target)}
 
 
@@ -206,8 +209,16 @@ def collect(slug: str) -> dict[str, Any]:
     if conds:
         risks.append(f"Podmínky z podpisů: {len(conds)} ("
                      + _more([c["text"] for c in conds]) + ")")
+    if gates.get("warned"):
+        risks.append("Varování: " + _more(gates["warned"], 4))
     if gates["unverified"]:
         risks.append("Neověřené brány: " + _more(gates["unverified"], 4))
+    from tool.cli.quality_gates import gate_risk_notes
+    personal = [n for n in gate_risk_notes(
+        [], [{"gate": g} for g in gates.get("unverified_raw", [])],
+        p.get("risk_profile"), p.get("data_class")) if n.startswith("neověřeno")]
+    if personal:
+        risks.append(personal[0][0].upper() + personal[0][1:])
     if killed:
         risks = [r for r in risks if not r.startswith(("Kritické", "Důležité"))]
 
@@ -224,7 +235,7 @@ def collect(slug: str) -> dict[str, Any]:
     return {
         "slug": slug, "name": p["name"], "status": p["status"], "phase": detail["phase"],
         "goal": goal, "decision": decision,
-        "cost": {"person_days": n_people, "ai": nums["ai_cost"]},
+        "cost": {"person_days": n_people, "ai": nums["ai_cost"], "tier": p.get("tier")},
         "quality": gates, "risks": risks,
         "risk_counts": {"critical": len(crit), "important": len(high), "overridden": len(overridden),
                         "conditions": len(conds), "unverified_gates": len(gates["unverified"])},
@@ -236,6 +247,12 @@ def collect(slug: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 # render summary
 # --------------------------------------------------------------------------
+
+
+def _capacity_note(tier: str | None) -> str:
+    from tool.cli.tier import TIER_LABELS
+    label = str(TIER_LABELS.get(tier or "", "") or "").split(" (")[0]
+    return "plán kapacity z Kickoffu" + (f" pro stupeň {label}" if label else "")
 
 
 def render_summary_md(data: dict[str, Any]) -> str:
@@ -253,7 +270,7 @@ def render_summary_md(data: dict[str, Any]) -> str:
         out.append(f"Zatím nepadlo. Stav: {d['phase']}.{miss}")
     out += ["", "## Náklad"]
     out.append("- Lidé: " + (f"{count(int(c['person_days']), 'člověkoden', 'člověkodny', 'člověkodnů')} "
-                             "(plán kapacity v Kickoffu)"
+                             f"({_capacity_note(c.get('tier'))})"
                              if c["person_days"] else "neměřeno"))
     out.append("- AI: " + retro.leadership_ai_cost_text(c["ai"]))
     out += ["", "## Kvalita"]

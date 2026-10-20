@@ -39,7 +39,7 @@ export const api = {
     request<{ windows: SignWindow[] }>(`/projects/${encodeURIComponent(slug)}/windows`),
   getVotes: (slug: string) =>
     request<VotesState>(`/projects/${encodeURIComponent(slug)}/votes`),
-  castVote: (slug: string, v: { choice: VoteChoice; winner: string | null; comment: string }) =>
+  castVote: (slug: string, v: { choice: VoteChoice; winner: string | null; comment: string; iterate_variants?: string[] }) =>
     request<VotesState>(`/projects/${encodeURIComponent(slug)}/votes`,
       { method: "POST", body: JSON.stringify(v) }),
   revealVotes: (slug: string) =>

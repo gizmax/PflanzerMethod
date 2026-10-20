@@ -617,7 +617,8 @@ def _human(repo: Path, rows: list[dict[str, str]], slug: str | None = None):
     elif fails:
         nxt = f"oprav ✗ ({fails[0]['check']}): {fails[0]['advice']} — pak `pflanzer doctor` znovu"
     else:
-        nxt = ("restartuj Claude Code v tomto repu a spusť `/pm start` "
+        nxt = ("restartuj Claude Code v tomto repu a spusť `/pm start`, nebo z terminálu "
+               "`pflanzer start --spec kickoff.json` (ukázka: `pflanzer start --help`) "
                "(projekt přes víc repozitářů: `pflanzer init` a `pflanzer doctor` v každém "
                "repu zvlášť, `/pm start` jen z primárního — webového — repa)")
     return title, lines, nxt, [], tips_for("doctor", {})

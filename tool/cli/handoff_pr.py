@@ -81,6 +81,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     aggregate_repos,
     aggregate_score,
     gate_label,
+    gate_risk_notes,
     gates_summary_line,
     load_repo_gates,
     parse_test_failures,
@@ -88,6 +89,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     score_sentence,
     skip_reasons,
     unverified_gates,
+    warned_gates,
 )
 from tool.cli.session_2 import (  # noqa: E402
     describe_critical,
@@ -797,7 +799,8 @@ def _failed_gates_text(failed: list[tuple[str, int]]) -> str:
 def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int,
              open_conditions: int, failures: int, override: dict[str, Any] | None,
              overridden: bool, unverified: list[dict[str, str]], blocked_by: list[str],
-             metric: str | None, failed_gates: list[tuple[str, int]] | None = None) -> list[str]:
+             metric: str | None, failed_gates: list[tuple[str, int]] | None = None,
+             gate_notes: list[str] | None = None) -> list[str]:
     """Tři řádky na začátek PR: Co to je / Co ověřit / Rizika."""
     what = trim_words(_clean_hook(hook), 200)
     if winner:
@@ -824,6 +827,7 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
         risks.append("vědomě přebité kritické riziko")
     if unverified:
         risks.append("neověřeno: " + ", ".join(gate_label(u["gate"]) for u in unverified))
+    risks += [n[0].lower() + n[1:] if not n.startswith("Varování") else n for n in gate_notes or []]
     if blocked_by:
         risks.append("Ship je zablokovaný (" + ", ".join(blocked_by) + ")")
     risk_txt = "; ".join(risks) if risks else "žádné známé nad rámec skóre"
@@ -1101,6 +1105,11 @@ def build_pr(slug: str, repo: str | None = None,
             sec[-2:-2] = _render_threshold_override(
                 state["threshold_override"], gate_score, target).splitlines() + [""]
         body_lines = sec
+    all_results = ([r for x in rg for r in x["results"]] if rg else
+                   [{"gate": g[0], "status": g[1]} for g in gates])
+    gate_notes = gate_risk_notes(
+        warned_gates(all_results), state["unverified"] if target > 0 else [],
+        (ctx.get("triage") or {}).get("risk_profile"), p[13])
     lead = _pr_lead(
         hook=_what_changes(p, w, name, metric_primary)[0], winner=w[0] if w else None,
         open_crit=sum(1 for c in (ctx.get("open_critical") or [])
@@ -1109,7 +1118,7 @@ def build_pr(slug: str, repo: str | None = None,
         failures=len(failures), failed_gates=_failed_gates(failures),
         override=state["threshold_override"],
         overridden=bool(ov_md), unverified=state["unverified"] if target > 0 else [],
-        blocked_by=state["blocked_by"], metric=metric_primary)
+        blocked_by=state["blocked_by"], metric=metric_primary, gate_notes=gate_notes)
     body_lines = [body_lines[0], "", *lead, *_collapse_sections(body_lines[1:])]
     return {
         "repos": repos, "repo_gates": rg, "size_line": size_line, "repo_role": cur_role,
@@ -1126,7 +1135,7 @@ def build_pr(slug: str, repo: str | None = None,
         "resolved_critical": resolved_on_win, "ai_stand_in": ai_line,
         "remarks": remarks, "remark_lines": remark_lines,
         "signatures": sign_line, "conditions": cond_lines,
-        "decider_line": decider_line,
+        "decider_line": decider_line, "gate_notes": gate_notes,
     }
 
 
@@ -1397,6 +1406,8 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         score_line += f" Rozsah: {pr['size_line']}."
     elif pr["loc_added"] is not None:
         score_line += f" Rozsah: +{pr['loc_added']} řádků."
+    if pr.get("gate_notes"):
+        score_line += " " + "; ".join(pr["gate_notes"]).rstrip(".") + "."
     owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
                   ("Shadow PdM (hlídá Async)", parts["shadow_pm"])]
     people = [f"- {k}: {v}" for k, v in owner_rows if v]

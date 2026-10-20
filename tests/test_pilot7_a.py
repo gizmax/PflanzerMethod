@@ -267,7 +267,7 @@ def test_prompts_cli_without_hook(project: dict[str, Any], monkeypatch: pytest.M
 
 def test_pravo_window_refused_when_not_separate(project: dict[str, Any]) -> None:
     slug = project["slug"]
-    with pytest.raises(ValueError, match="Právo se podepisuje spolu s bezpečností") as ei:
+    with pytest.raises(ValueError, match="se podepisuje spolu s bezpečností") as ei:
         checkpoint.sign(slug, "pravo", by="Renata", note="DPIA")
     assert f"checkpoint --slug {slug} bezpecnost" in str(ei.value)
 

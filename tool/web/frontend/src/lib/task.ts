@@ -1,9 +1,10 @@
 // Úkol zástupce podle jeho role (kroku cesty) + příklad feedbacku podle role.
 
+import { dative } from "./czech";
 import { PATH_STEPS } from "./identity";
 import type { ProjectDetail } from "./types";
 
-export type RoleKey = "decider" | "bezpecnost" | "provoz" | "signer" | "core" | "other";
+export type RoleKey = "decider" | "bezpecnost" | "provoz" | "signer" | "core" | "design" | "produkt" | "byznys" | "other";
 
 export type RoleTask = {
   key: RoleKey;
@@ -16,18 +17,7 @@ export type RoleTask = {
   optionalFeedback: boolean;
 };
 
-export const firstName = (full: string | null | undefined): string =>
-  (full ?? "").trim().split(/\s+/)[0] ?? "";
-
-/** 3. pád křestního jména (Petr -> Petrovi); neznámé jméno vrátí null. */
-export function dative(full: string | null | undefined): string | null {
-  const f = firstName(full);
-  if (!f) return null;
-  if (/[aA]$/.test(f) && f.length > 2) return f.slice(0, -1) + (/[kg]a$/i.test(f) ? "ce" : /[dtn]a$/i.test(f) ? "ě" : "e");
-  if (/(ek|el)$/i.test(f)) return null;
-  if (/[a-záčďéěíňóřšťúůýž]$/i.test(f) && !/[eiyíý]$/i.test(f)) return f + "ovi";
-  return null;
-}
+export { firstName, dative } from "./czech";
 
 /** Stejná osoba: jedno jméno je podmnožinou slov druhého (Petr / Petr Novák). */
 export function sameName(a: string, b: string): boolean {
@@ -49,7 +39,8 @@ export function roleKey(
   const k = stepKey(identity.step);
   if (k === "bezpecnost") return "bezpecnost";
   if (k === "provoz") return "provoz";
-  if (k === "produkt" || k === "design" || k === "vyvoj") return "core";
+  if (k === "vyvoj") return "core";
+  if (k === "design" || k === "produkt" || k === "byznys") return k;
   return "other";
 }
 
@@ -97,7 +88,7 @@ export function buildTask(
   // Když se dívá sám vedoucí Produktu, nemá smysl radit „Řekněte Petrovi“ — oslovíme ho přímo.
   const iAmPm = !!identity && !!detail.pm_name && sameName(identity.name, detail.pm_name);
   const tellPm = detail.pm_name
-    ? (pmDat ? `Řekněte ${pmDat}` : `Řekněte tomu, kdo vede Produkt (${detail.pm_name})`)
+    ? (pmDat ? `Řekněte ${pmDat}` : `Dejte vědět: ${detail.pm_name}`)
     : "Řekněte produktovému vlastníkovi";
   switch (key) {
     case "decider":
@@ -134,6 +125,22 @@ export function buildTask(
           "Ke každé napište, co by vás v provozu zastavilo.",
         ],
       };
+    case "design":
+    case "produkt":
+    case "byznys": {
+      const view = { design: "designu", produkt: "produktu", byznys: "byznysu" }[key];
+      return {
+        key,
+        optionalFeedback: false,
+        lead: `Projděte varianty a napište, co z pohledu ${view} funguje a co ne.`,
+        steps: [
+          `Otevřete varianty ${range} a vyzkoušejte hlavní tok.`,
+          iAmPm
+            ? "Ke každé napište, co funguje a co vás zastaví. Produkt vedete vy, takže sami rozhodnete, co ladit."
+            : `Ke každé napište, co funguje a co vás zastaví. ${tellPm}, co ladit.`,
+        ],
+      };
+    }
     case "core":
       return {
         key,

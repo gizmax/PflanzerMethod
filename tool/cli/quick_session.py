@@ -2393,7 +2393,7 @@ def main() -> None:
     raw = argparse.RawDescriptionHelpFormatter
     p_boot = sub.add_parser(
         "bootstrap", help="Kickoff: Charter + role + jména kroků cesty + odložený triage",
-        formatter_class=raw, epilog=BOOTSTRAP_EPILOG)
+        formatter_class=raw, epilog=BOOTSTRAP_EPILOG, prog="pflanzer start")
     p_boot.add_argument("--spec", required=True,
                         help=spec_help + ". Pole: {hook, decider_name, risk_profile, slug?, role_owners?, "
                              "metric?, kill_criteria?, path_owners?{byznys,produkt,design,vyvoj,bezpecnost,provoz; "
