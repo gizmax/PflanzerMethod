@@ -6,15 +6,15 @@ a — pokud je cwd target repo s `.pflanzer/` — i do decision logu
 `.pflanzer/decisions/<slug>.md` (commitni ho: kdo, kdy, co, proč zůstane v gitu).
 
 Rozhraní:
-    pflanzer session_2 prep    --slug S
-    pflanzer session_2 decide  --slug S go|iterate|kill --rationale "…"
+    pflanzer decide prep    --slug S
+    pflanzer decide         --slug S go|iterate|kill --rationale "…"
                                [--winner A|B|C] [--decider "Jméno"]
                                [--override-critical "důvod"] [--iterate-focus "…"]
                                [--variants A,B]   # jen Iterate: varianty druhého kola
                                [--checkpoint "Bezpečnost & právo: ok (Jana)"]...
                                [--force]   # změna už zapsaného Go/Kill; Go pod prahem závaznosti
                                            # (jen s --rationale = důvod)
-    pflanzer session_2 resolve --slug S --feedback-id N [N…] --by JMÉNO --note "…"
+    pflanzer decide resolve --slug S --feedback-id N [N…] --by JMÉNO --note "…"
     (všechny příkazy mají --json pro strojový výstup; default je lidský výstup)
 
 Pravidla:
@@ -497,7 +497,7 @@ def record_decision(
         raise ValueError(
             "Go vyžaduje --winner <varianta> (vítězná varianta, kterou půjde Ship; "
             "u mob mode `mob`, jinak A, B nebo C). "
-            f"Příklad: pflanzer session_2 decide --slug {slug} go --winner A --rationale \"…\""
+            f"Příklad: pflanzer decide --slug {slug} go --winner A --rationale \"…\""
         )
     if decision != "go":
         winner = None  # vítěz dává smysl jen u Go
@@ -528,7 +528,7 @@ def record_decision(
             new_win = winner or prev[1] or "A"
             raise ValueError(
                 f"Už je {what}. Změna jen přes `--force --rationale \"…\"`, např. "
-                f"`pflanzer session_2 decide --slug {slug} {decision} "
+                f"`pflanzer decide --slug {slug} {decision} "
                 f"{f'--winner {new_win} ' if decision == 'go' else ''}--force "
                 f"--rationale \"proč měníme rozhodnutí\"`; původní rozhodnutí zůstane "
                 f"v decision logu."
@@ -563,7 +563,7 @@ def record_decision(
             raise ValueError(
                 f"Otevřený critical ({len(criticals)}×) blokuje {DECISION_LABEL[decision]}: {listing}. "
                 f"Vyřeš ho s autorem ({first.get('submitted_by') or 'autor'}): "
-                f"`pflanzer session_2 resolve --slug {slug} --feedback-id {first['id']} "
+                f"`pflanzer decide resolve --slug {slug} --feedback-id {first['id']} "
                 f"--by JMÉNO --note \"co se opravilo\"`, nebo Decider přebije: "
                 f"`--override-critical \"důvod\"`."
             )
@@ -584,7 +584,7 @@ def record_decision(
                         f"{COMMITMENT_THRESHOLD:.0%}. Závaznost se počítá z hlasování Buildu: doplňte "
                         f"`commitment_level` (0–3) v `.pflanzer/specs/{slug}-vote.json` a zapište "
                         f"znovu `pflanzer record --spec …`, nebo Decider jde do Go vědomě: "
-                        f"`pflanzer session_2 decide --slug {slug} go --winner {winner} --force "
+                        f"`pflanzer decide --slug {slug} go --winner {winner} --force "
                         f"--rationale \"proč Go i pod prahem\"` (důvod půjde do decision logu).")
                 rationale = (f"[Go pod prahem závaznosti: {idx:.0%} < "
                              f"{COMMITMENT_THRESHOLD:.0%}, vědomě přes --force] " + rationale)
@@ -885,17 +885,17 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         c0 = on_win[0]
         nxt = (f"{c0['submitted_by']} nebo tým opraví kritické #{c0['id']} na variantě {c0['variant']} "
                f"a označí ho jako vyřešené:\n"
-               f"    pflanzer session_2 resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO "
+               f"    pflanzer decide resolve --slug {slug} --feedback-id {c0['id']} --by JMÉNO "
                f"--note \"…\"")
         tips_out = [f"Alternativa: na Rozhodnutí zvolte Iterate s cílem to opravit: "
-                    f"`pflanzer session_2 decide --slug {slug} iterate "
+                    f"`pflanzer decide --slug {slug} iterate "
                     f"--variants {','.join(focus or ['A'])} --iterate-focus \"…\" --rationale \"…\"`"]
     elif not out["ready_for_decision"]:
         nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — doplňte "
                f"závaznost (`commitment_level`, 0–3) v hlasování (`.pflanzer/specs/{slug}-vote.json`, pak "
                "`pflanzer record --spec …`)")
     else:
-        nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
+        nxt = (f"Decider rozhodne: `pflanzer decide --slug {slug} go "
                f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
                "--rationale \"proč\"`")
     return (f"Příprava Rozhodnutí: {slug}", lines[:12], [], nxt,
@@ -917,7 +917,7 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
                      + f": {out['override_critical']}")
     if out.get("open_remarks"):
         lines.append(remarks_line(len(out["open_remarks"])) + " — jsou v decision logu a půjdou "
-                     "do SHIP.md a PR; vyřešit: `pflanzer session_2 resolve --feedback-id N`")
+                     "do SHIP.md a PR; vyřešit: `pflanzer decide resolve --feedback-id N`")
     lines.append("Zapsáno do decision logu"
                  + (f" ({out['decision_log_repo']}) — zatím jen v pracovní kopii, do originu ho "
                     "dostaneš až commitem a pushem:" if out.get("decision_log_repo")
@@ -942,21 +942,21 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
     return f"Rozhodnutí {slug}: {label}", lines, [], nxt, phase
 
 
-RESOLVE_EXAMPLE = ('pflanzer session_2 resolve --slug moje-appka --feedback-id 3 '
+RESOLVE_EXAMPLE = ('pflanzer decide resolve --slug moje-appka --feedback-id 3 '
                    '--by Ondra --note "opraveno v PR #12"')
-DECIDE_EXAMPLE = ('pflanzer session_2 decide --slug moje-appka go --winner A '
+DECIDE_EXAMPLE = ('pflanzer decide --slug moje-appka go --winner A '
                   '--rationale "A je nejrychlejší a bezpečnost je v pořádku"')
 
 
 def main() -> None:
-    p = CzechArgumentParser(prog="pflanzer session_2", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer decide", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True, parser_class=CzechArgumentParser)
 
-    p_prep = sub.add_parser("prep", help="Příprava Rozhodnutí: agregace + spory (read-only)")
+    p_prep = sub.add_parser("prep", prog="pflanzer decide prep", help="Příprava Rozhodnutí: agregace + spory (read-only)")
     p_prep.add_argument("--slug", required=True)
     p_prep.add_argument("--json", action="store_true")
 
-    p_dec = sub.add_parser("decide", help="Zapiš Go / Iterate / Kill")
+    p_dec = sub.add_parser("decide", prog="pflanzer decide", help="Zapiš Go / Iterate / Kill")
     p_dec.add_argument("--slug", required=True)
     p_dec.add_argument("decision_pos", nargs="?", metavar="{go,iterate,kill}",
                        help="rozhodnutí (alternativa k --decision)")
@@ -976,14 +976,17 @@ def main() -> None:
                        help="změň už zapsané Go/Kill, nebo jdi do Go pod prahem závaznosti (vždy s --rationale)")
     p_dec.add_argument("--json", action="store_true")
 
-    p_res = sub.add_parser("resolve", help="Označ feedback (critical, major i minor) jako vyřešený")
+    p_res = sub.add_parser("resolve", prog="pflanzer decide resolve", help="Označ feedback (critical, major i minor) jako vyřešený")
     p_res.add_argument("--slug", required=True)
     p_res.add_argument("--feedback-id", type=int, nargs="+", required=True)
     p_res.add_argument("--by", default=None, help="kdo to vyřešil (povinné)")
     p_res.add_argument("--note", default=None, help="jak se to vyřešilo (povinné)")
     p_res.add_argument("--json", action="store_true")
 
-    args = p.parse_args()
+    argv = sys.argv[1:]
+    if argv[:2] in (["decide", "resolve"], ["decide", "prep"]):   # `pflanzer decide resolve|prep …`
+        argv = argv[1:]
+    args = p.parse_args(argv)
 
     try:
         if args.cmd == "prep":
@@ -1007,7 +1010,7 @@ def main() -> None:
                                 else f"{'shortlistu' if len(focus) > 1 else 'variantě'} "
                                      f"{'/'.join(focus)}")
                              + f", {len(other)} ostatní")
-                nxt = (f"`pflanzer session_2 resolve --slug {args.slug} --feedback-id "
+                nxt = (f"`pflanzer decide resolve --slug {args.slug} --feedback-id "
                        f"{on_win[0]['id']} --by JMÉNO --note \"…\"`")
                 phase = "decide"
             else:
@@ -1019,7 +1022,7 @@ def main() -> None:
                              + " žádný kritický nezbývá"
                              + (f"; {len(other)} ostatní na poražených variantách Go neblokuje."
                                 if other else "."))
-                nxt = (f"`pflanzer session_2 decide --slug {args.slug} go "
+                nxt = (f"`pflanzer decide --slug {args.slug} go "
                        f"--winner {rec} --rationale \"proč\"`")
                 phase = "after_resolve"
             lines_r = [f"Vyřešeno: {ids} ({who})", left_line]
@@ -1031,7 +1034,7 @@ def main() -> None:
             if out["resolved_severity"] and all(
                     v != "critical" for v in out["resolved_severity"].values()) and not on_win:
                 nxt = (f"`pflanzer feedback list --slug {args.slug}` (co ještě zbývá), nebo "
-                       f"`pflanzer session_2 prep --slug {args.slug}`")
+                       f"`pflanzer decide prep --slug {args.slug}`")
             emit(out, title=f"Vyřešeno: {ids}",
                  lines=lines_r,
                  next_step=nxt,

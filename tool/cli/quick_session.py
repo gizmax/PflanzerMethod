@@ -2315,7 +2315,7 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
     if out.get("iterate_focus"):
         lines.append(f"Druhé kolo po Iterate — cíl tohoto kola: {out['iterate_focus']}")
     if out.get("variants_in_play"):
-        lines.append("Staví se jen: " + ", ".join(out["variants_in_play"])
+        lines.append("Staví se jen: " + ", ".join(dict.fromkeys(out["variants_in_play"]))
                      + " (ostatní varianty skončily)")
     if out.get("mode") == "mob":
         lines.append("Mob mode: jedna společná varianta `mob`, jedna větev a jeden worktree")
@@ -2402,7 +2402,7 @@ def main() -> None:
                              "session_mode? (parallel|mob), windows? {okno: termín}}")
     p_boot.add_argument("--json", action="store_true", help="Strojový výstup")
 
-    p_prompts = sub.add_parser("prompts", help="Prompty pro buildery (Build)")
+    p_prompts = sub.add_parser("prompts", prog="pflanzer prompts", help="Prompty pro buildery (Build)")
     p_prompts.add_argument("--slug", required=True)
     p_prompts.add_argument("--hook", default=None,
                            help="Problem statement; bez něj se vezme z projektu (Kickoff)")
@@ -2415,7 +2415,7 @@ def main() -> None:
                            help="Opt-in pro Bolt/v0/Lovable (parallel only). Default = claude-code 3×.")
     p_prompts.add_argument("--json", action="store_true", help="Strojový výstup")
 
-    p_vote = sub.add_parser("vote", help="Hlasování po Buildu + volba Decidera",
+    p_vote = sub.add_parser("vote", prog="pflanzer record", help="Hlasování po Buildu + volba Decidera",
                             formatter_class=raw, epilog=VOTE_EPILOG)
     p_vote.add_argument("--spec", required=True, help=spec_help)
     p_vote.add_argument("--json", action="store_true", help="Strojový výstup")

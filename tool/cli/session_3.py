@@ -1,4 +1,4 @@
-"""Ship (v0.5; příkaz `pflanzer session_3`) — quality gates na vítěze po Go.
+"""Ship (v0.5; příkaz `pflanzer ship`) — quality gates na vítěze po Go.
 
 Ship není session, je to práce vývojářů s automatickými branami + 20min
 checkpoint provozu (ADR-0021). Tento modul:
@@ -22,7 +22,7 @@ checkpoint provozu (ADR-0021). Tento modul:
    target repo s `.pflanzer/`) sekci Ship do decision logu.
 
 Rozhraní:
-    pflanzer session_3 --slug S [--variants A[,B]] [--checkpoint "Provoz: ok (Karel, on-call)"]...
+    pflanzer ship --slug S [--variants A[,B]] [--checkpoint "Provoz: ok (Karel, on-call)"]...
                        [--repo-urls JSON] [--method-overrides JSON]
                        [--override-triage --rationale "…"]
                        [--override-threshold --rationale "…"]   # Ship i pod prahem, na odpovědnost Decidera
@@ -719,7 +719,7 @@ def _render_triage_md(triage_gate: dict[str, Any], slug: str) -> tuple[str, str]
 {human}
 >
 > Decider může přebít jen s důvodem do decision logu:
-> `pflanzer session_3 --slug {slug} --override-triage --rationale "…"`
+> `pflanzer ship --slug {slug} --override-triage --rationale "…"`
 """
     return top, section
 
@@ -771,7 +771,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
     ops = "" if provoz_done else "Checkpoint provozu (20 min), pak "
     if informational:
         return (f"Tohle bylo jen porovnání: vítěz z Rozhodnutí je {decided}. Pro Ship spusť "
-                f"`pflanzer session_3 --slug {slug}` bez --variants.")
+                f"`pflanzer ship --slug {slug}` bez --variants.")
     if threshold_override and not blocked_by:
         return (f"Skóre {score}/100 je pod prahem {target}, Ship běží na odpovědnost Decidera "
                 f"({threshold_override['decider']}). {ops}{'d' if ops else 'D'}raft PR: {pr_step}")
@@ -783,7 +783,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
         if triage_b:
             parts.append(
                 "Blokováno podpisy oken: " + " ".join(human or triage_b) + " Decider může přebít "
-                f"jen s důvodem: `pflanzer session_3 --slug {slug} --override-triage "
+                f"jen s důvodem: `pflanzer ship --slug {slug} --override-triage "
                 f"--rationale \"…\"`."
             )
         if gates_b:
@@ -810,7 +810,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
     return (head + f"Opravit: {', '.join(fails) or 'viz report'}"
             + (f". K zvážení: {', '.join(warns)}" if warns else "")
             + f". Pak znovu `/pm ship {slug}`, nebo Ship i přesto na odpovědnost Decidera: "
-            f"`pflanzer session_3 --slug {slug} --override-threshold --rationale \"…\"`.")
+            f"`pflanzer ship --slug {slug} --override-threshold --rationale \"…\"`.")
 
 
 def _render_log_section(winner: dict[str, Any], target: int, verdict: str,
@@ -977,7 +977,7 @@ def _render_report(
             f"smoke přebíjejí skóre. Blokující: {', '.join(fails) or '—'}; "
             f"k zvážení: {', '.join(warns) or '—'}.\n\n"
             f"Možnosti: (a) opravit a znovu `/pm ship {slug}`, (b) Ship i přesto na odpovědnost "
-            f"Decidera: `pflanzer session_3 --slug {slug} --override-threshold --rationale \"…\"`.\n"
+            f"Decidera: `pflanzer ship --slug {slug} --override-threshold --rationale \"…\"`.\n"
         )
     elif w_score >= target:
         # Skóre stačí, ale blokuje něco jiného (triage / málo spuštěných gates) —
@@ -995,7 +995,7 @@ def _render_report(
             f"Blokující: {', '.join(fails) or '—'}; k zvážení: {', '.join(warns) or '—'}.\n\n"
             f"Možnosti: (a) dopravit a znovu `/pm ship {slug}`, (b) pilot s malou skupinou "
             f"a paralelní oprava, (c) Ship i přesto na odpovědnost Decidera: "
-            f"`pflanzer session_3 --slug {slug} --override-threshold --rationale \"…\"`.\n"
+            f"`pflanzer ship --slug {slug} --override-threshold --rationale \"…\"`.\n"
         )
     err_block = ""
     if errors:
@@ -1017,7 +1017,7 @@ def _render_report(
             f"## Verdikt: jen informativní porovnání\n\n"
             f"Vítěz z Rozhodnutí je **{decided}** a tento běh ho nehodnotil. Varianta "
             f"**{w['variant']}** má {summary_line} To NEmění vítěze ani "
-            f"production_ready. Ship vítěze: `pflanzer session_3 --slug {slug}`.\n"
+            f"production_ready. Ship vítěze: `pflanzer ship --slug {slug}`.\n"
         )
     elif summary_line:
         verdict_block += f"\n{summary_line}\n"
@@ -1207,7 +1207,7 @@ def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str],
 
 
 def main() -> None:
-    p = CzechArgumentParser(prog="pflanzer session_3", description=__doc__.split("\n")[0])
+    p = CzechArgumentParser(prog="pflanzer ship", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
     p.add_argument("--variants", default=None,
                    help="jiné varianty než vítěz z Rozhodnutí (vyžaduje --rationale; jen porovnání)")
@@ -1226,7 +1226,7 @@ def main() -> None:
     p.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
     args = p.parse_args()
 
-    ex = f'pflanzer session_3 --slug {args.slug} --{{flag}} --rationale "Důvod, proč přebíjíme"'
+    ex = f'pflanzer ship --slug {args.slug} --{{flag}} --rationale "Důvod, proč přebíjíme"'
     if args.override_triage and not (args.rationale or "").strip():
         die("Přebití chybějících podpisů potřebuje důvod (`--rationale \"…\"`), "
             "zapíše se do decision logu.",

@@ -146,9 +146,16 @@ def _venv() -> Path:
     probe = [str(py), "-c", "import fastapi, sqlmodel, uvicorn"]
     if py.exists() and subprocess.run(probe, capture_output=True).returncode == 0:
         return py
-    print("[hub] připravuji venv (jednou, ~30 s)…", file=sys.stderr)
-    subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
-    subprocess.run([str(py), "-m", "pip", "install", "-q", *DEPS], check=True)
+    print("[hub] připravuji venv (jednou, první spuštění stáhne závislosti)…", file=sys.stderr)
+    try:
+        subprocess.run([sys.executable, "-m", "venv", "--clear", str(venv)], check=True)
+        subprocess.run([str(py), "-m", "pip", "install", "-q", "--timeout", "60",
+                        "--retries", "2", *DEPS], check=True)
+    except (subprocess.CalledProcessError, OSError):
+        shutil.rmtree(venv, ignore_errors=True)  # napůl vytvořený venv by další pokus zmátl
+        print("[hub] instalace závislostí selhala (typicky síť/proxy) — napůl vytvořené "
+              "prostředí jsem smazal, zkuste to znovu.", file=sys.stderr)
+        raise
     return py
 
 

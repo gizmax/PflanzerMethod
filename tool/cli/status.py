@@ -266,8 +266,21 @@ def cleanup_steps(slug: str) -> list[str]:
                     running = True
                 except (OSError, ValueError):
                     continue
-        if running:
-            steps.append(f"zastav náhled s heslem: `pflanzer preview down --slug {slug}`")
+        hub_up = False
+        try:
+            from tool.cli import preview as _pv
+            from tool.cli import share as _sh
+            st = _sh.load_state(slug)
+            hub_up = bool(st and st.get("hub_pid")
+                          and _pv._alive(int(st["hub_pid"]), st.get("hub_started", "")))
+        except Exception:   # noqa: BLE001 — úklid je jen rada, nesmí spadnout
+            hub_up = False
+        if hub_up:
+            steps.append(f"zastav hub i náhled s heslem: `pflanzer share down --slug {slug}` "
+                         f"(jen náhled: `pflanzer preview down --slug {slug}`)")
+        elif running:
+            steps.append(f"zastav náhled s heslem: `pflanzer preview down --slug {slug}` "
+                         f"(sdílelo se i přes hub? pak `pflanzer share down --slug {slug}`)")
     except (OSError, ValueError, TypeError, AttributeError):
         pass
     try:
@@ -571,7 +584,7 @@ def project_detail(slug: str) -> dict[str, Any]:
             "kind": "critical", "variant": variant,
             # po Go už se nesbírá feedback: critical na vítězi se vyřeší s autorem (nebo ho Decider
             # vědomě přebil při Go), ne `/pm feedback`
-            "command": (f'pflanzer session_2 resolve --slug {slug} --feedback-id '
+            "command": (f'pflanzer decide resolve --slug {slug} --feedback-id '
                         f'{crit_ids[variant][0]} --by "<kdo opravil>" --note "co se opravilo"'
                         if after_go else f"/pm feedback {slug}"),
             "text": f"{len(whos)}× {severity_label('critical').lower()} na variantě "

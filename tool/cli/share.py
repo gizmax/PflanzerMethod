@@ -80,6 +80,12 @@ def wait_public_url(timeout: float = 45.0) -> str | None:
     return None
 
 
+def _say(msg: str) -> None:
+    """Průběh na stderr (JSON na stdout zůstane čistý)."""
+    sys.stderr.write(msg + "\n")
+    sys.stderr.flush()
+
+
 def share_text(hub_url: str, deadline: str | None) -> str:
     """Zpráva pro kolegy bez hesla (heslo jde zvlášť). Žádné příkazy CLI."""
     until = deadline or "[doplňte termín]"
@@ -101,21 +107,76 @@ def up(slug: str, *, tunnel: str = "auto", password: str | None = None,
         raise ValueError(f"Sdílení projektu ‚{slug}‘ už běží. Zastavíte ho "
                          f"`pflanzer share down --slug {slug}`.")
     use_tunnel = hub.resolve_tunnel(tunnel)
-    password = password or preview._gen_password()
-    host = "127.0.0.1" if use_tunnel else "0.0.0.0"  # bez tunelu musí být dostupné v síti
-    res = preview.up(slug, password=password, tunnel=tunnel, host=host, deadline=deadline)
-    port = pick_hub_port(host)
+    pv_state = preview.load_state(slug)
+    running_pv = bool(pv_state) and any(
+        any(preview._variant_running(v).values())
+        for v in (pv_state or {}).get("variants", {}).values())
+    started_preview = not running_pv
+    warnings: list[str] = []
+    if running_pv:
+        # Předchozí `share` skončil napůl (preview běží, hub ne): převezmeme preview.
+        _say("Varianty už běží (z předchozího pokusu) — přebírám je a dostartuji hub…")
+        st = preview.status(slug, probe=False)
+        password = str(st.get("password") or (pv_state or {}).get("password"))
+        host = str(st.get("host") or "127.0.0.1")
+        res = {"user": st.get("user") or "pflanzer",
+               "variants": {n: {"url": v.get("url"), "local_url": v.get("local_url"),
+                                "tunnel_url": v.get("tunnel_url")}
+                            for n, v in st.get("variants", {}).items()},
+               "warnings": []}
+        if host == "127.0.0.1" and not use_tunnel:
+            host = "0.0.0.0"
+            warnings.append("Převzaté preview běží jen lokálně; hub je dostupný v síti, "
+                            "odkazy na varianty jen na tomto počítači.")
+    else:
+        password = password or preview._gen_password()
+        host = "127.0.0.1" if use_tunnel else "0.0.0.0"  # bez tunelu musí být dostupné v síti
+        _say("Spouštím varianty…")
+        res = preview.up(slug, password=password, tunnel=tunnel, host=host, deadline=deadline)
+    warnings = list(res.get("warnings") or []) + warnings
     log = preview.preview_dir() / f"{slug}-hub.log"
-    proc, started = start_hub(port, host, password, "cloudflared" if use_tunnel else "none", log)
-    warnings = list(res.get("warnings") or [])
+
+    def _fail(reason: str) -> RuntimeError:
+        stopped = ""
+        if started_preview:
+            try:
+                preview.down(slug)
+                stopped = " Varianty, které sdílení spustilo, jsem zastavil."
+            except Exception:  # noqa: BLE001 — úklid nesmí zakrýt původní chybu
+                stopped = f" Varianty zastavíte `pflanzer share down --slug {slug}`."
+        else:
+            stopped = (f" Převzaté varianty běží dál; zastavíte je "
+                       f"`pflanzer share down --slug {slug}`.")
+        tail = apprun.tail(log) if log.exists() else ""
+        lines = "\n".join(f"    {ln}" for ln in (tail or "(log je prázdný)").splitlines())
+        return RuntimeError(
+            f"Hub se nespustil: {reason}.{stopped}\n  Posledních řádků logu ({log}):\n{lines}\n"
+            "  Co dál: zkuste to znovu (`pflanzer share --slug " + slug + "`) — nejčastěji "
+            "selhalo stahování závislostí hubu (síť/proxy, první spuštění). Offline: "
+            "nainstalujte závislosti hubu dopředu na připojené síti, nebo sdílejte jen "
+            "varianty přes `pflanzer preview up`.")
+
+    try:
+        port = pick_hub_port(host)
+        _say("Připravuji hub (první spuštění stáhne závislosti, ~1–2 min)…")
+        proc, started = start_hub(port, host, password,
+                                  "cloudflared" if use_tunnel else "none", log)
+    except (OSError, RuntimeError) as exc:
+        raise _fail(str(exc)) from exc
     state = {"slug": slug, "hub_pid": proc.pid, "hub_started": started, "hub_port": port,
              "host": host, "password": password, "deadline": deadline}
     save_state(slug, state)
-    if not hub.wait_listening(port, proc, timeout=float(os.environ.get(
-            "PFLANZER_SHARE_HUB_TIMEOUT", "120"))):
+    timeout = float(os.environ.get("PFLANZER_SHARE_HUB_TIMEOUT", "120"))
+    if not hub.wait_listening(port, proc, timeout=timeout):
         _stop_hub(state)
-        preview.down(slug)
-        raise RuntimeError(f"Hub se nespustil (log: {log}). Preview jsem zastavil.")
+        try:
+            state_path(slug).unlink()
+        except OSError:
+            pass
+        died = proc.poll() is not None
+        raise _fail("hub skončil dřív, než naslouchal (nejspíš selhala instalace závislostí)"
+                    if died else f"hub nezačal naslouchat do {int(timeout)} s")
+    _say("Hub běží.")
     public = wait_public_url() if use_tunnel else None
     if use_tunnel and not public:
         warnings.append("Tunel hubu se nepodařilo spustit — adresa funguje jen na tomto počítači.")

@@ -102,7 +102,7 @@ def test_feedback_add_critical_does_not_repeat_next_step_as_tip(
                                      "--text", "t"])
     feedback.main()
     out = capsys.readouterr().out
-    assert out.count("session_2 resolve") == 1
+    assert out.count("decide resolve") == 1
     assert out.count("Doporučení:") <= 1
 
 

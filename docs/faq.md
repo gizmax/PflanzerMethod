@@ -197,7 +197,8 @@ nenastavujete:
   (obecně `<ROLE>_URL`):
   - **v prohlížeči** (kód UI): `import.meta.env.VITE_API_URL` (Vite),
     `process.env.NEXT_PUBLIC_API_URL` (Next), `process.env.REACT_APP_API_URL` (CRA),
-    např. `fetch(`${import.meta.env.VITE_API_URL}/slots`)`;
+    např. `fetch(`${import.meta.env.VITE_API_URL}/api/slots`)` (proxy odřízne jen
+    `/__pflanzer/<role>`, cesta API `/api/slots` zůstává);
   - **na serveru** (SSR, skripty): `API_URL` (absolutní adresa na tomto počítači).
 
   V preview je prohlížečová proměnná **relativní cesta** `/__pflanzer/api` za
@@ -323,6 +324,15 @@ draft PR (`pflanzer worktree preview --slug <slug>`) nebo nahrávka průchodu
 | bezpečnost nechce syntetická data | nezačínejte; vyberte problém, který produkční data nepotřebuje |
 | přišlo 8 lidí | max 5 naráz — ostatní na svá okna, nebo zúžte zadání |
 | Iterate podruhé | ne — problém je špatně zadaný, zpět na Kickoff |
+| `pflanzer share` selhal nebo dlouho mlčel | viz odstavec níže |
+
+**Sdílení / hub selhal.** `pflanzer share` průběžně píše, co dělá. Selže-li hub
+(nejčastěji první stažení závislostí kvůli síti nebo proxy), varianty, které
+sdílení spustilo, zastaví a vypíše poslední řádky logu s cestou
+(`<data>/preview/<slug>-hub.log`). Zkuste `pflanzer share --slug S` znovu — napůl
+vytvořené prostředí hubu se smazalo a běžící varianty se převezmou. Zůstane-li
+něco viset, `pflanzer share down --slug S` uklidí varianty i hub a pak spusťte
+sdílení znovu.
 
 ## Co měřit
 

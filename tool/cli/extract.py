@@ -1096,7 +1096,7 @@ def extract(
         "diff_files": diff["files"],
         "notes": notes,
         "next_step": (
-            f"Kód je ve větvi `{branch}`; další krok: quality gates (`pflanzer session_3 --slug {slug}`)."
+            f"Kód je ve větvi `{branch}`; další krok: quality gates (`pflanzer ship --slug {slug}`)."
             if method in WORKTREE_METHODS
             else f"Zkontroluj {tilde(dest)}/ a doplň chybějící části ručně."
         ),
