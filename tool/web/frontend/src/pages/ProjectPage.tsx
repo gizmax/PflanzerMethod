@@ -6,7 +6,8 @@ import { ErrorScreen, Loading } from "../components/StateScreen";
 import { IdentityPicker } from "../components/IdentityPicker";
 import { Md, formatDate, ownerLabel, phaseLabel } from "../lib/text";
 import { PATH_STEPS } from "../lib/identity";
-import { buildTask, firstName, previewLoginText, splitHypothesis } from "../lib/task";
+import { buildTask, firstName, splitHypothesis } from "../lib/task";
+import { PreviewLogin } from "../components/PreviewLogin";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 import { CopyButton } from "../components/CopyButton";
 import { MissingBanner } from "../components/MissingBanner";
@@ -52,7 +53,6 @@ export default function ProjectPage() {
   const chosen = project.status === "handoff" && decision?.decision === "go" && decision.winner
     ? decision : null;
   const killed = project.status === "killed";
-  const login = previewLoginText(data);
   const hyp = project.xyz_hypothesis ? splitHypothesis(project.xyz_hypothesis, data.risk_profile) : null;
   // Výchozí pohled podle role: Decider rovnou na záložku pro Decidera, ostatní na svou úlohu.
   const activeTab: Tab = tab ?? (task.key === "decider" ? "facilitator" : "ukol");
@@ -134,7 +134,7 @@ export default function ProjectPage() {
               Váš feedback: odesláno k {done} z {variants.length} variant.
             </p>
           )}
-          {login && <p className="rounded-md bg-soft p-3 text-sm">{login}</p>}
+          <PreviewLogin detail={data} />
           <Link to={`/${slug}/compare`} className="pf-button w-full sm:w-auto">Otevřít varianty</Link>
         </section>
       )}

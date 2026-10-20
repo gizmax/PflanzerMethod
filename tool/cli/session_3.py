@@ -664,6 +664,16 @@ def hardening_run(
     return out
 
 
+_BLOCK_LABELS = {
+    "gates:acceptance-neověřeno": "akceptační testy neověřené (production vyžaduje)",
+}
+
+
+def _block_reasons(blocked_by: list[str]) -> str:
+    return ", ".join(_BLOCK_LABELS.get(b, b) for b in blocked_by) \
+        or "málo spuštěných gates (min. 4 vč. build + tests)"
+
+
 def _production_reason(production_ready: bool, target: int, risk_profile: str,
                        informational: bool, blocked_by: list[str], hard_fail: list[str],
                        score: int, threshold_override: dict[str, Any] | None) -> str:
@@ -677,7 +687,7 @@ def _production_reason(production_ready: bool, target: int, risk_profile: str,
         return (f"demo ({risk_profile}) není produkce; skóre je informativní, "
                 "podpisy oken ani práh se nevyžadují")
     if blocked_by:
-        return "Ship blokuje: " + ", ".join(blocked_by)
+        return "Ship blokuje: " + _block_reasons(blocked_by)
     if hard_fail:
         return "padá klíčová brána (sestavení, testy nebo spuštění aplikace)"
     return f"skóre {score}/100 je pod prahem {target}"
@@ -793,8 +803,9 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
                 "a spusť Ship znovu."
             )
         if unv_b:
-            parts.append("Acceptance scénáře se nespustily (chybí nástroj, např. @playwright/test) — "
-                         "u production je to blokace. Doplň nástroj a spusť Ship znovu.")
+            parts.append("Ship blokuje: akceptační testy neověřené (production vyžaduje). "
+                         "Doplň tests/acceptance/ a nástroj (např. @playwright/test, `go`) nebo "
+                         "`acceptance` v pflanzer.gates.json a spusť Ship znovu.")
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
     if meets and target <= 0:
@@ -982,11 +993,21 @@ def _render_report(
     elif w_score >= target:
         # Skóre stačí, ale blokuje něco jiného (triage / málo spuštěných gates) —
         # nehlásit „pod prahem", jen odkázat na skutečný blokátor.
+        reasons = _block_reasons(blocked_by)
+        has_sign = any(b.startswith("triage:") for b in blocked_by)
+        advice = []
+        if has_sign:
+            advice.append(f"Okna podepiš přes `pflanzer checkpoint --slug {slug} bezpecnost|provoz …` "
+                          "(viz blok výše)")
+        if "gates:acceptance-neověřeno" in blocked_by:
+            advice.append("Doplň akceptační testy do tests/acceptance/ (nebo `acceptance` v "
+                          "pflanzer.gates.json) a ověř je lokálně")
+        if not advice:
+            advice.append("Odstraň uvedenou blokaci")
         verdict_block = (
-            f"## Skóre splňuje práh ({w_score}/100 ≥ {target})\n\n"
-            f"Ship blokuje: {', '.join(blocked_by) or 'málo spuštěných gates (min. 4 vč. build + tests)'}. "
-            f"Okna podepiš přes `pflanzer checkpoint --slug {slug} bezpecnost|provoz …` "
-            f"(viz blok výše), pak znovu `/pm ship {slug}`.\n"
+            f"## Ship blokuje: {reasons}\n\n"
+            f"Skóre splňuje práh ({w_score}/100 ≥ {target}), ale Ship blokuje: {reasons}. "
+            f"{'; '.join(advice)}, pak znovu `/pm ship {slug}`.\n"
         )
     else:
         verdict_block = (
@@ -1150,6 +1171,8 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
     else:
         title = f"Ship {slug}: " + ("pod prahem" if below else "nelze potvrdit")
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
+        if not below and out.get("blocked_by"):
+            lines.insert(0, "Ship blokuje: " + _block_reasons(out["blocked_by"]))
     failed = _failed_gate_lines(w.get("failures") or [])
     if failed:
         lines = [lines[0], *failed[:2], *lines[1:]]
@@ -1194,8 +1217,9 @@ def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str],
         return [], nxt
     cmd = out.get("pr_command")
     w = out["winner"]
-    if out["triage"].get("human_blockers") and not out["production_ready"]:
-        return [f"SHIP.md (text PR): {path}"], nxt
+    if not out["production_ready"] and (
+            out["triage"].get("human_blockers") or out.get("production_readiness_target", 0) > 0):
+        return [f"SHIP.md (text PR): {path}"], nxt   # blokace/pod prahem: napřed ji odstranit, PR až potom
     if not cmd:
         return [f"SHIP.md (text PR): {path}"], nxt
     if shutil.which("gh"):

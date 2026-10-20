@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { Variant } from "../lib/types";
 import { ErrorScreen, Loading, StateScreen } from "../components/StateScreen";
 import { Md } from "../lib/text";
-import { previewLoginText } from "../lib/task";
+import { PreviewLogin } from "../components/PreviewLogin";
 import type { ProjectDetail } from "../lib/types";
 import { useIsDesktop, usePageTitle } from "../lib/hooks";
 
@@ -46,8 +46,7 @@ export default function CompareVariants() {
   const killed = detail?.project.status === "killed";
   const won = detail?.project.status === "handoff" && detail.decision?.decision === "go"
     ? detail.decision.winner : null;
-  const login = detail ? previewLoginText(detail) : null;
-  // Náhled za Basic auth: iframe by skončil jako šedý box s 401 (stav jde z jiné domény nezjistit).
+    // Náhled za Basic auth: iframe by skončil jako šedý box s 401 (stav jde z jiné domény nezjistit).
   const protectedPreview = !!detail?.preview_login;
   return (
     <div className="space-y-6">
@@ -57,7 +56,7 @@ export default function CompareVariants() {
         <p className="pf-help">
           Každou variantu otevřete, vyzkoušejte hlavní tok a napište, co vás zastaví.
         </p>
-        {login && <p className="rounded-md bg-soft p-3 text-sm">{login}</p>}
+        {detail && <PreviewLogin detail={detail} />}
         {won && (
           <div className="rounded-md border border-accent p-3 text-sm space-y-1">
             <p><strong>Rozhodnutí padlo: vítězí varianta {won}.</strong></p>

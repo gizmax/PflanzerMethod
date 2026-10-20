@@ -506,7 +506,7 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
         nxt = (f"ozvi se {r['name']} ({r['label']}); jeho připomínku zapíšeš: "
                f"`pflanzer feedback add --slug {slug} --variant {variant_in_play(slug, agg)} "
                f"--role {r['step']} "
-               f"--severity major --text \"…\" --author {r['name']}`")
+               f"--severity major --text \"…\" --by {r['name']}`")
     else:
         nxt = f"`pflanzer decide prep --slug {slug}`"
     if summary_path:

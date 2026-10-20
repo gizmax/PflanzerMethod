@@ -111,12 +111,16 @@ def git_add_command(target_repo: Path | None = None) -> str:
         paths.append(".gitignore")
     if (target_repo / ".claude" / "settings.json").exists():
         paths.append(".claude/settings.json")
+    for adapter in ADAPTER_EXTRA:    # adaptér bran necommitnutý = Ship ve worktree ho nevidí
+        if (target_repo / adapter).exists():
+            paths.append(adapter)
     for extra in INSTALLED_EXTRA:    # lockfile a CI patří do init commitu, jinak je CI bez nich nereprodukovatelné
         if (target_repo / extra).exists():
             paths.append(extra)
     return f"git add -A {' '.join(paths)}"
 
 
+ADAPTER_EXTRA = ["pflanzer.gates.json", "pflanzer.gates.yml", "pflanzer.gates.yaml"]
 INSTALLED_EXTRA = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", ".github"]
 CANONICAL_EXTRA = [".gitignore", ".claude/settings.json"]
 
@@ -361,10 +365,9 @@ def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
             "build": {"cmd": "go build ./..."},
             "lint": {"cmd": "go vet ./..."},
             "tests": {"cmd": "go test ./..."},
-            ("acceptance" if next((target / "tests" / "acceptance").glob("*_test.go"), None)
-             else "#acceptance"): {
+            "acceptance": {
                 "_note": "Go akceptační testy: tests/acceptance/*_test.go (package acceptance).",
-                "cmd": "go test ./tests/acceptance/..."},
+                "cmd": "go test -v ./tests/acceptance/..."},
             "#coverage": {"cmd": "go test -coverprofile=cover.out ./... && go tool cover -func=cover.out",
                           "parse": r"regex:^total:\s+\(statements\)\s+(?P<metric>[\d.]+)%",
                           **COVERAGE_THRESHOLDS},

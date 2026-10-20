@@ -74,7 +74,7 @@ def test_report_summary_lists_warnings_and_capacity_tier(
     data = report.collect(slug)
     assert "Varování: přístupnost, observabilita" in data["risks"]
     md = report.render_summary_md(data)
-    assert "14 člověkodnů (plán kapacity z Kickoffu pro stupeň Full)" in md
+    assert "14 člověkodnů (plán z Kickoffu pro Full" in md
 
 
 def test_doctor_next_step_mentions_terminal_start(tmp_path: Path) -> None:

@@ -656,6 +656,10 @@ def bootstrap(
         if dc:                          # explicitní nižší třída + osobní data: přepsat a varovat
             warnings.append(f"personal_data: true znamená třídu dat aspoň L3 — {dc} přepsáno na L3.")
         dc = "L3"                       # osobní data = minimálně třída L3
+    explicit_no_pd = (personal_data is False or personal_data == 0
+                      or str(personal_data).strip().lower() in ("false", "ne", "no", "0"))
+    if not dc and explicit_no_pd and not is_sensitive(ai_act_tier=ai_act_tier):
+        dc = "L2"                       # výslovně bez osobních dat = důvěrná firemní, ne osobní
     dc = dc or profile["data_class"]
     act = str(ai_act_tier or "").strip().lower() or profile["ai_act_tier"]
     if act not in ("minimal", "limited", "high", "unacceptable"):

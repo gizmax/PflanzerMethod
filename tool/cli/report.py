@@ -250,7 +250,8 @@ def collect(slug: str) -> dict[str, Any]:
     return {
         "slug": slug, "name": p["name"], "status": p["status"], "phase": detail["phase"],
         "goal": goal, "decision": decision,
-        "cost": {"person_days": n_people, "ai": nums["ai_cost"], "tier": p.get("tier")},
+        "cost": {"person_days": n_people, "ai": nums["ai_cost"], "tier": p.get("tier"),
+                 "target": p.get("production_readiness_target")},
         "quality": gates, "risks": risks,
         "risk_counts": {"critical": len(crit), "important": len(high), "overridden": len(overridden),
                         "conditions": len(conds), "unverified_gates": len(gates["unverified"])},
@@ -264,10 +265,14 @@ def collect(slug: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def _capacity_note(tier: str | None) -> str:
+def _capacity_note(tier: str | None, target: Any = None) -> str:
     from tool.cli.tier import TIER_LABELS
     label = str(TIER_LABELS.get(tier or "", "") or "").split(" (")[0]
-    return "plán kapacity z Kickoffu" + (f" pro stupeň {label}" if label else "")
+    prof = {85: "ostré", 80: "pilot"}.get(target if isinstance(target, int) else -1, "")
+    if prof == "":
+        prof = "demo" if target == 0 else ""
+    return ("plán z Kickoffu" + (f" pro {label}" if label else "")
+            + (f" · {prof}" if prof else ""))
 
 
 def render_summary_md(data: dict[str, Any]) -> str:
@@ -285,7 +290,7 @@ def render_summary_md(data: dict[str, Any]) -> str:
         out.append(f"Zatím nepadlo. Stav: {d['phase']}.{miss}")
     out += ["", "## Náklad"]
     out.append("- Lidé: " + (f"{count(int(c['person_days']), 'člověkoden', 'člověkodny', 'člověkodnů')} "
-                             f"({_capacity_note(c.get('tier'))})"
+                             f"({_capacity_note(c.get('tier'), c.get('target'))})"
                              if c["person_days"] else "neměřeno"))
     out.append("- AI: " + retro.leadership_ai_cost_text(c["ai"]))
     out += ["", "## Kvalita"]
