@@ -106,10 +106,11 @@ def test_summary_line_one_short_sentence() -> None:
             quality_gates.GateResult("acceptance", "unsupported", "nic"),
             quality_gates.GateResult("a11y", "skipped", "SKIP: y")]
     assert quality_gates.gates_summary_line(76, res) == (
-        "Skóre 76 ze 100. Spočteno nad 5 branami. "
-        "Neověřeno: pokrytí testy, akceptační testy, přístupnost.")
+        "Skóre 76 ze 100. Spočteno z 5 automatických kontrol. "
+        "Neověřeno: pokrytí testy, akceptační testy, přístupnost (WCAG).")
     assert "pokrytí testy: x (neusekni)" in quality_gates.gates_summary_line(76, res, reasons=True)
-    assert "Spočteno jen ze 4 bran — orientační." in quality_gates.gates_summary_line(100, res[:4])
+    assert "Spočteno jen ze 4 automatických kontrol — orientační." in \
+        quality_gates.gates_summary_line(100, res[:4])
 
 
 # --- Python gates -------------------------------------------------------------------------

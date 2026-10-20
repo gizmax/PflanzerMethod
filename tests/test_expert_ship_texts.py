@@ -20,14 +20,14 @@ def test_score_sentence_below_threshold_names_unverified_in_czech() -> None:
                types="skipped", coverage="skipped", a11y="skipped")
     line = quality_gates.gates_summary_line(78, res, target=80)
     assert line.startswith("**Skóre 78 ze 100 — pod prahem 80.**")
-    assert "Spočteno nad 5 branami." in line
-    assert "Neověřeno: typová kontrola, pokrytí testy, přístupnost." in line
+    assert "Spočteno z 5 automatických kontrol." in line
+    assert "Neověřeno: typová kontrola, pokrytí testy, přístupnost (WCAG)." in line
 
 
 def test_score_sentence_meets_threshold_and_informational() -> None:
     res = _res(build="pass", tests="pass", lint="pass", smoke="pass", security="pass")
     assert quality_gates.gates_summary_line(89, res, target=85).startswith(
-        "**Skóre 89 ze 100 — splňuje práh 85.** Spočteno nad 5 branami.")
+        "**Skóre 89 ze 100 — splňuje práh 85.** Spočteno z 5 automatických kontrol.")
     assert "Neověřeno" not in quality_gates.gates_summary_line(89, res, target=85)
     assert quality_gates.gates_summary_line(60, res, target=0).startswith(
         "**Skóre 60 ze 100 — informativní, neblokuje.**")
@@ -35,9 +35,9 @@ def test_score_sentence_meets_threshold_and_informational() -> None:
 
 def test_score_sentence_is_honest_with_few_gates() -> None:
     line = quality_gates.gates_summary_line(100, _res(build="pass", tests="pass"), target=80)
-    assert "Spočteno jen ze 2 bran — orientační." in line
+    assert "Spočteno jen ze 2 automatických kontrol — orientační." in line
     assert "práh 80 nelze potvrdit" in line
-    assert "jen ze 4 bran — orientační" in quality_gates.gates_summary_line(
+    assert "jen ze 4 automatických kontrol — orientační" in quality_gates.gates_summary_line(
         100, _res(build="pass", tests="pass", lint="pass", smoke="pass"))
 
 
@@ -74,7 +74,7 @@ def test_pr_lead_three_lines() -> None:
         failures=0, override=None, overridden=False,
         unverified=[{"gate": "acceptance", "reason": "x"}], blocked_by=[], metric=None)
     assert lead[0] == "**Co to je:** Rychlejší checkout (varianta A)"
-    assert lead[1].startswith("**Co ověřit:** 1 otevřených kritických")
+    assert lead[1].startswith("**Co ověřit:** 1 otevřená kritická připomínka na vítězi")
     assert "2 podmínky z podpisů oken" in lead[1]
     assert lead[2] == "**Rizika:** neověřeno: akceptační testy"
 

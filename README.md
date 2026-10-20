@@ -78,6 +78,6 @@ a Build do 60–90 min, **Full** je pro regulované prostředí
 
 Metoda a tool v0.5 jsou hotové end-to-end: Kickoff, Build, Async, Rozhodnutí,
 Ship, měření po nasazení (`/pm retro`), AI náklady a AI náhrada chybějícího
-zástupce. Čísla z reálných pilotů zatím chybí; tool je sbírá (čas Kickoff → merge,
+zástupce. Čísla z reálných pilotů zatím chybí; tool je sbírá (dny od Go do merge,
 skóre kontrol, přežití kódu). Podrobný stav a historie:
 [`docs/dev.md`](docs/dev.md#stav-implementace), [`CHANGELOG.md`](CHANGELOG.md).

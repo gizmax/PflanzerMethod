@@ -81,7 +81,7 @@ def test_ship_header_pilot_unchanged() -> None:
 def test_ship_next_step_throwaway_says_informative() -> None:
     winner = {"gates": {"gate_score": 100}}
     txt = session_3._next_step(winner, True, 0, "ponk")
-    assert txt.startswith("Throwaway: skóre 100/100 je informativní, Ship neblokuje")
+    assert txt.startswith("Demo hotové") and "skóre 100/100 je informativní, Ship neblokuje" in txt
 
 
 # --- 6b. throwaway handoff a retro -----

@@ -1952,7 +1952,7 @@ def warned_gates(results: list[Any]) -> list[str]:
         if status != "warn":
             continue
         gate = r.gate_type if hasattr(r, "gate_type") else r["gate"]
-        label = gate_label(gate)
+        label = gate_human(gate)
         if label not in out:
             out.append(label)
     return out
@@ -1981,9 +1981,9 @@ def acceptance_unverified(unverified: list[dict[str, str]] | None) -> bool:
 
 
 def _brany(n: int) -> str:
-    """„z 1 brány“ / „ze 4 bran“ / „z 5 bran“ — předložka podle čísla."""
+    """„z 1 automatické kontroly“ / „ze 4 automatických kontrol“ / „z 8 automatických kontrol“."""
     prep = "ze" if n in (2, 3, 4, 6, 7) else "z"
-    return f"{prep} {n} {'brány' if n == 1 else 'bran'}"
+    return f"{prep} {n} {'automatické kontroly' if n == 1 else 'automatických kontrol'}"
 
 
 GATE_LABELS = {
@@ -1998,8 +1998,32 @@ def gate_label(gate: str) -> str:
     return GATE_LABELS.get(gate, gate)
 
 
-def _s_branami(n: int) -> str:
-    return f"{n} {'bránou' if n == 1 else 'branami'}"
+# Popis pro Decidera (SHIP.md, report, text PR); technické názvy zůstávají v SHIP-detail.md.
+GATE_HUMAN = {
+    "observability": "observabilita (logy a metriky pro provoz)",
+    "a11y": "přístupnost (WCAG)",
+    "smoke": "spuštění aplikace",
+    "coverage": "pokrytí testy",
+    "types": "typová kontrola",
+    "security": "bezpečnost závislostí",
+    "acceptance": "akceptační testy",
+}
+_TOOL_HINTS = {"coverage": "c8 / pytest-cov"}
+
+
+def gate_human(gate: str) -> str:
+    """Popis brány pro netechnického čtenáře („observability“ -> „observabilita (logy a metriky
+    pro provoz)“); co nezná, vrátí jako `gate_label`."""
+    return GATE_HUMAN.get(gate, gate_label(gate))
+
+
+def unverified_human(u: dict[str, str]) -> str:
+    """Neověřená brána lidsky: „pokrytí testy — neměřeno, chybí nástroj (c8 / pytest-cov)“."""
+    reason = (u.get("reason") or "").strip()
+    hint = _TOOL_HINTS.get(u["gate"])
+    if hint and reason.startswith("chybí") and "nástroj" in reason:
+        reason = f"chybí nástroj ({hint})"
+    return f"{gate_human(u['gate'])} — neměřeno" + (f", {reason}" if reason else "")
 
 
 _PLAIN_VERDICTS = ("pod prahem", "splňuje práh", "informativně", "BLOKOVÁNO", "blokováno")
@@ -2008,7 +2032,7 @@ _PLAIN_VERDICTS = ("pod prahem", "splňuje práh", "informativně", "BLOKOVÁNO"
 def score_sentence(score: int, target: int | None, n_ran: int | None,
                    unverified: list[str] | None = None, verdict: str | None = None,
                    extra: str = "") -> str:
-    """Lidská věta o skóre: „**Skóre 78 ze 100 — pod prahem 80.** Spočteno nad 5 branami.
+    """Lidská věta o skóre: „**Skóre 78 ze 100 — pod prahem 80.** Spočteno z 5 automatických kontrol.
     Neověřeno: typová kontrola, pokrytí testy.“
 
     `target=None` = bez prahu (jen fakta, bez tučného); `n_ran=None` = počet bran neznáme
@@ -2032,12 +2056,13 @@ def score_sentence(score: int, target: int | None, n_ran: int | None,
     parts = [head]
     if n_ran is not None:
         parts.append(f"Spočteno jen {_brany(n_ran)} — orientační." if few
-                     else f"Spočteno nad {_s_branami(n_ran)}.")
+                     else f"Spočteno {_brany(n_ran)}.")
     if extra:
         parts.append(extra)
     if unverified:
         more = f" a dalších {len(unverified) - 4}" if len(unverified) > 5 else ""
-        parts.append("Neověřeno: " + ", ".join(unverified[:4 if more else 5]) + more + ".")
+        sep = "; " if any(" — " in u for u in unverified) else ", "
+        parts.append("Neověřeno: " + sep.join(unverified[:4 if more else 5]) + more + ".")
     if target is not None and target > 0 and verdict and not verdict.startswith(_PLAIN_VERDICTS):
         parts.append(f"Verdikt: {verdict}.")
     return " ".join(parts)
@@ -2047,8 +2072,8 @@ def gates_summary_line(score: int, results: list[Any], reasons: bool = False,
                        target: int | None = None, verdict: str | None = None) -> str:
     """Jedna lidská věta o skóre (viz `score_sentence`).
 
-    „**Skóre 78 ze 100 — pod prahem 80.** Spočteno nad 5 branami. Neověřeno: typová kontrola,
-    pokrytí testy.“ Bez `target` jen fakta („Skóre 78 ze 100. Spočteno nad 5 branami. …“).
+    „**Skóre 78 ze 100 — pod prahem 80.** Spočteno z 5 automatických kontrol. Neověřeno: typová kontrola,
+    pokrytí testy.“ Bez `target` jen fakta („Skóre 78 ze 100. Spočteno z 5 automatických kontrol. …“).
     Brány, které by dávaly smysl, ale chybí nástroj, mají v závorce důvod; důvody SKIP jsou
     jen s `reasons=True` (jinak je najdete v `skip_reasons`).
     """
@@ -2062,9 +2087,9 @@ def gates_summary_line(score: int, results: list[Any], reasons: bool = False,
     unv_names = {u["gate"] for u in unv}
     ran = [r for r in results if st(r) in RAN_STATUSES]
     missing = [r for r in results if st(r) not in RAN_STATUSES and g(r) not in unv_names]
-    names = [f"{gate_label(u['gate'])} ({u['reason']})" for u in unv]
-    names += [f"{gate_label(g(r))}: {skip_reason(r)}" if reasons and skip_reason(r)
-              else gate_label(g(r)) for r in missing]
+    names = [unverified_human(u) for u in unv]
+    names += [f"{gate_human(g(r))}: {skip_reason(r)}" if reasons and skip_reason(r)
+              else gate_human(g(r)) for r in missing]
     return score_sentence(score, target, len(ran), names, verdict)
 
 

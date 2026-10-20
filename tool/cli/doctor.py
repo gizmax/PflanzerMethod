@@ -122,6 +122,17 @@ def check_guide(repo: Path) -> dict[str, str]:
     if not guide.is_file():
         return _check(name, FAIL, "chybí", "`pflanzer init`, pak ho vyplň podle reality repa.")
     text = guide.read_text(encoding="utf-8", errors="replace")
+    try:
+        from tool.cli.init import guide_mismatch, guide_template_label
+        mm = guide_mismatch(repo, text)
+    except Exception:  # noqa: BLE001 — poradní kontrola
+        mm = None
+    if mm:
+        return _check(name, WARN,
+                      f"šablona pro {guide_template_label(mm[0])}, repo je {guide_template_label(mm[1])}",
+                      "Guide neodpovídá stacku repa. `pflanzer init` ho přegeneruje, pokud je "
+                      "nevyplněný; jinak ho projděte ručně (nebo `pflanzer init --force`).",
+                      "AI by řídila Build podle návodu pro jiný stack")
     if any(t.is_file() and text.strip() == t.read_text(encoding="utf-8").strip()
            for t in (GUIDE_TEMPLATE, GUIDE_TEMPLATE_PYTHON)):
         return _check(name, FAIL, "pořád jen nevyplněná šablona",
@@ -390,8 +401,8 @@ def check_preview(repo: Path) -> dict[str, str]:
                 break
     if found:
         return _check(name, OK, ", ".join(found))
-    return _check(name, OK, "žádný preview deploy — stačí `pflanzer preview up`",
-                  "Po Buildu `pflanzer preview up --slug <slug>` spustí 3 varianty za heslem "
+    return _check(name, OK, "žádný preview deploy — stačí `pflanzer share`",
+                  "Po Buildu `pflanzer share --slug <slug>` spustí 3 varianty za heslem "
                   "(lokálně, v síti `--host 0.0.0.0`, odkudkoli s cloudflared). Firemní preview "
                   "deploy je volitelný.")
 

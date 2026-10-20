@@ -113,7 +113,7 @@ def test_pr_body_and_ship_have_no_placeholders(shipped: dict[str, Any]) -> None:
     assert "Brány:" in pr["body"] and " ze 100" in pr["body"]
     # 2 běžící brány -> poctivě „orientační“, práh nelze potvrdit
     assert pr["gates_summary"].startswith("**Skóre 100 ze 100 — práh 80 nelze potvrdit.**")
-    assert "Spočteno jen ze 2 bran — orientační." in pr["gates_summary"]
+    assert "Spočteno jen ze 2 automatických kontrol — orientační." in pr["gates_summary"]
     assert "akceptační testy" in pr["gates_summary"]   # acceptance chybí = neověřeno
 
 

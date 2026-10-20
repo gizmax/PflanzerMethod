@@ -40,7 +40,7 @@ def _force_warn(slug: str, gates: tuple[str, ...]) -> None:
 def test_warned_gates_use_human_labels() -> None:
     rows = [{"gate": "a11y", "status": "warn"}, {"gate": "build", "status": "pass"},
             {"gate": "observability", "status": "warn"}, {"gate": "a11y", "status": "warn"}]
-    assert warned_gates(rows) == ["přístupnost", "observabilita"]
+    assert warned_gates(rows) == ["přístupnost (WCAG)", "observabilita (logy a metriky pro provoz)"]
 
 
 def test_risk_notes_personal_data_only_for_production() -> None:
@@ -57,11 +57,11 @@ def test_ship_md_and_pr_show_gate_warnings(shipped: dict[str, Any]) -> None:
     slug = shipped["slug"]
     _force_warn(slug, ("a11y", "observability"))
     md = handoff_pr.render_ship_md(slug)
-    assert "Varování: přístupnost, observabilita" in md
+    assert "Varování: přístupnost (WCAG), observabilita (logy a metriky pro provoz)" in md
     assert len(md.splitlines()) <= 60
     body = handoff_pr.build_pr(slug)["body"]
     rizika = next(x for x in body.splitlines() if x.startswith("**Rizika:**"))
-    assert "Varování: přístupnost, observabilita" in rizika
+    assert "Varování: přístupnost (WCAG), observabilita (logy a metriky pro provoz)" in rizika
 
 
 def test_report_summary_lists_warnings_and_capacity_tier(
@@ -72,7 +72,8 @@ def test_report_summary_lists_warnings_and_capacity_tier(
         conn.execute("UPDATE projects SET capacity_person_days = 14, tier = 'full' WHERE slug = ?",
                      (slug,))
     data = report.collect(slug)
-    assert "Varování: přístupnost, observabilita" in data["risks"]
+    assert ("Varování: přístupnost (WCAG), observabilita (logy a metriky pro provoz)"
+            in data["risks"])
     md = report.render_summary_md(data)
     assert "14 člověkodnů (plán z Kickoffu pro Full" in md
 

@@ -83,8 +83,21 @@ def _local_date(ts: Any) -> str:
         return raw[:10]
 
 
+def _sharing_active(slug: str) -> bool:
+    """Běží sdílení (`pflanzer share`)? Stavový soubor sdílení + živý proces hubu."""
+    try:
+        from tool.cli import preview, share
+        st = share.load_state(slug)
+        if not st or not st.get("hub_pid"):
+            return False
+        return bool(preview._alive(int(st["hub_pid"]), st.get("hub_started", "")))
+    except Exception:  # noqa: BLE001 — poradní údaj nesmí shodit status
+        return False
+
+
 def _phase(status: str, ship: str, feedback_count: int, critical: int,
-           build_running: bool = False, missing_preview: bool = False) -> tuple[str, str]:
+           build_running: bool = False, missing_preview: bool = False,
+           sharing: bool = False) -> tuple[str, str]:
     """Return (phase in words, next step). `ship` = none | failed | done | handed_off."""
     if status in ("draft", "charter"):
         return "Kickoff rozpracovaný", "/pm start"
@@ -94,9 +107,12 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
         return "Kickoff hotový", "/pm build"
     if status == "session_1":
         if feedback_count == 0:
+            if sharing:           # share/hub běží → sběr feedbacku už probíhá
+                return ("Sběr feedbacku běží (sdíleno)",
+                        "/pm feedback  (po Asyncu `pflanzer share down --slug <slug>`, pak /pm decide)")
             if missing_preview:   # zástupci bez odkazu nic neuvidí → nejdřív preview
                 return ("Build hotový — varianty bez preview URL",
-                        "pflanzer preview up --slug <slug>")
+                        "pflanzer share --slug <slug>")
             return "Build zapsaný — čeká se na sdílení", "pflanzer share --slug <slug>"
         if critical:
             return f"Async — {critical}× kritické otevřené", "/pm feedback"
@@ -481,7 +497,9 @@ def project_detail(slug: str) -> dict[str, Any]:
     missing_preview = any((not u or "sandbox.invalid" in u) for n, u in latest_url.items()
                           if not in_play or n in in_play)
     phase, nxt = _phase(p["status"], evidence["ship"], fcount, critical,
-                        build_running=evidence["build_running"], missing_preview=missing_preview)
+                        build_running=evidence["build_running"], missing_preview=missing_preview,
+                        sharing=(p["status"] == "session_1" and fcount == 0
+                                 and _sharing_active(slug)))
     nxt = _with_slug(nxt, slug).replace("<slug>", slug)
     if (tier == "full" and p["status"] in ("draft", "charter", "triage")
             and not evidence["build_running"] and not evidence.get("triage_run")):

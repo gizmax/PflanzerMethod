@@ -256,7 +256,7 @@ def test_vote_warns_on_dead_localhost_url(project: dict[str, Any]) -> None:
     port = _base_port()
     out = record_voting(slug=project["slug"], facilitator="F", votes=_votes(),
                         decider_call=DECIDER, real_urls={"A": f"http://127.0.0.1:{port}/"})
-    assert any(f"http://127.0.0.1:{port}/ neodpovídá" in w and "pflanzer preview up" in w
+    assert any(f"http://127.0.0.1:{port}/ neodpovídá" in w and "pflanzer share" in w
                for w in out["warnings"])
     srv, live = _serve(_Hub)
     try:

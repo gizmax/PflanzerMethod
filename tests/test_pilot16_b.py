@@ -124,14 +124,14 @@ def test_go_at_or_above_threshold_does_not_need_force(tmp_db: Path, bare_repo: P
 # --- kosmetika ------------------------------------------------------------------------------
 
 
-def test_pr_title_cut_at_word_boundary_with_ellipsis(worktree_project: dict[str, Any]) -> None:
+def test_pr_title_cut_at_word_boundary_without_ellipsis(worktree_project: dict[str, Any]) -> None:
     slug = worktree_project["slug"]
     _vote(slug, description="Rezervace kola na den s kontrolou dostupnosti a upozorněním "
                             "zákazníka na změnu termínu vyzvednutí")
     session_2.record_decision(slug=slug, decision="go", winner="A", rationale="Jdeme")
     title = handoff_pr.build_pr(slug)["title"]
-    assert title.endswith("…")
-    body = title.split(": ", 1)[1].rstrip("…")
+    assert "…" not in title
+    body = title.split(": ", 1)[1]
     assert body.split()[-1] in "Rezervace kola na den s kontrolou dostupnosti a upozorněním "\
         "zákazníka na změnu termínu vyzvednutí".split()
 

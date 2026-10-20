@@ -782,8 +782,10 @@ def bootstrap(
     feature_path = _write_acceptance_feature(slug, hook, metric, acceptance_criteria_md)
 
     # Doporučení režimu se jen ukáže (rozhoduje člověk), nic nevynucuje.
-    room = {n.strip().lower() for n in (core or []) if n and n.strip()} or {
-        owner_display(v, k).lower() for k, v in (owners_by_step or {}).items()}
+    room = {n.strip().lower() for n in (core or []) if n and n.strip()
+            and not is_ai_owner(n) and not n.strip().lower().startswith("ai (")} or {
+        v.strip().lower() for v in (owners_by_step or {}).values()
+        if v and v.strip() and not is_ai_owner(v)}  # jen lidé: AI zástupci se nepočítají
     rec_mode, rec_why = recommend_mode(
         production_target=int(profile.get("production_readiness_target", 0) or 0),
         risk_profile=risk_profile, room_size=len(room),
@@ -1940,7 +1942,7 @@ def _dead_local_url_warning(url: str, slug: str) -> str | None:
         return None
     if apprun.http_get(url, timeout=2.0) is not None:
         return None
-    return f"URL {url} neodpovídá — preview neběží? `pflanzer preview up --slug {slug}`"
+    return f"URL {url} neodpovídá — preview neběží? `pflanzer share --slug {slug}`"
 
 
 def record_voting(
@@ -2004,10 +2006,10 @@ def record_voting(
             warnings.append(w)
     if len(missing_urls) == 1:
         warnings.append(f"varianta {missing_urls[0]} nemá preview URL — zástupci v Asyncu ji "
-                        f"neuvidí (spusťte `pflanzer preview up --slug {slug}`: odkazy + heslo)")
+                        f"neuvidí (spusťte `pflanzer share --slug {slug}`: odkazy + heslo)")
     elif missing_urls:
         warnings.append(f"varianty {', '.join(missing_urls)} zatím nemají preview URL — "
-                        f"zástupci v Asyncu je neuvidí (spusťte `pflanzer preview up --slug "
+                        f"zástupci v Asyncu je neuvidí (spusťte `pflanzer share --slug "
                         f"{slug}`: odkazy + heslo)")
     spec = {
         "slug": slug,
@@ -2019,7 +2021,8 @@ def record_voting(
     for pv in result.get("variants", []):
         if _is_no_url(str(pv.get("prototype_url") or "")):
             pv["prototype_url"] = None
-    result["warnings"] = warnings
+    result["warnings"] = warnings + [w for w in result.get("warnings", [])
+                                     if "trailer" in w and w not in warnings]
     shown = [f"{v['name']} {v['prototype_url']}" for v in result.get("variants", [])
              if v.get("prototype_url")]
     result["next_step"] = (

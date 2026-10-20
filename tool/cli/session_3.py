@@ -809,8 +809,9 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
     if meets and target <= 0:
-        return (f"Throwaway: skóre {score}/100 je informativní, Ship neblokuje. "
-                f"{ops}PR vítěze: {pr_step}")
+        return (f"Demo hotové — sdílejte SHIP.md / ukázku (skóre {score}/100 je informativní, "
+                "Ship neblokuje); před pilotem nový Kickoff s risk profilem pilot. "
+                f"PR do repa je volitelný (`gh pr create`, jen pokud chcete demo zachovat v repu).")
     if meets:
         return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}"
     fails, warns = _failing(winner)
@@ -1217,6 +1218,16 @@ def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str],
         return [], nxt
     cmd = out.get("pr_command")
     w = out["winner"]
+    if out.get("production_readiness_target", 0) <= 0 and out.get("risk_profile") == "throwaway":
+        # Demo: podpisy ani PR se nevyžadují; `gh pr create` jen volitelně.
+        if cmd and shutil.which("gh"):
+            opt = f" Volitelně, pokud chcete demo zachovat v repu: `{cmd}`."
+        else:
+            opt = (f" PR je volitelný: pokud chcete demo zachovat v repu, otevřete PR ručně "
+                   f"(text je v {path}).")
+        return [f"SHIP.md (text PR): {path}"], (
+            "Demo hotové — sdílejte SHIP.md / ukázku; před pilotem nový Kickoff s risk profilem "
+            f"pilot.{opt}")
     if not out["production_ready"] and (
             out["triage"].get("human_blockers") or out.get("production_readiness_target", 0) > 0):
         return [f"SHIP.md (text PR): {path}"], nxt   # blokace/pod prahem: napřed ji odstranit, PR až potom
@@ -1284,8 +1295,11 @@ def main() -> None:
     if ship_lines:
         lines = [*lines, *ship_lines]
     phase = "after_ship" if out["production_ready"] and not out.get("informational") else "ship"
+    demo = out.get("risk_profile") == "throwaway" and not out.get("informational")
     emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
-         tips=tips(args.slug, phase, ctx, fallback="ship"), as_json=args.json)
+         tips=(["Demo nemá podpisy oken ani checkpoint provozu: ukažte ho týmu a řekněte nahlas, "
+                "co je fake; do pilotu jde jen přes nový Kickoff."] if demo
+               else tips(args.slug, phase, ctx, fallback="ship")), as_json=args.json)
 
 
 if __name__ == "__main__":

@@ -80,6 +80,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     acceptance_unverified,
     aggregate_repos,
     aggregate_score,
+    gate_human,
     gate_label,
     gate_risk_notes,
     gates_summary_line,
@@ -89,6 +90,7 @@ from tool.cli.quality_gates import (  # noqa: E402
     score_sentence,
     skip_reasons,
     unverified_gates,
+    unverified_human,
     warned_gates,
 )
 from tool.cli.session_2 import (  # noqa: E402
@@ -98,6 +100,7 @@ from tool.cli.session_2 import (  # noqa: E402
     open_remarks,
     overridden_critical_md,
     overridden_criticals,
+    remark_text,
     remarks_checklist,
     remarks_line,
     resolved_criticals,
@@ -111,7 +114,7 @@ from tool.cli.triage import (  # noqa: E402
     path_owners,
     ship_triage_gate,
 )
-from tool.cli.ux import CzechArgumentParser, die, emit  # noqa: E402
+from tool.cli.ux import CzechArgumentParser, die, emit, severity_label  # noqa: E402
 
 SHIP_DIR = DATA_ROOT / "handoffs"
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
@@ -477,6 +480,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
         overridden = [c for c in overridden_criticals(conn, project_id)
                       if winner and c["variant"] == winner[0]]
         remarks = open_remarks(conn, project_id, winner[0]) if winner else []
+        remarks_all = open_remarks(conn, project_id)
         owners = path_owners(conn, project_id)
         dev_owners = [
             r[0] for r in conn.execute(
@@ -495,7 +499,8 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "variant_names": variant_names, "dev_owners": dev_owners,
             "winner_basis": winner_basis, "open_critical": criticals,
             "resolved_critical": resolved, "overridden_critical": overridden,
-            "open_remarks": remarks, "path_owners": owners}
+            "open_remarks": remarks, "open_remarks_all": remarks_all,
+            "path_owners": owners}
 
 
 def _unsigned_window_lines(slug: str, windows: list[dict[str, Any]]) -> list[str]:
@@ -601,7 +606,8 @@ def _verdict(score: int, target: int, unverified: list[dict[str, str]] | None = 
     if score < target:
         return "pod prahem"
     if unverified:
-        return "splňuje práh ⚠ ale neověřeno: " + ", ".join(u["gate"] for u in unverified)
+        return "splňuje práh ⚠ ale neověřeno: " + ", ".join(
+            gate_label(u["gate"]) for u in unverified)
     return "splňuje práh"
 
 
@@ -777,6 +783,75 @@ def _clean_hook(hook: str) -> str:
     return m.group(1).strip().rstrip(".") if m else text
 
 
+SCORE_DISCLAIMER = ("Skóre měří technickou kvalitu (automatické kontroly), ne to, jestli varianta "
+                    "splní zadání — to ověřuje feedback zástupců a Decider.")
+
+_VERIFY_RE = re.compile(r"Ověříme ho na (?:třech funkčních variantách|jedné společně postavené "
+                        r"variantě)[^.]*\.")
+
+
+def verified_phrase(variants: list[str], winner: str | None) -> str:
+    """„Ověřeno na třech funkčních variantách; vyhrála C.“ (jednotně v SHIP.md i v PR)."""
+    return (f"Ověřeno na {_built_phrase(variants)}"
+            + ("." if len(variants) <= 1 or not winner else f"; vyhrála {winner}."))
+
+
+def with_verified(text: str, variants: list[str], winner: str | None) -> str:
+    """Šablonovou větu „Ověříme ho na …“ v zadání přepíše na oznamovací „Ověřeno na …“."""
+    if not winner:
+        return text
+    return _VERIFY_RE.sub(verified_phrase(variants, winner), text)
+
+
+def open_feedback_digest(criticals: list[dict[str, Any]], remarks: list[dict[str, Any]],
+                         winner: str | None) -> dict[str, Any]:
+    """Otevřené připomínky napříč projektem: Kritické, pak Důležité, pak Drobné; rozdělené na
+    vítěze (k vyřešení) a ostatní varianty (zkontrolovat, jestli se netýkají i vítěze)."""
+    items = [dict(c, severity="critical") for c in criticals] + list(remarks)
+    rank = {"critical": 0, "high": 1}
+    items.sort(key=lambda c: (rank.get(c["severity"], 2), c["id"]))
+    on_win = [c for c in items if winner and c["variant"] == winner]
+    others = [c for c in items if not (winner and c["variant"] == winner)]
+    return {"total": len(items), "winner": on_win, "others": others, "has_winner": bool(winner)}
+
+
+def open_feedback_lines(digest: dict[str, Any], slug: str, top: int = 3) -> list[str]:
+    """Řádky sekce „Otevřené připomínky“: počet + top 3 na vítězi a top 3 na ostatních."""
+    total, on_win, others = digest["total"], digest["winner"], digest["others"]
+    if not total:
+        return ["Žádné otevřené připomínky."]
+    if digest.get("has_winner") is False:     # před Go: všechno je zatím „na stole“
+        lines = [count(total, "otevřená připomínka", "otevřené připomínky", "otevřených připomínek")
+                 + " (vítěz zatím není vybraný):", ""]
+        return lines + [f"- ({severity_label(c['severity'])}, varianta {c['variant']}) "
+                        f"{remark_text(c, 140)}" for c in (others[:top])] + (
+            [f"- …a {count(total - top, 'další', 'další', 'dalších')}"] if total > top else [])
+    parts = []
+    if on_win:
+        parts.append(f"{len(on_win)} na vítězi (k vyřešení)")
+    if others:
+        parts.append(f"{len(others)} na ostatních variantách (zkontrolujte, jestli se netýkají "
+                     "i vítěze)")
+    lines = [count(total, "otevřená připomínka", "otevřené připomínky", "otevřených připomínek")
+             + ": " + ", ".join(parts) + "."]
+
+    def more(rest: int) -> list[str]:
+        return [f"- …a {count(rest, 'další', 'další', 'dalších')} "
+                f"(`pflanzer feedback list --slug {slug}`)"] if rest > 0 else []
+
+    if on_win:
+        lines += ["", "K vyřešení na vítězi (neblokují merge, kritické ano; checklist je i v těle PR, "
+                  "`pflanzer decide resolve --feedback-id N` je odškrtne):"]
+        lines += [f"- [ ] ({severity_label(c['severity'])}, "
+                  f"{c.get('submitted_by') or 'autor neznámý'}) {remark_text(c, 140)}"
+                  for c in on_win[:top]] + more(len(on_win) - top)
+    if others:
+        lines += ["", "Zkontrolujte, jestli se netýkají i vítěze:"]
+        lines += [f"- ({severity_label(c['severity'])}, varianta {c['variant']}) "
+                  f"{remark_text(c, 140)}" for c in others[:top]] + more(len(others) - top)
+    return lines
+
+
 def _failed_gates(failures: list[tuple[str, str]]) -> list[tuple[str, int]]:
     """Selhané brány (ne dílčí nálezy): [(klíč brány, počet nálezů)] v pořadí výskytu."""
     out: dict[str, int] = {}
@@ -809,9 +884,11 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
         what += f"; metrika úspěchu: {trim_words(' '.join(metric.split()), 120).rstrip('.')}"
     check: list[str] = []
     if open_crit:
-        check.append(f"{open_crit} otevřených kritických připomínek na vítězi")
+        check.append(count(open_crit, "otevřená kritická připomínka", "otevřené kritické připomínky",
+                           "otevřených kritických připomínek") + " na vítězi")
     if open_remarks:
-        check.append(f"{open_remarks} otevřených připomínek (neblokují merge)")
+        check.append(count(open_remarks, "otevřená připomínka", "otevřené připomínky",
+                           "otevřených připomínek") + " (neblokují merge)")
     if open_conditions:
         check.append(f"{open_conditions} {_cond_word(open_conditions)} z podpisů oken")
     if failed_gates:
@@ -828,7 +905,7 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
     if failed_gates:
         risks.append(_failed_gates_text(failed_gates))
     if unverified:
-        risks.append("neověřeno: " + ", ".join(gate_label(u["gate"]) for u in unverified))
+        risks.append("neověřeno: " + ", ".join(gate_human(u["gate"]) for u in unverified))
     risks += [n[0].lower() + n[1:] if not n.startswith("Varování") else n for n in gate_notes or []]
     if blocked_by:
         risks.append("Ship je zablokovaný (" + ", ".join(blocked_by) + ")")
@@ -836,7 +913,8 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
     return [f"**Co to je:** {what}", f"**Co ověřit:** {check_txt}", f"**Rizika:** {risk_txt}", ""]
 
 
-def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None) -> list[str]:
+def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None,
+                  variants: list[str] | None = None) -> list[str]:
     """Sekce „Co se mění“: hook, metrika úspěchu a vítěz s popisem (ne boilerplate o metodě)."""
     hook = real(p[4]) or name
     try:  # starší projekty mají v hypotéze připojený label risk profilu — to není zadání uživatele
@@ -846,7 +924,7 @@ def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None) -> list
         hook = hook.strip() or name
     except (ImportError, AttributeError, KeyError, TypeError):
         pass
-    lines = [hook]
+    lines = [with_verified(hook, variants or [], w[0] if w else None)]
     if metric_primary:
         lines.append(f"Metrika úspěchu: {metric_primary}")
     if w:
@@ -889,11 +967,24 @@ def _related_md(repos: list[dict[str, Any]], rg: list[dict[str, Any]], current: 
     return lines + [""]
 
 
+def _lines_added(n: int) -> str:
+    """„+1 řádek“ / „+2 řádky“ / „+5 řádků“."""
+    return "+" + count(int(n), "řádek", "řádky", "řádků")
+
+
 def _repo_size(b: dict[str, Any]) -> str | None:
     if b.get("added") is None:
         return None
-    text = f"+{b['added']}" + (f" / -{b['removed']}" if b.get("removed") is not None else "")
-    return text + " řádků" + (f" v {b['files']} souborech" if b.get("files") is not None else "")
+    if b.get("removed") is not None:
+        text = f"+{b['added']} / -{b['removed']} " + plural_word(b["removed"], "řádek", "řádky", "řádků")
+    else:
+        text = _lines_added(b["added"])
+    return text + (f" v {b['files']} souborech" if b.get("files") is not None else "")
+
+
+def plural_word(n: int, one: str, few: str, many: str) -> str:
+    """Jen tvar slova bez čísla (podle čísla `n`)."""
+    return count(int(n), one, few, many).split(" ", 1)[1]
 
 
 def build_pr(slug: str, repo: str | None = None,
@@ -947,7 +1038,8 @@ def build_pr(slug: str, repo: str | None = None,
 
     size_line = ""
     if loc_added is not None:
-        size_line = f"+{loc_added}" + (f" / -{loc_removed}" if loc_removed is not None else "") + " řádků"
+        size_line = (f"+{loc_added} / -{loc_removed} " + plural_word(loc_removed, "řádek", "řádky", "řádků")
+                     if loc_removed is not None else _lines_added(loc_added))
         if diff_files is not None:
             size_line += f" v {diff_files} souborech"
     if multi:  # statistika per repo; loc_added = součet přes repa
@@ -985,7 +1077,7 @@ def build_pr(slug: str, repo: str | None = None,
     if state["unverified"] and target > 0 and "Neověřeno:" not in (
             (_gate_summary(gates, rg) if gates else None) or ""):
         warnings.append(
-            "Neověřeno: " + ", ".join(f"{u['gate']} ({u['reason']})" for u in state["unverified"])
+            "Neověřeno: " + ", ".join(unverified_human(u) for u in state["unverified"])
             + " — skóre o tom nic neříká.")
     failures = [(g[0], line) for g in gates if g[1] == "fail"
                 for line in failure_lines(g[3] or "", root=wt)]
@@ -1002,10 +1094,7 @@ def build_pr(slug: str, repo: str | None = None,
     desc_title = _PO_ITERATE_PREFIX.sub("", (_winner_description(w) or "").strip()).strip().rstrip(".")
     # Název PR = první celá část popisu (před ; — :), ať se neuseká uprostřed věty.
     desc_title = re.split(r"\s*[;—]\s*|\s+-\s+", desc_title)[0].strip()
-    title_src = " ".join((desc_title or name).split())
-    title_txt = trim_words(title_src, 60)
-    if len(title_txt) < len(title_src):
-        title_txt += "…"      # uříznuto na hranici slova -> je to vidět
+    title_txt = _short_pr_title(desc_title or name, 60)
     pr_title = f"feat({slug}): {title_txt}"
     pr_title_base = pr_title
     if cur_role:
@@ -1015,7 +1104,7 @@ def build_pr(slug: str, repo: str | None = None,
     sign_line = signatures_line(slug)
     resolved_on_win = [c for c in ctx.get("resolved_critical", [])
                        if w and c["variant"] == w[0]]
-    body_lines: list[str] = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary),
+    body_lines: list[str] = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary, variants),
                              "", "## Výstup Pflanzer Method",
                              f"- Varianta: `{w[0] if w else '—'}` ({builder}), větev `{branch or '—'}`"
                              + (f" @ `{head_sha[:10]}`" if head_sha else "")]
@@ -1079,7 +1168,7 @@ def build_pr(slug: str, repo: str | None = None,
         x = next((y for y in rg if y["role"] == repo), None)
         head = f" @ `{b['head_sha'][:10]}`" if b.get("head_sha") else ""
         own_fail = [(g, ln) for g, ln in failures if g.startswith(f"{repo}:")]
-        sec = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary),
+        sec = [BRAND, "", "## Co se mění", *_what_changes(p, w, name, metric_primary, variants),
                f"Tento PR obsahuje část v repu {repo}.", "",
                "## Výstup Pflanzer Method",
                f"- Varianta: `{w[0] if w else '—'}` ({builder}), větev `{b['branch']}`{head}, "
@@ -1113,7 +1202,7 @@ def build_pr(slug: str, repo: str | None = None,
         warned_gates(all_results), state["unverified"] if target > 0 else [],
         (ctx.get("triage") or {}).get("risk_profile"), p[13])
     lead = _pr_lead(
-        hook=_what_changes(p, w, name, metric_primary)[0], winner=w[0] if w else None,
+        hook=_what_changes(p, w, name, metric_primary, variants)[0], winner=w[0] if w else None,
         open_crit=sum(1 for c in (ctx.get("open_critical") or [])
                       if w and c["variant"] == w[0]),
         open_remarks=len(remark_lines), open_conditions=sum(1 for x in cond_lines if x.startswith("- [ ]")),
@@ -1183,6 +1272,17 @@ def _ship_parts(slug: str) -> dict[str, Any]:
         "work_dir": tilde(wt) if wt else e[1],
     }
     return parts
+
+
+def _short_pr_title(text: str, limit: int = 60) -> str:
+    """Krátký název změny: první klauzule (před čárkou/závorkou), celá slova, nikdy „…“."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    clause = re.split(r",\s|;\s|\s\(|:\s", text, maxsplit=1)[0].strip()
+    if len(clause) < 12:
+        clause = text
+    return trim_words(clause, limit).rstrip("….")
 
 
 # „C po Iterate: …“ je poznámka k variantě, ne název změny — do titulku PR nepatří.
@@ -1295,8 +1395,7 @@ def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     reviewer_flag = f"  --reviewer {reviewer} \\\n" if reviewer else ""
     return f"""## Otevři PR
 
-Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).
-Reviewera přidejte ručně (`--reviewer <github-handle>`). {reviewer_hint(slug)}
+Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně (`--reviewer <github-handle>`). {reviewer_hint(slug)}
 
 ```bash
 {decision_log_lines(slug)}cd {wb['work_dir']}
@@ -1391,10 +1490,7 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     winner_md = "" if w else "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
     first = real(p[4]) or name
     if w:
-        verb = (f"Ověřili jsme na {_built_phrase(pr['variants'])}"
-                + ("." if len(pr["variants"]) <= 1 else f"; vyhrála {w[0]}."))
-        first = re.sub(r"Ověříme ho na (?:třech funkčních variantách|jedné společně postavené "
-                       r"variantě)[^.]*\.", verb, first)
+        first = with_verified(first, pr["variants"], w[0])
     changes = [first]
     if pr["metrics"][0]:
         changes.append(f"Metrika úspěchu: {pr['metrics'][0]}")
@@ -1407,11 +1503,12 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     if len(pr.get("repos") or []) > 1 and pr.get("size_line"):
         score_line += f" Rozsah: {pr['size_line']}."
     elif pr["loc_added"] is not None:
-        score_line += f" Rozsah: +{pr['loc_added']} řádků."
+        score_line += f" Rozsah: {_lines_added(pr['loc_added'])}."
     if pr.get("failures"):
         score_line += " " + _failed_gates_text(_failed_gates(pr["failures"])).capitalize() + "."
     if pr.get("gate_notes"):
         score_line += " " + "; ".join(pr["gate_notes"]).rstrip(".") + "."
+    score_line += " " + SCORE_DISCLAIMER
     owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
                   ("Shadow PdM (hlídá Async)", parts["shadow_pm"])]
     people = [f"- {k}: {v}" for k, v in owner_rows if v]
@@ -1424,15 +1521,14 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         people_md += ("## Podmínky z podpisů oken\n\nPodepsáno s podmínkami; PR je musí splnit "
                       "(checklist je i v těle PR):\n\n" + "\n".join(cond_lines) + "\n\n")
 
-    if pr.get("remark_lines"):
-        shown = pr["remark_lines"][:10]
-        more = len(pr["remark_lines"]) - len(shown)
-        people_md += ("## Otevřené připomínky k vítězi\n\n"
-                      "Neblokují merge; checklist je i v těle PR "
-                      "(`pflanzer decide resolve --feedback-id N` je odškrtne):\n\n"
-                      + "\n".join(shown)
-                      + (f"\n- …a dalších {more} (`pflanzer feedback list --slug {slug}`)"
-                         if more else "") + "\n\n")
+    ctx_ = parts["ctx"]
+    digest = open_feedback_digest(ctx_.get("open_critical") or [],
+                                  ctx_.get("open_remarks_all") or [], w[0] if w else None)
+    if digest["total"]:
+        people_md += ("## Otevřené připomínky\n\n" + "\n".join(open_feedback_lines(digest, slug))
+                      + "\n\n")
+    else:       # krátce, ať se SHIP.md vejde na stránku
+        score_line += "\nOtevřené připomínky: žádné."
 
     pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
     md = f"""{BRAND}
@@ -1515,7 +1611,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
 - **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} (target repo `{parts['target_repo']}`) — {origin_branch_state(wb['wt'], pr['branch'])}
-{f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or _no_gates_score(score, target, verdict)}
+{f"- **Rozsah**: {count(pr['loc_added'], 'přidaný řádek', 'přidané řádky', 'přidaných řádků')}" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or _no_gates_score(score, target, verdict)}
 
 ### Automatické kontroly ({pr['applicable']} z {pr['total']} aplikovatelných)
 
