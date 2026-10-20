@@ -1720,7 +1720,7 @@ def render_setup(s: WorktreeSetup) -> str:
 
 
 VOTE_HINT = ("Vyplň facilitátora, URL a hodnocení; tento klíč `_napoveda` vote ignoruje. "
-             "role_preferences: role_idx = pořadí role z Kickoffu, user_value/effort/risk/"
+             "role_preferences: role_idx = číslo role z katalogu 1–18 (docs/methodology/02-role-catalog.md), user_value/effort/risk/"
              "strategic_fit 0 až 1, rationale povinný (jedna věta). Zápis: "
              "`pflanzer vote --spec <tento soubor>`.")
 

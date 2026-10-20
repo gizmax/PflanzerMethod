@@ -177,7 +177,7 @@ def list_feedback(slug: str, variant: str | None = None) -> list[dict[str, Any]]
 
 
 ADD_EXAMPLE = ('pflanzer feedback add --slug moje-appka --variant A --role Bezpečnost '
-               '--severity major --text "Export nemá kontrolu oprávnění" --author Lucie')
+               '--severity major --text "Export nemá kontrolu oprávnění" --by Lucie')
 
 
 def _counts(rows: list[dict[str, Any]]) -> str:
@@ -219,7 +219,8 @@ def main() -> None:
                    help="Krok cesty nebo role, např. \"Bezpečnost\", \"Design\", \"Provoz\"")
     a.add_argument("--severity", required=True, help="critical | major | minor")
     a.add_argument("--text", required=True, help="Co je špatně / co chybí (povinné)")
-    a.add_argument("--author", help="Kdo to řekl (default: git user)")
+    a.add_argument("--author", "--by", dest="author",
+                   help="Kdo to řekl (jméno zástupce; bez něj se vezme git user)")
     a.add_argument("--category", default="general")
     a.add_argument("--score", type=float, help="hodnocení 0–1, vyšší = lepší (default dle závažnosti)")
     a.add_argument("--ai-only", action="store_true", help="Feedback od AI persony (skóre max 0.5)")
@@ -240,6 +241,9 @@ def main() -> None:
             )
             lines = [f"Varianta {res['variant']}, krok {res['department']}, "
                      f"{severity_label(res['severity'])}, autor {res['submitted_by']}"]
+            if not args.author:
+                lines.append(f"Autor je git user ({res['submitted_by']}), ne zástupce kroku — "
+                             "za někoho jiného zapiš `--by \"Jméno\"`.")
             if not res["role_matched"]:
                 lines.append("Role v projektu nenalezena — uloženo jen jako oddělení.")
             if res["severity"] == "critical":

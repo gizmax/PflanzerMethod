@@ -73,6 +73,26 @@ def checkpoint_rows(slug: str) -> list[dict[str, Any]]:
         return []
 
 
+def signature_conditions(slug: str) -> list[dict[str, str]]:
+    """Podmínky z podepsaných oken (`checkpoint --conditions`); bez API / při chybě prázdný seznam."""
+    try:
+        from tool.cli import checkpoint as _cp
+        fn = getattr(_cp, "signature_conditions", None)
+        return list(fn(slug)) if fn else []
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def conditions_checklist(slug: str) -> list[str]:
+    """`- [ ] CSRF (Bezpečnost, Lucie)` — jeden řádek na podmínku."""
+    out = []
+    for c in signature_conditions(slug):
+        label = _WINDOW_LABELS.get(c["window"], c["window"].capitalize())
+        who = f", {c['by']}" if c.get("by") else ""
+        out.append(f"- [ ] {c['text']} ({label}{who})")
+    return out
+
+
 _WINDOW_LABELS = {"zadani": "Zadání", "design": "Design", "bezpecnost": "Bezpečnost", "provoz": "Provoz",
                   "pravo": "Právo", "data": "Data", "podpora": "Podpora"}
 

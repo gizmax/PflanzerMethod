@@ -843,7 +843,7 @@ def base_gates_adapter(worktree: Path, target_branch: str) -> dict[str, Any]:
     from tool.cli.quality_gates import ADAPTER_FILENAMES  # lazy: quality_gates imports extract
 
     out: dict[str, Any] = {"adapter_path": None, "base_ref": None, "name": None,
-                           "tmp_dir": None, "warnings": []}
+                           "tmp_dir": None, "warnings": [], "infos": []}
     base_content: bytes | None = None
     # Best effort: čerstvá base branch (lokální origin/<branch> může být pozadu); bez sítě nevadí.
     try:
@@ -890,10 +890,17 @@ def base_gates_adapter(worktree: Path, target_branch: str) -> dict[str, Any]:
                 f"`{out['base_ref']}:{out['name']}`; gates běží s verzí z base)."
             )
     if base_content is not None and not (worktree / out["name"]).is_file():
-        out["warnings"].append(
-            f"adapter modified in variant branch — ignored (`{out['name']}` ve variant "
-            "branchi smazán; gates běží s verzí z base)."
-        )
+        # Větev adaptér nikdy neměla (vznikl v base až po jejím založení) != větev ho smazala.
+        rc_log, log = _git_out(worktree, "log", "--oneline", "-n", "1", "HEAD", "--", out["name"])
+        if rc_log == 0 and not log.strip():
+            out["infos"].append(
+                f"adaptér z {out['base_ref']} (`{out['name']}` ve větvi zatím není — merge main)."
+            )
+        else:
+            out["warnings"].append(
+                f"adapter modified in variant branch — ignored (`{out['name']}` ve variant "
+                "branchi smazán; gates běží s verzí z base)."
+            )
     return out
 
 

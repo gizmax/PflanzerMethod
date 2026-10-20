@@ -82,6 +82,13 @@ export type ProjectDetail = {
   decider_name?: string | null;
   /** jméno PdM (zástupce kroku Produkt), pokud je to člověk */
   pm_name?: string | null;
+  /** krok s AI náhradou -> člověk, který AI draft skutečně podepíše (ne vždy PdM) */
+  confirmers?: Record<string, string>;
+  /** kroky s AI náhradou, u kterých tým určil podepisujícího (ai_signers z Kickoffu) */
+  ai_signers?: Record<string, string>;
+  /** rozhodnutí z Rozhodnutí (Go/Iterate/Kill): vítěz a důvod */
+  decision?: { decision: string; winner: string | null; rationale: string | null;
+    decider: string | null; below_commitment?: number | null } | null;
   core?: string[];
   shortlist?: string[];
   async_deadline?: string | null;

@@ -39,7 +39,10 @@ export default function ProjectPage() {
   const inAsync = project.status === "session_1";
   const task = buildTask(data, identity, range,
     data.async_deadline ? formatDate(data.async_deadline) : null, project.slug);
-  const confirmer = firstName(data.pm_name);
+  const confirmers = data.confirmers ?? {};
+  const decision = data.decision;
+  const chosen = project.status === "handoff" && decision?.decision === "go" && decision.winner
+    ? decision : null;
   const killed = project.status === "killed";
   const login = previewLoginText(data);
   const hyp = project.xyz_hypothesis ? splitHypothesis(project.xyz_hypothesis, data.risk_profile) : null;
@@ -52,16 +55,28 @@ export default function ProjectPage() {
       </header>
 
       {!identity ? (
-        <IdentityPicker owners={owners} onPick={setIdentity} />
+        <IdentityPicker owners={owners} aiSigners={data.ai_signers} onPick={setIdentity} />
       ) : (
         <p className="text-sm text-muted">
           Jste přihlášen(a) jako <strong className="text-ink">{identity.name} · {identity.step}</strong>{" "}
           <button type="button" className="underline text-accent min-h-[44px] px-1" onClick={() => setIdentity(null)}>
             změnit
           </button>
+          <span className="block">Identita je jen deklarovaná; rozhodnutí a podpisy jdou jen přes CLI, hub přijímá jen feedback.</span>
         </p>
       )}
 
+      {chosen && (
+        <section className="pf-card border-accent space-y-2" aria-labelledby="won-h">
+          <h2 id="won-h">Vybrána varianta {chosen.winner}</h2>
+          {chosen.rationale && <p><Md text={chosen.rationale} /></p>}
+          {chosen.decider && <p className="text-sm text-muted">Rozhodl(a): {chosen.decider}</p>}
+          <p className="text-sm">
+            Další krok: tým připraví Ship (kontroly kvality, podpisy oken) a PR do repa. Feedback se
+            teď píše už jen jako připomínka k vítězi; rozhodnutí a podpisy hub nezapisuje.
+          </p>
+        </section>
+      )}
       {killed && (
         <section className="pf-card border-sev-critical space-y-2" aria-labelledby="kill-h">
           <h2 id="kill-h">Projekt byl ukončen</h2>
@@ -105,7 +120,9 @@ export default function ProjectPage() {
         </p>
       )}
       {!inAsync && !killed && variants.length > 0 && (
-        <Link to={`/${slug}/compare`} className="pf-button-secondary w-full sm:w-auto">Zobrazit varianty</Link>
+        <Link to={`/${slug}/compare`} className="pf-button-secondary w-full sm:w-auto">
+          {chosen ? `Zobrazit vítěze (${chosen.winner})` : "Zobrazit varianty"}
+        </Link>
       )}
 
       {hyp && (
@@ -130,7 +147,7 @@ export default function ProjectPage() {
             return (
               <li key={k} className="rounded-md border border-line px-3 py-2">
                 <span className="block text-sm text-muted">{label}</span>
-                <span className="font-semibold">{ownerLabel(owner, confirmer) ?? "— nepřiřazeno"}</span>
+                <span className="font-semibold">{ownerLabel(owner, firstName(confirmers[k])) ?? "— nepřiřazeno"}</span>
                 {me && <>{" "}<span className="pf-pill ml-1">to jste vy</span></>}
               </li>
             );

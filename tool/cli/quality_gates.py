@@ -1130,6 +1130,41 @@ def _node_strip_flag(node: str) -> str | None:
     return None
 
 
+_TS_RUNNER_RE = re.compile(r"\b(?:tsx|ts-node|ts-node-esm|esbuild-register)\b|--(?:import|loader|experimental-loader|require)\b")
+_MODULE_ERR_RE = re.compile(
+    r"ERR_MODULE_NOT_FOUND|Cannot find module|Unknown file extension [\"']?\.[cm]?ts|ERR_UNKNOWN_FILE_EXTENSION")
+
+
+def _ts_test_runner(script: str, node: str) -> list[str] | None:
+    """Prefix příkazu (bez `--test` a souborů) z `scripts.test`, který spouští .ts testy přes
+    tsx / ts-node / `--import tsx` / `--loader`: `tsx --test …`, `npx tsx --test …`,
+    `node --import tsx --test …`. None = script takový runner nepoužívá."""
+    import shlex
+    for seg in re.split(r"&&|\|\||;", script or ""):
+        if "--test" not in seg or not _TS_RUNNER_RE.search(seg):
+            continue
+        try:
+            toks = shlex.split(seg)
+        except ValueError:
+            continue
+        if "--test" not in toks:
+            continue
+        prefix = [t for t in toks[:toks.index("--test")] if not re.match(r"^\w+=", t)]
+        if not prefix:
+            continue
+        head = prefix[0]
+        if head == "node":
+            prefix[0] = node
+        elif head in ("tsx", "ts-node", "ts-node-esm"):
+            prefix = ["npx", "--no-install", *prefix]
+        elif head == "npx" and "--no-install" not in prefix and "--no" not in prefix:
+            prefix.insert(1, "--no-install")
+        elif head not in ("npx",):
+            continue
+        return prefix
+    return None
+
+
 def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
     """Akceptační testy v běžném test runneru projektu (node --test / pytest) — tak je
     buildeři píší nejčastěji. None = žádné takové testy (zkusí se Playwright)."""
@@ -1152,7 +1187,13 @@ def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
             node = os.environ.get("PFLANZER_NODE", "node")
             script = (getattr(st, "scripts", None) or {}).get("test", "")
             runnable = [f for f in files if re.search(r"\.test\.(?:[cm]?js|[cm]?ts)$", f)]
-            if re.search(r"\bnode\b[^&|;]*--test", script) and re.search(
+            ts_prefix = _ts_test_runner(script, node)
+            if ts_prefix is not None and runnable:
+                if (missing := _needs_deps(ctx, "acceptance")):
+                    return missing
+                files = runnable
+                rc, out, err = _run([*ts_prefix, "--test", *files], ctx.path, timeout=300)
+            elif re.search(r"\bnode\b[^&|;]*--test", script) and re.search(
                     r"acceptance|tests?/\*\*", script) and _has("npm"):
                 # `npm test` projektu je node --test a pokrývá tests/acceptance -> spustit jím
                 files = runnable or files
@@ -1173,6 +1214,14 @@ def _native_acceptance(ctx: Ctx, acc_dir: Path) -> GateResult | None:
                                     ctx.path, timeout=300)
             m_pass = re.search(r"^(?:#|ℹ) pass (\d+)", out, re.M)
             m_fail = re.search(r"^(?:#|ℹ) fail (\d+)", out, re.M)
+            if rc != 0 and _MODULE_ERR_RE.search(out + "\n" + err):
+                # selhal samotný runner (modul / přípona .ts), ne akceptační scénář -> ne FAIL
+                return _unverified(
+                    "acceptance", "test runner neumí načíst .ts moduly (ERR_MODULE_NOT_FOUND)",
+                    "akceptační testy nešly spustit stejným runnerem jako `npm test`; do "
+                    "pflanzer.gates.json přidejte adaptér acceptance.cmd, např. "
+                    "`npx --no-install tsx --test tests/acceptance/*.test.ts` "
+                    "(`pflanzer init gates-template`)\n" + _tail(out + err, 300))
     elif st.python:
         files = sorted(str(f.relative_to(ctx.path)) for f in acc_dir.rglob("test_*.py"))
         if not files:

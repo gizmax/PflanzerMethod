@@ -12,7 +12,8 @@ Rozhraní:
                                [--override-critical "důvod"] [--iterate-focus "…"]
                                [--variants A,B]   # jen Iterate: varianty druhého kola
                                [--checkpoint "Bezpečnost & právo: ok (Jana)"]...
-                               [--force]   # změna už zapsaného Go/Kill (jen s --rationale)
+                               [--force]   # změna už zapsaného Go/Kill; Go pod prahem commitmentu
+                                           # (jen s --rationale = důvod)
     pflanzer session_2 resolve --slug S --feedback-id N [N…] --by JMÉNO --note "…"
     (všechny příkazy mají --json pro strojový výstup; default je lidský výstup)
 
@@ -272,6 +273,23 @@ def _votes_summary(conn: Any, project_id: int) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------
 
 
+def _top_commitments(conn: Any, project_id: int) -> list[int]:
+    """Commitment úrovně (0–3) zástupců u vedoucí varianty Buildu (stejně jako `prep`)."""
+    sess1 = conn.execute(
+        "SELECT id FROM sessions WHERE project_id = ? AND type = 1", (project_id,)).fetchone()
+    if not sess1:
+        return []
+    top_variant = conn.execute(
+        "SELECT id FROM variants WHERE session_id = ? ORDER BY preference_score DESC LIMIT 1",
+        (sess1[0],)).fetchone()
+    if not top_variant:
+        return []
+    rows = conn.execute(
+        "SELECT commitment_level FROM role_preferences "
+        "WHERE variant_id = ? AND commitment_level IS NOT NULL", (top_variant[0],)).fetchall()
+    return [int(c[0]) for c in rows]
+
+
 def prep(slug: str) -> dict[str, Any]:
     """Příprava Rozhodnutí: agregace feedbacku + konflikty. Read-only."""
     agg = pull_aggregate(slug)
@@ -289,23 +307,7 @@ def prep(slug: str) -> dict[str, Any]:
         )
         session_mode = proj[5] or "parallel"
 
-        sess1 = conn.execute(
-            "SELECT id FROM sessions WHERE project_id = ? AND type = 1",
-            (project_id,),
-        ).fetchone()
-        commitments: list[int] = []
-        if sess1:
-            top_variant = conn.execute(
-                "SELECT id FROM variants WHERE session_id = ? "
-                "ORDER BY preference_score DESC LIMIT 1", (sess1[0],),
-            ).fetchone()
-            if top_variant:
-                commit_rows = conn.execute(
-                    "SELECT commitment_level FROM role_preferences "
-                    "WHERE variant_id = ? AND commitment_level IS NOT NULL",
-                    (top_variant[0],),
-                ).fetchall()
-                commitments = [int(c[0]) for c in commit_rows]
+        commitments = _top_commitments(conn, project_id)
         criticals = open_criticals(conn, project_id)
         resolved_crit = resolved_criticals(conn, project_id)
         iterate_used = conn.execute(
@@ -519,6 +521,24 @@ def record_decision(
                 f"`--override-critical \"důvod\"`."
             )
 
+        # Go pod prahem commitmentu: jen vědomě (--force + důvod), ať hláška „na Go stačí 60 %“
+        # a zápis Go nejsou ve sporu.
+        below_commitment: float | None = None
+        if decision == "go":
+            commits = _top_commitments(conn, project_id)
+            idx = sum(commits) / (3 * len(commits)) if commits else None
+            if idx is not None and idx < COMMITMENT_THRESHOLD - 1e-9:
+                below_commitment = round(idx, 3)
+                if not force:
+                    raise ValueError(
+                        f"Tým se za vedoucí variantu postaví jen z {idx:.0%}, na Go stačí "
+                        f"{COMMITMENT_THRESHOLD:.0%}. Nejdřív doplňte feedback "
+                        f"(`pflanzer feedback_pull --slug {slug}`), nebo Decider jde do Go vědomě: "
+                        f"`pflanzer session_2 decide --slug {slug} go --winner {winner} --force "
+                        f"--rationale \"proč Go i pod prahem\"` (důvod půjde do decision logu).")
+                rationale = (f"[Go pod prahem commitmentu: {idx:.0%} < "
+                             f"{COMMITMENT_THRESHOLD:.0%}, vědomě přes --force] " + rationale)
+
         sess = conn.execute(
             "SELECT id FROM sessions WHERE project_id = ? AND type = 2", (project_id,),
         ).fetchone()
@@ -597,6 +617,7 @@ def record_decision(
                 "override_critical": override_critical,
                 "overridden_criticals": [c["id"] for c in criticals] if override_critical else [],
                 "forced": bool(force),
+                "below_commitment": below_commitment,
                 "checkpoints": checkpoints,
             },
         )
@@ -614,6 +635,7 @@ def record_decision(
         "new_status": new_status,
         "override_critical": override_critical,
         "open_critical_overridden": len(criticals) if override_critical else 0,
+        "below_commitment": below_commitment,
         "summary_path": display_path(summary_path),
         "decision_log_repo": repo_log,
         "next_step": _next_step_label(decision, slug, winner),
@@ -792,7 +814,10 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                                     out.get("critical_on_all_variants", False))
     if out.get("commitments_count"):
         lines.append(f"Jak moc se tým za vedoucí variantu postaví: {out['commitment_index']:.0%} "
-                     f"(na Go stačí {out['commitment_threshold']:.0%})")
+                     f"(na Go stačí {out['commitment_threshold']:.0%}"
+                     + ("" if out["ready_for_decision"] else
+                        "; pod prahem jde Go jen vědomě přes `--force` s důvodem")
+                     + ")")
     for c in out["conflicts"][:1]:
         lines.append(f"Hlavní spor u varianty {c['variant']}: {c['role_a']['label']} vs. "
                      f"{c['role_b']['label']}")
@@ -820,6 +845,9 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
     lines = [f"Rozhodl: {out['decider']}"]
     if out.get("winner"):
         lines.append(f"Vítěz: {out['winner']}")
+    if out.get("below_commitment") is not None:
+        lines.append(f"Go pod prahem commitmentu ({out['below_commitment']:.0%} < "
+                     f"{COMMITMENT_THRESHOLD:.0%}) zapsáno vědomě přes --force; důvod je v decision logu.")
     if out.get("override_critical"):
         lines.append("Decider přebil "
                      + plural(out["open_critical_overridden"], "kritický", "kritické", "kritických")
@@ -879,7 +907,7 @@ def main() -> None:
     p_dec.add_argument("--checkpoint", action="append", default=[],
                        help="záznam checkpointu (opakovatelné), např. 'Bezpečnost & právo: ok (Jana)'")
     p_dec.add_argument("--force", action="store_true",
-                       help="změň už zapsané Go/Kill (vyžaduje --rationale)")
+                       help="změň už zapsané Go/Kill, nebo jdi do Go pod prahem commitmentu (vždy s --rationale)")
     p_dec.add_argument("--json", action="store_true")
 
     p_res = sub.add_parser("resolve", help="Označ critical feedback jako vyřešený")

@@ -210,8 +210,10 @@ def _node_presets(target: Path) -> dict[str, dict[str, Any]]:
             continue
         if next(acc.glob("*.test.*"), None) is not None and next(acc.glob("*.spec.*"), None) is None:
             glob = "tests/acceptance/*.test.*"
-            node_cmds.append(f"node --test {glob}" if d == target
-                             else f"(cd {rel(d)} && node --test {glob})")
+            runner = ("npx --no-install tsx --test" if "tsx" in _pkg_deps(_p)
+                      or "tsx" in all_deps else "node --test")
+            node_cmds.append(f"{runner} {glob}" if d == target
+                             else f"(cd {rel(d)} && {runner} {glob})")
         elif next(acc.glob("*.spec.*"), None) is not None:
             pw_dir = True
     if node_cmds:

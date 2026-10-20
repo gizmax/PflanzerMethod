@@ -44,6 +44,8 @@ export default function CompareVariants() {
   }
 
   const killed = detail?.project.status === "killed";
+  const won = detail?.project.status === "handoff" && detail.decision?.decision === "go"
+    ? detail.decision.winner : null;
   const login = detail ? previewLoginText(detail) : null;
   return (
     <div className="space-y-6">
@@ -54,6 +56,13 @@ export default function CompareVariants() {
           Každou variantu otevřete, vyzkoušejte hlavní tok a napište, co vás zastaví.
         </p>
         {login && <p className="rounded-md bg-soft p-3 text-sm">{login}</p>}
+        {won && (
+          <div className="rounded-md border border-accent p-3 text-sm space-y-1">
+            <p><strong>Rozhodnutí padlo: vítězí varianta {won}.</strong></p>
+            {detail?.decision?.rationale && <p><Md text={detail.decision.rationale} /></p>}
+            <p>Další krok: Ship a PR (řeší tým). Feedback se píše už jen jako připomínka k vítězi.</p>
+          </div>
+        )}
         {killed && (
           <div className="rounded-md border border-sev-critical p-3 text-sm space-y-1">
             <p><strong>Projekt byl ukončen, feedback se už nesbírá.</strong>
@@ -65,7 +74,9 @@ export default function CompareVariants() {
 
       <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {variants.map((v) => {
-          const short = decided && shortlist.includes(v.name);
+          const isWinner = !!won && v.name === won;
+          const lost = !!won && v.name !== won;
+          const short = decided && !won && shortlist.includes(v.name);
           const hasPreview = !!v.prototype_url;
           return (
             <li key={v.id}>
@@ -74,6 +85,8 @@ export default function CompareVariants() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id={`v-${v.id}`}>Varianta {v.name}</h2>
                   {short && decided && <span className="pf-pill">V užším výběru</span>}
+                  {isWinner && <span className="pf-pill">Vítěz</span>}
+                  {lost && <span className="pf-pill">Nebyla vybrána</span>}
                 </div>
                 <p className="text-sm text-muted">Varianta k rozhodnutí — není hotový produkt.</p>
                 {v.description_md && <p className="text-sm"><Md text={v.description_md} /></p>}
@@ -100,9 +113,10 @@ export default function CompareVariants() {
                 </p>
 
                 <div className="mt-auto flex flex-col gap-2">
-                  {!killed && (
+                  {!killed && !lost && (
                     <Link to={`/${slug}/feedback/${v.id}`} className="pf-button w-full">
-                      {v.my_feedback ? "Dát další feedback" : "Dát feedback"}
+                      {isWinner ? "Napsat připomínku k vítězi"
+                        : v.my_feedback ? "Dát další feedback" : "Dát feedback"}
                     </Link>
                   )}
                   {hasPreview && (
