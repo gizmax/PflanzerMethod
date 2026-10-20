@@ -34,7 +34,7 @@ Zástupci tam u každé varianty kliknou na preview a zapíšou feedback.
 zapíše ho přímo (ty to můžeš udělat za něj podle jeho slov):
 
 ```bash
-pflanzer feedback add --slug <slug> --variant A --role <krok/role> \
+pflanzer feedback add --slug <slug> --variant A --role <krok/role> --by "<jméno autora>" \
   --severity critical|major|minor --text "<co a proč>"
 pflanzer feedback list --slug <slug>
 ```

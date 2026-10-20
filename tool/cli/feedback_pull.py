@@ -33,7 +33,7 @@ BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 NO_FEEDBACK_MSG = (
     "Zatím žádný feedback. Zástupci ho píšou v hubu, nebo ho zapiš za ně: "
     "pflanzer feedback add --slug {slug} --variant {variant} --role \"Bezpečnost\" "
-    "--severity major --text \"co je špatně\"."
+    "--by \"Jméno\" --severity major --text \"co je špatně\"."
 )
 SEVERITY_ORDER = ("critical", "high", "medium", "low")
 # Kroky cesty (klíč v path_owners_json) -> zobrazený název a texty, kterými se píše oddělení.

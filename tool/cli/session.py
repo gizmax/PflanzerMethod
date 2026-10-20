@@ -481,6 +481,14 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
     summary_path = project_dir / "_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")
 
+    no_commit = [v.get("name", "?") for v in spec.get("votes", [])
+                 if not any(rp.get("commitment_level") is not None
+                            for rp in v.get("role_preferences", []))]
+    if no_commit:
+        warnings.append(
+            f"Chybí commitment_level u {', '.join(no_commit)} — bez něj Rozhodnutí Go neprojde "
+            f"(tým se musí za vítěze postavit aspoň ze 60 %). Doplň ho do specu (0 = nezapojím se, "
+            f"1 = jen připomínky, 2 = pomůžu, 3 = co-creation) a zapiš znovu `pflanzer vote --spec …`.")
     if len(no_url_variants) == 1:
         warnings.append(
             f"Varianta {no_url_variants[0]} nemá preview URL — zástupci v Asyncu nemají na co "
