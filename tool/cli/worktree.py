@@ -1719,6 +1719,46 @@ def render_setup(s: WorktreeSetup) -> str:
     return render(title, lines + _setup_warnings(s), nxt, tips_for_project(s.slug, "after_setup"))
 
 
+VOTE_HINT = ("Vyplň facilitátora, URL a hodnocení; tento klíč `_napoveda` vote ignoruje. "
+             "role_preferences: role_idx = pořadí role z Kickoffu, user_value/effort/risk/"
+             "strategic_fit 0 až 1, rationale povinný (jedna věta). Zápis: "
+             "`pflanzer vote --spec <tento soubor>`.")
+
+
+def vote_template(slug: str, variants: tuple[str, ...] | list[str]) -> dict[str, Any]:
+    """Předvyplněná šablona specu pro `pflanzer vote` (varianty projektu, prázdné URL)."""
+    return {
+        "_napoveda": VOTE_HINT,
+        "slug": slug,
+        "facilitator": "",
+        "votes": [{
+            "name": v, "builder": "claude-code", "description": "", "prototype_url": "",
+            "role_preferences": [{"role_idx": 1, "user_value": 0.5, "effort": 0.5, "risk": 0.5,
+                                  "strategic_fit": 0.5, "commitment_level": 1, "rationale": ""}],
+        } for v in variants],
+        "real_urls": {v: "" for v in variants},
+        "decider_call": {"shortlist": [], "rationale": "", "veto_register": [],
+                         "parking_lot": []},
+    }
+
+
+def write_vote_template(slug: str, mode: str, base: Path | None = None) -> Path | None:
+    """Zapíše `.pflanzer/specs/<slug>-vote.json`, pokud ještě neexistuje (nic nepřepisuje).
+
+    Vrací cestu, když soubor vznikl; None, když už byl (nebo nejde zapsat)."""
+    path = Path(base or Path.cwd()) / ".pflanzer" / "specs" / f"{slug}-vote.json"
+    if path.exists():
+        return None
+    variants = PARALLEL_VARIANTS if mode == "parallel" else MOB_VARIANTS
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(vote_template(slug, variants), ensure_ascii=False, indent=2)
+                        + "\n", encoding="utf-8")
+    except OSError:
+        return None
+    return path
+
+
 def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     lines = []
     for r in s.repos:
@@ -1756,8 +1796,11 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
         lines.append(f"Instalace závislostí selhala v {len(failed)} složce(ích) — "
                      f"zkus `{failed[0].get('cmd')}` ručně.")
     if s.mode == "mob":
+        from tool.cli.tier import MOB_ITERATIONS, QUICK_BUILD_MINUTES, project_tier
+        quick = project_tier(s.slug) == "quick" and MOB_ITERATIONS["quick"] == 1
         nxt = (f"`cd {_tilde(s.worktrees[0])} && claude` — MOB Build, max 5 lidí u 1 monitoru, "
-               "rotace 8 min, pauza po 25 min")
+               "rotace 8 min, "
+               + (f"1 kolo × {QUICK_BUILD_MINUTES} min (Quick)" if quick else "pauza po 25 min"))
     else:
         extra = "".join(f" --add-dir {o['worktrees']['A']}" for o in s.repos[1:] if "A" in o["worktrees"])
         nxt = (f"`cd {_tilde(first_path)} && claude{extra}` — varianta A; B a C stejně v sousedních "
@@ -1855,6 +1898,10 @@ def _dispatch(args: argparse.Namespace) -> None:
         s = setup(args.slug, install_deps=not args.no_install, mode=args.mode,
                   run_guard=not args.no_guard)
         title, lines, nxt = _setup_view(s)
+        tpl = write_vote_template(args.slug, s.mode)
+        if tpl:
+            lines.append(f"Šablona zápisu Buildu: `{tpl}` (vyplníš po Buildu, `pflanzer vote --spec`; "
+                         "necommituje se).")
         emit(_setup_json(s), title=title, lines=lines + _setup_warnings(s), next_step=nxt,
              tips=[] if args.json else tips_for_project(args.slug, "after_setup"),
              as_json=args.json)

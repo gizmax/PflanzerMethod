@@ -163,6 +163,11 @@ Agent zvládne produkční kód jen v repu, které ho udrží na uzdě. Musí b�
 Co chybí, `doctor` řekne i s radou. Nezačínejte Kickoff na „ne", pokud
 chybějící věc vědomě nepřijmete jako riziko.
 
+U **throwaway** dema je `docs/INTEGRATION_GUIDE.md` jen doporučení (⚠, Kickoff
+neblokuje) a chybějící CI či lockfile je jen informace. Risk profil se bere z
+projektu (`pflanzer doctor --slug <slug>`) nebo z `default_risk_profile` v
+`.pflanzer/project.toml`.
+
 ---
 
 ## C. Den po dni
@@ -174,7 +179,7 @@ chybějící věc vědomě nepřijmete jako riziko.
 | po Buildu | builder pushne 3 branche (z klonů `data/targets/<slug>-<X>`, ne z hlavního repa) → preview URL (se štítkem „k rozhodnutí, ne produkt") → pošle odkazy všem | — |
 | Async | zástupci klikají a komentují (`pflanzer hub`), builder zapracovává | `/pm feedback` |
 | Rozhodnutí | demo, top 3 spory, tiché hlasování, Decider poslední → Go / Iterate / Kill | `/pm decide` |
-| Ship | automatické kontroly jen na vítěze: pilot ≥ 80 / production ≥ 85 ze 100, checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |
+| Ship | automatické kontroly jen na vítěze: pilot ≥ 80 / production ≥ 85 ze 100 (throwaway: skóre informativně, Ship neblokuje), checkpoint provozu, PR do `main` | `/pm ship` → `/pm handoff` |
 
 **Okna se podepisují** jedním příkazem — `pflanzer checkpoint --slug <slug>
 bezpecnost|provoz --by "<jméno>" --note "…"`. Bez podpisu Ship pilotu
@@ -347,6 +352,10 @@ Po merge vítěze **`/pm retro <slug>`** změří, kolik kódu vítěze žije
 v produkci beze změny (cíl ≥ 80 %), za jak dlouho se dostal do produkce
 (cíl ≤ 14 dní) a nastaví připomínky za 7, 30, 60 a 90 dní. Hlavní cesta
 končí Shipem, ale bez těchto čísel se metoda nedá zlepšovat.
+
+U **throwaway** dema se kód nepředává do produkce: handoff vyrobí jen `SHIP.md`
+a `README.md` (co ukázat, jak spustit, co je fake) a retro nepočítá přežití
+kódu ani T+30/60/90. Měří se jen metrika dema v jejím termínu (jedna připomínka).
 
 Aktualizace: `pflanzer update`.
 

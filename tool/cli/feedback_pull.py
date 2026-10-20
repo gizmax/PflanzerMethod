@@ -72,6 +72,28 @@ def silent_reps(conn: Any, project_id: int, feedback: list[dict[str, Any]]) -> l
             out.append({"step": key, "label": label, "name": name})
     return out
 
+def discovery_policy(tier: str | None, risk_profile: str | None) -> str:
+    """Jak přísně auditovat discovery debt: info (Quick/throwaway) | lean | full."""
+    if risk_profile == "throwaway" or tier == "quick":
+        return "info"
+    return "full" if tier == "full" else "lean"
+
+
+def _tier_and_risk(conn: Any, project_id: int) -> tuple[str | None, str | None]:
+    tier = risk = None
+    try:
+        row = conn.execute("SELECT tier FROM projects WHERE id = ?", (project_id,)).fetchone()
+        tier = row[0] if row and row[0] else None
+    except Exception:  # noqa: BLE001 — starší DB bez sloupce tier
+        pass
+    try:
+        from tool.cli.triage import load_risk_profile
+        risk = load_risk_profile(conn, project_id)
+    except Exception:  # noqa: BLE001
+        pass
+    return tier, risk
+
+
 def aggregate(slug: str) -> dict[str, Any]:
     """Aggregate feedback for a project. Returns structured summary."""
     with transaction() as conn:
@@ -81,6 +103,7 @@ def aggregate(slug: str) -> dict[str, Any]:
         if not proj:
             raise ProjectNotFound(slug)
         project_id, name, status = int(proj[0]), proj[1], proj[2]
+        tier, risk = _tier_and_risk(conn, project_id)
 
         # Feedback ke všem variantám projektu (i po Iterate)
         cols = {r[1] for r in conn.execute("PRAGMA table_info(feedback)")}
@@ -195,6 +218,9 @@ def aggregate(slug: str) -> dict[str, Any]:
         "project_name": name,
         "project_status": status,
         "project_phase": phase,
+        "tier": tier,
+        "risk_profile": risk,
+        "discovery_policy": discovery_policy(tier, risk),
         "feedback_count": len(feedback),
         "by_severity": dict(by_severity),
         "by_department": dept_avg,
@@ -362,6 +388,9 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
         lines.append("Ještě bez feedbacku: " + ", ".join(f"{r['label']} ({r['name']})"
                                                         for r in silent))
     warns = []
+    if agg.get("discovery_policy") == "info":
+        lines.append("Discovery: u dema se nevyžaduje (persona, JTBD ani OST); pro pilot je "
+                     "doplňte a ověřte s reálným uživatelem. Jen informace, neblokuje.")
     if agg["ai_only_ratio"] > 0.5:
         warns.append(f"{agg['ai_only_ratio']:.0%} feedbacku píše AI persona, ne lidé — "
                      "před Rozhodnutím zkus rozhovor se skutečným uživatelem.")

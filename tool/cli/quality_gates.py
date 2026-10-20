@@ -280,7 +280,7 @@ def _has(tool: str) -> bool:
 
 def _run(cmd: list[str] | str, cwd: Path, timeout: int = 120) -> tuple[int, str, str]:
     # Řetězec (adapter `cmd`) jde přes shell (`&&`, env proměnné, wrappery); seznam zůstává exec-style.
-    env = {**os.environ, "CI": "1", "FORCE_COLOR": "0", "NO_COLOR": "1"}
+    env = {**os.environ, **apprun.venv_env(cwd), "CI": "1", "FORCE_COLOR": "0", "NO_COLOR": "1"}
     try:
         res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                              timeout=timeout, env=env, shell=isinstance(cmd, str))

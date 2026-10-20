@@ -86,7 +86,7 @@ pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
 Ukaž lidský výstup toolu a předej jeho **Doporučení**. Rozhodnutí +
 rationale, vítěz, počet critical, cesta k decision logu.
 
-**Poděkuj poraženým variantám nahlas** (jméno autora a co dobrého přinesly);
+**Jsou-li poražené varianty** (parallel A/B/C; v mob mode je jedna společná varianta, tam toto přeskoč), **poděkuj jim nahlas** (jméno autora a co dobrého přinesly);
 jejich nápady jdou do parking lotu, ne do koše. Ať vývojáři nesmažou větve
 dřív, než PR vítěze projde.
 

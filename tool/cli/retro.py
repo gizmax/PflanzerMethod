@@ -154,6 +154,15 @@ def _parse_ts(value: Any) -> datetime | None:
     return dt
 
 
+def is_throwaway(conn: sqlite3.Connection, project: dict[str, Any]) -> bool:
+    """Throwaway demo: nejde do produkce, takže se neměří přežití LOC ani T+30/60/90."""
+    try:
+        from tool.cli.triage import load_risk_profile
+        return load_risk_profile(conn, int(project["id"])) == "throwaway"
+    except Exception:  # noqa: BLE001
+        return project.get("throwaway_or_evolve") == "throwaway"
+
+
 def _go_date(conn: sqlite3.Connection, project_id: int) -> tuple[datetime | None, str]:
     """Return (Rozhodnutí GO timestamp, source).
 
@@ -880,7 +889,9 @@ def build_report(slug: str) -> dict[str, Any]:
                            "state": state})
 
     killed = _project_killed(project)
-    return {"project": project, "go_dt": go_dt, "go_source": go_source,
+    with transaction() as conn:
+        throwaway = is_throwaway(conn, project)
+    return {"throwaway": throwaway, "project": project, "go_dt": go_dt, "go_source": go_source,
             "rows": rows, "checks": checks, "milestones": milestones,
             "primary": _primary_metric(project, latest),
             "ai_stand_ins": ai_stand_in_share(project),
@@ -927,10 +938,43 @@ def render_killed_report_md(slug: str, data: dict[str, Any]) -> str:
 """
 
 
+def render_throwaway_report_md(slug: str, data: dict[str, Any]) -> str:
+    """Retro throwaway dema: jen metrika/kill v termínu, bez přežití LOC a T+30/60/90."""
+    p = data["project"]
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    _proj, _start, _src, items = _reminder_items(slug, None) if data["go_dt"] else (p, None, "", [])
+    due = items[0] if items else None
+    measured = [r for r in data["rows"] if r["milestone"] != "ship"]
+    rows_md = "\n".join(f"- `{r['metric']}` = {_fmt_value(r['value'], r['unit'])}"
+                        f" ({_md_cell(r['evidence_url'])})" for r in measured) or "_Zatím bez dat._"
+    due_md = (f"{due['due'].isoformat()} — {due['deliverable']}\n  Zápis: `{due['record_cmd']}`"
+              if due else "_Termín se určí podle data Rozhodnutí (Go)._")
+    return f"""{BRAND_LINE}
+
+# Retro (throwaway demo) — {p['name']}
+
+> Slug: `{p['slug']}` · Vygenerováno: {now} · Stav projektu: `{p['status']}`
+> Throwaway kód nejde do produkce, proto se neměří přežití kódu (LOC)
+> ani čtení T+30/60/90. Měří se jen metrika dema v jejím termínu.
+
+**{_primary_line(data['primary'])}**
+
+## Metrika dema
+
+{due_md}
+
+## Zapsané hodnoty
+
+{rows_md}
+"""
+
+
 def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
     data = data or build_report(slug)
     if data.get("killed"):
         return render_killed_report_md(slug, data)
+    if data.get("throwaway"):
+        return render_throwaway_report_md(slug, data)
     p = data["project"]
     go_dt = data["go_dt"]
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -1159,8 +1203,10 @@ def _reminder_items(
             "Datum Rozhodnutí (Go) v DB není. Zadej `--from YYYY-MM-DD`."
         )
     owners = _owners(slug, project)
+    with transaction() as conn:
+        throwaway = is_throwaway(conn, project)
     items = []
-    for m in MILESTONES:
+    for m in ([] if throwaway else MILESTONES):
         owner, source = owners[m]
         metrics = RECOMMENDED_METRICS[m]
         first_metric = next(iter(metrics))
@@ -1177,7 +1223,7 @@ def _reminder_items(
                            f"--evidence <URL>"),
         })
     hz = metric_horizon_days(project)
-    if hz and hz[0] not in MILESTONE_DAYS.values():
+    if hz and (throwaway or hz[0] not in MILESTONE_DAYS.values()):
         days, mtext = hz
         nearest = next((m for m in MILESTONES if MILESTONE_DAYS[m] >= days), MILESTONES[-1])
         # Měří se metrika projektu z Kickoffu (ne obecný rework z T+60).
@@ -1212,6 +1258,20 @@ def _reminder_items(
                            f"--milestone {nearest} --metric {metric} --value <N> "
                            f"--evidence <URL>"),
         })
+    if throwaway:
+        # Demo: jedna připomínka — metrika/kill v jejím termínu (nejbližší), jinak za 14 dní.
+        if items:
+            items = [min(items, key=lambda it: it["due"])]
+        else:
+            items = [{
+                "milestone": "demo14", "label": "Vyhodnocení dema",
+                "due": start + timedelta(days=TARGET_DAYS_TO_PROD),
+                "owner": owners["t30"][0], "owner_source": "throwaway demo",
+                "deliverable": "Vyhodnotit metriku dema z Kickoffu: platí, nebo Kill",
+                "metrics": ["demo_metric"],
+                "record_cmd": (f"pflanzer retro record --slug {slug} --milestone t7 "
+                               f"--metric demo_metric --value <N> --evidence <URL>"),
+            }]
     items.sort(key=lambda it: it["due"])
     return project, start, start_source, items
 
@@ -1413,6 +1473,21 @@ def main() -> None:
                      as_json=getattr(args, "json", False))
                 return
         if args.cmd == "measure":
+            with transaction() as _c:
+                _proj = _load_project(_c, args.slug)
+                _throw = is_throwaway(_c, _proj)
+            if _throw:
+                _p, _st, _src, _its = _reminder_items(args.slug, None)
+                it = _its[0]
+                emit({"slug": args.slug, "throwaway": True, "measured": False},
+                     title=f"Retro: měření {args.slug} — throwaway",
+                     lines=["Throwaway demo nejde do produkce, takže se neměří, kolik kódu "
+                            "přežilo (LOC), ani čtení T+30/60/90.",
+                            f"Změř jen metriku dema v jejím termínu ({it['due'].isoformat()}): "
+                            f"{it['deliverable']}."],
+                     next_step=f"`{it['record_cmd']}`",
+                     tips=tips(args.slug, "retro", {}), as_json=args.json)
+                return
             out = measure(slug=args.slug, pr_url=args.pr_url,
                           merge_commit=args.merge_commit, base=args.base,
                           repo_path=args.repo_path, winner=args.winner,
@@ -1470,6 +1545,16 @@ def main() -> None:
             path, data, md = write_report(args.slug, args.out)
             if args.md:
                 print(md)
+            elif data.get("throwaway"):
+                out = {"slug": args.slug, "report_path": _display(path), "throwaway": True,
+                       "outcome_rows": len(data["rows"])}
+                lines = ["Throwaway demo: neměří se přežití kódu ani T+30/60/90, jen metrika "
+                         "dema v termínu.", _primary_line(data["primary"]),
+                         f"Report: {_display(path)}"]
+                emit(out, title=f"Retro (throwaway): {args.slug}", lines=lines,
+                     next_step=f"`pflanzer retro reminders --slug {args.slug} --format ics "
+                               f"--out {args.slug}-pripominka.ics`",
+                     tips=tips(args.slug, "retro", {}), as_json=args.json)
             elif data.get("killed"):
                 bm = data["build_metrics"]
                 out = {"slug": args.slug, "report_path": _display(path), "killed": True,
@@ -1518,14 +1603,17 @@ def main() -> None:
                      tips=tips(args.slug, "retro", {}), as_json=args.json)
         elif args.cmd == "reminders":
             text = render_reminders(args.slug, args.format, args.from_date)
+            n_rem_txt = (f"{count(4, 'připomínka', 'připomínky', 'připomínek')}: T+7, T+30, T+60, T+90")
+            with transaction() as _c:
+                if is_throwaway(_c, _load_project(_c, args.slug)):
+                    n_rem_txt = "1 připomínka: metrika dema v termínu (throwaway)"
             if args.out:
                 path = Path(args.out).expanduser()
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8", newline="")
                 emit({"slug": args.slug, "format": args.format, "path": _display(path)},
                      title="Připomínky uloženy",
-                     lines=[f"Soubor {_display(path)} ({count(4, 'připomínka', 'připomínky', 'připomínek')}: "
-                            "T+7, T+30, T+60, T+90)",
+                     lines=[f"Soubor {_display(path)} ({n_rem_txt})",
                             "Importuj ho do kalendáře (ics), nebo ho předej Provozu a Produktu."],
                      next_step=f"`pflanzer retro report --slug {args.slug}`",
                      as_json=args.json)

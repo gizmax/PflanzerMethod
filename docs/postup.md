@@ -75,7 +75,8 @@ gantt
    critical na vítězi blokuje Go. Decision log jde do repa
    (`.pflanzer/decisions/<slug>.md`).
 5. **Ship (1–2 dny)** — vývojáři + provoz. Quality gates jen na vítěze,
-   práh pilot 80 / production 85 ze 100,
+   práh pilot 80 / production 85 ze 100 (throwaway: skóre informativně,
+   Ship neblokuje),
    20 min checkpoint provozu (rollback, kdo je na telefonu, první hodina),
    PR do repa produktu, deploy.
 

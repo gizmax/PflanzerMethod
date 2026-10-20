@@ -58,7 +58,8 @@ TIPS: dict[str, list[tuple[str | None, str]]] = {
         (None, "Každá varianta má jiný úhel — nemíchejte je."),
     ],
     "after_vote": [
-        (None, "Pošlete zástupcům 3 odkazy a termín Asyncu, ne víc."),
+        ("multi_variants", "Pošlete zástupcům odkazy na všechny varianty a termín Asyncu, ne víc."),
+        ("single_variant", "Pošlete zástupcům odkaz na společnou variantu a termín Asyncu, ne víc."),
         (None, "Hlasujte za to, co uvidí uživatel, ne za kód. Důvod jednou větou."),
     ],
     "async": [
@@ -351,6 +352,8 @@ def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
     conditional = [t for c, t in items if c and ctx.get(c)
                    and not (throwaway and c in _HUMAN_SIGN_CONDITIONS)]
     generic = [t for c, t in items if c is None]
+    if ctx.get("mob"):   # jediná společná varianta: žádní poražení, nikomu se nepoděkuje „za poražené“
+        generic = [t for t in generic if "Poraženým" not in t]
     ordered = conditional + [t for t in generic if t not in conditional]
     if seen is not None:
         shown = {_norm(t) for t in seen}
@@ -380,6 +383,13 @@ def tips_for_project(slug: str, phase: str, ctx: dict[str, Any] | None = None,
                 if load_risk_profile(conn, pid) == "throwaway":
                     ctx = {**(ctx or {}), "throwaway": True}
             except Exception:  # noqa: BLE001 — advisory
+                pass
+            try:
+                mode = conn.execute("SELECT session_mode FROM projects WHERE id = ?",
+                                    (pid,)).fetchone()
+                if mode and mode[0] == "mob":
+                    ctx = {**(ctx or {}), "mob": True}
+            except Exception:  # noqa: BLE001 — starší DB bez sloupce
                 pass
             seen: set[str] = set()
             for r in conn.execute(

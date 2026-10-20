@@ -26,6 +26,10 @@ zvlášť (jiný den, Decider si vezme okno).
 
 ## Postup
 
+0. **Projekt už existuje?** (`pflanzer status --slug <slug>`): Kickoff proběhl nebo byl
+   blokován a po odblokování pokračuješ — **neopakuj Kickoff** a nedoporučuj `/pm build`;
+   pokračuj tímto příkazem (`/pm live <slug>`) krokem 2. Build hotový a chybí jen zápis
+   (`pflanzer vote`) → rovnou krok 3, ne restart Buildu.
 1. **Kickoff** — přečti `.claude/commands/pflanzer-charter.md` a proveď ho
    celý (doctor → sběr → spec zapsaný Write do
    `.pflanzer/specs/<slug>-kickoff.json` →

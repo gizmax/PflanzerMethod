@@ -21,6 +21,20 @@ nasbíraném mezi Session 1 a Session 2.
 - `data/sessions/<slug>/_summary.md` — pro OST node mapping per varianta.
 - DB tabulka `feedback`: full rows pro hlubší analýzu (rationale text mining).
 
+## Stupeň a risk profil určují přísnost (čti PŘED skórováním)
+
+Načti `pflanzer feedback_pull --slug <slug> --json`: pole `tier`, `risk_profile`
+a `discovery_policy`. Audit respektuje, co projekt skutečně slíbil:
+
+| `discovery_policy` | Kdy | Co udělat |
+|--------------------|-----|-----------|
+| `info` | stupeň **Quick** nebo risk profil **throwaway** | Jen informace. Nikdy `critical`/`high`, žádné `blockers`, verdikt max `manageable`. Chybějící persona/JTBD/OST ani to, že zákazník neviděl preview, není dluh: napiš „u dema se discovery nevyžaduje; pro pilot doplňte …“ a vyjmenuj, co doplnit. |
+| `lean` | stupeň **Lean** | Posuzuj jen to, co Lean vyžaduje: dimenze 1, 2 a 4. Dimenze 3 (OST) a 5 (persona) jen jako doporučení. Skóre přepočti na 0-6 → 0-10. |
+| `full` | stupeň **Full** | Plný audit všech 5 dimenzí, tabulka níže platí včetně BLOCK. |
+
+U `info` vrať `"verdict": "manageable"`, `"blockers": []` a doporučení pro pilot
+do `recommendations`; skóre uveď jako informativní.
+
 ## Audit framework (5 dimenzí, score 0-2 každá; total 0-10)
 
 ### 1. Assumption-stated-as-fact ratio (0-2)
@@ -70,6 +84,8 @@ Score: 0 = žádná persona reference v rationale. 2 = ≥ 2 distinct persona
 references v posledních 30 dnech.
 
 ## Total skóre interpretace
+
+Tabulka platí plně jen pro `discovery_policy = full` (u `lean` omezeně, u `info` jen jako informace).
 
 | Score | Verdict | Akce |
 |-------|---------|------|

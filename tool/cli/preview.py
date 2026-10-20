@@ -750,10 +750,10 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
         except Exception:  # noqa: BLE001 — zápis URL nesmí shodit běžící preview
             stored[name] = False
     if not all(stored.values()):
-        warnings.append("URL se zatím nezapsala do DB u: "
-                        + ", ".join(n for n, ok in stored.items() if not ok)
-                        + " (Build ještě není zapsaný) — předejte je v `real_urls` při zápisu "
-                          "Buildu.")
+        notes.append("URL se zatím nezapsala do DB u: "
+                     + ", ".join(n for n, ok in stored.items() if not ok)
+                     + " (Build ještě není zapsaný) — při zápisu Buildu (`pflanzer vote`) je "
+                       "předejte v `real_urls`.")
     warnings.extend(skipped_repos)
     if host == "0.0.0.0":
         warnings.append("Preview je dostupné v celé síti přes HTTP bez šifrování; chrání ho jen "

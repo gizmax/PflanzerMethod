@@ -1147,6 +1147,17 @@ pflanzer handoff_pr --slug {slug} --pr-body | gh pr create \\
 
 def _measure_md(slug: str, pr: dict[str, Any]) -> str:
     """„Co měřit za 30 dní“ — jediné místo v SHIP.md, kde se mluví o retru."""
+    if pr["target"] <= 0:   # throwaway: žádné přežití LOC ani T+30/60/90, jen metrika dema
+        lines = []
+        for k, v in (("Hlavní metrika dema", pr["metrics"][0]), ("Ranná metrika", pr["metrics"][1])):
+            if v:
+                lines.append(f"- {k}: {v}")
+        if pr["kill"]:
+            lines.append(f"- Kill kritérium: {pr['kill']}")
+        lines.append("- Kód je throwaway a nejde do produkce, neměří se jeho přežití. Změř jen "
+                     f"metriku dema v jejím termínu; připomínka: `pflanzer retro reminders "
+                     f"--slug {slug} --format ics --out {slug}-pripominka.ics`")
+        return "## Co měřit u dema\n\n" + "\n".join(lines) + "\n"
     lines = [
         "- Kolik kódu vítěze přežilo v `main` a za kolik dní se dostal do produkce (cíl ≥ 80 %, "
         "≤ 14 dní). Po merge, z worktree vítěze: "
@@ -1207,7 +1218,9 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         changes.append(f"Vítěz {w[0]}" + (f" — {desc}" if desc else "."))
     changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
 
-    score_line = (pr["gates_summary"] or f"{score}/100") + f" (práh {target}) — {verdict}"
+    score_line = (pr["gates_summary"] or f"{score}/100") + (
+        " — Throwaway: skóre je informativní, Ship neblokuje" if target <= 0
+        else f" (práh {target}) — {verdict}")
     if len(pr.get("repos") or []) > 1 and pr.get("size_line"):
         score_line += f". Rozsah: {pr['size_line']}"
     elif pr["loc_added"] is not None:

@@ -16,6 +16,13 @@ TIER_LABELS = {"quick": "Quick", "lean": "Lean", "full": "Full"}
 WINDOW_DAYS = {"quick": "3", "lean": "3–5", "full": "5–7"}
 
 
+# Mob Build: počet iterací podle stupně. Quick = 1 kolo × 30 min stavby
+# (docs/methodology/00-lean-pflanzer.md § Tři stupně); Lean/Full 2 iterace (ADR-0016).
+# Jediný zdroj pravdy pro prompty, worktree i status.
+MOB_ITERATIONS = {"quick": 1, "lean": 2, "full": 2}
+QUICK_BUILD_MINUTES = 30
+
+
 RISK_PROFILE_NAMES: tuple[str, ...] = ("throwaway", "pilot", "production")
 
 
@@ -70,6 +77,23 @@ def infer_tier(conn: Any, project_id: int, capacity_profile: str | None) -> str:
     # Legacy quick bootstrap stored `production` as capacity_profile='regulated'.
     risk = "production" if capacity_profile == "regulated" else None
     return default_tier(capacity_profile, quick_bootstrap=bool(quick), risk_profile=risk)
+
+
+def project_tier(slug: str) -> str:
+    """Stupeň projektu z DB (`projects.tier`), jinak odvozený; neznámý projekt -> lean."""
+    try:
+        from tool.cli.db import transaction
+        with transaction() as conn:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
+            sel = "id, capacity_profile" + (", tier" if "tier" in cols else "")
+            row = conn.execute(f"SELECT {sel} FROM projects WHERE slug = ?", (slug,)).fetchone()
+            if not row:
+                return "lean"
+            if len(row) > 2 and row[2] in TIERS:
+                return str(row[2])
+            return infer_tier(conn, int(row[0]), row[1])
+    except Exception:  # noqa: BLE001 — poradní údaj, nikdy neshodí příkaz
+        return "lean"
 
 
 TIER_MEANING = {

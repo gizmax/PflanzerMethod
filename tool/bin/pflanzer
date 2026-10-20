@@ -52,13 +52,27 @@ case "$SUB" in
   prompts)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" prompts "$@" ;;
   build)
+    # Varianty podle režimu projektu (parallel: A/B/C, mob: jedna společná `mob`); bez --slug obecně.
+    BSLUG=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --slug) BSLUG="${2:-}"; shift 2 || shift ;;
+        --slug=*) BSLUG="${1#--slug=}"; shift ;;
+        *) shift ;;
+      esac
+    done
+    VARIANTS="varianty projektu: A/B/C, u mob mode jedna \`mob\`"
+    if [ -n "$BSLUG" ]; then
+      MODE="$(PYTHONPATH="$ROOT" python3 -c 'import sys; from tool.cli.quick_session import project_session_mode; print(project_session_mode(sys.argv[1]))' "$BSLUG" 2>/dev/null || echo parallel)"
+      if [ "$MODE" = "mob" ]; then VARIANTS="varianta \`mob\` (mob mode, jeden společný worktree)"; else VARIANTS="varianty A/B/C"; fi
+    fi
     echo "**Pflanzer Method | pflanzer.cz/method**"
     echo ""
     echo "Build nemá jeden příkaz — vede ho /pm build (Claude Code). Kroky v terminálu:"
-    echo "  pflanzer worktree setup --slug S     # worktrees A/B/C (+ další repa projektu)"
-    echo "  pflanzer prompts --slug S            # prompty pro buildery (varianty A/B/C)"
+    echo "  pflanzer worktree setup --slug S     # worktrees: $VARIANTS (+ další repa projektu)"
+    echo "  pflanzer prompts --slug S            # prompty pro buildery ($VARIANTS)"
     echo "  pflanzer preview up --slug S         # spustí varianty s heslem a odkazy"
-    echo "  pflanzer vote --spec spec.json       # zápis Buildu (hlasování jádra)"
+    echo "  pflanzer vote --spec spec.json       # zápis Buildu (šablona: .pflanzer/specs/S-vote.json)"
     echo "Další krok vždy ukáže: pflanzer status" ;;
   help|-h|--help)
     echo "Pflanzer Method | pflanzer.cz/method"

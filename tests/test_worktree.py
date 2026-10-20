@@ -23,9 +23,10 @@ def _cli(monkeypatch: pytest.MonkeyPatch, *args: str) -> int:
 
 
 @pytest.fixture
-def setup_done(project: dict[str, Any], tmp_targets: Path,
+def setup_done(project: dict[str, Any], tmp_targets: Path, tmp_path: Path,
                monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
                ) -> dict[str, Any]:
+    monkeypatch.chdir(tmp_path)          # setup zapisuje šablonu vote specu do cwd
     rc = _cli(monkeypatch, "setup", "--slug", project["slug"], "--skip-install",
               "--no-guard", "--json")
     assert rc == 0
