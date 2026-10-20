@@ -10,6 +10,7 @@
 - Závislosti: <uv | pip + requirements.txt | poetry | pip-tools> (`<příkaz instalace>`)
 - Test/lint nástroje (`pytest`, `ruff`) deklaruj v `requirements-dev.txt` nebo dev závislostech — worktrees je jinak nenainstalují
 - Web framework: <FastAPI | Flask | Django | žádný (CLI / knihovna)>
+- FastAPI: formuláře (`Form(...)`) vyžadují `python-multipart` v závislostech; testy přes `TestClient` vyžadují `httpx` (dev závislost) a v `pytest.ini` `pythonpath = .` (jinak pytest nenajde `app`)
 - Spuštění lokálně: `<uvicorn app.main:app --reload | flask run | python manage.py runserver>`
 
 ```python

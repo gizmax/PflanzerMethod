@@ -567,6 +567,26 @@ def _fail_text(name: str, v: dict[str, Any], why: str) -> str:
             + "\n".join(f"    {ln}" for ln in (log or "(log je prázdný)").splitlines()))
 
 
+PERSONAL_DATA_NET_WARNING = (
+    "Projekt má osobní data (L3+): varianty běží v místní síti přes HTTP bez šifrování — "
+    "používejte jen testovací data, ne skutečné osobní údaje; mimo síť `--tunnel cloudflared` "
+    "(HTTPS).")
+
+
+def has_personal_data(slug: str) -> bool:
+    """Projekt s třídou dat L3/L4 (osobní údaje)? Bez DB / projektu False."""
+    try:
+        from tool.cli import db
+        conn = db.get_connection()
+        try:
+            row = conn.execute("SELECT data_class FROM projects WHERE slug = ?", (slug,)).fetchone()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 — varování nesmí shodit preview
+        return False
+    return bool(row) and str(row[0] or "").upper() in ("L3", "L4")
+
+
 def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
        host: str = "127.0.0.1", base_port: int = DEFAULT_BASE_PORT,
        deadline: str | None = None, timeout: float | None = None,
@@ -759,7 +779,9 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
                      + " (Build ještě není zapsaný) — při zápisu Buildu (`pflanzer record`) je "
                        "předejte v `real_urls`.")
     warnings.extend(skipped_repos)
-    if host == "0.0.0.0":
+    if host == "0.0.0.0" and has_personal_data(slug):
+        warnings.append(PERSONAL_DATA_NET_WARNING)
+    elif host == "0.0.0.0":
         warnings.append("Preview je dostupné v celé síti přes HTTP bez šifrování; chrání ho jen "
                         "heslo. Pro vzdálené zástupce použijte tunel.")
     if use_tunnel and any(v.get("tunnel_url") for v in state["variants"].values()):

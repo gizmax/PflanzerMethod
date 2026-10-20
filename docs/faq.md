@@ -295,6 +295,18 @@ Další možnosti: preview deploy firmy (Vercel / Netlify / review apps),
 draft PR (`pflanzer worktree preview --slug <slug>`) nebo nahrávka průchodu
 (`--mode playwright`). Podrobně: [`postup.md`](postup.md#kde-varianty-fyzicky-jsou).
 
+## API hubu
+
+Pro skripty a automatizaci (hub musí běžet, `pflanzer hub` / `pflanzer share`):
+
+- `GET /api/projects/<slug>/missing` — co v projektu ještě chybí,
+- `GET /api/projects/<slug>/windows` — stav oken k podpisu,
+- `GET` / `POST /api/projects/<slug>/votes` — hlasy jádra.
+
+Cesty jsou pod `/api/projects/`, **ne** pod `/method/` (to je webové rozhraní).
+Přihlášení heslem hubu přes HTTP Basic, jméno je libovolné (např.
+`curl -u pflanzer:HESLO http://adresa/api/projects/<slug>/windows`).
+
 ---
 
 ## Výjimky a přebití prahu

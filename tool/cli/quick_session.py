@@ -652,7 +652,9 @@ def bootstrap(
     if dc and dc not in ("L1", "L2", "L3", "L4"):
         raise ValueError(f"data_class „{data_class}“ není platná třída dat. Použij L1 až L4 "
                          "(L3 = osobní / citlivá data).")
-    if not dc and is_sensitive(personal_data=personal_data):
+    if is_sensitive(personal_data=personal_data) and dc not in ("L3", "L4"):
+        if dc:                          # explicitní nižší třída + osobní data: přepsat a varovat
+            warnings.append(f"personal_data: true znamená třídu dat aspoň L3 — {dc} přepsáno na L3.")
         dc = "L3"                       # osobní data = minimálně třída L3
     dc = dc or profile["data_class"]
     act = str(ai_act_tier or "").strip().lower() or profile["ai_act_tier"]
@@ -2213,7 +2215,8 @@ BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.
 
 BOOTSTRAP_EPILOG = """Pole specu (JSON):
   povinné:   hook, decider_name, risk_profile (throwaway | pilot | production; česky demo | pilot | ostre)
-  nepovinné: personal_data (true = osobní údaje; ostré + osobní data = Full), data_class (L1–L4),
+  nepovinné: personal_data (true = osobní údaje, třída dat aspoň L3; ostré + osobní data = Full),
+             data_class (L1–L4; s personal_data se nižší třída přepíše na L3),
              ai_act_tier, slug, title (krátký název ≤ 50 znaků), metric, kill_criteria,
              tier (quick | lean | full; bez něj se odvodí z risk_profile), core [jména],
              path_owners {byznys, produkt, design, vyvoj, bezpecnost, provoz}

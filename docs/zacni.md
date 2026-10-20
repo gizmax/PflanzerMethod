@@ -78,7 +78,8 @@ repa (`.pflanzer/decisions/<slug>.md`) — commitněte je. Spěcháte? `/pm live
 ### Jak vážné to je?
 
 Kickoff se ptá jen na tohle: **demo** (throwaway), **pilot**, nebo **ostré**
-(production), plus jestli jsou v datech osobní údaje. Stupeň Quick / Lean / Full,
+(production), plus jestli jsou v datech osobní údaje (`personal_data: true` znamená třídu dat aspoň L3 —
+nižší `data_class` se přepíše na L3 s varováním, takže pilot s osobními daty nikdy nedostane sloučené okno). Stupeň Quick / Lean / Full,
 okna, režim stavby a prahy se z toho odvodí; přebít je lze
 ([`faq.md`](faq.md#výjimky-a-přebití-prahu)). Práh Shipu: pilot ≥ 80, production
 ≥ 85 ze 100 (throwaway: skóre informativně, Ship neblokuje).

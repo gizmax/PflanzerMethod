@@ -825,6 +825,8 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
         risks.append(f"Ship pod prahem na odpovědnost Decidera ({override['decider']})")
     if overridden:
         risks.append("vědomě přebité kritické riziko")
+    if failed_gates:
+        risks.append(_failed_gates_text(failed_gates))
     if unverified:
         risks.append("neověřeno: " + ", ".join(gate_label(u["gate"]) for u in unverified))
     risks += [n[0].lower() + n[1:] if not n.startswith("Varování") else n for n in gate_notes or []]
@@ -1406,6 +1408,8 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         score_line += f" Rozsah: {pr['size_line']}."
     elif pr["loc_added"] is not None:
         score_line += f" Rozsah: +{pr['loc_added']} řádků."
+    if pr.get("failures"):
+        score_line += " " + _failed_gates_text(_failed_gates(pr["failures"])).capitalize() + "."
     if pr.get("gate_notes"):
         score_line += " " + "; ".join(pr["gate_notes"]).rstrip(".") + "."
     owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
