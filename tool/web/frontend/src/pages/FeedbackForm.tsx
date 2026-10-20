@@ -9,7 +9,7 @@ import { feedbackExample } from "../lib/task";
 import { vocative } from "../lib/identity";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
-const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+const SEVERITIES = ["critical", "high", "low"] as const;
 const WCAG: [string, string][] = [
   ["N/A", "Netýká se"], ["A", "Základní (A)"], ["AA", "Standardní (AA)"], ["AAA", "Nejvyšší (AAA)"],
 ];
@@ -158,7 +158,7 @@ export default function FeedbackForm() {
 
         <fieldset aria-describedby={errors.severity ? "sev-err" : undefined}>
           <legend className="pf-label">Jak závažné to je?</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             {SEVERITIES.map((s) => (
               <label key={s} htmlFor={`sev-${s}`}
                 className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-md border border-line p-3 has-[:checked]:border-2 has-[:checked]:border-accent has-[:checked]:bg-soft has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-accent">

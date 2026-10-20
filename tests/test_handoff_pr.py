@@ -110,11 +110,11 @@ def test_pr_body_and_ship_have_no_placeholders(shipped: dict[str, Any]) -> None:
     for text in (pr["body"], md):
         for ph in PLACEHOLDERS:
             assert ph not in text, f"placeholder {ph!r} v textu určeném lidem"
-    assert "Brány:" in pr["body"] and "/100" in pr["body"]
-    # 2 běžící brány -> poctivá jedna věta, ne tučně
-    assert pr["gates_summary"].startswith("100/100 jen ze 2 bran — orientační")
-    assert "NEOVĚŘENO: acceptance" in pr["gates_summary"]   # acceptance chybí = neověřeno
-    assert "**100/100" not in pr["body"]
+    assert "Brány:" in pr["body"] and " ze 100" in pr["body"]
+    # 2 běžící brány -> poctivě „orientační“, práh nelze potvrdit
+    assert pr["gates_summary"].startswith("**Skóre 100 ze 100 — práh 80 nelze potvrdit.**")
+    assert "Spočteno jen ze 2 bran — orientační." in pr["gates_summary"]
+    assert "akceptační testy" in pr["gates_summary"]   # acceptance chybí = neověřeno
 
 
 def test_shadow_pdm_falls_back_to_path_owner(shipped: dict[str, Any]) -> None:

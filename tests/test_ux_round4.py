@@ -48,7 +48,7 @@ def test_ship_after_kill_says_ship_impossible(voted: dict[str, Any], repo_cwd: P
     with pytest.raises(ValueError) as exc:
         session_3.hardening_run(slug=slug)
     msg = str(exc.value)
-    assert "Ship není možný" in msg and "retro lesson" in msg and "decide" not in msg
+    assert "skončil Killem" in msg and "retro lesson" in msg and "decide" not in msg
 
 
 def test_status_overview_skips_killed_and_shows_lessons(

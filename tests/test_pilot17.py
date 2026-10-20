@@ -331,12 +331,12 @@ def test_compliance_filled_from_legal_and_author_from_db(tmp_db: Path, bare_repo
         "risk_profile": "production", "path_owners": dict(OWNERS)})
     assert "by unknown" not in comp
     assert "**charter** by Karel Dvořák (Decider, Kickoff)" in comp
-    assert "- Lawful basis: čl. 6/1/b GDPR (podle podpisu okna Právo: Ondřej Beneš)" in comp
+    assert "- Právní základ: čl. 6/1/b GDPR (podle podpisu okna Právo: Ondřej Beneš)" in comp
     assert "doplnit (z Legal triage)" not in comp
     assert "jméno, telefon, číslo OP (L3, ze Security triage)" in comp
-    assert "zákazníci" in comp.split("Data subjects:")[1].split("\n")[0]
-    assert re.search(r"Retention: retence 30 dní", comp)
-    assert "- [x] DPIA finalized — podepsáno oknem Právo (Ondřej Beneš)" in comp
+    assert "zákazníci" in comp.split("Subjekty údajů:")[1].split("\n")[0]
+    assert re.search(r"Retence: retence 30 dní", comp)
+    assert "- [x] DPIA dokončeno — podepsáno oknem Právo (Ondřej Beneš)" in comp
 
 
 def _charter(**kw: Any) -> charter.CharterInput:
@@ -375,8 +375,8 @@ def test_feedback_counts_split_open_and_resolved() -> None:
             {"severity": "critical", "resolved_at": None},
             {"severity": "high", "resolved_at": None}]
     assert feedback._counts(rows[:1]) == "Kritické vyřešené 1"
-    assert feedback._counts(rows) == "Kritické otevřené 1, vyřešené 1, Vysoké 1"
-    assert feedback._counts([rows[2]]) == "Vysoké 1"
+    assert feedback._counts(rows) == "Kritické otevřené 1, vyřešené 1, Důležité 1"
+    assert feedback._counts([rows[2]]) == "Důležité 1"
 
 
 def test_feedback_pull_example_uses_variant_in_play(tmp_db: Path, bare_repo: Path) -> None:

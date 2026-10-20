@@ -105,10 +105,11 @@ def test_summary_line_one_short_sentence() -> None:
     res += [quality_gates.GateResult("coverage", "skipped", "SKIP: x (neusekni)"),
             quality_gates.GateResult("acceptance", "unsupported", "nic"),
             quality_gates.GateResult("a11y", "skipped", "SKIP: y")]
-    assert quality_gates.gates_summary_line(76, res) == \
-        "76/100 · 3 brány neběžely (coverage, acceptance, a11y)"
-    assert "coverage: x (neusekni)" in quality_gates.gates_summary_line(76, res, reasons=True)
-    assert quality_gates.gates_summary_line(100, res[:4]) == "100/100 jen ze 4 bran — orientační"
+    assert quality_gates.gates_summary_line(76, res) == (
+        "Skóre 76 ze 100. Spočteno nad 5 branami. "
+        "Neověřeno: pokrytí testy, akceptační testy, přístupnost.")
+    assert "pokrytí testy: x (neusekni)" in quality_gates.gates_summary_line(76, res, reasons=True)
+    assert "Spočteno jen ze 4 bran — orientační." in quality_gates.gates_summary_line(100, res[:4])
 
 
 # --- Python gates -------------------------------------------------------------------------
@@ -246,9 +247,9 @@ def test_ship_md_ai_stand_in_section_and_czech_labels(worktree_project: dict[str
         for old in ("Gates run", "Quality gates", "Audit trail", "Model family",
                     "<URL_PR>", "<PR_URL>"):
             assert old not in text
-    assert "## Co se mění" in body
-    assert "Rychlejší checkout pro B2B zákazníky" in body.split("## Výstup")[0]
-    assert "Vítěz A — Varianta A" in body.split("## Výstup")[0]
+    assert "<summary>Co se mění</summary>" in body
+    assert "Rychlejší checkout pro B2B zákazníky" in body.split("<summary>Výstup")[0]
+    assert "Vítěz A — Varianta A" in body.split("<summary>Výstup")[0]
     assert "gh pr view --json url" in md
 
 

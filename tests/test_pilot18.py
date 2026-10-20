@@ -72,7 +72,7 @@ def test_feedback_list_human_shows_text_sorted_and_resolved_apart(voted: dict[st
     title, lines, _nxt, _ctx = feedback._list_view(slug, rows)
     text = "\n".join(lines)
     assert "Platba padá" in text and "Drobnost v patičce" in text
-    assert f"#{major} B · Bezpečnost & právo (Jana Černá) · Vysoké · Přehled objednávek" in text
+    assert f"#{major} B · Bezpečnost & právo (Jana Černá) · Důležité · Přehled objednávek" in text
     # zkrácené na ~120 znaků, ne celé
     assert "Zapomenout moje údaje" not in text and "…" in text
     # pořadí critical -> major -> minor, vyřešené na konci
@@ -136,18 +136,18 @@ def test_open_remarks_reach_decision_log_ship_md_and_pr(
     with transaction() as conn:
         body = conn.execute("SELECT body_md FROM decisions WHERE type = 'handoff'").fetchone()[0]
     assert "### Otevřené připomínky k vítězi" in body
-    assert "(major, Petr, krok Design)" in body and "Drobnost v patičce" in body
+    assert "(Důležité, Petr, krok Design)" in body and "Drobnost v patičce" in body
     assert "Jen na poražené variantě" not in body
     assert "otevřené připomínky k vítězi (neblokuje)" in "\n".join(session_2._decision_view(out)[1])
 
     pr = handoff_pr.build_pr(slug)
-    assert "## Otevřené připomínky k vítězi" in pr["body"]
-    assert "- [ ] (major, Petr) Formulář odmítne objednávku bez nápisu" in pr["body"]
-    assert "- [ ] (minor, Eva) Drobnost v patičce" in pr["body"]
+    assert "<summary>Otevřené připomínky k vítězi (neblokují merge)</summary>" in pr["body"]
+    assert "- [ ] (Důležité, Petr) Formulář odmítne objednávku bez nápisu" in pr["body"]
+    assert "- [ ] (Drobné, Eva) Drobnost v patičce" in pr["body"]
     assert "Jen na poražené variantě" not in pr["body"]
     ship = handoff_pr.render_ship_md(slug)
     assert "## Otevřené připomínky k vítězi" in ship
-    assert "- [ ] (major, Petr) Formulář odmítne objednávku bez nápisu" in ship
+    assert "- [ ] (Důležité, Petr) Formulář odmítne objednávku bez nápisu" in ship
     # lidský výstup handoff_pr
     view = handoff_pr._human_ship_md(slug, repo_cwd / "SHIP.md")
     assert any("2 otevřené připomínky k vítězi (neblokuje)" in ln for ln in view["lines"])
@@ -157,7 +157,7 @@ def test_open_remarks_reach_decision_log_ship_md_and_pr(
     assert res["resolved_severity"][major] == "high" and len(res["open_remarks_left"]) == 1
     pr2 = handoff_pr.build_pr(slug)
     assert "Formulář odmítne objednávku" not in pr2["body"]
-    assert "(minor, Eva) Drobnost v patičce" in pr2["body"]
+    assert "(Drobné, Eva) Drobnost v patičce" in pr2["body"]
 
 
 def test_resolve_cli_accepts_major_feedback_id(

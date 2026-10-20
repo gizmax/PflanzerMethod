@@ -197,14 +197,14 @@ def test_threshold_override_records_and_marks_ready(
     assert "--draft" in ship_md
     assert "BLOKOVÁNO" not in ship_md
     body = handoff_pr.build_pr(slug)["body"]
-    assert "## Výjimka z prahu" in body and why in body
+    assert "<summary>Výjimka z prahu</summary>" in body and why in body
 
 
 def test_threshold_override_refused_when_score_meets_threshold(
         worktree_project: dict[str, Any], vote: Callable[..., Any]) -> None:
     # Score 100 >= threshold: nothing to override.
     vote(worktree_project["slug"], status="handoff")
-    with pytest.raises(ValueError, match="pod prahem"):
+    with pytest.raises(ValueError, match="Výjimku z prahu nepotřebuješ"):
         session_3.hardening_run(slug=worktree_project["slug"],
                                 override_threshold=True, override_rationale="zbytečné")
 

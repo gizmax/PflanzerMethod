@@ -50,10 +50,11 @@ export function phaseLabel(status: string): string {
 }
 
 export const SEVERITY: Record<string, { label: string; hint: string }> = {
-  critical: { label: "Kritické", hint: "Nesmí se nasadit (právo, bezpečnost, data, rozbitý hlavní tok)" },
-  high: { label: "Vysoké", hint: "Opravit před spuštěním" },
-  medium: { label: "Střední", hint: "Oprava v dalším kole" },
-  low: { label: "Nízké", hint: "Kosmetika" },
+  critical: { label: "Kritické (blokuje nasazení)", hint: "Nesmí se nasadit (právo, bezpečnost, data, rozbitý hlavní tok)" },
+  high: { label: "Důležité", hint: "Opravit před spuštěním" },
+  // medium se zobrazuje stejně jako low (starší záznamy); formulář nabízí jen critical/high/low
+  medium: { label: "Drobné", hint: "Kosmetika, oprava v dalším kole" },
+  low: { label: "Drobné", hint: "Kosmetika, oprava v dalším kole" },
 };
 
 export function formatDate(iso: string): string {

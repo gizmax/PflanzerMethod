@@ -78,7 +78,7 @@ def test_conditions_in_pr_body_ship_md_and_compliance(
     _vote(slug)
     session_2.record_decision(slug=slug, decision="go", winner="A", rationale="Jdeme")
     pr = handoff_pr.build_pr(slug)
-    assert "## Podmínky z podpisů oken" in pr["body"]
+    assert "<summary>Podmínky z podpisů oken</summary>" in pr["body"]
     assert "- [ ] CSRF (Bezpečnost, Lucie)" in pr["body"]
     assert "- [ ] čl. 13 (Bezpečnost, Lucie)" in pr["body"]
     md = handoff_pr.render_ship_md(slug)
@@ -108,7 +108,7 @@ def test_go_below_commitment_needs_force_with_reason(tmp_db: Path, bare_repo: Pa
     with transaction() as conn:
         body = conn.execute("SELECT body_md FROM decisions WHERE type = 'handoff' "
                             "ORDER BY id DESC LIMIT 1").fetchone()[0]
-    assert "Go pod prahem commitmentu" in body and "Zákazník čeká" in body
+    assert "Go pod prahem závaznosti" in body and "Zákazník čeká" in body
 
 
 def test_go_at_or_above_threshold_does_not_need_force(tmp_db: Path, bare_repo: Path) -> None:

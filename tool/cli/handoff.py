@@ -5,7 +5,7 @@ Po Go v Rozhodnutí (status='handoff') vygeneruje do výstupní složky
 1. `decision.md`      — shrnutí Kickoffu (ne kopie charteru) + decision log + ADR drafty
 2. `be.md`            — OpenAPI 3.1 stub, ERD placeholder, breaking-change registr
 3. `fe.md`            — component manifest delta, design tokens diff
-4. `qa.md`            — Gherkin scénáře + contract test skeleton + P2P checklist
+4. `qa.md`            — Gherkin scénáře + kontraktní testy + kontrolní seznam před produkcí
 5. `platform.md`      — sandbox spec + paved-road template + SLO archetyp
 6. `data.md`          — event taxonomy delta + plán měření
 7. `support.md`       — ticket prediction worksheet + deadline podkladů pro support
@@ -309,22 +309,22 @@ def regulation_text(ctx: dict[str, Any]) -> dict[str, str]:
     if is_financial(ctx):
         return {"attrib": "DORA / AI Act čl. 14 / GDPR čl. 22",
                 "attrib_short": "DORA",
-                "retention": "audit_log retention 7 let (DORA)",
-                "retention_note": "(DORA 7-letá retence enforced)",
-                "third_party": "DORA 3rd-party review",
-                "recipients": "z DORA 3rd-party register",
-                "ir_sla": "Incident response SLA ≤ 4 h: doplnit per vendor (DORA čl. 12)",
-                "concentration": "Provider concentration risk: doplnit (DORA čl. 28)",
-                "logging": "structured logs s atribucí, 7-letá retence (DORA)"}
+                "retention": "retence audit logu 7 let (DORA)",
+                "retention_note": "(DORA: 7letá retence se vynucuje)",
+                "third_party": "Kontrola třetích stran (DORA)",
+                "recipients": "z registru třetích stran (DORA)",
+                "ir_sla": "Reakce na incident do 4 h: doplnit u každého dodavatele (DORA čl. 12)",
+                "concentration": "Závislost na jednom dodavateli: doplnit (DORA čl. 28)",
+                "logging": "strukturované logy s atribucí, 7letá retence (DORA)"}
     return {"attrib": "AI Act čl. 14 / GDPR čl. 22",
             "attrib_short": "AI Act čl. 14",
-            "retention": "audit_log retence dle Legal triage (nástroj ukládá 7 let; upřesnit)",
+            "retention": "retence audit logu dle Legal triage (nástroj ukládá 7 let; upřesnit)",
             "retention_note": "(retenci určí Legal triage; nástroj ukládá 7 let)",
-            "third_party": "3rd-party review",
+            "third_party": "Kontrola třetích stran",
             "recipients": "z registru dodavatelů",
-            "ir_sla": "Incident response SLA: doplnit per vendor (dle smlouvy)",
+            "ir_sla": "Reakce na incident: doplnit u každého dodavatele (podle smlouvy)",
             "concentration": "Závislost na jednom dodavateli: doplnit",
-            "logging": "structured logs s atribucí, retence dle Legal triage"}
+            "logging": "strukturované logy s atribucí, retence dle Legal triage"}
 
 
 def stack_commands(local_path: str | None) -> tuple[str, str]:
@@ -345,6 +345,13 @@ def stack_commands(local_path: str | None) -> tuple[str, str]:
     if has("Makefile"):
         return "make", "make lint\nmake build\nmake test"
     return "unknown", "# stack nerozpoznán — použij příkazy z README / Makefile projektu"
+
+
+def _footer(ctx: dict[str, Any], role: str, section: str) -> str:
+    """Patička role handoffu: zdroj v katalogu rolí a čas vygenerování (malým písmem)."""
+    slug = ctx["project_tuple"][2]
+    return (f"\n---\n\n<sub>Zdroj: role „{role}“ v katalogu rolí (`02-role-catalog.md`, {section}). "
+            f"Projekt `{slug}`. Vygenerováno {_now()}.</sub>\n")
 
 
 def _who(ctx: dict[str, Any], step: str, role: str) -> str:
@@ -409,9 +416,9 @@ def render_be(ctx: dict[str, Any]) -> str:
     if top_variant:
         var_block = (
             f"### Top varianta\n\n"
-            f"- Name: `{top_variant['name']}` · Builder: `{top_variant['builder']}`\n"
-            f"- Preview: {top_variant['prototype_url']}\n"
-            f"- Score: {top_variant['preference_score']:.2f}\n"
+            f"- Název: `{top_variant['name']}` · Autor: `{top_variant['builder']}`\n"
+            f"- Náhled: {top_variant['prototype_url']}\n"
+            f"- Skóre: {top_variant['preference_score']:.2f}\n"
         )
         ext = ctx["extracted_by_variant"].get(top_variant["name"])
         if ext:
@@ -459,14 +466,22 @@ def render_be(ctx: dict[str, Any]) -> str:
         erd_md = (f"Ve větvi vítěze ({vname}) nástroj nenašel migrace ani modely dat. Ověří "
                   f"{be_owner}: pokud varianta data neukládá, napíše to sem; jinak doplní plán "
                   "migrace (dbml / erdantic) před merge do produkce.")
+    todo = [
+        f"Projděte trasy a schémata z kódu vítěze (varianta `{vname}`) a doplňte je do návrhu OpenAPI níže.",
+        "Ověřte, kam varianta ukládá data; podle toho dopište ERD a plán migrace.",
+        f"Sepište, kdo API volá, a zaveďte kontraktní testy (např. Pact). Seznam doplní {be_owner}.",
+        "Rozhodněte pět technických otázek v sekci „Architektonická rozhodnutí“ a zapište je jako ADR.",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# Backend handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 5 (Backend / API lead).
+## Co máte udělat
+
+{todo_md}
 
 {var_block}{extracted_block}
 
-## OpenAPI 3.1 stub
+## Návrh OpenAPI 3.1
 
 ```yaml
 openapi: 3.1.0
@@ -483,31 +498,33 @@ paths:
         '200': {{ description: ok }}
 ```
 
-## ERD placeholder
+## Datový model (ERD)
 
 {erd_md}
 
-## Breaking-change registr
+## Změny, které rozbijí klienty
 
-| Endpoint | Change | Consumer ownership | Migration plan |
-|----------|--------|--------------------|----|
-| _(none yet)_ | _(none)_ | _(none)_ | _(none)_ |
+| Endpoint | Změna | Kdo ho používá | Plán migrace |
+|----------|-------|----------------|--------------|
+| _(zatím žádná)_ | — | — | — |
 
-## Contract test skeleton (Pact)
+## Kontraktní testy (např. Pact)
 
-- Provider: {p[2]} BE
-- Consumers: seznam doplní {be_owner} (kdo volá API; z výstupu BE experta z Buildu)
-- Test framework: Pact / Schemathesis
-- CI gate: every PR runs contract tests against latest consumer pact
+Ověřují, že server vrací to, co klient čeká.
 
-## ADR drafty (3-5)
+- Poskytovatel API: backend projektu {p[2]}
+- Klienti: seznam doplní {be_owner} (kdo API volá; z výstupu BE experta z Buildu)
+- Nástroje: Pact nebo Schemathesis
+- Brána v CI: každý PR spustí kontraktní testy proti poslední verzi kontraktu klienta
 
-1. Choice of HTTP framework (FastAPI default per CLAUDE.md)
-2. Auth strategy (default: SSO + JWT, override per Charter)
-3. Error format (RFC 7807 Problem Details)
-4. Pagination strategy
-5. Idempotency keys pro write endpoints
-"""
+## Architektonická rozhodnutí (ADR, 3-5)
+
+1. Volba HTTP frameworku (výchozí FastAPI podle CLAUDE.md)
+2. Přihlašování (výchozí SSO + JWT, jinak podle zadání)
+3. Formát chyb (RFC 7807 Problem Details)
+4. Stránkování
+5. Klíče idempotence pro zápisové endpointy
+""" + _footer(ctx, "Backend / API lead", "§ 5")
 
 
 def render_fe(ctx: dict[str, Any]) -> str:
@@ -551,245 +568,285 @@ ze `SHIP.md` (`pflanzer handoff_pr --slug {p[2]}`).
     var_names = [v["name"] for v in ctx["variants"]] or ["A"]
     tokens_md = "\n".join(f"- {n}: % doplní {design_owner} při review (cíl > 90 %)"
                           for n in var_names)
+    fe_todo = [
+        ("Prototyp je jen reference: napište čistou implementaci, do produkce ho nepřenášejte."
+         if p[10] != "evolve" else
+         "Před merge do produkčního repa udělejte code review (FE + EM + bezpečnost)."),
+        f"Projděte `git diff --stat` ze `SHIP.md` a sepište nové, změněné a zrušené komponenty ({fe_owner}).",
+        f"Nechte {design_owner} doplnit podíl použitých design tokenů u každé varianty (cíl nad 90 %).",
+        "Spusťte kontrolu přístupnosti (axe-core) před merge; kritické a závažné nálezy blokují.",
+    ]
+    fe_todo_md = "\n".join(f"- {t}" for t in fe_todo)
     return f"""# Frontend handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 4 (Frontend / Vibe-coding lead).
+## Co máte udělat
 
-## Throw-away vs evolve directive
+{fe_todo_md}
 
-**`{p[10]}`** (per Charter, ADR-0005)
+## Prototyp, nebo základ produktu
+
+**`{p[10]}`** (podle zadání, ADR-0005)
 
 {'EVOLVE: vyžaduje code review (FE + EM + bezpečnost) před merge do produkčního repa.' if p[10] == 'evolve' else 'Throw-away: prototyp zůstává v sandboxu, do produkčního repa se NEPŘENÁŠÍ. Slouží jako reference pro čistou implementaci.'}
 {extracted_section}
 
 ## Vítězná varianta
 
-- Name: `{top['name'] if top else '—'}`
-- Builder: `{top['builder'] if top else '—'}`
-- Preview: {top['prototype_url'] if top else '—'}
+- Název: `{top['name'] if top else '—'}`
+- Autor: `{top['builder'] if top else '—'}`
+- Náhled: {top['prototype_url'] if top else '—'}
 
-## Component manifest delta
+## Změny v komponentách
 
 Nástroj komponenty nepočítá. {routes_line}
 Seznam nových / změněných / zrušených komponent doplní {fe_owner} při review PR
 (`git diff --stat` ze `SHIP.md` ukáže dotčené soubory).
 
-## Design tokens diff
+## Změny v design tokenech
 
 Podíl použitých design tokenů nástroj neměří. Per varianta ho doplní {design_owner}:
 
 {tokens_md}
 
-DS deviation list (s ownerem) — viz souhrn Buildu (`_summary.md`).
+Odchylky od design systému (s vlastníkem) jsou v souhrnu Buildu (`_summary.md`).
 
-## Figma↔commit lineage placeholder
+## Vazba návrhu na kód (Figma a commity)
 
-| Figma node ID | Commit hash | Date | Author |
-|---------------|-------------|------|--------|
-| _(populate post-implementation)_ | _(post-impl)_ | _(post-impl)_ | _(post-impl)_ |
+| Uzel ve Figmě | Commit | Datum | Autor |
+|---------------|--------|-------|-------|
+| _(doplnit po implementaci)_ | — | — | — |
 
-## A11y baseline (z A11y triage)
+## Přístupnost (z A11y triage)
 
-- WCAG 2.2 AA target
-- axe-core run report: doplnit (run pre-merge)
-- Critical/Serious findings = blocker
+- Cíl: WCAG 2.2 AA
+- Zpráva z axe-core: doplnit (spustit před merge)
+- Kritické a závažné nálezy blokují merge
 
-## Tech stack contract
+## Technické požadavky
 
-- Framework: per Charter / repo standard
-- ESLint + Prettier: enforced v CI
-- TypeScript strict mode: enabled
-"""
+- Framework: podle zadání nebo standardu repa
+- ESLint a Prettier: vynucené v CI
+- TypeScript ve striktním režimu
+""" + _footer(ctx, "Frontend / Vibe-coding lead", "§ 4")
 
 
 def render_qa(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     top = ctx["variants"][0] if ctx["variants"] else None
     reg = regulation_text(ctx)
+    vname = top["name"] if top else "A"
+    todo = [
+        "Projděte tři scénáře níže a nechte každý schválit člověkem dřív, než poběží v CI.",
+        f"Ověřte, že průchod flow zaznamená metriku „{clean_text(p[13])}“ (hlavní zpožděná metrika).",
+        "Zaveďte kontraktní testy mezi frontendem a backendem (např. Pact).",
+        f"Věnujte 90 minut průzkumnému testování varianty {vname} (chybové, prázdné a načítací stavy, pomalá síť).",
+        "Odškrtněte kontrolní seznam před přechodem z prototypu do produkce (9 položek).",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# QA handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 8 (QA / Test lead).
+## Co máte udělat
 
-## Acceptance criteria — BDD/Gherkin
+{todo_md}
+
+## Kritéria přijetí (scénáře ve formátu Gherkin)
 
 **Vítězná varianta**: `{top['name'] if top else '—'}` (`{top['builder'] if top else '—'}`)
 
+Gherkin je zápis testovacích scénářů do souboru `.feature`: „Pokud“ popisuje výchozí stav,
+„Když“ akci uživatele a „Pak“ očekávaný výsledek.
+
 ```gherkin
-Feature: {p[1]}
+# language: cs
+Funkcionalita: {p[1]}
 
-  Scenario: Happy path
-    Given valid input z persona
-    When uživatel projde flow
-    Then primary lagging metric ({clean_text(p[13])}) zaznamená event
+  Scénář: Hlavní cesta
+    Pokud uživatel zadá platné údaje
+    Když projde celým flow
+    Pak se zaznamená událost pro hlavní metriku ({clean_text(p[13])})
 
-  Scenario: Negative path — invalid input
-    Given invalid input
-    When uživatel zkusí submit
-    Then UI vrátí actionable error message (B1/B2 plain language)
-    And žádná data nejsou persisted
+  Scénář: Neplatné údaje
+    Pokud uživatel zadá neplatné údaje
+    Když formulář odešle
+    Pak chybová hláška řekne uživateli, co má udělat (jednoduchý jazyk, úroveň B1/B2)
+    A žádná data se neuloží
 
-  Scenario: Negative path — backend timeout
-    Given valid input
-    When BE response > 5s
-    Then UI ukáže loading state, pak fallback graceful
-    And retry button je dostupný
+  Scénář: Backend neodpovídá
+    Pokud uživatel zadá platné údaje
+    Když backend odpoví později než za 5 s
+    Pak se ukáže stav načítání a poté záložní zobrazení
+    A je dostupné tlačítko pro opakování
 ```
 
-> ⚠ Per role-catalog #8: **lidský review každého scénáře povinný před CI**
-> (LLM testuje implementaci, ne chování).
+> ⚠ Každý scénář musí před CI schválit člověk (podle katalogu rolí): AI testuje
+> implementaci, ne chování.
 
-## Contract test skeleton (Pact)
+## Kontraktní testy (např. Pact)
 
-- Consumer: FE
-- Provider: BE (per `be.md` handoff)
-- Pact framework
-- CI gate: every PR runs `pact-broker can-i-deploy`
+Ověřují, že frontend a backend se shodnou na tvaru dat.
 
-## P2P (Prototype-to-Prod) checklist (9 položek)
+- Klient: frontend
+- Poskytovatel: backend (viz `be.md`)
+- Brána v CI: každý PR spustí `pact-broker can-i-deploy`
 
-- [ ] Acceptance criteria reviewed + signed by PdM
-- [ ] Contract tests (Pact) zelené
-- [ ] A11y axe-core run pass (žádné Critical / Serious)
-- [ ] Security: SBOM (`cyclonedx`/`syft`) + CVE scan (Trivy/Snyk) clean
-- [ ] Secret scan (gitleaks) clean
-- [ ] Performance baseline meets SLO (z platform.md)
-- [ ] Measurement plan instrumented (z data.md)
-- [ ] Support docs ready D-7 (KB) → D-2 (makra) (z support.md)
-- [ ] Decision log atributed ({reg['attrib_short']}), {reg['retention']}
+## Před přechodem z prototypu do produkce (9 položek)
 
-## Exploratory test charter (90 min template)
+- [ ] Kritéria přijetí zkontroloval a podepsal produktový vlastník
+- [ ] Kontraktní testy (Pact) jsou zelené
+- [ ] Kontrola přístupnosti axe-core bez kritických a závažných nálezů
+- [ ] Bezpečnost: SBOM (`cyclonedx`/`syft`) a sken zranitelností (Trivy/Snyk) bez nálezů
+- [ ] Sken tajemství (gitleaks) bez nálezů
+- [ ] Výkon splňuje SLO (viz `platform.md`)
+- [ ] Měření je nasazené (viz `data.md`)
+- [ ] Podklady pro support jsou hotové 7 dní před spuštěním (znalostní báze) a 2 dny před (makra); viz `support.md`
+- [ ] Rozhodnutí v logu mají autora ({reg['attrib_short']}), {reg['retention']}
 
-- Mission: Explore variant {top['name'] if top else 'A'} pro edge cases
-- Areas: error states, empty states, loading states, slow network
-- Time-box: 90 min strict
-- Tester: assigned QA in roles
-- Output: bug log + risk areas pro regression suite
-"""
+## Průzkumné testování (90 minut)
+
+- Cíl: najít hraniční případy varianty {vname}
+- Oblasti: chybové, prázdné a načítací stavy, pomalá síť
+- Čas: přesně 90 minut
+- Tester: QA z rolí projektu
+- Výstup: seznam chyb a rizikových oblastí pro regresní sadu
+""" + _footer(ctx, "QA / Test lead", "§ 8")
 
 
 def render_platform(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
     plat_triage = next((t for t in ctx["triage"] if t["track"] == "platform"), None)
     sec_triage = next((t for t in ctx["triage"] if t["track"] == "security"), None)
+    todo = [
+        "Vyberte ze 5 typů služeb ten, který sedí, a zapište cílovou dostupnost a rychlost (SLO).",
+        "Ověřte pískoviště (sandbox) z Platform triage a doplňte commit s jeho infrastrukturou jako kódem.",
+        "Připravte runbook, pohotovost (on-call) a plán obnovy po havárii (RTO/RPO).",
+        "Doplňte odhad nákladů a nechte ho schválit rozpočtem; pak projděte kontrolní seznam před nasazením.",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# Platform / DevOps handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 15 (DevOps / Platform).
+## Co máte udělat
 
-## Sandbox spec (z Platform triage)
+{todo_md}
 
-Status: **{plat_triage['status'] if plat_triage else 'unknown'}** · Signed by:
+## Pískoviště (z Platform triage)
+
+Stav: **{plat_triage['status'] if plat_triage else 'neznámý'}** · Podepsal(a):
 {plat_triage['signed_by'] if plat_triage else '—'}
 
 ```hcl
-# Terraform module: iac/sandbox/{p[2]}.tf (placeholder)
-# 24h TTL auto-destroy, VPC isolated, watermark + noindex.
-# Synthetic / pseudonymized data only (data_class = {p[9]}).
+# Modul Terraform: iac/sandbox/{p[2]}.tf (zástupný)
+# Automatické zrušení po 24 h, izolovaná síť (VPC), vodoznak a noindex.
+# Jen syntetická nebo pseudonymizovaná data (třída dat = {p[9]}).
 ```
 
-## Paved-road template
+## Doporučený postup nasazení
 
-- Approved runtime: per security triage approved AI tool list
-- Container image: official base only (alpine / distroless)
-- Observability: OpenTelemetry traces + structured JSON logs
-- Secrets: Vault + OIDC, NIKDY .env do gitu
+- Povolený runtime: podle seznamu schválených AI nástrojů ze Security triage
+- Kontejner: jen oficiální základní image (alpine / distroless)
+- Sledování: OpenTelemetry traces a strukturované JSON logy
+- Tajemství: Vault + OIDC, nikdy `.env` v gitu
 
-## SLO baseline (per archetype)
+## Cílová dostupnost a rychlost (SLO)
 
-Vyber 1 z 5 archetypů:
-- internal tool: 99.0 % availability, p95 < 2s
-- customer portal: 99.5 % availability, p95 < 1s
-- batch job: < 30 min latency tail
-- real-time API: 99.9 %, p95 < 200ms
-- mobile BE: 99.5 %, p95 < 500ms
+Vyberte 1 z 5 typů služeb (p95 = rychlost, do které se vejde 95 % požadavků):
+- interní nástroj: dostupnost 99,0 %, p95 pod 2 s
+- zákaznický portál: 99,5 %, p95 pod 1 s
+- dávková úloha: zpoždění do 30 min
+- API v reálném čase: 99,9 %, p95 pod 200 ms
+- mobilní backend: 99,5 %, p95 pod 500 ms
 
-**Vyber pro {p[2]}**: doplnit (vyplň při first deploy).
+**Volba pro {p[2]}**: doplnit při prvním nasazení.
 
-## 4 golden signals dashboard
+## Dashboard se 4 základními signály
 
-- Latency (p50, p95, p99)
-- Traffic (req/s)
-- Errors (4xx, 5xx ratio)
-- Saturation (CPU, memory, disk)
+- Odezva (p50, p95, p99)
+- Provoz (požadavků za sekundu)
+- Chyby (podíl 4xx a 5xx)
+- Vytížení (CPU, paměť, disk)
 
-Tool: Grafana / DataDog (per company default).
+Nástroj: Grafana nebo DataDog (podle standardu firmy).
 
-## Promote-to-prod gate checklist
+## Kontrolní seznam před nasazením do produkce
 
-- [ ] Sandbox URL + IaC commit hash
-- [ ] SLO baseline defined + approved by EM
-- [ ] Runbook stub committed
-- [ ] On-call rotation defined
-- [ ] Disaster recovery plan (RTO/RPO)
-- [ ] Cost estimate (TCO sheet) + budget approval
-- [ ] Security sign-off (SBOM + CVE + secret scan clean)
+- [ ] Adresa pískoviště a commit s infrastrukturou jako kódem
+- [ ] SLO definované a schválené vedoucím vývoje (EM)
+- [ ] Runbook založen v repu
+- [ ] Pohotovost (on-call) určena
+- [ ] Plán obnovy po havárii (RTO/RPO)
+- [ ] Odhad nákladů (TCO) a schválený rozpočet
+- [ ] Bezpečnost odsouhlasena (SBOM, sken zranitelností a sken tajemství bez nálezů)
 
 ## {regulation_text(ctx)['third_party']} (z Security triage)
 
-{sec_triage['artefact_md'][:500] if sec_triage and sec_triage['artefact_md'] else '_(no security triage artefakt — spusť triage znovu před produkcí)_'}
-"""
+{sec_triage['artefact_md'][:500] if sec_triage and sec_triage['artefact_md'] else '_(chybí výstup Security triage — spusťte triage znovu před produkcí)_'}
+""" + _footer(ctx, "DevOps / Platform", "§ 15")
 
 
 def render_data(ctx: dict[str, Any]) -> str:
     p = ctx["project_tuple"]
+    todo = [
+        f"Doplňte u tří metrik zdroj dat: hlavní „{clean_text(p[13])}“, předstihovou „{clean_text(p[14])}“ a hlídací „{clean_text(p[15])}“.",
+        "Nasaďte měření nejpozději 2 dny před spuštěním; bez něj se nesmí mergovat.",
+        "Sepište nové, změněné a rušené události (názvy ve tvaru objekt_akce) a nedávejte do nich osobní údaje.",
+        "Navrhněte A/B test: velikost vzorku a délku (obvykle 2 týdny).",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# Data / Analytics handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 12 (Data / Analytics).
+## Co máte udělat
 
-## Measurement plan v1
+{todo_md}
 
-| Metric type | Metric | Source | Cadence |
-|-------------|--------|--------|---------|
-| **Primary lagging** | {clean_text(p[13])} | doplnit | weekly |
-| **Leading** | {clean_text(p[14])} | doplnit | daily |
-| **Guardrail** | {clean_text(p[15])} | doplnit | continuous |
+## Plán měření (verze 1)
 
-> ⚠ **Instrumentation deadline = ship-date − 2 dny (merge-blokující).**
-> Per role catalog #12 + perspektiva 12.
+| Typ metriky | Metrika | Zdroj | Jak často |
+|-------------|---------|-------|-----------|
+| **Hlavní (zpožděná)** | {clean_text(p[13])} | doplnit | týdně |
+| **Předstihová** | {clean_text(p[14])} | doplnit | denně |
+| **Hlídací** | {clean_text(p[15])} | doplnit | průběžně |
 
-## Event taxonomy delta
+> ⚠ **Měření musí být nasazené 2 dny před spuštěním (jinak se nemerguje).**
+
+## Změny v událostech
 
 ```
-Naming convention: object_action (snake_case)
+Pojmenování: objekt_akce (snake_case)
 
-NEW EVENTS (this sprint):
+NOVÉ UDÁLOSTI (tento sprint):
 - nový_event_1
 - nový_event_2
 
-MODIFIED EVENTS:
-- (none)
+UPRAVENÉ UDÁLOSTI:
+- (žádné)
 
-DEPRECATED EVENTS:
-- (none)
+RUŠENÉ UDÁLOSTI:
+- (žádné)
 ```
 
-> ⚠ **PII NIKDY v event name nebo property.** Hashing / pseudonymizace
-> server-side per Security + Legal triage.
+> ⚠ **Osobní údaje nikdy do názvu události ani do jejích vlastností.** Hashování
+> nebo pseudonymizace na serveru podle Security a Legal triage.
 
-## A/B test design (pokud applicable)
+## Návrh A/B testu (je-li potřeba)
 
-- Hypothesis: per Charter XYZ
-- Variants: control vs {ctx["variants"][0]["name"] if ctx["variants"] else 'A'}
-- Primary metric: {clean_text(p[13])}
-- Sample size: doplnit (power analysis)
-- Duration: doplnit (typically 2 weeks)
-- **Kill criteria**: {p[16] or 'doplnit'}
+- Hypotéza: podle zadání (XYZ)
+- Varianty: kontrola vs {ctx["variants"][0]["name"] if ctx["variants"] else 'A'}
+- Hlavní metrika: {clean_text(p[13])}
+- Velikost vzorku: doplnit (výpočet síly testu)
+- Délka: doplnit (obvykle 2 týdny)
+- **Kritéria zabití (Kill)**: {p[16] or 'doplnit'}
 
-## Learning agenda
+## Plán vyhodnocení
 
-- T+30: efficiency check (does primary lagging move?)
-- T+60: deeper cohort analysis
-- T+90: decision Go-bigger / Iterate / Sunset
+- T+30: pohnula se hlavní metrika?
+- T+60: hlubší analýza kohort
+- T+90: rozhodnutí rozšířit / iterovat / ukončit
 
-## Privacy classification
+## Ochrana osobních údajů
 
-- Data class: **{p[9]}** (z Charter)
-- Consent strategy: doplnit (per Legal triage)
-- Retention: per data class default (L1: 5 let, L2: 3 roky, L3: 1 rok podle GDPR + use case)
-"""
+- Třída dat: **{p[9]}** (ze zadání)
+- Souhlasy: doplnit (podle Legal triage)
+- Retence: výchozí podle třídy dat (L1: 5 let, L2: 3 roky, L3: 1 rok; upřesnit podle GDPR a účelu)
+""" + _footer(ctx, "Data / Analytics", "§ 12")
 
 
 def _predicted_issues(ctx: dict[str, Any], limit: int = 3) -> list[str]:
@@ -824,43 +881,51 @@ def render_support(ctx: dict[str, Any]) -> str:
         f"| {txt} | odhad doplní {sup} | cíl doplní {sup} | doplní {sup} | feedback Buildu |"
         for txt in issues) or (
         f"| top 3 problémy doplní {sup} z feedbacku Asyncu | — | — | — | — |")
+    todo = [
+        "Odhadněte, kolik tiketů přinese spuštění; tři nejčastější předpokládané problémy jsou v tabulce níže.",
+        "Napište článek do znalostní báze nejpozději 7 dní před spuštěním.",
+        "Připravte makra odpovědí a proškolte agenty (15 minut) nejpozději 2 dny před spuštěním.",
+        "Doplňte 5 doslovných citací zákazníků z tiketů za posledních 90 dní (nejpozději 7 dní před spuštěním).",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# Customer Support handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 13 (Customer support proxy).
+## Co máte udělat
 
-## Ticket prediction worksheet
+{todo_md}
 
-| Predicted issue | Volume estimate | TTR target | Deflectable? | VoC match |
-|-----------------|-----------------|------------|--------------|-----------|
+## Předpověď tiketů
+
+| Předpokládaný problém | Odhad počtu | Cílová doba vyřízení | Lze vyřešit samoobsluhou? | Shoda s hlasem zákazníka |
+|-----------------------|-------------|----------------------|---------------------------|--------------------------|
 {rows}
 
-> Per role catalog #13: top-3 predikované tickety = **P1 v acceptance
-> criteria** (řešeno v `qa.md`).
+> Tři nejčastější předpokládané tikety patří mezi nejvyšší priority v kritériích
+> přijetí (řeší se v `qa.md`).
 
-## Support docs deadline
+## Termíny podkladů pro support
 
-- **D-7**: KB článek draft hotov (link na release notes)
-- **D-2**: Macros + agent training (15 min) hotové
-- **D+30**: Retro tickets review, KB article update
+- **7 dní před spuštěním**: hotový návrh článku do znalostní báze (odkaz na poznámky k vydání)
+- **2 dny před spuštěním**: hotová makra a školení agentů (15 min)
+- **30 dní po spuštění**: zpětná kontrola tiketů a aktualizace článku
 
-## Churn signal radar
+## Signály odchodu zákazníků
 
-- Sledovat ticket spike v 7 dnech post-launch
-- Sledovat NPS delta v 30 dnech
-- Sledovat CSAT na ticketech reference {p[2]}
+- Sledovat nárůst tiketů v prvních 7 dnech po spuštění
+- Sledovat změnu NPS po 30 dnech
+- Sledovat spokojenost (CSAT) u tiketů, které zmiňují {p[2]}
 
-## Verbatim citace baseline (z předchozích 90 dní ticketů)
+## Doslovné citace zákazníků (z tiketů za posledních 90 dní)
 
-{sup} doplní 5 verbatim citací z ticketů posledních 90 dní k Voice of Customer
-(per `04-session-1.md` § Full — rozšířená agenda) nejpozději do D-7 před spuštěním.
+{sup} doplní 5 doslovných citací k hlasu zákazníka (podklad: `04-session-1.md`,
+rozšířená agenda) nejpozději 7 dní před spuštěním.
 
-## Capacity baseline
+## Kapacita supportu
 
-- Predicted ticket volume increase: odhad doplní {sup}
-- Required additional agent capacity: person-hours / week doplní {sup}
-- Escalation path: tier 1 → tier 2 → product team
-"""
+- Očekávaný nárůst tiketů: odhad doplní {sup}
+- Potřebná kapacita navíc (člověkohodin týdně): doplní {sup}
+- Eskalace: 1. úroveň → 2. úroveň → produktový tým
+""" + _footer(ctx, "Customer support proxy", "§ 13")
 
 
 def _excerpt(md: str, n: int = 1500) -> str:
@@ -942,8 +1007,8 @@ def _compliance_facts(ctx: dict[str, Any], legal: Any, sec: Any, pii_hit: Any,
     ret = re.search(r"(?i)retenc\w*[^.;\n]{3,80}", note) or re.search(
         r"(?i)retenc\w*[^.;\n]{3,80}", legal_core) or re.search(
         r"(?i)retenc\w*[^.;\n]{3,80}", sec_md)
-    retention = (f"{ret.group(0).strip()} (z triage; detail v `data.md` § Privacy classification)"
-                 if ret else "per `data.md` § Privacy classification")
+    retention = (f"{ret.group(0).strip()} (z triage; detail v `data.md`, sekce Ochrana osobních údajů)"
+                 if ret else "podle `data.md`, sekce Ochrana osobních údajů")
     return {"lawful": lawful, "subjects": subjects, "categories": categories,
             "retention": retention,
             "dpia": (f"{who}" if law_ok and law.get("window") == "pravo" else None)}
@@ -996,73 +1061,81 @@ def render_compliance(ctx: dict[str, Any]) -> str:
     lawful, subjects, categories, retention = (
         facts["lawful"], facts["subjects"], facts["categories"], facts["retention"])
     dpia_done = facts["dpia"]
-    dpia_box = (f"- [x] DPIA finalized — podepsáno oknem Právo ({dpia_done})" if dpia_done
-                else "- [ ] DPIA finalized (pokud ≥ 2 triggery)")
+    dpia_box = (f"- [x] DPIA dokončeno — podepsáno oknem Právo ({dpia_done})" if dpia_done
+                else "- [ ] DPIA dokončeno (pokud platí aspoň 2 spouštěče)")
 
+    todo = [
+        f"Doplňte záznam o zpracování osobních údajů (RoPA) níže: právní základ, subjekty údajů, kategorie, retence ({p[1]}).",
+        f"Rozhodněte, zda je potřeba posouzení vlivu na ochranu údajů (DPIA); třída dat je {p[9] or 'neuvedena'}.",
+        f"U každého dodavatele AI ověřte smlouvu o zpracování (DPA); úroveň rizika podle AI Actu: {p[8]}.",
+        "Před produkcí splňte podmínky z podpisů oken a odškrtněte kontrolní seznam na konci.",
+    ]
+    todo_md = "\n".join(f"- {t}" for t in todo)
     return f"""# Compliance handoff — {p[1]}
 
-> Slug: `{p[2]}` · Generated: {_now()}
-> Per `02-role-catalog.md` § 7 (Security) + § 10 (Legal/GDPR).
+## Co máte udělat
 
-## Audit trail dump
+{todo_md}
 
-**Decision log atribuce** ({reg['attrib']}):
+## Auditní stopa
+
+**Autoři rozhodnutí** ({reg['attrib']}):
 
 {chr(10).join(decision_attrib) or '_(žádná rozhodnutí)_'}
 
-**Audit log entries**: {audit_count_text} {reg['retention_note']}.
+**Záznamy v audit logu**: {audit_count_text} {reg['retention_note']}.
 
-## RoPA update (Records of Processing Activities)
+## Záznam o zpracování osobních údajů (RoPA)
 
-- Processing activity name: {p[1]}
-- Data class: **{p[9] or 'neuvedeno'}**
-- AI Act tier: **{p[8]}**
+- Název činnosti: {p[1]}
+- Třída dat: **{p[9] or 'neuvedeno'}**
+- Úroveň rizika podle AI Actu: **{p[8]}**
 - Risk profil projektu: {risk or 'neuvedeno'}
-- Decider: {p[6] or 'doplnit'} · Sponzor: {p[7] or 'doplnit'}
+- Rozhodovatel (Decider): {p[6] or 'doplnit'} · Sponzor: {p[7] or 'doplnit'}
 - Kroky cesty a zástupci: {steps or 'doplnit'}
 - Kroky s AI náhradou: {ai_line or 'žádné'}
 - Osobní údaje: {pii}
-- Lawful basis: {lawful}
-- Data subjects: {subjects}
-- Categories of data: {categories}
-- Retention: {retention}
-- Recipients (3rd parties): doplnit ({reg['recipients']})
+- Právní základ: {lawful}
+- Subjekty údajů: {subjects}
+- Kategorie údajů: {categories}
+- Retence: {retention}
+- Příjemci (třetí strany): doplnit ({reg['recipients']})
 
-## AI Act risk register entry
+## Záznam v registru rizik AI Actu
 
-- Risk tier: **{p[8]}**
-- Use case description: {p[5]}
-- Annex IV technical doc required: {'YES' if p[8] in ('high', 'limited') else 'NO'}
-- Human oversight mechanism: doplnit (per Legal triage)
-- Logging requirements: {reg['logging']}
+- Úroveň rizika: **{p[8]}**
+- Popis použití: {p[5]}
+- Technická dokumentace (příloha IV) povinná: {'ANO' if p[8] in ('high', 'limited') else 'NE'}
+- Lidský dohled: doplnit (podle Legal triage)
+- Požadavky na logování: {reg['logging']}
 
-## DPA flag list (3rd party AI vendors)
+## Smlouvy s dodavateli AI (DPA)
 
-- doplnit: per Security triage Approved AI Tool list, ověř DPA na všech vendorech
-- Penetration test review v posledních 12 mo: doplnit per vendor
+- Doplnit: podle seznamu schválených AI nástrojů ze Security triage ověřte smlouvu o zpracování u všech dodavatelů
+- Penetrační test za posledních 12 měsíců: doplnit u každého dodavatele
 - {reg['ir_sla']}
 - {reg['concentration']}
 {cond_block}
-## Triage artefakty (full text)
+## Výstupy triage (plné znění)
 
 ### Security triage
 
-{_excerpt(sec_triage['artefact_md']) if sec_triage and sec_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
+{_excerpt(sec_triage['artefact_md']) if sec_triage and sec_triage['artefact_md'] else '_(odloženo — spusťte triage znovu)_'}
 
 ### Legal triage
 
-{_excerpt(legal_triage['artefact_md']) if legal_triage and legal_triage['artefact_md'] else '_(deferred — spusť triage znovu)_'}
+{_excerpt(legal_triage['artefact_md']) if legal_triage and legal_triage['artefact_md'] else '_(odloženo — spusťte triage znovu)_'}
 
-## Pre-production gate
+## Kontrolní seznam před produkcí
 
 {dpia_box}
-- [ ] AI Act tech doc (Annex IV) drafted (pokud high-risk)
-- [ ] Privacy Notice update merged
-- [ ] DPA signed for all AI vendors
-- [ ] Security SBOM + CVE scan clean
-- [ ] Secret scan clean
-- [ ] Audit log retention configured ({reg['retention']})
-"""
+- [ ] Technická dokumentace podle AI Actu (příloha IV) rozepsána (u vysokého rizika)
+- [ ] Aktualizované zásady ochrany osobních údajů jsou nasazené
+- [ ] Smlouvy o zpracování (DPA) podepsané se všemi dodavateli AI
+- [ ] SBOM a sken zranitelností bez nálezů
+- [ ] Sken tajemství bez nálezů
+- [ ] Retence audit logu nastavena ({reg['retention']})
+""" + _footer(ctx, "Security / Compliance a Legal / GDPR", "§ 7 a § 10")
 
 
 # --------------------------------------------------------------------------

@@ -401,6 +401,6 @@ def test_severity_aliases_and_czech_labels() -> None:
     assert [normalize_severity(x) for x in given] == [
         "critical", "high", "low", "high", "medium", "low"]
     assert [severity_label(x) for x in ("critical", "high", "medium", "low")] == [
-        "Kritické", "Vysoké", "Střední", "Nízké"]
+        "Kritické", "Důležité", "Drobné", "Drobné"]
     with pytest.raises(ValueError):
         normalize_severity("blocker")

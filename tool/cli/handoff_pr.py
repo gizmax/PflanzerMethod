@@ -80,11 +80,12 @@ from tool.cli.quality_gates import (  # noqa: E402
     acceptance_unverified,
     aggregate_repos,
     aggregate_score,
+    gate_label,
     gates_summary_line,
     load_repo_gates,
     parse_test_failures,
     repo_key,
-    repos_summary_line,
+    score_sentence,
     skip_reasons,
     unverified_gates,
 )
@@ -102,6 +103,7 @@ from tool.cli.session_2 import (  # noqa: E402
 )
 from tool.cli.session_3 import decider_genitive, gates_sufficiency  # noqa: E402
 from tool.cli.triage import (  # noqa: E402
+    checkpoint_command,
     human_triage_blockers,
     latest_threshold_override,
     path_owners,
@@ -494,6 +496,25 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
             "open_remarks": remarks, "path_owners": owners}
 
 
+def _unsigned_window_lines(slug: str, windows: list[dict[str, Any]]) -> list[str]:
+    """Po oknech: kdo a co má podepsat; příkaz je vždy na samostatném řádku (odsazený)."""
+    out: list[str] = []
+    for w in windows:
+        if w["state"] == "ok":
+            continue
+        who = w["owner"] or "člověk z kroku " + w["label"] + " (jméno chybí v Kickoffu)"
+        if w["state"] == "pending":
+            what = f"podepisuje {who} — AI draft čeká na jeho podpis"
+        elif w["state"] == "blocked":
+            what = (f"okno označil za blokované {w['signed_by'] or who}; po opravě podepisuje "
+                    f"znovu {who}")
+        else:
+            what = f"podepisuje {who} — okno ještě nikdo nepodepsal"
+        out.append(f"- **{w['label']}** (okno `{w['window']}`): {what}.")
+        out.append(f"  `{checkpoint_command(slug, w)}`")
+    return out
+
+
 def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
     """Vrátí (horní blok, sekce) markdownu se stavem triage."""
     labels = {"ok": "OK", "deferred": "ODLOŽENO", "failed": "SELHALO", "pending": "ČEKÁ",
@@ -521,7 +542,7 @@ def _render_triage_block(triage: dict[str, Any], slug: str) -> tuple[str, str]:
 """
     top = ""
     if triage["blocked_by"]:
-        who = "\n".join(f"> - {m}" for m in human_triage_blockers(slug, triage["windows"]))
+        who = "\n".join(f"> {m}" for m in _unsigned_window_lines(slug, triage["windows"]))
         top = f"""> ## BLOKOVÁNO: chybí podpisy oken
 >
 > Produkční nasazení není povoleno, dokud okna nepodepíšou lidé z kroků cesty:
@@ -671,18 +692,27 @@ def _winner_basis_md(basis: dict[str, Any]) -> str:
     return "—"
 
 
-def _gate_summary(gates: list, repo_gates: list[dict[str, Any]] | None = None) -> str:
-    """„78/100 z 5/9 bran; neběžely: types (důvod)“ ze zapsaných quality_gates.
+def _no_gates_score(score: int, target: int, verdict: str) -> str:
+    """Věta o skóre, když nejsou zapsané výsledky bran (jen číslo z projektu)."""
+    return score_sentence(score, target, None, [], verdict)
 
-    Ve vícerepu „web: 89/100 · api: 100/100 (celkem 94/100)“.
+
+def _gate_summary(gates: list, repo_gates: list[dict[str, Any]] | None = None,
+                  target: int | None = None, verdict: str | None = None) -> str:
+    """„**Skóre 78 ze 100 — pod prahem 80.** Spočteno nad 5 branami. Neověřeno: …“ ze zapsaných
+    quality_gates (věta včetně prahu a verdiktu).
+
+    Ve vícerepu místo počtu bran „Po repech: web 89/100 · api 100/100“.
     """
     if repo_gates:
-        return repos_summary_line(repo_gates, aggregate_repos(repo_gates)["gate_score"])
+        total = aggregate_repos(repo_gates)["gate_score"]
+        per_repo = " · ".join(f"{r['role']} {int(r['gate_score'])}/100" for r in repo_gates)
+        return score_sentence(total, target, None, [], verdict, extra=f"Po repech: {per_repo}.")
     rows = [{"gate": g[0], "status": g[1], "details": g[3] or ""} for g in gates]
     score = aggregate_score(
         [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gates]  # type: ignore[misc]
     )["gate_score"]
-    return gates_summary_line(score, rows)
+    return gates_summary_line(score, rows, target=target, verdict=verdict)
 
 
 def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
@@ -696,6 +726,75 @@ def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
     for c in on_lost:
         lines.append(f"- Informativně, poražená varianta: {describe_critical(c)}")
     return lines
+
+
+_OPEN_SECTIONS = ("Co selhalo", "Výjimka z prahu", "Vědomě přebité riziko")
+
+
+def _collapse_sections(lines: list[str]) -> list[str]:
+    """Každou `## Sekci` zabalí do `<details><summary>Sekce</summary>` (GitHub markdown).
+
+    Úvod před první sekcí a patička od `---` zůstávají mimo. Rizikové sekce (selhání, výjimka,
+    přebité riziko) jsou rozbalené, ostatní sbalené.
+    """
+    out: list[str] = []
+    cur: list[str] | None = None
+    title = ""
+
+    def flush() -> None:
+        if cur is None:
+            return
+        body = list(cur)
+        while body and not body[-1].strip():
+            body.pop()
+        op = " open" if title in _OPEN_SECTIONS else ""
+        out.extend([f"<details{op}><summary>{title}</summary>", "", *body, "", "</details>", ""])
+
+    for i, ln in enumerate(lines):
+        if ln == "---":
+            flush()
+            cur = None
+            out.extend(lines[i:])
+            return out
+        if ln.startswith("## "):
+            flush()
+            cur, title = [], ln[3:].strip()
+            continue
+        (out if cur is None else cur).append(ln)
+    flush()
+    return out
+
+
+def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int,
+             open_conditions: int, failures: int, override: dict[str, Any] | None,
+             overridden: bool, unverified: list[dict[str, str]], blocked_by: list[str],
+             metric: str | None) -> list[str]:
+    """Tři řádky na začátek PR: Co to je / Co ověřit / Rizika."""
+    what = trim_words(" ".join(hook.split()), 200)
+    if winner:
+        what += f" (varianta {winner})"
+    check: list[str] = []
+    if open_crit:
+        check.append(f"{open_crit} otevřených kritických připomínek na vítězi")
+    if open_remarks:
+        check.append(f"{open_remarks} otevřených připomínek (neblokují merge)")
+    if open_conditions:
+        check.append(f"{open_conditions} {_cond_word(open_conditions)} z podpisů oken")
+    if failures:
+        check.append(f"{failures} selhaných automatických kontrol")
+    check_txt = ("; ".join(check) + " — detaily v sekcích níže" if check else
+                 "nic otevřeného; projdi diff" + (f" a metriku úspěchu: {metric}" if metric else ""))
+    risks: list[str] = []
+    if override:
+        risks.append(f"Ship pod prahem na odpovědnost Decidera ({override['decider']})")
+    if overridden:
+        risks.append("vědomě přebité kritické riziko")
+    if unverified:
+        risks.append("neověřeno: " + ", ".join(gate_label(u["gate"]) for u in unverified))
+    if blocked_by:
+        risks.append("Ship je zablokovaný (" + ", ".join(blocked_by) + ")")
+    risk_txt = "; ".join(risks) if risks else "žádné známé nad rámec skóre"
+    return [f"**Co to je:** {what}", f"**Co ověřit:** {check_txt}", f"**Rizika:** {risk_txt}", ""]
 
 
 def _what_changes(p: Any, w: Any, name: str, metric_primary: str | None) -> list[str]:
@@ -844,7 +943,7 @@ def build_pr(slug: str, repo: str | None = None,
     if loc_added is not None and loc_added > 20000:
         warnings.append(
             "⚠ Rozsah vypadá nesmyslně — nejsou v commitu node_modules/ nebo build výstup?")
-    if state["unverified"] and target > 0 and "NEOVĚŘENO" not in (
+    if state["unverified"] and target > 0 and "Neověřeno:" not in (
             (_gate_summary(gates, rg) if gates else None) or ""):
         warnings.append(
             "Neověřeno: " + ", ".join(f"{u['gate']} ({u['reason']})" for u in state["unverified"])
@@ -872,7 +971,7 @@ def build_pr(slug: str, repo: str | None = None,
     pr_title_base = pr_title
     if cur_role:
         pr_title += f" ({cur_role})"
-    summary = _gate_summary(gates, rg) if gates else None
+    summary = _gate_summary(gates, rg, target, state["verdict"]) if gates else None
     ai_line = ai_stand_in_line(slug)
     sign_line = signatures_line(slug)
     resolved_on_win = [c for c in ctx.get("resolved_critical", [])
@@ -883,8 +982,7 @@ def build_pr(slug: str, repo: str | None = None,
                              + (f" @ `{head_sha[:10]}`" if head_sha else "")]
     if w:
         body_lines.append(f"- Hlasování jádra v Buildu: {float(w[3] or 0):.2f} (0–1, vyšší = lepší)")
-    body_lines.append(f"- Brány: {summary or str(gate_score) + '/100'} (práh {target}) - "
-                      f"{state['verdict']}")
+    body_lines.append(f"- Brány: {summary or _no_gates_score(gate_score, target, state['verdict'])}")
     if acceptance:
         body_lines.append(f"- Acceptance: {acceptance}")
     if size_line:
@@ -920,7 +1018,7 @@ def build_pr(slug: str, repo: str | None = None,
         body_lines += ["## Podpisy oken", sign_line, ""]
     cond_lines = conditions_checklist(slug)
     if cond_lines:
-        body_lines += ["## Podmínky z podpisů oken (musí splnit tento PR)", *cond_lines, ""]
+        body_lines += ["## Podmínky z podpisů oken", *cond_lines, ""]
     if ai_line:
         body_lines += ["## Kroky s AI náhradou (ADR-0023)", ai_line, ""]
     prov_lines = [f"- Nástroj (builder): {builder}"]
@@ -949,7 +1047,7 @@ def build_pr(slug: str, repo: str | None = None,
                f"base `{b['base']}`",
                f"- Brány repa {repo}: "
                + (gates_summary_line(x["gate_score"], x["results"]) if x else "neběžely")
-               + f"; celkem {gate_score}/100 (práh {target}) - {state['verdict']}"]
+               + f". Celkem: {summary or _no_gates_score(gate_score, target, state['verdict'])}"]
         if _repo_size(b):
             sec.append(f"- Rozsah: {_repo_size(b)}")
         if x:
@@ -970,6 +1068,15 @@ def build_pr(slug: str, repo: str | None = None,
             sec[-2:-2] = _render_threshold_override(
                 state["threshold_override"], gate_score, target).splitlines() + [""]
         body_lines = sec
+    lead = _pr_lead(
+        hook=_what_changes(p, w, name, metric_primary)[0], winner=w[0] if w else None,
+        open_crit=sum(1 for c in (ctx.get("open_critical") or [])
+                      if w and c["variant"] == w[0]),
+        open_remarks=len(remark_lines), open_conditions=sum(1 for x in cond_lines if x.startswith("- [ ]")),
+        failures=len(failures), override=state["threshold_override"],
+        overridden=bool(ov_md), unverified=state["unverified"] if target > 0 else [],
+        blocked_by=state["blocked_by"], metric=metric_primary)
+    body_lines = [body_lines[0], "", *lead, *_collapse_sections(body_lines[1:])]
     return {
         "repos": repos, "repo_gates": rg, "size_line": size_line, "repo_role": cur_role,
         "title_base": pr_title_base,
@@ -1208,11 +1315,12 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
 
     triage_top = ""
     if triage["blocked_by"]:
-        who = human_triage_blockers(slug, triage["windows"])
+        who = _unsigned_window_lines(slug, triage["windows"])
         triage_top = ("\n> ## BLOKOVÁNO: chybí podpisy oken\n"
-                      + "".join(f"> - {m}\n" for m in who[:3])
-                      + (f"> - …a další ({len(who) - 3})\n" if len(who) > 3 else "")
-                      + f"> Decider může přebít: `pflanzer session_3 --slug {slug} "
+                      + "".join(f"> {m}\n" for m in who[:4])
+                      + (f"> Další okna: `pflanzer status --slug {slug}`. " if len(who) > 4
+                         else "> ")
+                      + f"Decider může přebít: `pflanzer session_3 --slug {slug} "
                         "--override-triage --rationale \"…\"`\n")
     ovc_md = overridden_critical_md(parts["ctx"].get("overridden_critical") or [])
     threshold_md = (ovc_md + "\n" if ovc_md else "") + (
@@ -1250,13 +1358,11 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
         changes.append(f"Vítěz {w[0]}" + (f" — {desc}" if desc else "."))
     changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
 
-    score_line = (pr["gates_summary"] or f"{score}/100") + (
-        " — Throwaway: skóre je informativní, Ship neblokuje" if target <= 0
-        else f" (práh {target}) — {verdict}")
+    score_line = pr["gates_summary"] or _no_gates_score(score, target, verdict)
     if len(pr.get("repos") or []) > 1 and pr.get("size_line"):
-        score_line += f". Rozsah: {pr['size_line']}"
+        score_line += f" Rozsah: {pr['size_line']}."
     elif pr["loc_added"] is not None:
-        score_line += f". Rozsah: +{pr['loc_added']} řádků"
+        score_line += f" Rozsah: +{pr['loc_added']} řádků."
     owner_rows = [("Decider", real(decider)), ("Branch owner / merger", parts["branch_owner"]),
                   ("Shadow PdM (hlídá Async)", parts["shadow_pm"])]
     people = [f"- {k}: {v}" for k, v in owner_rows if v]
@@ -1290,7 +1396,6 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
 {winner_md}
 {changes_md}
 ## Skóre
-
 {score_line}
 
 {people_md}{threshold_md}{pr_command}
@@ -1361,7 +1466,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
 - **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} (target repo `{parts['target_repo']}`) — {origin_branch_state(wb['wt'], pr['branch'])}
-{f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or str(score) + '/100'} (práh {target}) - {verdict}
+{f"- **Rozsah**: {pr['loc_added']} přidaných řádků" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or _no_gates_score(score, target, verdict)}
 
 ### Automatické kontroly ({pr['applicable']} z {pr['total']} aplikovatelných)
 
@@ -1450,8 +1555,8 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     state, ctx = pr["state"], pr["ctx"]
     owner = real(ctx["project"][8])
     lines = [f"SHIP.md: {tilde(path)}",
-             f"Brány: {pr['gates_summary'] or str(pr['gate_score']) + '/100'} "
-             f"(práh {pr['target']}) — {state['verdict']}"]
+             "Brány: " + re.sub(r"\*\*", "", pr['gates_summary'] or _no_gates_score(
+                 pr['gate_score'], pr['target'], state['verdict']))]
     human = human_triage_blockers(slug, ctx["triage"]["windows"]) if ctx["triage"]["blocked_by"] else []
     lines += human[:2]
     for x in pr["failures"][:1]:

@@ -9,7 +9,8 @@ tabulky `feedback` jako z hubu, takže `/pm feedback` (feedback_pull) ho vidí.
     pflanzer feedback list --slug S [--variant A] [--json]
 
 Závažnost: critical | major | minor (aliasy: high = major, medium, low = minor).
-V DB je critical/high/medium/low; lidsky se ukazuje Kritické / Vysoké / Střední / Nízké.
+V DB je critical/high/medium/low; lidsky se ukazují tři úrovně: Kritické (blokuje nasazení) /
+Důležité (high, major) / Drobné (medium, low, minor).
 Hodnocení `--score` je 0–1 (vyšší = lepší); bez něj se odvodí ze závažnosti.
 """
 from __future__ import annotations
@@ -25,7 +26,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
 from tool.cli.db import audit, current_actor, transaction  # noqa: E402
-from tool.cli.ux import CzechArgumentParser, die, emit, normalize_severity, severity_label  # noqa: E402
+from tool.cli.ux import (  # noqa: E402
+    CzechArgumentParser,
+    die,
+    emit,
+    normalize_severity,
+    severity_group,
+    severity_label,
+)
 
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 
@@ -186,10 +194,9 @@ ADD_EXAMPLE = ('pflanzer feedback add --slug moje-appka --variant A --role Bezpe
 
 
 def _counts(rows: list[dict[str, Any]]) -> str:
-    order = ("critical", "high", "medium", "low")
     parts = []
-    for k in order:
-        items = [r for r in rows if r["severity"] == k]
+    for k in ("critical", "high", "low"):
+        items = [r for r in rows if severity_group(r["severity"]) == k]
         if not items:
             continue
         done = sum(1 for r in items if r.get("resolved_at"))
