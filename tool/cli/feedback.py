@@ -182,8 +182,20 @@ ADD_EXAMPLE = ('pflanzer feedback add --slug moje-appka --variant A --role Bezpe
 
 def _counts(rows: list[dict[str, Any]]) -> str:
     order = ("critical", "high", "medium", "low")
-    n = {k: sum(1 for r in rows if r["severity"] == k) for k in order}
-    return ", ".join(f"{severity_label(k)} {n[k]}" for k in order if n[k]) or "bez připomínek"
+    parts = []
+    for k in order:
+        items = [r for r in rows if r["severity"] == k]
+        if not items:
+            continue
+        done = sum(1 for r in items if r.get("resolved_at"))
+        label = severity_label(k)
+        if done and done == len(items):
+            parts.append(f"{label} vyřešené {done}")
+        elif done:
+            parts.append(f"{label} otevřené {len(items) - done}, vyřešené {done}")
+        else:
+            parts.append(f"{label} {len(items)}")
+    return ", ".join(parts) or "bez připomínek"
 
 
 def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], str, dict[str, Any]]:

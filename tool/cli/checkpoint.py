@@ -161,6 +161,18 @@ def _human(name: str | None) -> str | None:
     return name if name and not is_ai_owner(name) else None
 
 
+def _legal_signer(value: str | None) -> str | None:
+    """Jméno, které plný triage určil k podpisu práva (DPO); „NOT SIGNED — navržený signer X“ → X."""
+    v = (value or "").strip()
+    m = re.search(r"(?i)navr[žz]en\w*\s+signer\s+(.+)$", v)
+    if m:
+        v = m.group(1)
+    v = re.sub(r"\s*\(.*$", "", v).strip()
+    if not v or not _human(v) or re.search(r"(?i)pending|agent|unsigned|not signed", v):
+        return None
+    return v
+
+
 def guidance_core(window: str, owners: dict[str, str], risk: str) -> str:
     """Kdo smí podepsat okno, které zastupuje AI a nikdo není určen (bez názvu okna)."""
     if risk == "throwaway":
@@ -234,7 +246,8 @@ def parse_conditions(raw: Any) -> list[str]:
 
 def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = False,
          ai: bool = False, agent: str | None = None,
-         conditions: Any = None) -> dict[str, Any]:
+         conditions: Any = None, waive: Any = None,
+         rationale: str = "") -> dict[str, Any]:
     """Sign (or block) the triage tracks covered by a checkpoint window.
 
     `ai=True` writes an AI draft (ADR-0023): ok for throwaway, otherwise
@@ -255,6 +268,12 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         raise ValueError("Design za AI je zapsaný už v Kickoffu; okno design potvrzuje člověk "
                          '(PdM): --by "<jméno>" --note "co jste zkontrolovali".')
     cond_list = parse_conditions(conditions)
+    waive_ids = parse_conditions(waive)
+    if waive_ids and not (rationale or "").strip():
+        raise ValueError("--waive vyžaduje --rationale \"…\": proč se podmínka z triage odpouští "
+                         "(zapisuje se do audit logu).\nPříklad:\n"
+                         '  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "…" '
+                         '--waive K3 --rationale "řeší se v jiném projektu"')
     label = WINDOWS[window]["label"]
     step = WINDOW_STEP[window]
     now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
@@ -285,8 +304,8 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             # kroku Bezpečnost & právo.
             lg = conn.execute("SELECT signed_by FROM triage WHERE project_id = ? AND "
                               "track = 'legal'", (pid,)).fetchone()
-            named = re.sub(r"\s*\(.*$", "", (lg[0] if lg and lg[0] else "")).strip()
-            if _human(named) and not re.search(r"(?i)pending|agent", named):
+            named = _legal_signer(lg[0] if lg else None)
+            if named:
                 owner = named
         risk = load_risk_profile(conn, pid)
         if window == "design" and not is_ai_owner(owner):
@@ -374,13 +393,6 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                     warnings.append(
                         f"⚠ Otevřený critical od {c.get('submitted_by') or 'neznámého autora'} "
                         f"({c['department']}): {_clip(c.get('rationale'))} — podepisujete i s ním?")
-        artefact = f"**Checkpoint {label}** — {head} · {who} · {now}\n\n{note.strip()}\n"
-        artefact += f"\n_signed_by_role: {kind}_" + (f" · _ai_agent: {agent_name}_" if agent_name else "") + "\n"
-        if cond_list:
-            artefact += "\n**Podmínky podpisu** (musí splnit PR):\n" + "".join(
-                f"- {c}\n" for c in cond_list)
-        if countersigned:
-            artefact += f"\n_Potvrzuje AI draft ({prior[1]})._\n"
         tracks = list(WINDOWS[window]["tracks"])
         if window == "bezpecnost":
             legal = conn.execute(
@@ -398,6 +410,41 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                                (pid,)).fetchone()
             if lg2 and lg2[0] in ("ok", "blocked"):
                 tracks = [t for t in tracks if t != "legal"]   # DPIA podpis okna Právo zůstává
+        # Podmínky: re-sign je SLUČUJE s dřívějšími (nikdy nepřepisuje); podmínky z triage
+        # podpis převezme, nebo je vědomě odpustí (--waive ID --rationale …).
+        from tool.cli.triage import triage_conditions
+        prev_ok = (_last_audit(conn, pid).get(window) or {}).get("status") == "ok"
+        prev_conds = conditions_by_window(conn, pid).get(window, [])
+        seen_c = {_norm_cond(c) for c in prev_conds}
+        added = [c for c in cond_list if _norm_cond(c) not in seen_c]
+        all_conds = [*prev_conds, *added]
+        resigned = prev_ok and not ai and not blocked
+        tri = [c for c in triage_conditions(conn, pid) if c["track"] in tracks]
+        waived: list[dict[str, Any]] = []
+        for tok in waive_ids:
+            hit = [c for c in tri if tok.lower() in (c["id"].lower(), c["key"].lower())]
+            if not hit:
+                have = ", ".join(c["key"] for c in tri) or "žádné"
+                raise ValueError(f"Podmínka ‚{tok}‘ z triage v okně {label} není. Dostupné: {have}.")
+            for c in hit:
+                waived.append({"key": c["key"], "id": c["id"], "text": c["text"],
+                               "rationale": rationale.strip()})
+        waived_keys = {w["key"] for w in waived}
+        taken = [c for c in tri if status == "ok" and c["key"] not in waived_keys
+                 and c["state"] != "waived"] if not blocked else []
+        artefact = f"**Checkpoint {label}** — {head} · {who} · {now}\n\n{note.strip()}\n"
+        artefact += f"\n_signed_by_role: {kind}_" + (f" · _ai_agent: {agent_name}_" if agent_name else "") + "\n"
+        if all_conds:
+            artefact += "\n**Podmínky podpisu** (musí splnit PR):\n" + "".join(
+                f"- {c}\n" for c in all_conds)
+        if taken:
+            artefact += "\n**Podmínky z triage** (potvrzeno podpisem):\n" + "".join(
+                f"- [{c['id']}] {c['text']}\n" for c in taken)
+        if waived:
+            artefact += "\n**Odpuštěné podmínky z triage:**\n" + "".join(
+                f"- [{w['id']}] {w['text']} — {w['rationale']}\n" for w in waived)
+        if countersigned:
+            artefact += f"\n_Potvrzuje AI draft ({prior[1]})._\n"
         for track in tracks:
             prev = conn.execute("SELECT artefact_md FROM triage WHERE project_id = ? AND track = ?",
                                 (pid, track)).fetchone()
@@ -418,6 +465,8 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                        "signed_by_role": kind, "ai_agent": agent_name,
                        "countersigned_ai_draft": countersigned,
                        "conditions": cond_list,
+                       "taken_conditions": [c["key"] for c in taken],
+                       "waived_conditions": waived,
                        "tracks": tracks})
     designated = _designated(window, owner, owners, risk, signers, core)
     log = _append_decision_log(slug, label, who, status, note, now, kind=kind,
@@ -430,7 +479,14 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             "signed_by_role": kind, "ai_agent": agent_name,
             "ai_draft": status == "pending", "ai": ai,
             "countersigned_ai_draft": countersigned,
-            "conditions": cond_list,
+            "conditions": all_conds, "added_conditions": added, "resigned": resigned,
+            "triage_conditions": [{"key": c["key"], "id": c["id"], "text": c["text"]}
+                                  for c in taken],
+            "waived_conditions": waived,
+            "open_triage_conditions": [{"key": c["key"], "id": c["id"], "text": c["text"]}
+                                       for c in tri if c["state"] == "open"
+                                       and c["key"] not in waived_keys
+                                       and c["key"] not in {t["key"] for t in taken}],
             "charter_updated": charter_updated,
             "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
 
@@ -571,11 +627,15 @@ def _last_audit(conn: Any, pid: int) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _norm_cond(text: str) -> str:
+    return " ".join(str(text or "").casefold().split())
+
+
 def conditions_by_window(conn: Any, pid: int) -> dict[str, list[str]]:
     """Podmínky z podpisů oken (audit `checkpoint.<okno>`, klíč `conditions`).
 
-    Platí poslední podpis okna, který podmínky uvedl; pozdější podpis bez `--conditions`
-    je nemaže (re-sign nesmí podmínky ztratit). Zablokovaný zápis podmínky nemění.
+    Podmínky všech podpisů okna se SLUČUJÍ (dedupe, pořadí podle vzniku): re-sign podmínky
+    nepřepisuje ani nemaže. Zablokovaný zápis podmínky nemění.
     """
     out: dict[str, list[str]] = {}
     for r in conn.execute(
@@ -587,25 +647,47 @@ def conditions_by_window(conn: Any, pid: int) -> dict[str, list[str]]:
             continue
         conds = payload.get("conditions")
         if isinstance(conds, list) and conds and payload.get("status") != "blocked":
-            out[r[0].split(".", 1)[1]] = [str(c) for c in conds if str(c).strip()]
+            have = out.setdefault(r[0].split(".", 1)[1], [])
+            seen = {_norm_cond(c) for c in have}
+            for c in conds:
+                if str(c).strip() and _norm_cond(c) not in seen:
+                    have.append(str(c))
+                    seen.add(_norm_cond(c))
     return out
 
 
 def signature_conditions(slug: str) -> list[dict[str, str]]:
-    """Ploský seznam podmínek z podepsaných oken: {text, window, label, by}."""
+    """Ploský seznam podmínek: {text, window, label, by, state, rationale}.
+
+    `state`: signed (z `--conditions`) | taken (z triage, potvrzeno podpisem okna) |
+    open (z triage, zatím nikdo nepotvrdil) | waived (z triage, odpuštěno s důvodem).
+    """
+    from tool.cli.triage import triage_conditions
+
     rows = checkpoint_summary(slug)
+    labels = {r["window"]: r["label"] for r in rows}
     with transaction() as conn:
         found = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
         if not found:
             return []
         conds = conditions_by_window(conn, int(found[0]))
+        tri = triage_conditions(conn, int(found[0]))
     out: list[dict[str, str]] = []
     for r in rows:
         if r["state"] != "ok":
             continue
         for c in conds.get(r["window"], []):
             out.append({"text": c, "window": r["window"], "label": r["label"],
-                        "by": str(r.get("signed_by") or "")})
+                        "by": str(r.get("signed_by") or ""), "state": "signed", "rationale": ""})
+    for want in ("taken", "open", "waived"):
+        for c in tri:
+            if c["state"] != want:
+                continue
+            win = c["window"] or c["window_for"]
+            out.append({"text": f"[{c['id']}] {c['text']}", "window": win,
+                        "label": labels.get(win) or WINDOWS.get(win, {}).get("label", win),
+                        "by": str(c.get("by") or ""), "state": want,
+                        "rationale": str(c.get("rationale") or "")})
     return out
 
 
@@ -625,6 +707,12 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
         rows = {r[0]: r for r in conn.execute(
             "SELECT track, status, signed_by, signed_at FROM triage WHERE project_id = ?",
             (pid,)).fetchall()}
+    lg0, sec0 = rows.get("legal"), rows.get("security")
+    # Právo (DPIA) je samostatné okno, když se od bezpečnosti odpojilo (odložené v plném
+    # triage) nebo už bylo samostatně podepsáno; pak se okno Bezpečnost posuzuje jen podle
+    # vlastního tracku security (jinak by „podepsáno“ pořád svítilo jako „čeká“).
+    pravo_split = "pravo" in last or not (
+        not lg0 or (sec0 and lg0[1] == sec0[1] and lg0[2] == sec0[2]) or lg0[1] == "čeká")
     out = []
     for key, w in WINDOWS.items():
         owner = owners.get(WINDOW_STEP[key])
@@ -637,13 +725,13 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
             signer = payload.get("by")
         else:
             if key == "pravo":
-                lg, sec = rows.get("legal"), rows.get("security")
-                # Okno právo ukazuj, když se právo od bezpečnosti odpojilo (odložené DPIA)
-                # nebo když už bylo samostatně podepsáno (i stejným člověkem jako bezpečnost).
-                if "pravo" not in last and (
-                        not lg or (sec and lg[1] == sec[1] and lg[2] == sec[2]) or lg[1] == "čeká"):
+                if not pravo_split:
                     continue
-            tracks = [rows.get(t) for t in w["tracks"]]
+                named = _legal_signer(lg0[2] if lg0 else None)
+                if named:
+                    owner = named
+            wtracks = ["security"] if (key == "bezpecnost" and pravo_split) else w["tracks"]
+            tracks = [rows.get(t) for t in wtracks]
             statuses = {r[1] if r else "missing" for r in tracks}
             state = ("ok" if statuses == {"ok"} else
                      "blocked" if "blocked" in statuses else
@@ -655,12 +743,27 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                     "signer": _signer_for(key, owner, owners, risk, signers, core),
                     "designated": _designated(key, owner, owners, risk, signers, core),
                     "ai_signer": (signers.get(WINDOW_STEP[key]) if is_ai_owner(owner) else None),
+                    "signed_at": next((r[3] for r in tracks if r and r[1] == "ok"), None)
+                    if key != "design" else None,
                     "note": (last.get(key) or {}).get("note") if state == "blocked" else None,
                     "ai_agent": ai_agent(owner, WINDOW_STEP[key]) if is_ai_owner(owner) else None,
                     "state_text": (DESIGN_PENDING if key == "design" and state == "pending"
                                    else AI_OK_TEXT if (state == "ok" and risk == "throwaway"
                                                        and str(signer or "").startswith("AI"))
                                    else STATE_LABELS[state])})
+    by_key = {r["window"]: r for r in out}
+    sec_row, law = by_key.get("bezpecnost"), by_key.get("pravo")
+    if sec_row and law and sec_row["state"] == "ok" and law["state"] != "ok":
+        from tool.cli._compat import local_date
+        day = local_date(sec_row.get("signed_at"))
+        stamp = ", ".join(x for x in (str(sec_row["signed_by"] or ""),
+                                      day.strftime("%d. %m. %Y") if day else "") if x)
+        who = law["owner"] or law["signer"] or "DPO"
+        what = {"blocked": f"Právo (DPIA) BLOKOVÁNO — {who}",
+                "pending": f"Právo (DPIA): AI draft čeká na podpis — {who}"}.get(
+            law["state"], f"čeká Právo (DPIA) — {who}")
+        sec_row["state_text"] = f"Bezpečnost podepsána ({stamp}) · {what}"
+        sec_row["waiting_for"] = "pravo"
     return out
 
 
@@ -725,6 +828,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--conditions", action="append", default=[],
                    help='Podmínky podpisu, které musí splnit PR (opakovatelné nebo '
                         '"CSRF; rate limit; DPA"); jdou do SHIP.md, těla PR a compliance.md')
+    p.add_argument("--waive", action="append", default=[], metavar="ID",
+                   help="Vědomě odpustit podmínku z triage (např. K3 nebo security:K3; "
+                        "opakovatelné); vyžaduje --rationale")
+    p.add_argument("--rationale", default="", help="S --waive: proč se podmínka odpouští")
     p.add_argument("--blocked", action="store_true", help="Okno neprošlo — blokuje Ship")
     p.add_argument("--ai", action="store_true",
                    help="AI draft (ADR-0023): pilot/production čeká na podpis člověka")
@@ -742,7 +849,7 @@ def main(argv: list[str] | None = None) -> None:
             rows = list_checkpoints(args.slug)
             lines = []
             for r in rows:
-                who = f" · {r['signed_by']}" if r["signed_by"] else ""
+                who = f" · {r['signed_by']}" if r["signed_by"] and not r.get("waiting_for") else ""
                 owner = f" (zástupce: {r['owner']})" if r["owner"] else ""
                 lines.append(f"{r['label']}: **{r['state_text']}**{who}{owner}")
             open_ = next((r for r in rows if r["state"] != "ok" and r["window"] != "zadani"), None)
@@ -756,7 +863,8 @@ def main(argv: list[str] | None = None) -> None:
                  as_json=args.json)
             return
         out = sign(args.slug, args.window, by=args.by, note=args.note, blocked=args.blocked,
-                   ai=args.ai, agent=args.agent, conditions=args.conditions)
+                   ai=args.ai, agent=args.agent, conditions=args.conditions,
+                   waive=args.waive, rationale=args.rationale)
     except ValueError as e:
         die(str(e))
         return
@@ -767,9 +875,24 @@ def main(argv: list[str] | None = None) -> None:
                 and not out["ai"] else "")]
     if out["countersigned_ai_draft"]:
         lines.append("Člověk potvrdil AI draft — okno je podepsané.")
-    if out.get("conditions"):
+    if out.get("resigned"):
+        if out["added_conditions"]:
+            lines.append("Okno už bylo podepsané; doplněné podmínky: "
+                         + "; ".join(out["added_conditions"]) + f" (celkem {len(out['conditions'])}).")
+        else:
+            lines.append("Okno už bylo podepsané; podmínky zůstávají beze změny"
+                         + (f" ({len(out['conditions'])})." if out["conditions"] else "."))
+    elif out.get("conditions"):
         lines.append(f"Podmínky podpisu ({len(out['conditions'])}): " + "; ".join(out["conditions"])
                      + " — propíšou se do SHIP.md a těla PR.")
+    if out.get("triage_conditions"):
+        lines.append(f"Podmínky z triage převzaté podpisem ({len(out['triage_conditions'])}): "
+                     + "; ".join(f"[{c['id']}] {c['text']}" for c in out["triage_conditions"])
+                     + " — podpisem je potvrzujete; odpustit: "
+                     "--waive ID --rationale \"…\".")
+    if out.get("waived_conditions"):
+        lines.append("Odpuštěno: " + "; ".join(f"[{w['id']}] ({w['rationale']})"
+                                              for w in out["waived_conditions"]))
     if out["decision_log_repo"]:
         lines.append(f"Zapsáno do `{out['decision_log_repo']}`.")
     phase = {"provoz": "checkpoint_provoz", "design": "checkpoint_design"}.get(

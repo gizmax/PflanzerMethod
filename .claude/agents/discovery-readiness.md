@@ -46,8 +46,36 @@ Bez fresh persony / JTBD / OST je Pflanzer „feature factory s AI uprostřed"
   "jtbd_path": "...",
   "ost_path": "...",
   "rationale": "1-2 věty proč",
+  "conditions": [{"id": "C1", "text": "..."}],
   "blocker_reason": "(jen pokud blocked)"
 }
+```
+
+## Podmínky a blokace (povinný formát)
+
+Vše, co musí být splněno před produkcí (nebo dřív), vypiš jako **podmínky se stabilním ID**
+(C1–C7 (persona, JTBD, OST …)). Nástroj je uloží jako podmínky stopy `discovery`, podpis okna je převezme a SHIP.md,
+PR checklist a `compliance.md` je ukážou (Zadání je podepsané už z Kickoffu, proto je
+potvrdí až re-sign okna `zadani` nebo je odpustí `--waive`).
+
+- V JSON: `"conditions": [{"id": "C1", "text": "jedna konkrétní, ověřitelná věta"}, …]`
+  (stačí i seznam řetězců — ID se doplní jako `C1`, `C2`, …).
+- V `artefact_md`: sekce `## Podmínky` s řádky `- [C1] text` (jeden řádek = jedna podmínka).
+- ID jsou unikátní v rámci tracku a při opakování triage zůstávají stejná (stav „převzato /
+  odpuštěno“ se váže na ID).
+- Podmínka = ověřitelné tvrzení („OP se online nesbírá“, „logy neobsahují OP — test s canary
+  hodnotou“), ne obecné doporučení. Co jen varuje, patří do `warnings`.
+
+## Opt-out z Discovery (formát)
+
+Opt-out je `status: "deferred"` (nikdy `ok`), `signed_by` je jméno Decidera (člověk, ne AI)
+a `rationale` začíná `opt-out:` a uvádí důvod aspoň jednou větou. `pflanzer triage` jiný zápis
+odmítne s příkladem; opt-out jde do audit logu, debt zůstává:
+
+```json
+{"track": "discovery", "status": "deferred", "signed_by": "Karel Dvořák",
+ "rationale": "opt-out: persony známe z 10 let telefonních rezervací",
+ "conditions": [{"id": "C1", "text": "persona do 30 dní"}]}
 ```
 
 ## Pravidla

@@ -84,13 +84,28 @@ def signature_conditions(slug: str) -> list[dict[str, str]]:
 
 
 def conditions_checklist(slug: str) -> list[str]:
-    """`- [ ] CSRF (Bezpečnost, Lucie)` — jeden řádek na podmínku."""
+    """`- [ ] CSRF (Bezpečnost, Lucie)` — jeden řádek na podmínku.
+
+    Podmínky z triage: potvrzené podpisem okna jako ostatní; nepotvrzené s poznámkou,
+    odpuštěné odškrtnuté s důvodem.
+    """
     out = []
     for c in signature_conditions(slug):
         label = _WINDOW_LABELS.get(c["window"], c["window"].capitalize())
         who = f", {c['by']}" if c.get("by") else ""
-        out.append(f"- [ ] {c['text']} ({label}{who})")
+        state = c.get("state") or "signed"
+        if state == "open":
+            out.append(f"- [ ] {c['text']} ({label} — z triage, zatím nepotvrzeno podpisem okna)")
+        elif state == "waived":
+            out.append(f"- [x] {c['text']} — odpuštěno: {c.get('rationale') or '—'} ({label}{who})")
+        else:
+            out.append(f"- [ ] {c['text']} ({label}{who})")
     return out
+
+
+def open_triage_conditions(slug: str) -> list[str]:
+    """Texty podmínek z triage, které zatím nepotvrdil žádný podpis (ani je nikdo neodpustil)."""
+    return [c["text"] for c in signature_conditions(slug) if c.get("state") == "open"]
 
 
 _WINDOW_LABELS = {"zadani": "Zadání", "design": "Design", "bezpecnost": "Bezpečnost", "provoz": "Provoz",

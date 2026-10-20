@@ -1216,6 +1216,13 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     cond_lines = pr.get("conditions") or []
     cond_notes = ([f"{len(cond_lines)} {_cond_word(len(cond_lines))} z podpisů oken musí splnit PR "
                    "(sekce Podmínky z podpisů oken)."] if cond_lines else [])
+    open_n = sum(1 for x in cond_lines if "z triage, zatím nepotvrzeno" in x)
+    if open_n:
+        cond_notes.append(
+            f"{open_n} {_cond_word(open_n)} z triage zatím nepotvrdil žádný podpis okna"
+            + (" — u production je před nasazením potvrďte nebo odpusťte" if
+               triage.get("risk_profile") == "production" else "")
+            + " (Ship neblokuje; `pflanzer checkpoint … --waive ID --rationale …`).")
     verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *cond_notes, *pr["warnings"]])
 
     winner_md = "" if w else "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"

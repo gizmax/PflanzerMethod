@@ -87,12 +87,27 @@ Pokud projekt obsahuje marketing copy / claims / advertising:
   "dpa_status": [{"vendor": "...", "signed": true|false, "transfer": "..."}],
   "marketing_compliance_flags": ["..."],
   "blockers": ["..."],
+  "conditions": [{"id": "D1", "text": "..."}],
   "warnings": ["..."],
   "artefact_md": "<celý triage MD>",
   "signed_by": "current_actor()",
   "rationale": "..."
 }
 ```
+
+## Podmínky a blokace (povinný formát)
+
+Vše, co musí být splněno před produkcí (nebo dřív), vypiš jako **podmínky se stabilním ID**
+(D1–D6 (DPIA, RoPA, DPA, text čl. 13 …)). Nástroj je uloží jako podmínky stopy `legal`, podpis okna je převezme a SHIP.md,
+PR checklist a `compliance.md` je ukážou; prompty Buildu je dostanou jako „Omezení z triage“.
+
+- V JSON: `"conditions": [{"id": "D1", "text": "jedna konkrétní, ověřitelná věta"}, …]`
+  (stačí i seznam řetězců — ID se doplní jako `D1`, `D2`, …).
+- V `artefact_md`: sekce `## Podmínky` s řádky `- [D1] text` (jeden řádek = jedna podmínka).
+- ID jsou unikátní v rámci tracku a při opakování triage zůstávají stejná (stav „převzato /
+  odpuštěno“ se váže na ID).
+- Podmínka = ověřitelné tvrzení („OP se online nesbírá“, „logy neobsahují OP — test s canary
+  hodnotou“), ne obecné doporučení. Co jen varuje, patří do `warnings`.
 
 ## Pravidla
 

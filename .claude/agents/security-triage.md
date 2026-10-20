@@ -76,12 +76,27 @@ Vrať seznam approved nástrojů + zákaz unapproved.
   "sandbox_spec_url": "iac/sandbox/<slug>.tf nebo placeholder",
   "stride_findings": ["..."],
   "blockers": ["..."],
+  "conditions": [{"id": "K1", "text": "..."}],
   "warnings": ["..."],
   "artefact_md": "<celý triage MD pro persistenci do triage tabulky>",
   "signed_by": "current_actor()",
   "rationale": "..."
 }
 ```
+
+## Podmínky a blokace (povinný formát)
+
+Vše, co musí být splněno před produkcí (nebo dřív), vypiš jako **podmínky se stabilním ID**
+(K1–K5 (šifrování, správa klíčů, logy bez OP …)). Nástroj je uloží jako podmínky stopy `security`, podpis okna je převezme a SHIP.md,
+PR checklist a `compliance.md` je ukážou; prompty Buildu je dostanou jako „Omezení z triage“.
+
+- V JSON: `"conditions": [{"id": "K1", "text": "jedna konkrétní, ověřitelná věta"}, …]`
+  (stačí i seznam řetězců — ID se doplní jako `K1`, `K2`, …).
+- V `artefact_md`: sekce `## Podmínky` s řádky `- [K1] text` (jeden řádek = jedna podmínka).
+- ID jsou unikátní v rámci tracku a při opakování triage zůstávají stejná (stav „převzato /
+  odpuštěno“ se váže na ID).
+- Podmínka = ověřitelné tvrzení („OP se online nesbírá“, „logy neobsahují OP — test s canary
+  hodnotou“), ne obecné doporučení. Co jen varuje, patří do `warnings`.
 
 ## Pravidla
 

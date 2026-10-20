@@ -88,12 +88,27 @@ Není to gate teď, ale checklist co bude třeba **před production deploy**:
   "footprint_estimate": [{"variant": "A", "tco_per_hour": 0.05}, ...],
   "slo_archetype": "internal_tool|customer_portal|batch_job|real_time_api|mobile_be",
   "blockers": ["..."],
+  "conditions": [{"id": "PROD-B1", "text": "..."}],
   "warnings": ["..."],
   "artefact_md": "<celý triage MD>",
   "signed_by": "current_actor()",
   "rationale": "..."
 }
 ```
+
+## Podmínky a blokace (povinný formát)
+
+Vše, co musí být splněno před produkcí (nebo dřív), vypiš jako **podmínky se stabilním ID**
+(PROD-B1–B3 (rollback, monitoring, on-call …)). Nástroj je uloží jako podmínky stopy `platform`, podpis okna je převezme a SHIP.md,
+PR checklist a `compliance.md` je ukážou; prompty Buildu je dostanou jako „Omezení z triage“.
+
+- V JSON: `"conditions": [{"id": "PROD-B1", "text": "jedna konkrétní, ověřitelná věta"}, …]`
+  (stačí i seznam řetězců — ID se doplní jako `PROD-B1`, `PROD-B2`, …).
+- V `artefact_md`: sekce `## Podmínky` s řádky `- [PROD-B1] text` (jeden řádek = jedna podmínka).
+- ID jsou unikátní v rámci tracku a při opakování triage zůstávají stejná (stav „převzato /
+  odpuštěno“ se váže na ID).
+- Podmínka = ověřitelné tvrzení („OP se online nesbírá“, „logy neobsahují OP — test s canary
+  hodnotou“), ne obecné doporučení. Co jen varuje, patří do `warnings`.
 
 ## Pravidla
 

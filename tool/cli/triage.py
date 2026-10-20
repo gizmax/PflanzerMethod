@@ -40,6 +40,211 @@ def _clip_text(text: str, n: int) -> str:
     return t if len(t) <= n else t[: n - 1].rstrip() + "…"
 
 
+# --------------------------------------------------------------------------
+# Podmínky / produkční blokace z triage (pilot Kladivo)
+# --------------------------------------------------------------------------
+#
+# Triage agenti vrací podmínky strukturovaně (`conditions`: [{"id": "K1", "text": "…"}] nebo
+# řetězce), případně jako řádky `- [K1] text` v `artefact_md` (sekce „Podmínky“); jako
+# nouzovou cestu čteme i věty typu `Požadavky: K1 text; K2 text`. Uložíme je do audit logu
+# (`triage.conditions`), podpis okna je převezme (`taken_conditions`) nebo vědomě odpustí
+# (`--waive K3 --rationale …`; `waived_conditions`). SHIP.md, těla PR a compliance.md je ukážou.
+
+COND_ID = r"[A-Za-z]{1,6}(?:-[A-Za-z]{1,4})?\d{1,3}"
+_COND_BULLET = re.compile(r"^\s*(?:[-*\u2022]|\d+[.)])\s*\[(" + COND_ID + r")\]\s*[:\u2013\u2014-]?\s*(\S.*?)\s*$")
+_COND_LEAD = re.compile(r"(?i)po[\u017ez]adavk|podm[\u00edi]nk|dolo[\u017ez]it|blokac|blokuj|conditions|requirements|blockers")
+_COND_ITEM = re.compile(r"^\s*(" + COND_ID + r")(?:\s*[:.)\u2013\u2014-]\s*|\s+)(\S.*?)\s*$")
+_COND_TEXT_ID = re.compile(r"^\s*\[?(" + COND_ID + r")\]?\s*[:.)\u2013\u2014-]?\s+(\S.*)$")
+COND_PREFIX = {"discovery": "C", "security": "K", "legal": "D", "platform": "P"}
+COND_KEYS = ("conditions", "production_blockers", "blockers")
+WINDOW_FOR_COND_TRACK = {"discovery": "zadani", "security": "bezpecnost", "legal": "bezpecnost",
+                         "platform": "provoz"}
+
+
+def _clean_cond(text: str) -> str:
+    return " ".join(str(text or "").replace("**", "").split()).strip(" -\u2022*")
+
+
+def extract_conditions(result: dict[str, Any]) -> list[dict[str, str]]:
+    """Podmínky/blokace jednoho triage tracku: [{id, text}] (strukturovaně + z `artefact_md`)."""
+    track = str(result.get("track") or "")
+    found: dict[str, str] = {}
+    order: list[str] = []
+
+    def put(cid: str, text: str) -> None:
+        text = _clean_cond(text)
+        cid = cid.upper()
+        if text and cid not in found:
+            found[cid] = text
+            order.append(cid)
+
+    counters: dict[str, int] = {}
+    for key in COND_KEYS:
+        items = result.get(key)
+        if not isinstance(items, list) or (key == "blockers" and result.get("status") == "blocked"):
+            continue
+        for it in items:
+            cid, text = "", ""
+            if isinstance(it, dict):
+                cid, text = str(it.get("id") or ""), str(it.get("text") or it.get("title") or "")
+            elif isinstance(it, str):
+                m = _COND_TEXT_ID.match(it)
+                cid, text = (m.group(1), m.group(2)) if m else ("", it)
+            if not text.strip():
+                continue
+            if not cid:
+                pre = (COND_PREFIX.get(track, "X") if key != "blockers" else "B")
+                counters[pre] = counters.get(pre, 0) + 1
+                cid = f"{pre}{counters[pre]}"
+                while cid.upper() in found:
+                    counters[pre] += 1
+                    cid = f"{pre}{counters[pre]}"
+            put(cid, text)
+    for line in str(result.get("artefact_md") or "").splitlines():
+        m = _COND_BULLET.match(line)
+        if m:
+            put(m.group(1), m.group(2))
+            continue
+        head, sep, rest = line.partition(":")
+        if sep and _COND_LEAD.search(head):
+            for part in rest.split(";"):
+                mi = _COND_ITEM.match(part)
+                if mi:
+                    put(mi.group(1), mi.group(2))
+    return [{"id": cid, "text": found[cid]} for cid in order]
+
+
+def condition_key(track: str, cid: str) -> str:
+    return f"{track}:{cid.upper()}"
+
+
+def store_conditions(conn: sqlite3.Connection, project_id: int, track: str,
+                     conds: list[dict[str, str]]) -> None:
+    """Zapíše aktuální seznam podmínek tracku (poslední záznam platí; prázdný seznam maže)."""
+    prev = [c for c in triage_conditions(conn, project_id) if c["track"] == track]
+    if not conds and not prev:
+        return
+    audit(conn, action="triage.conditions", target_type="project", target_id=project_id,
+          payload={"track": track, "conditions": conds})
+
+
+def triage_conditions(conn: sqlite3.Connection, project_id: int) -> list[dict[str, Any]]:
+    """Podmínky z triage se stavem: open | taken (převzal podpis okna) | waived (odpuštěno)."""
+    latest: dict[str, list[dict[str, str]]] = {}
+    states: dict[str, dict[str, Any]] = {}
+    rows = conn.execute(
+        "SELECT action, payload_json FROM audit_log WHERE target_type = 'project' AND target_id = ? "
+        "AND (action = 'triage.conditions' OR action LIKE 'checkpoint.%') ORDER BY id",
+        (project_id,)).fetchall()
+    for action, raw in rows:
+        try:
+            pl = json.loads(raw or "{}")
+        except (ValueError, TypeError):
+            continue
+        if action == "triage.conditions":
+            latest[str(pl.get("track"))] = [c for c in pl.get("conditions") or []
+                                            if isinstance(c, dict) and c.get("id") and c.get("text")]
+            continue
+        if pl.get("status") != "ok":
+            continue
+        window = action.split(".", 1)[1]
+        for k in pl.get("taken_conditions") or []:
+            states[str(k)] = {"state": "taken", "window": window, "by": pl.get("by"),
+                              "rationale": ""}
+        for w in pl.get("waived_conditions") or []:
+            if isinstance(w, dict) and w.get("key"):
+                states[str(w["key"])] = {"state": "waived", "window": window,
+                                         "by": pl.get("by"), "rationale": w.get("rationale") or ""}
+    out: list[dict[str, Any]] = []
+    for track in EXPECTED_TRACKS:
+        for c in latest.get(track, []):
+            key = condition_key(track, str(c["id"]))
+            st = states.get(key) or {"state": "open", "window": None, "by": None, "rationale": ""}
+            out.append({"track": track, "id": str(c["id"]).upper(), "key": key,
+                        "text": str(c["text"]), "window_for": WINDOW_FOR_COND_TRACK[track], **st})
+    return out
+
+
+BUILD_TRACKS = ("security", "legal", "platform")
+
+
+def build_constraints(slug: str) -> list[dict[str, Any]]:
+    """Omezení z triage relevantní pro Build (security/legal/platform), bez odpuštěných."""
+    try:
+        with transaction() as conn:
+            row = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+            if not row:
+                return []
+            conds = triage_conditions(conn, int(row[0]))
+    except Exception:  # noqa: BLE001 — prompty nesmí spadnout na starší DB
+        return []
+    return [c for c in conds if c["track"] in BUILD_TRACKS and c["state"] != "waived"]
+
+
+def triage_changed_brief(slug: str) -> str | None:
+    """Věta pro status: triage přidala omezení zadání (jinak None)."""
+    cons = build_constraints(slug)
+    if not cons:
+        return None
+    parts = []
+    for t in BUILD_TRACKS:
+        ids = [c["id"] for c in cons if c["track"] == t]
+        if ids:
+            parts.append(f"{t} {ids[0]}" + (f"–{ids[-1]}" if len(ids) > 1 else ""))
+    return ("Triage změnila zadání: " + ", ".join(parts) + f" ({len(cons)} omezení) — prompty to "
+            "už obsahují (`pflanzer quick_session prompts`); zvažte úpravu Charteru "
+            f"(`data/charters/{slug}.md`, nebo nový `pflanzer charter --spec …`).")
+
+
+VALID_TRIAGE_STATUS = ("ok", "blocked", "deferred", "pending")
+OPT_OUT_EXAMPLE = (
+    '  {"track": "discovery", "status": "deferred", "signed_by": "Karel Dvořák",\n'
+    '   "rationale": "opt-out: interní nástroj, persony známe z 10 let telefonních rezervací",\n'
+    '   "conditions": [{"id": "C1", "text": "persona do 30 dní"}], "artefact_md": "…"}\n'
+    "  (opt-out = status `deferred`, `signed_by` je jméno Decidera (člověk), `rationale` začíná "
+    "„opt-out:“ a uvádí důvod)"
+)
+
+
+def validate_results(results: list[Any]) -> None:
+    """Česká chyba, když spec triage nedává smysl (nezná track/stav, špatný opt-out)."""
+    seen: set[str] = set()
+    for i, r in enumerate(results, 1):
+        if not isinstance(r, dict):
+            raise ValueError(f"Výsledek č. {i} v `results` musí být objekt "
+                             '{"track": …, "status": …, "signed_by": …, "artefact_md": …}.')
+        track = r.get("track")
+        if track not in EXPECTED_TRACKS:
+            raise ValueError(f"Výsledek č. {i}: neznámý track ‚{track}‘. Povolené: "
+                             + ", ".join(EXPECTED_TRACKS) + ".")
+        if track in seen:
+            raise ValueError(f"Track ‚{track}‘ je ve specu víckrát — pošli každý jednou.")
+        seen.add(track)
+        if r.get("status") not in VALID_TRIAGE_STATUS:
+            raise ValueError(f"Track ‚{track}‘: stav ‚{r.get('status')}‘ neexistuje. Povolené: "
+                             + " | ".join(VALID_TRIAGE_STATUS) + ".")
+        if track == "discovery":
+            score = r.get("discovery_debt_score")
+            if score is not None and (isinstance(score, bool) or not isinstance(score, (int, float))
+                                      or not 0 <= score <= 10):
+                raise ValueError("Discovery: `discovery_debt_score` musí být číslo 0–10 "
+                                 f"(dostal jsem ‚{score}‘).")
+            text = f"{r.get('rationale') or ''} {r.get('artefact_md') or ''}"
+            if re.search(r"(?i)opt-?out", text):
+                why = re.sub(r"(?i)^\s*opt-?out\s*[:\u2013\u2014-]?\s*", "",
+                             str(r.get("rationale") or "")).strip()
+                problems = []
+                if r.get("status") == "ok":
+                    problems.append("opt-out se nezapisuje jako `ok` — je `deferred` (debt zůstává)")
+                if len(why) < 15:
+                    problems.append("chybí důvod v `rationale` (aspoň věta, proč personu/JTBD/OST "
+                                    "nepotřebujete)")
+                if problems:
+                    raise ValueError("Opt-out z Discovery není ve správném formátu: "
+                                     + "; ".join(problems) + ".\nPříklad:\n" + OPT_OUT_EXAMPLE)
+
+
+
 def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     """Persist 4 triage outputs + gate decision.
 
@@ -51,6 +256,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     Returns:
         dict with overall_status, blockers, warnings, summary_path.
     """
+    validate_results(results)
     seen_tracks = {r["track"] for r in results}
     missing = set(EXPECTED_TRACKS) - seen_tracks
     if missing:
@@ -101,11 +307,26 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         why = _clip_text(str(disc.get("rationale") or disc_text), 160)
         warnings.append(f"[discovery] opt-out z discovery (justifikace: {why}) — zapsáno do "
                         "audit logu; discovery debt zůstává.")
+        if not _human_name(str(disc.get("signed_by") or "")):
+            warnings.append("[discovery] opt-out nepotvrdil jmenovitě člověk (Decider) — doplňte "
+                            "`signed_by` se jménem; AI opt-out nenahrazuje.")
         opt_out_discovery = True
     else:
         opt_out_discovery = False
 
     overall = "blocked" if blockers else ("pending" if pending else "ok")
+    cond_by_track = {r["track"]: extract_conditions(r) for r in results}
+    n_conds = sum(len(v) for v in cond_by_track.values())
+    if n_conds:
+        listing = ", ".join(f"{t} {v[0]['id']}" + (f"–{v[-1]['id']}" if len(v) > 1 else "")
+                            for t, v in cond_by_track.items() if v)
+        warnings.append(f"Triage vrátila {n_conds} podmínek/blokací ({listing}) — podpis okna je "
+                        "převezme (`pflanzer checkpoint … --waive ID --rationale …` je odpustí), "
+                        "SHIP.md, PR a compliance.md je ukážou, prompty Buildu je obsahují.")
+    if cond_by_track.get("discovery"):
+        warnings.append("[discovery] podmínky " + cond_by_track["discovery"][0]["id"]
+                        + " … nejsou splněny jen proto, že je Zadání podepsané — potvrdí je "
+                        "re-sign okna `zadani` (nebo je odpusťte s `--waive`).")
 
     # Persist
     TRIAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -121,6 +342,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         for r in results:
             track = r["track"]
             artefact_md = r.get("artefact_md", "")
+            store_conditions(conn, project_id, track, cond_by_track[track])
             if track == "discovery" and r["status"] != "ok":
                 # Podpis Kickoffu (Zadání) nepřepisujeme návrhem/opt-outem z triage.
                 kept = conn.execute(
@@ -167,7 +389,8 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
                   payload={"slug": slug, "status": disc.get("status"),
                            "rationale": str(disc.get("rationale") or "")[:400]})
 
-    summary_md = render_summary_md(slug, project_id, overall, results, blockers, warnings)
+    summary_md = render_summary_md(slug, project_id, overall, results, blockers, warnings,
+                                   cond_by_track)
     summary_path = project_dir / "_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")
 
@@ -180,6 +403,7 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
         "summary_path": str(summary_path),
         "pending": pending,
         "opt_out_discovery": opt_out_discovery,
+        "conditions": {t: v for t, v in cond_by_track.items() if v},
         "tracks": {r["track"]: r["status"] for r in results},
     }
 
@@ -187,7 +411,12 @@ def aggregate(slug: str, results: list[dict[str, Any]]) -> dict[str, Any]:
 def render_summary_md(
     slug: str, project_id: int, overall: str, results: list[dict[str, Any]],
     blockers: list[str], warnings: list[str],
+    conditions: dict[str, list[dict[str, str]]] | None = None,
 ) -> str:
+    cond_section = ""
+    if conditions and any(conditions.values()):
+        cond_section = "\n## Podmínky a blokace z triage\n\n" + "\n".join(
+            f"- `{t}` [{c['id']}] {c['text']}" for t, cs in conditions.items() for c in cs) + "\n"
     rows = "\n".join(
         f"| {r['track']} | {r['status']} | {r.get('signed_by', '—')} | {r.get('rationale', '—')} |"
         for r in results
@@ -220,7 +449,7 @@ def render_summary_md(
 | Track | Status | Signed by | Rationale |
 |-------|--------|-----------|-----------|
 {rows}
-{block_section}{warn_section}
+{block_section}{cond_section}{warn_section}
 ## Další krok
 
 {next_step}

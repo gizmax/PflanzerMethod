@@ -942,6 +942,16 @@ def project_session_mode(slug: str) -> str:
     return (row[0] if row and row[0] in SESSION_MODES else None) or "parallel"
 
 
+TRACK_NAMES = {"security": "bezpečnost", "legal": "právo", "platform": "provoz"}
+
+
+def _triage_constraints(slug: str) -> list[str]:
+    """`[K1] text (bezpečnost)` — podmínky/blokace z triage relevantní pro Build (bez odpuštěných)."""
+    from tool.cli.triage import build_constraints
+    return [f"[{c['id']}] {c['text']} ({TRACK_NAMES.get(c['track'], c['track'])})"
+            for c in build_constraints(slug)]
+
+
 def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
                     prefer_hosted: bool = False,
                     mode: str | None = None) -> dict[str, Any]:
@@ -1053,6 +1063,11 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
     constraints.append("Žádné credentials v kódu, žádné .env."
                        + (" Pokud má varianta uživatelské rozhraní: WCAG 2.2 AA."
                           if stack.js_frontend or not stack.stack else ""))
+    triage_cons = _triage_constraints(slug)
+    if triage_cons:
+        constraints.append(
+            "Omezení z triage (závazná, přebíjí zadání, kde si odporují; neschválená výjimka = "
+            "stop a otázka týmu):\n" + "\n".join(f"  - {c}" for c in triage_cons))
     has_feature = _feature_exists(slug, repos)
     feature_repo = _feature_repo(slug, repos)
 
@@ -1104,6 +1119,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         "variants_in_play": [p.name for p in prompts] if plan else None,
         "diversity_hint": rec.get("diversity_hint", ""),
         "keyboard": keyboard,
+        "triage_constraints": triage_cons,
         "stack": stack.stack, "stack_label": stack.label or None,
         "check_commands": stack.commands or [],
         "acceptance_feature": f"tests/acceptance/{slug}.feature" if has_feature else None,
