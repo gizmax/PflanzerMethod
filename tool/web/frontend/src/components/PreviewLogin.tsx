@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ProjectDetail } from "../lib/types";
-import { previewLoginText } from "../lib/task";
+import { PREVIEW_LOGIN_TEXT, previewLoginText } from "../lib/task";
 
 /** Přihlášení k náhledu. Heslo (pokud ho hub smí ukázat) je skryté za tlačítkem. */
 export function PreviewLogin({ detail }: { detail: ProjectDetail }) {
@@ -12,7 +12,7 @@ export function PreviewLogin({ detail }: { detail: ProjectDetail }) {
   }
   return (
     <div className="rounded-md bg-soft p-3 text-sm space-y-2">
-      <p>Náhled se otevře po přihlášení: uživatel <strong>{l.user}</strong>.</p>
+      <p>{PREVIEW_LOGIN_TEXT}</p>
       {shown ? (
         <p>Heslo: <code className="select-all">{l.password}</code></p>
       ) : null}

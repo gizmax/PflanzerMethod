@@ -109,7 +109,8 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
         if feedback_count == 0:
             if sharing:           # share/hub běží → sběr feedbacku už probíhá
                 return ("Sběr feedbacku běží (sdíleno)",
-                        "/pm feedback  (po Asyncu `pflanzer share down --slug <slug>`, pak /pm decide)")
+                        "/pm feedback <slug>  (po Asyncu `pflanzer share down --slug <slug>`, "
+                        "pak /pm decide <slug>)")
             if missing_preview:   # zástupci bez odkazu nic neuvidí → nejdřív preview
                 return ("Build hotový — varianty bez preview URL",
                         "pflanzer share --slug <slug>")
@@ -333,6 +334,8 @@ def _blocked_triage(slug: str) -> list[str]:
 
 
 def _with_slug(step: str, slug: str) -> str:
+    if "<slug>" in step:
+        return step
     return f"{step} {slug}" if step.startswith("/pm ") and step != "/pm start" else step
 
 
@@ -807,7 +810,7 @@ def main(argv: list[str] | None = None) -> None:
         return
     except Exception as e:  # DB nemigrovaná apod.
         if "no such table" in str(e):
-            die("databáze není inicializovaná — spusť `pflanzer doctor` "
+            die("databáze není inicializovaná — spusťte `pflanzer doctor` "
                 "(zkontroluje prostředí), případně `python3 tool/db/migrate.py`.")
             return
         raise

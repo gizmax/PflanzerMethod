@@ -151,6 +151,19 @@ def _preview_login(slug: str, request: Request) -> dict[str, Any] | None:
             "password": state["password"] if safe else None}
 
 
+def _feedback_deadline(slug: str) -> str | None:
+    """Termín sběru feedbacku, jak ho zadal `pflanzer share/preview up --deadline` (read-only)."""
+    for name in (f"{slug}.share.json", f"{slug}.json"):
+        try:
+            state = json.loads((_data_root() / "preview" / name).read_text("utf-8"))
+        except (OSError, ValueError):
+            continue
+        d = state.get("deadline") if isinstance(state, dict) else None
+        if isinstance(d, str) and d.strip():
+            return d.strip()[:80]
+    return None
+
+
 def _kill_info(db: Session, project: Project) -> dict[str, Any] | None:
     if project.status != "killed":
         return None
@@ -293,6 +306,7 @@ def get_project(slug: str, request: Request, db: Session = Depends(get_session))
         "variants_dropped": [n for n in _all_variant_names(db, project.id)
                              if in_play and n not in in_play],
         "preview_login": _preview_login(slug, request),
+        "feedback_deadline": _feedback_deadline(slug),
         "kill": _kill_info(db, project),
         "build_running": _build_running(db, project.id),
         **risk,

@@ -38,7 +38,7 @@ from tool.cli.ux import (  # noqa: E402
 FEEDBACK_DIR = DATA_ROOT / "feedback"
 BRAND_LINE = "**Pflanzer Method | pflanzer.cz/method**"
 NO_FEEDBACK_MSG = (
-    "Zatím žádný feedback. Zástupci ho píšou v hubu, nebo ho zapiš za ně: "
+    "Zatím žádný feedback. Zástupci ho píšou v hubu, nebo ho zapište za ně: "
     "pflanzer feedback add --slug {slug} --variant {variant} --role \"Bezpečnost\" "
     "--by \"Jméno\" --severity major --text \"co je špatně\"."
 )
@@ -495,15 +495,15 @@ def _human(agg: dict[str, Any], summary_path: Any) -> tuple[str, list[str], list
                      "doplňte a ověřte s reálným uživatelem. Jen informace, neblokuje.")
     if agg["ai_only_ratio"] > 0.5:
         warns.append(f"{agg['ai_only_ratio']:.0%} feedbacku píše AI persona, ne lidé — "
-                     "před Rozhodnutím zkus rozhovor se skutečným uživatelem.")
+                     "před Rozhodnutím zkuste rozhovor se skutečným uživatelem.")
     if crit:
         first = next((c for c in crit if c["variant"] in agg["focus_variants"]), crit[0])
-        nxt = (f"vyřeš kritické #{first['id']} s autorem ({first.get('submitted_by') or '?'}): "
+        nxt = (f"vyřešte kritické #{first['id']} s autorem ({first.get('submitted_by') or '?'}): "
                f"`pflanzer decide resolve --slug {slug} --feedback-id {first['id']} "
                f"--by JMÉNO --note \"…\"`")
     elif silent:
         r = silent[0]
-        nxt = (f"ozvi se {r['name']} ({r['label']}); jeho připomínku zapíšeš: "
+        nxt = (f"Ozvěte se: {r['name']} — chybí připomínka ({r['label']}); zapište ji: "
                f"`pflanzer feedback add --slug {slug} --variant {variant_in_play(slug, agg)} "
                f"--role {r['step']} "
                f"--severity major --text \"…\" --by {r['name']}`")

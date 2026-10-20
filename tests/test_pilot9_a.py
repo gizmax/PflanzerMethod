@@ -187,7 +187,7 @@ def test_spec_errors_recommend_file_not_heredoc(tmp_path: Path) -> None:
     assert "--spec .pflanzer/specs/" in quick_session.BOOTSTRAP_EXAMPLE
     with pytest.raises(ValueError) as exc:
         read_spec(tmp_path / "chybi.json")
-    assert "<<'EOF'" not in str(exc.value) and "Write" in str(exc.value)
+    assert "<<'EOF'" not in str(exc.value) and "Uložte JSON do souboru" in str(exc.value)
     with pytest.raises(ValueError) as exc2:
         quick_session._bootstrap_from_spec(
             {"hook": HOOK, "decider_name": "D", "risk_profile": "pilot", "neznamy": 1})

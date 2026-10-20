@@ -118,6 +118,7 @@ class WorktreeSetup:
     init_missing: list[dict[str, Any]] = field(default_factory=list)
     copied_inputs: list[str] = field(default_factory=list)  # Kickoff soubory zkopírované z cwd
     builder_notes: list[str] = field(default_factory=list)  # odkud je builder pro trailer
+    builder: str = ""  # explicitně zadaný `--builder` (prázdný = nezadán)
 
 
 _REPO_URL_RE = re.compile(
@@ -256,7 +257,7 @@ def normalize_target_repos(
             )
         role = str(it.get("role") or ("app" if len(items) == 1 else f"repo{i + 1}")).lower()
         if not re.match(r"^[a-z][\w-]{0,15}$", role):
-            raise ValueError(f"target_repos[{i}]: role '{role}' — použij krátký identifikátor (fe, be, api, app).")
+            raise ValueError(f"target_repos[{i}]: role '{role}' — použijte krátký identifikátor (fe, be, api, app).")
         if role in seen_roles:
             role = f"{role}{i + 1}"
         seen_roles.add(role)
@@ -704,14 +705,14 @@ def _chain_help(hooks_path: str | None, existing: list[Path] | None = None) -> s
     if hooks_path:
         return (
             f"Repo má core.hooksPath='{hooks_path}' (husky/lefthook) — Pflanzer hooky "
-            f"NEpřepisuji. Zřetězení: husky → do `.husky/<hook>` přidej řádek ({lines}); "
-            "lefthook → v lefthook.yml pod `prepare-commit-msg` / `commit-msg` přidej "
+            f"NEpřepisuji. Zřetězení: husky → do `.husky/<hook>` přidejte řádek ({lines}); "
+            "lefthook → v lefthook.yml pod `prepare-commit-msg` / `commit-msg` přidejte "
             f"command `run: sh \"$(git rev-parse --git-common-dir)/hooks/{HOOK_CORE_NAME}\" "
             "prepare {1} {2} {3}` resp. `... commit-msg {1}`."
         )
     names = ", ".join(str(e) for e in (existing or []))
     return (f"Existující hook(y) {names} nejsou od Pflanzeru — NEpřepisuji. Zřetězení: "
-            f"na konec přidej řádek ({lines}).")
+            f"na konec přidejte řádek ({lines}).")
 
 
 def _install_trailer_hook(clone: Path) -> dict[str, Any]:
@@ -1038,7 +1039,7 @@ def guard(slug: str, *, fix_gitignore: bool = True) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     wts = _existing_worktrees(slug, repos)
     if not wts:
-        raise ValueError(f"Žádné worktrees pro '{slug}' — spusť `pflanzer worktree setup --slug {slug}`.")
+        raise ValueError(f"Žádné worktrees pro '{slug}' — spusťte `pflanzer worktree setup --slug {slug}`.")
     for repo, variant, path in wts:
         for r in guard_worktree(path, fix_gitignore=fix_gitignore):
             rows.append({"repo": repo.role, "variant": variant, **r})
@@ -1156,7 +1157,7 @@ def render_integration_guide(repo: Path, *, workspace: str | None, repo_role: st
     lines = [f"> {BRAND_LINE}", ""]
     lines.append(tpl.split("\n", 1)[0])  # title line
     lines += ["", "## Autodetekce (Pflanzer `init-pr`, " + date.today().isoformat() + ")", "",
-              "> Předvyplněno z manifestů — jen názvy knihoven. Ověř a doplň konkrétní",
+              "> Předvyplněno z manifestů — jen názvy knihoven. Ověřte a doplňte konkrétní",
               "> patterns v sekcích níže (placeholdery `<…>`), pak smaž, co neplatí.", ""]
     lines.append(f"- Repo role: `{repo_role}`")
     if workspace:
@@ -1169,7 +1170,7 @@ def render_integration_guide(repo: Path, *, workspace: str | None, repo_role: st
     for cat, libs in sorted(stack["libs"].items()):
         lines.append(f"- {cat}: " + ", ".join(f"`{x}`" for x in libs))
     if not stack["libs"]:
-        lines.append("- _(žádné známé knihovny nedetekovány — vyplň ručně)_")
+        lines.append("- _(žádné známé knihovny nedetekovány — vyplňte ručně)_")
     rest = tpl.split("\n", 1)[1] if "\n" in tpl else ""
     return "\n".join(lines) + "\n" + rest
 
@@ -1242,9 +1243,9 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
     if not repos:
         raise ValueError(
             f"Projekt „{slug}“ nemá nastavený target_repo_url / target_repos. "
-            "Povinné pro pilot/production. Spusť `pflanzer init` v target repu "
-            "(vyplní .pflanzer/project.toml) a založ projekt znovu přes `/pm start`, "
-            "nebo nastav `projects.target_repos`. Stav projektů: `pflanzer status`; "
+            "Povinné pro pilot/production. Spusťte `pflanzer init` v target repu "
+            "(vyplní .pflanzer/project.toml) a založte projekt znovu přes `/pm start`, "
+            "nebo nastavte `projects.target_repos`. Stav projektů: `pflanzer status`; "
             "cesta k DB: `pflanzer db`."
         )
 
@@ -1324,6 +1325,7 @@ def setup(slug: str, *, install_deps: bool = True, mode: str | None = None,
         install_results=primary_res["install_results"],
         mode=mode, repos=repo_results, guard=guard_rows, init_missing=init_missing,
         copied_inputs=copied_inputs, builder_notes=builder_notes,
+        builder=(builder or "").strip(),
     )
 
 
@@ -1420,7 +1422,7 @@ def init_pr(slug: str) -> list[dict[str, Any]]:
             if rc != 0:
                 raise RuntimeError(
                     f"git commit v {wt} selhal: {(err or out).strip()} — "
-                    "zkontroluj `git config user.name` / `user.email` (autor = dev u klávesnice)."
+                    "zkontrolujte `git config user.name` / `user.email` (autor = dev u klávesnice)."
                 )
             res["status"] = "committed"
         else:
@@ -1606,8 +1608,8 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                     results.append(res)
                     continue
                 if not shutil.which("gh"):
-                    res["status"] = ("skipped: GitHub CLI `gh` není na PATH — nainstaluj a přihlas "
-                                     "(`gh auth login`), nebo spusť vytištěné příkazy ručně")
+                    res["status"] = ("skipped: GitHub CLI `gh` není na PATH — nainstalujte a přihlaste "
+                                     "(`gh auth login`), nebo spusťte vytištěné příkazy ručně")
                     results.append(res)
                     continue
                 rc, out, err = _run(push_cmd, timeout=300)
@@ -1819,15 +1821,28 @@ VOTE_HINT = ("Vyplň facilitátora, URL a hodnocení; tento klíč `_napoveda` v
              "`pflanzer record --spec <tento soubor>`.")
 
 
-def vote_template(slug: str, variants: tuple[str, ...] | list[str]) -> dict[str, Any]:
+def role_label(idx: int) -> str:
+    """Lidský název role z katalogu (1–18); prázdný řetězec, když katalog nejde načíst."""
+    try:
+        from tool.cli.roles import load_catalog
+        for r in load_catalog()["roles"]:
+            if int(r["idx"]) == idx:
+                return str(r["label"])
+    except Exception:  # noqa: BLE001 — jen popisek
+        pass
+    return ""
+
+
+def vote_template(slug: str, variants: tuple[str, ...] | list[str],
+                  builder: str = DEFAULT_BUILDER) -> dict[str, Any]:
     """Předvyplněná šablona specu pro `pflanzer record` (varianty projektu, prázdné URL)."""
     return {
         "_napoveda": VOTE_HINT,
         "slug": slug,
         "facilitator": "",
         "votes": [{
-            "name": v, "builder": "claude-code", "description": "", "prototype_url": "",
-            "role_preferences": [{"role_idx": 1, "user_value": 0.5, "effort": 0.5, "risk": 0.5,
+            "name": v, "builder": builder, "description": "", "prototype_url": "",
+            "role_preferences": [{"role_idx": 1, "role": role_label(1), "user_value": 0.5, "effort": 0.5, "risk": 0.5,
                                   "strategic_fit": 0.5, "commitment_level": None, "rationale": ""}],
         } for v in variants],
         "real_urls": {v: "" for v in variants},
@@ -1836,7 +1851,8 @@ def vote_template(slug: str, variants: tuple[str, ...] | list[str]) -> dict[str,
     }
 
 
-def write_vote_template(slug: str, mode: str, base: Path | None = None) -> Path | None:
+def write_vote_template(slug: str, mode: str, base: Path | None = None,
+                        builder: str | None = None) -> Path | None:
     """Zapíše `.pflanzer/specs/<slug>-vote.json`, pokud ještě neexistuje (nic nepřepisuje).
 
     Vrací cestu, když soubor vznikl; None, když už byl (nebo nejde zapsat)."""
@@ -1846,7 +1862,7 @@ def write_vote_template(slug: str, mode: str, base: Path | None = None) -> Path 
     variants = PARALLEL_VARIANTS if mode == "parallel" else MOB_VARIANTS
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(vote_template(slug, variants), ensure_ascii=False, indent=2)
+        path.write_text(json.dumps(vote_template(slug, variants, builder or DEFAULT_BUILDER), ensure_ascii=False, indent=2)
                         + "\n", encoding="utf-8")
     except OSError:
         return None
@@ -1864,7 +1880,7 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     first_path = next(iter(first["worktrees"].values()))
     lines.append(f"Složky: `{_tilde(first_path)}` (ostatní varianty vedle ní)")
     if s.copied_inputs:
-        lines.append("Do worktrees zkopírováno (v originu zatím nejsou — commitni a pushni): "
+        lines.append("Do worktrees zkopírováno (v originu zatím nejsou — commitněte a pushněte): "
                      + ", ".join(f"`{c}`" for c in s.copied_inputs))
     hooks = {r["hook"]["status"] for r in s.repos}
     lines.append("Commit trailery (původ AI kódu): "
@@ -1896,8 +1912,12 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
     failed = [x for r in s.repos for x in r["install_results"] if x["status"] == "failed"]
     if failed:
         lines.append(f"Instalace závislostí selhala v {len(failed)} složce(ích) — "
-                     f"zkus `{failed[0].get('cmd')}` ručně.")
-    if s.mode == "mob":
+                     f"zkuste `{failed[0].get('cmd')}` ručně.")
+    if s.builder == "manual":
+        nxt = (f"Pište kód ve složkách variant (`cd {_tilde(first_path)}`; ostatní vedle ní), "
+               "commitujte a pushněte; pak `pflanzer record --spec .pflanzer/specs/"
+               f"{s.slug}-vote.json`")
+    elif s.mode == "mob":
         from tool.cli.tier import MOB_ITERATIONS, QUICK_BUILD_MINUTES, project_tier
         quick = project_tier(s.slug) == "quick" and MOB_ITERATIONS["quick"] == 1
         nxt = (f"`cd {_tilde(s.worktrees[0])} && claude` — MOB Build, max 5 lidí u 1 monitoru, "
@@ -2003,7 +2023,7 @@ def _dispatch(args: argparse.Namespace) -> None:
                   builder=args.builder,
                   run_guard=not args.no_guard)
         title, lines, nxt = _setup_view(s)
-        tpl = write_vote_template(args.slug, s.mode)
+        tpl = write_vote_template(args.slug, s.mode, builder=s.builder or None)
         if tpl:
             lines.append(f"Šablona zápisu Buildu: `{tpl}` (vyplníš po Buildu, `pflanzer record --spec`; "
                          "necommituje se).")
@@ -2020,7 +2040,7 @@ def _dispatch(args: argparse.Namespace) -> None:
             lines.append(f"… a dalších {len(bad) - 6} nálezů (`--json` pro všechny)")
         emit(rows, title=f"Data leakage guard — `{args.slug}`",
              lines=lines or ["Bez nálezů — ve všech worktrees je čisto."],
-             next_step=(f"oprav nálezy a spusť `pflanzer worktree guard --slug {args.slug}` znovu"
+             next_step=(f"opravte nálezy a spusťte `pflanzer worktree guard --slug {args.slug}` znovu"
                         if bad else f"`pflanzer worktree setup --slug {args.slug}` / pokračuj Buildem"),
              tips=[], as_json=args.json)
         if args.strict and bad:
@@ -2056,7 +2076,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         hint = next((r["how_to_store"] for r in res if r.get("how_to_store")), None)
         nxt = (hint or (f"`pflanzer worktree preview --slug {args.slug} --run`"
                         if args.mode == "draft-pr" and not args.run
-                        else f"pošli zástupcům odkazy a spusť `/pm feedback {args.slug}`"))
+                        else f"pošlete zástupcům odkazy a spusťte `/pm feedback {args.slug}`"))
         emit(data, title=f"Preview — `{args.slug}`", lines=lines or ["Žádné worktrees k náhledu."],
              next_step=nxt,
              tips=[] if args.json else tips_for_project(args.slug, "async", limit=2),

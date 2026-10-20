@@ -303,7 +303,7 @@ def render_summary_md(data: dict[str, Any]) -> str:
     out.append("- AI: " + retro.leadership_ai_cost_text(c["ai"]))
     out += ["", "## Kvalita"]
     q = data["quality"]
-    out.append(q["sentence"] if q["ran"] else "Brány zatím neběžely (spustí je Ship).")
+    out.append(q["sentence"] if q["ran"] else "Automatické kontroly zatím neběžely (spustí je Ship).")
     if q["ran"]:
         out.append(SCORE_DISCLAIMER)
     out += ["", "## Rizika"]
@@ -323,7 +323,9 @@ def render_summary_md(data: dict[str, Any]) -> str:
     elif o["measured"]:
         out += [f"- {x}" for x in retro.leadership_lines(o)]
     else:
-        out.append("Ještě neměřeno, měří se T+30 (`pflanzer retro measure`, po mergi do produkce).")
+        out.append("Ještě neměřeno, měří se T+30 (po mergi do produkce): "
+                   f"`pflanzer retro measure --slug {data['slug']} --pr-url URL` "
+                   "(nebo `--merge-commit SHA`).")
     out += ["", "## Další krok", data["next_step"]]
     # Strop 40 řádků: nejdřív zkrátíme rizika (nejdelší sekce), ostatní sekce zůstanou.
     if len(out) > MAX_LINES and len(data["risks"]) > 3:

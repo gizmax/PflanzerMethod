@@ -12,6 +12,23 @@ function voteSummary(v: VoteOut): string {
 }
 
 /** Tiché hlasování před Rozhodnutím. Hub nezapisuje rozhodnutí, jen ukáže výsledek a příkaz. */
+/** Srozumitelná česká hláška z chyby API (422 z FastAPI i prostý text). */
+export function voteErrorText(e: unknown): string {
+  const fallback = "Hlas se nepodařilo uložit. Zkuste to prosím znovu.";
+  const m = e instanceof Error ? e.message : "";
+  let detail: unknown;
+  try { detail = JSON.parse(m).detail; } catch { return fallback; }
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const fields = detail.map((d) => (Array.isArray(d?.loc) ? String(d.loc[d.loc.length - 1]) : ""));
+    if (fields.includes("winner")) return "Vyberte vítěznou variantu";
+    if (fields.includes("choice")) return "Vyberte Go, Iterate nebo Kill.";
+    if (fields.includes("comment")) return "Komentář je příliš dlouhý (nejvýše 300 znaků).";
+    return "Hlas obsahuje neplatné údaje. Zkontrolujte formulář.";
+  }
+  return fallback;
+}
+
 export function SilentVote({ slug, variants, identityName, compact = false }: {
   slug: string; variants: string[]; identityName: string | null; compact?: boolean;
 }) {
@@ -21,11 +38,12 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
   const [comment, setComment] = useState("");
   const [iter, setIter] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [winnerErr, setWinnerErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     // změna identity = čistý formulář; vlastní uložený hlas nové identity se načte níže
-    setSt(null); setChoice(""); setWinner(""); setComment(""); setIter([]); setErr(null);
+    setSt(null); setChoice(""); setWinner(""); setComment(""); setIter([]); setErr(null); setWinnerErr(null);
     if (!identityName) return;
     let cancelled = false;
     api.getVotes(slug).then((s) => {
@@ -44,17 +62,21 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
   if (!st || !st.enabled) return null;
 
   async function run(fn: () => Promise<VotesState>): Promise<boolean> {
-    setBusy(true); setErr(null);
+    setBusy(true); setErr(null); setWinnerErr(null);
     try { setSt(await fn()); return true; } catch (e) {
-      const m = e instanceof Error ? e.message : "";
-      try { setErr(JSON.parse(m).detail ?? "Nepodařilo se uložit."); } catch { setErr("Nepodařilo se uložit."); }
+      setErr(voteErrorText(e));
     } finally { setBusy(false); }
     return false;
   }
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!choice) { setErr("Vyberte Go, Iterate nebo Kill."); return; }
-    if (choice === "go" && !winner) { setErr("U volby Go vyberte variantu."); return; }
+    if (choice === "go" && !winner) {
+      setErr(null); setWinnerErr("Vyberte vítěznou variantu");
+      document.getElementById("vote-winner")?.focus();
+      return;
+    }
+    setWinnerErr(null);
     void run(() => api.castVote(slug, {
       choice, winner: choice === "go" ? winner : null, comment,
       iterate_variants: choice === "iterate" ? iter : [],
@@ -82,7 +104,7 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
         </p>
       )}
       {st.can_vote && (
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} noValidate className="space-y-3">
           <fieldset>
             <legend className="pf-label">{st.is_decider ? "Vaše volba (Decider)" : "Vaše volba"}</legend>
             <div className="flex flex-wrap gap-3">
@@ -98,10 +120,14 @@ export function SilentVote({ slug, variants, identityName, compact = false }: {
           {choice === "go" && (
             <div>
               <label htmlFor="vote-winner" className="pf-label">Vítězná varianta</label>
-              <select id="vote-winner" className="pf-input" value={winner} onChange={(e) => setWinner(e.target.value)}>
+              <select id="vote-winner" className="pf-input" value={winner} required
+                aria-invalid={winnerErr ? true : undefined}
+                aria-describedby={winnerErr ? "vote-winner-err" : undefined}
+                onChange={(e) => { setWinner(e.target.value); setWinnerErr(null); }}>
                 <option value="">— vyberte —</option>
                 {variants.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
+              {winnerErr && <p id="vote-winner-err" role="alert" className="pf-error">{winnerErr}</p>}
             </div>
           )}
           {choice === "iterate" && (

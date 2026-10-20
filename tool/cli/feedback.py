@@ -119,7 +119,7 @@ def add_feedback(
         if variant_id is None:
             raise ValueError(
                 f"Varianta '{variant}' u projektu '{slug}' není zapsaná v toolu. "
-                "Nejdřív zapiš varianty po Buildu (`/pm build`)."
+                "Nejdřív zapište varianty po Buildu (`/pm build`)."
             )
         role_id, department = _resolve_role(conn, project_id, role)
         actor = (author or "").strip() or current_actor()
@@ -273,7 +273,7 @@ def main() -> None:
                      f"{severity_label(res['severity'])}, autor {res['submitted_by']}"]
             if not args.author:
                 lines.append(f"Autor je git user ({res['submitted_by']}), ne zástupce kroku — "
-                             "za někoho jiného zapiš `--by \"Jméno\"`.")
+                             "za někoho jiného zapište `--by \"Jméno\"`.")
             if not res["role_matched"]:
                 lines.append("Role v projektu nenalezena — uloženo jen jako oddělení.")
             if res["severity"] == "critical":
@@ -291,7 +291,7 @@ def main() -> None:
                                f"(`pflanzer decide --slug {sl} go --winner "
                                f"{res['variant']} …`)")
                     else:
-                        nxt = (f"oprav to ve variantě {res['variant']} a pak "
+                        nxt = (f"opravte to ve variantě {res['variant']} a pak "
                                f"`pflanzer decide resolve --slug {sl} --feedback-id {fid} "
                                f"--by JMÉNO --note \"co se opravilo\"`; nebo Decider přebije při Go: "
                                f"`--override-critical \"důvod\"`")
@@ -299,7 +299,7 @@ def main() -> None:
                     lines.append(f"Kritické na {res['variant']} Go neblokuje, pokud vyhraje jiná "
                                  f"varianta ({'/'.join(res['focus_variants']) or '—'}).")
                     nxt = (f"`pflanzer decide resolve --slug {sl} --feedback-id {fid} "
-                           f"--by JMÉNO --note \"proč je to mimo vítěze\"`, nebo nech být: "
+                           f"--by JMÉNO --note \"proč je to mimo vítěze\"`, nebo nechte být: "
                            f"`pflanzer feedback list --slug {sl}`")
                 phase = "after_critical"
             else:

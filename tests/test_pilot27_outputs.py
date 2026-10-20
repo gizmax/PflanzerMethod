@@ -28,12 +28,15 @@ def test_gate_human_and_unverified_text() -> None:
     assert qg.gate_human("smoke") == "spuštění aplikace"
     assert qg.gate_human("lint") == "lint"
     text = qg.unverified_human({"gate": "coverage", "reason": "chybí coverage nástroj"})
-    assert text == "pokrytí testy — neměřeno, chybí nástroj (c8 / pytest-cov)"
+    assert text == "pokrytí testy (nástroj na měření chybí)"
+    assert "c8 / pytest-cov" in qg.unverified_human(
+        {"gate": "coverage", "reason": "chybí coverage nástroj"}, technical=True)
 
 
 def test_score_sentence_has_no_jargon() -> None:
     s = qg.score_sentence(98, 80, 8, ["typová kontrola"], "splňuje práh")
-    assert "Spočteno z 8 automatických kontrol." in s and "branami" not in s
+    assert "z 8 automatických kontrol" in s and "branami" not in s
+    assert "Spočteno z 8 automatických kontrol." in qg.score_sentence(98, 80, 8, [], "splňuje práh")
     assert "ze 4 automatických kontrol" in qg.score_sentence(90, 80, 4)
     assert "z 1 automatické kontroly" in qg.score_sentence(90, 80, 1)
 
