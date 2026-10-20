@@ -4,11 +4,19 @@ import { PATH_STEPS, setIdentity, stepLabel, type Identity } from "../lib/identi
 /** "Kdo jste?" — výběr ze jmen zástupců kroků cesty projektu (nebo ruční zadání). */
 export function IdentityPicker(props: {
   owners: Record<string, string | null>;
+  /** podepisující u kroků s AI náhradou (ai_signers): stejně patří do výběru */
+  aiSigners?: Record<string, string>;
   onPick: (id: Identity) => void;
 }) {
   const entries = PATH_STEPS.filter(([k]) => props.owners[k] && !/^AI(:|$)/i.test(props.owners[k] as string)).map(
-    ([k, label]) => ({ key: k, label, name: props.owners[k] as string })
+    ([k, label]) => ({ key: k, label, name: props.owners[k] as string, note: "" })
   );
+  for (const [k, label] of PATH_STEPS) {
+    const who = props.aiSigners?.[k];
+    if (who && /^AI(:|$)/i.test(props.owners[k] ?? "") && !entries.some((e) => e.key === k && e.name === who)) {
+      entries.push({ key: k, label, name: who, note: " (podepisuje AI draft)" });
+    }
+  }
   const [manual, setManual] = useState(entries.length === 0);
   const [name, setName] = useState("");
   const [step, setStep] = useState("");
@@ -23,6 +31,8 @@ export function IdentityPicker(props: {
     <section className="pf-card space-y-3" aria-labelledby="who-h">
       <h2 id="who-h">Kdo jste?</h2>
       <p className="pf-help">Podle toho podepíšeme váš feedback a předvyplníme váš krok cesty.</p>
+      <p className="pf-help">Identita je jen deklarovaná (není to přihlášení). Rozhodnutí a podpisy oken
+        se zapisují výhradně přes CLI, hub přijímá jen feedback.</p>
       {!manual && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {entries.map((e) => (
@@ -32,7 +42,7 @@ export function IdentityPicker(props: {
                 className="pf-button-secondary w-full !justify-start text-left"
                 onClick={() => pick({ name: e.name, step: e.label })}
               >
-                {e.name} · {e.label}
+                {e.name} · {e.label}{e.note}
               </button>
             </li>
           ))}

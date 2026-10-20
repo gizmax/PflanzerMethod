@@ -51,6 +51,7 @@ from tool.cli import ai_usage  # noqa: E402
 from tool.cli._compat import (  # noqa: E402
     ProjectNotFound,
     ai_stand_in_line,
+    conditions_checklist,
     count,
     exit_if_project_missing,
     local_date,
@@ -859,7 +860,11 @@ def build_pr(slug: str, repo: str | None = None,
     desc_title = _PO_ITERATE_PREFIX.sub("", (_winner_description(w) or "").strip()).strip().rstrip(".")
     # Název PR = první celá část popisu (před ; — :), ať se neuseká uprostřed věty.
     desc_title = re.split(r"\s*[;—]\s*|\s+-\s+", desc_title)[0].strip()
-    pr_title = f"feat({slug}): {trim_words(desc_title or name, 60)}"
+    title_src = " ".join((desc_title or name).split())
+    title_txt = trim_words(title_src, 60)
+    if len(title_txt) < len(title_src):
+        title_txt += "…"      # uříznuto na hranici slova -> je to vidět
+    pr_title = f"feat({slug}): {title_txt}"
     pr_title_base = pr_title
     if cur_role:
         pr_title += f" ({cur_role})"
@@ -905,6 +910,9 @@ def build_pr(slug: str, repo: str | None = None,
         body_lines += ["## Měření"] + [f"- {k}: {v}" for k, v in metrics if v] + [""]
     if sign_line:
         body_lines += ["## Podpisy oken", sign_line, ""]
+    cond_lines = conditions_checklist(slug)
+    if cond_lines:
+        body_lines += ["## Podmínky z podpisů oken (musí splnit tento PR)", *cond_lines, ""]
     if ai_line:
         body_lines += ["## Kroky s AI náhradou (ADR-0023)", ai_line, ""]
     prov_lines = [f"- Nástroj (builder): {builder}"]
@@ -967,7 +975,7 @@ def build_pr(slug: str, repo: str | None = None,
         "keyboard": keyboard, "variants": variants, "warnings": warnings,
         "failures": failures, "critical_lines": crit_lines, "model": model,
         "resolved_critical": resolved_on_win, "ai_stand_in": ai_line,
-        "signatures": sign_line,
+        "signatures": sign_line, "conditions": cond_lines,
         "decider_line": decider_line,
     }
 
@@ -1175,6 +1183,10 @@ def _measure_md(slug: str, pr: dict[str, Any]) -> str:
     return "## Co měřit za 30 dní\n\n" + "\n".join(lines) + "\n"
 
 
+def _cond_word(n: int) -> str:
+    return "podmínka" if n == 1 else "podmínky" if 2 <= n <= 4 else "podmínek"
+
+
 def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     """SHIP.md — jedna stránka (≤ ~60 řádků). Detaily jsou v SHIP-detail.md."""
     parts = parts or _ship_parts(slug)
@@ -1201,7 +1213,10 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
                          for b in ov.get("blocked_by", []))
     gap_notes = ([f"Ship na odpovědnost {decider_genitive(ov.get('decider') or 'Decider')}: "
                   "bezpečnost nepodepsal člověk."] if sec_gap else [])
-    verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *pr["warnings"]])
+    cond_lines = pr.get("conditions") or []
+    cond_notes = ([f"{len(cond_lines)} {_cond_word(len(cond_lines))} z podpisů oken musí splnit PR "
+                   "(sekce Podmínky z podpisů oken)."] if cond_lines else [])
+    verdict_notes = "".join(f"> Pozor: {x}\n" for x in [*gap_notes, *cond_notes, *pr["warnings"]])
 
     winner_md = "" if w else "## Vítěz\n\nVítěz zatím není vybraný (Rozhodnutí → Go).\n"
     first = real(p[4]) or name
@@ -1233,6 +1248,9 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     if pr["ai_stand_in"]:
         people.append(f"- Kroky s AI náhradou (ADR-0023): {pr['ai_stand_in']}")
     people_md = ("## Podpisy a odpovědnosti\n\n" + "\n".join(people) + "\n\n") if people else ""
+    if cond_lines:
+        people_md += ("## Podmínky z podpisů oken\n\nPodepsáno s podmínkami; PR je musí splnit "
+                      "(checklist je i v těle PR):\n\n" + "\n".join(cond_lines) + "\n\n")
 
     pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
     md = f"""{BRAND}

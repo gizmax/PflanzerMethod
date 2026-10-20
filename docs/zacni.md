@@ -232,6 +232,17 @@ Kdo podepíše, když security ve firmě opravdu není — v tomto pořadí:
 
 Autor kódu **není výchozí volba**: podepisoval by vlastní práci.
 
+Podpis s výhradami (např. „CSRF, rate limit, informace dle čl. 13“) zapište
+jako podmínky: `pflanzer checkpoint … --conditions "CSRF; rate limit; čl. 13"`.
+Ship je neblokuje, ale uvidíte je v SHIP.md i v checklistu PR, aby se neztratily.
+
+**Co přesně blokuje Ship (Lean):** plný triage (`/pm triage`) se u Lean
+nespouští, jen u stupně Full. Tvrdá brána Shipu u pilotu a production ale
+hlídá stav triage tracků, a ty u Lean plní podpisy oken (zadání → discovery,
+bezpečnost & právo → security + legal, provoz → platform). Ship tedy blokuje
+nepodepsané či zablokované okno a AI draft bez podpisu člověka; throwaway
+neblokuje nic.
+
 ### …security, která nám nechce podepsat
 
 Vyžádejte si písemný důvod a rozlište, jestli chybí podklady, nebo je riziko

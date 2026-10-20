@@ -887,6 +887,14 @@ def render_compliance(ctx: dict[str, Any]) -> str:
     except Exception:  # noqa: BLE001
         ai_line = None
     reg = regulation_text(ctx)
+    try:
+        from tool.cli._compat import conditions_checklist
+        cond_lines = conditions_checklist(slug)
+    except Exception:  # noqa: BLE001
+        cond_lines = []
+    cond_block = ("\n## Podmínky z podpisů oken (z checkpointů)\n\n"
+                  "Okna byla podepsána s těmito podmínkami; PR je musí splnit:\n\n"
+                  + "\n".join(cond_lines) + "\n") if cond_lines else ""
     hook_text = " ".join(str(x or "") for x in (p[5], p[4]))
     pii_hit = re.search(
         r"(?i)osobn\w*\s+(?:údaj|udaj|dat)\w*|e-?mail|telefon|jméno|jmeno|adres\w+|"
@@ -949,7 +957,7 @@ def render_compliance(ctx: dict[str, Any]) -> str:
 - Penetration test review v posledních 12 mo: doplnit per vendor
 - {reg['ir_sla']}
 - {reg['concentration']}
-
+{cond_block}
 ## Triage artefakty (full text)
 
 ### Security triage

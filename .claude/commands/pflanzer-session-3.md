@@ -58,7 +58,11 @@ Pod povrchem:
   Neoverriduje se: bez buildu a testů není co podepsat.
 - **Triage hard gate** (`pilot` / `production`, vždy u stupně Full) —
   všechny triage tracky musí být `ok`, jinak `production_ready = false`
-  a `blocked_by` odkáže na `/pm triage <slug>`. Override jen Decider přes
+  a `blocked_by` odkáže na `/pm triage <slug>`. **Lean / Quick plný triage
+  nespouští:** tracky se plní podpisy oken (`pflanzer checkpoint`: zadání →
+  discovery, bezpečnost → security + legal, provoz → platform), takže Ship
+  blokuje jen nepodepsané nebo zablokované okno (a AI draft bez podpisu
+  člověka); `/pm triage` je potřeba jen u stupně Full. Throwaway: neblokuje. Override jen Decider přes
   `pflanzer session_3 --slug <slug> --override-triage --rationale "…"`
   (zápis do decision logu).
 
@@ -95,7 +99,19 @@ pflanzer checkpoint --slug <slug> --list    # stav všech oken
 ```
 
 Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
-(zadání podepisuje Kickoff sám). Plný triage (`/pm triage`) jen regulované.
+(zadání podepisuje Kickoff sám). Plný triage (`/pm triage`) jen regulované;
+u Lean ho podpisy oken nahrazují.
+
+Podepisuje-li okno s výhradami, zapiš je jako podmínky — přenesou se do
+SHIP.md, těla PR (checklist `- [ ] …`) i `compliance.md`:
+
+```bash
+pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno>" --note "OK s podmínkami" \
+  --conditions "CSRF; rate limit; informace dle čl. 13"
+```
+
+Ship podmínky nehlídá jako bránu (neblokuje), ale v hlavičce SHIP.md ukáže,
+kolik jich musí PR splnit.
 
 **Když je krok Provoz zastoupen AI** (`AI:devops-platform-expert`): spusť
 sub-agenta **`devops-platform-expert`** nad deploy plánem a checklistem výše

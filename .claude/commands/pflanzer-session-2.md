@@ -62,6 +62,9 @@ pflanzer session_2 decide --slug <slug> iterate --variants A,B --rationale "…"
 pflanzer session_2 decide --slug <slug> kill --rationale "…"
 # critical vyřešen jinak než overridem (--by a --note jsou povinné):
 pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note "<jak>"
+# Go pod prahem commitmentu (tým se za vedoucí variantu postaví < 60 %): jen vědomě,
+# důvod půjde do decision logu:
+pflanzer session_2 decide --slug <slug> go --winner A --force --rationale "proč Go i pod prahem"
 # druhé rozhodnutí po Go jen výslovně:
 pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
 ```
@@ -103,6 +106,7 @@ dřív, než PR vítěze projde.
 ## Co NEDĚLAT
 
 - Nepřebíjej Decidera; nezapomeň rationale (audit).
+- Go pod prahem commitmentu (< 60 %) tool odmítne bez `--force` s důvodem; neobcházej to.
 - Nedovol druhý Iterate; druhé `decide` po Go jen s `--force` a `--rationale`.
 - Nezapomeň decision log commitnout a pushnout (příkazy vypíše tool); sám nic nepushuj bez pokynu člověka.
 

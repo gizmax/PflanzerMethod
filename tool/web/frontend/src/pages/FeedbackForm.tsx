@@ -74,7 +74,7 @@ export default function FeedbackForm() {
     return (
       <div className="space-y-4">
         <h1>Feedback k variantě {variant.name}</h1>
-        <IdentityPicker owners={detail.path_owners ?? {}} onPick={setIdentity} />
+        <IdentityPicker owners={detail.path_owners ?? {}} aiSigners={detail.ai_signers} onPick={setIdentity} />
       </div>
     );
   }
@@ -145,6 +145,12 @@ export default function FeedbackForm() {
       </div>
 
       <form onSubmit={onSubmit} noValidate className="pf-card max-w-2xl space-y-5">
+        {detail.project.status === "handoff" && detail.decision?.winner && (
+          <p className="rounded-md border border-accent p-3 text-sm">
+            Rozhodnutí už padlo (vítězí varianta {detail.decision.winner}). Toto je připomínka k vítězi;
+            neznamená nové hlasování ani podpis.
+          </p>
+        )}
         <p className="rounded-md bg-soft p-3 text-sm" id="howto">
           <strong>Dobrý feedback:</strong> co jsem zkoušel → co se stalo → co jsem čekal → co navrhuji.
           Jeden feedback = jeden problém.

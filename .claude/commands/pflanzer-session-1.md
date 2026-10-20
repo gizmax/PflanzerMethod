@@ -147,7 +147,9 @@ Podepiš (podepsané okno = vstup pro Ship, bez něj Ship pilotu neprojde):
 
 ```bash
 pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno z Kickoffu>" \
-  --note "<co ověřeno / podmínky>"            # veto: přidej --blocked
+  --note "<co ověřeno>"                       # veto: přidej --blocked
+  # podepisuje s výhradami? přidej: --conditions "CSRF; rate limit; čl. 13"
+  # (podmínky pak nesou SHIP.md, checklist PR i compliance.md; z --note je tool neodhaduje)
 ```
 
 ### Když je krok Bezpečnost & právo zastoupen AI

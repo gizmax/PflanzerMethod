@@ -410,7 +410,7 @@ def project_detail(slug: str) -> dict[str, Any]:
                 "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ? "
                 "AND f.severity = 'critical' AND f.resolved_at IS NOT NULL", (pid,)).fetchone()[0])
         crit_rows = conn.execute(
-            "SELECT v.name AS variant, f.submitted_by AS who FROM feedback f "
+            "SELECT v.name AS variant, f.submitted_by AS who, f.id AS fid FROM feedback f "
             "JOIN variants v ON v.id = f.variant_id JOIN sessions s ON s.id = v.session_id "
             f"WHERE s.project_id = ? AND f.severity = 'critical' AND {resolved} "
             "ORDER BY v.name, f.id", (pid,),
@@ -446,8 +446,10 @@ def project_detail(slug: str) -> dict[str, Any]:
 
     # --- critical: před Go blokují všechny; po Go jen na vítězi (poražení = informace) ---
     crit_by_variant: dict[str, list[str]] = {}
+    crit_ids: dict[str, list[int]] = {}
     for r in crit_rows:
         crit_by_variant.setdefault(r["variant"], []).append(r["who"])
+        crit_ids.setdefault(r["variant"], []).append(int(r["fid"]))
     after_go = p["status"] == "handoff"
     in_play = variants_in_play(slug)  # po Iterate jen varianty posledního Build kola
     if after_go and winner:
@@ -558,7 +560,12 @@ def project_detail(slug: str) -> dict[str, Any]:
             continue
         uniq = ", ".join(dict.fromkeys(whos))
         blockers.append({
-            "kind": "critical", "variant": variant, "command": f"/pm feedback {slug}",
+            "kind": "critical", "variant": variant,
+            # po Go už se nesbírá feedback: critical na vítězi se vyřeší s autorem (nebo ho Decider
+            # vědomě přebil při Go), ne `/pm feedback`
+            "command": (f'pflanzer session_2 resolve --slug {slug} --feedback-id '
+                        f'{crit_ids[variant][0]} --by "<kdo opravil>" --note "co se opravilo"'
+                        if after_go else f"/pm feedback {slug}"),
             "text": f"{len(whos)}× {severity_label('critical').lower()} na variantě "
                     f"{variant} (nahlásil: {uniq}) — oprav, nebo Decider vědomě přebije."})
     for variant, whos in critical_info.items():

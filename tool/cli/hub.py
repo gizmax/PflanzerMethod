@@ -5,10 +5,12 @@ Při prvním spuštění připraví venv (~/.pflanzer/hub-venv) a sestaví front
 
 Usage:
     pflanzer hub [--port 8000] [--host 127.0.0.1] [--password HESLO] [--rebuild]
+                 [--tunnel auto|cloudflared|none]
 
 Auth: na localhostu běží dev režim bez přihlášení (zástupce si vybere jméno v UI).
 Při `--host 0.0.0.0` hub zapne sdílené heslo (HTTP Basic) — zadané `--password`,
-nebo vygenerované a vypsané. Firemní nasazení s OIDC: PFLANZER_HUB_AUTH_MODE=oidc.
+nebo vygenerované a vypsané. `--tunnel` (stejný quick tunnel jako `preview up`) hub vystaví
+i mimo síť; heslo je pak povinné. Firemní nasazení s OIDC: PFLANZER_HUB_AUTH_MODE=oidc.
 """
 from __future__ import annotations
 
@@ -35,13 +37,14 @@ FRONTEND = REPO_ROOT / "tool" / "web" / "frontend"
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
-def plan_auth(host: str, password: str | None, environ: dict[str, str]
-              ) -> tuple[dict[str, str], list[str]]:
+def plan_auth(host: str, password: str | None, environ: dict[str, str],
+              shared: bool = False) -> tuple[dict[str, str], list[str]]:
     """Vrátí (env pro backend, varování česky). Čistá funkce kvůli testům.
 
     - explicitní PFLANZER_HUB_AUTH_MODE=oidc se nikdy nepřepisuje,
     - localhost bez nastavení -> dev režim (jinak by hub vracel 401),
-    - jiný host (0.0.0.0) bez OIDC -> dev režim + sdílené heslo (zadané nebo vygenerované).
+    - jiný host (0.0.0.0) nebo `shared` (tunel) bez OIDC -> dev režim + sdílené heslo
+      (zadané nebo vygenerované).
     """
     env: dict[str, str] = {}
     notes: list[str] = []
@@ -50,7 +53,7 @@ def plan_auth(host: str, password: str | None, environ: dict[str, str]
     if mode == "oidc":
         return env, notes
     env["PFLANZER_HUB_AUTH_MODE"] = "dev"
-    if host not in LOCAL_HOSTS:
+    if host not in LOCAL_HOSTS or shared:
         generated = False
         if not password:
             password = secrets.token_urlsafe(9)
@@ -86,13 +89,55 @@ def hub_json_path() -> Path:
     return DATA_ROOT / "hub.json"
 
 
-def write_hub_json(port: int) -> None:
+def lan_ip() -> str:
+    from tool.cli.preview import _lan_ip  # reuse z preview, žádná kopie
+    return _lan_ip()
+
+
+def hub_json_data(port: int, host: str = "127.0.0.1", public_url: str | None = None,
+                  lan: str | None = None) -> dict[str, object]:
+    """Obsah hub.json (bez hesla!): `url` = lokální, `lan_url` (host 0.0.0.0), `public_url`
+    (tunel). Preview z toho vybere odkaz, který kolegové opravdu otevřou."""
+    data: dict[str, object] = {"port": port, "url": f"http://127.0.0.1:{port}/method/"}
+    if host not in LOCAL_HOSTS:
+        data["lan_url"] = f"http://{lan or lan_ip()}:{port}/method/"
+    if public_url:
+        data["public_url"] = public_url.rstrip("/") + "/method/"
+    return data
+
+
+def write_hub_json(port: int, host: str = "127.0.0.1", public_url: str | None = None,
+                   lan: str | None = None) -> None:
     try:
         DATA_ROOT.mkdir(parents=True, exist_ok=True)
-        hub_json_path().write_text(json.dumps(
-            {"port": port, "url": f"http://127.0.0.1:{port}/method/"}), encoding="utf-8")
+        hub_json_path().write_text(json.dumps(hub_json_data(port, host, public_url, lan)),
+                                   encoding="utf-8")
     except OSError:
         pass
+
+
+def resolve_tunnel(mode: str) -> bool:
+    """auto = cloudflared, je-li v PATH; cloudflared = povinně (ValueError, chybí-li); none = ne.
+    Stejná logika jako `preview up`."""
+    if mode not in ("auto", "cloudflared", "none"):
+        raise ValueError("--tunnel je auto, cloudflared nebo none.")
+    have = shutil.which("cloudflared") is not None
+    if mode == "cloudflared" and not have:
+        raise ValueError("Chybí `cloudflared` v PATH. Nainstalujte ho (např. "
+                         "`brew install cloudflared`), nebo použijte --tunnel none.")
+    return mode == "cloudflared" or (mode == "auto" and have)
+
+
+def wait_listening(port: int, proc: subprocess.Popen, timeout: float = 60.0) -> bool:
+    import time
+    end = time.monotonic() + timeout
+    while time.monotonic() < end and proc.poll() is None:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.3)
+    return False
 
 
 def _venv() -> Path:
@@ -131,7 +176,15 @@ def main() -> None:
     p.add_argument("--password", default=None,
                    help="sdílené heslo (HTTP Basic); u --host 0.0.0.0 se bez něj vygeneruje")
     p.add_argument("--rebuild", action="store_true", help="znovu sestavit frontend")
+    p.add_argument("--tunnel", choices=["auto", "cloudflared", "none"], default="none",
+                   help="cloudflared quick tunnel (jako preview up); auto = když je v PATH; "
+                        "vyžaduje heslo (vygeneruje se)")
     args = p.parse_args()
+    try:
+        use_tunnel = resolve_tunnel(args.tunnel)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(2)
 
     if not port_free(args.host, args.port):
         alt = find_free_port(args.host, args.port)
@@ -150,7 +203,8 @@ def main() -> None:
     print(f"Hub: {url}/method/" if has_ui else f"API: {url}/api/docs")
     print(f"DB:  {DB_PATH}  (sdílená s CLI)")
     print("Zástupci tu klikají na varianty a píšou feedback; pak `/pm feedback <slug>`.")
-    auth_env, notes = plan_auth(args.host, args.password, dict(os.environ))
+    auth_env, notes = plan_auth(args.host, args.password, dict(os.environ),
+                                shared=use_tunnel)
     for note in notes:
         print(note)
     if notes:
@@ -162,9 +216,23 @@ def main() -> None:
     # adresa hubu je ve výpisu výše); varování a chyby zůstanou.
     cmd = [str(py), "-m", "uvicorn", "tool.web.backend.main:app",
            "--host", args.host, "--port", str(args.port), "--log-level", "warning"]
-    # hub.json: ostatní příkazy (preview) z něj poznají port; po ukončení se smaže.
-    write_hub_json(args.port)
+    # hub.json: ostatní příkazy (preview) z něj poznají URL; po ukončení se smaže.
+    write_hub_json(args.port, args.host)
     proc = subprocess.Popen(cmd, env=env)
+    tunnel_pid: int | None = None
+    if args.host not in LOCAL_HOSTS:
+        print(f"Hub v síti: http://{lan_ip()}:{args.port}/method/")
+    if use_tunnel:
+        from tool.cli import preview
+        if wait_listening(args.port, proc):
+            res = preview.start_tunnel(args.port, DATA_ROOT / "preview" / "hub-tunnel.log")
+            if res:
+                tunnel_pid, _started, public = res
+                write_hub_json(args.port, args.host, public)
+                print(f"Hub přes tunel: {public}/method/  (provoz jde přes Cloudflare)")
+            else:
+                print("Tunel se nepodařilo spustit — hub běží jen lokálně / v síti.",
+                      file=sys.stderr)
 
     def _stop(*_a: object) -> None:
         raise KeyboardInterrupt
@@ -179,6 +247,9 @@ def main() -> None:
         except subprocess.TimeoutExpired:
             proc.kill()
     finally:
+        if tunnel_pid:
+            from tool.cli import apprun
+            apprun.kill_group(tunnel_pid)
         try:
             hub_json_path().unlink()
         except OSError:

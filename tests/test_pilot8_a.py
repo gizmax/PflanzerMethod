@@ -213,7 +213,7 @@ def test_hub_running_requires_pflanzer_hub(monkeypatch: pytest.MonkeyPatch) -> N
 def test_share_message_without_hub_has_feedback_line() -> None:
     res = {"variants": {"A": {"url": "http://x/"}}, "password": "p", "user": "pflanzer"}
     msg = preview.share_message(res, None)
-    assert "pflanzer feedback add" in msg and "pflanzer hub" in msg
+    assert "pflanzer " not in msg and "Feedback napište" in msg
     assert "localhost:8000" not in msg
     assert "localhost:8000" in preview.share_message(res, preview.HUB_URL)
 

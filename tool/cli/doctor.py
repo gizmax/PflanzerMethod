@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PLUGIN_ROOT))
@@ -508,7 +509,43 @@ def render(repo: Path, rows: list[dict[str, str]]) -> str:
     return ux_render(title, lines, nxt, tips, warns)
 
 
-def _human(repo: Path, rows: list[dict[str, str]]):
+def _norm_url(url: str) -> str:
+    u = (url or "").strip().lower().rstrip("/")
+    u = re.sub(r"^git@([^:]+):", r"https://\1/", u)
+    u = re.sub(r"^(?:ssh|git)://(?:git@)?", "https://", u)
+    return u[:-4] if u.endswith(".git") else u
+
+
+def existing_project(repo: Path, slug: str | None = None) -> dict[str, Any] | None:
+    """Rozdělaný projekt pro toto repo (stejná origin / target_repo_url v DB), nebo None.
+    Doctor po Kickoffu nesmí tvrdit „připraveno ke Kickoffu“."""
+    try:
+        from tool.cli.db import transaction
+        from tool.cli.status import project_detail
+        urls = set()
+        rc, origin = _git(repo, "remote", "get-url", "origin")
+        if rc == 0 and origin:
+            urls.add(_norm_url(origin))
+        from tool.cli.db import load_project_toml
+        if (tu := load_project_toml(repo).get("target_repo_url")):
+            urls.add(_norm_url(str(tu)))
+        with transaction() as conn:
+            if slug:
+                rows = conn.execute("SELECT slug FROM projects WHERE slug = ?", (slug,)).fetchall()
+            else:
+                rows = [r for r in conn.execute(
+                    "SELECT slug, target_repo_url FROM projects WHERE status != 'killed' "
+                    "ORDER BY updated_at DESC, id DESC").fetchall()
+                    if r[1] and _norm_url(str(r[1])) in urls]
+        if not rows:
+            return None
+        detail = project_detail(rows[0][0])
+        return detail if detail.get("next_step") not in (None, "—") else None
+    except Exception:  # noqa: BLE001 — doctor nesmí padnout na DB
+        return None
+
+
+def _human(repo: Path, rows: list[dict[str, str]], slug: str | None = None):
     fails = [r for r in rows if r["status"] == FAIL]
     warns = [r for r in rows if r["status"] == WARN]
     oks = [r for r in rows if r["status"] == OK]
@@ -523,7 +560,12 @@ def _human(repo: Path, rows: list[dict[str, str]]):
     ready = "ano" if not fails else "ne"
     title = f"Připraveno ke Kickoffu: {ready}" + (
         f" — {len(warns)}× s výhradou" if not fails and warns else "")
-    if fails:
+    proj = None if fails else existing_project(repo, slug)
+    if proj:
+        title = (f"Kickoff hotový ({proj['slug']}) — další krok: `{proj['next_step']}`"
+                 + (f"; {len(warns)}× s výhradou" if warns else ""))
+        nxt = f"`{proj['next_step']}`"
+    elif fails:
         nxt = f"oprav ✗ ({fails[0]['check']}): {fails[0]['advice']} — pak `pflanzer doctor` znovu"
     else:
         nxt = ("restartuj Claude Code v tomto repu a spusť `/pm start` "
@@ -547,7 +589,7 @@ def main() -> None:
     fails = sum(r["status"] == FAIL for r in rows)
     data = {"brand": "Pflanzer Method | pflanzer.cz/method", "target": str(repo),
             "ready": fails == 0, "checks": rows}
-    title, lines, nxt, warns, tips = _human(repo, rows)
+    title, lines, nxt, warns, tips = _human(repo, rows, args.slug)
     emit(data, title=title, lines=lines, next_step=nxt, tips=tips, warnings=warns,
          as_json=args.json)
     sys.exit(0 if fails == 0 else 1)

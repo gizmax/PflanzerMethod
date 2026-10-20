@@ -1185,8 +1185,51 @@ def check_reachable(name: str, wt: Path, app_port: int) -> str | None:
 
 
 HUB_HEALTH_URL = "http://localhost:8000/api/health"
-FEEDBACK_FALLBACK = ("Feedback: `pflanzer feedback add` nebo spusťte `pflanzer hub` "
-                     "a zapište ho tam.")
+FEEDBACK_FALLBACK = "Feedback napište {contact} (kanál, ve kterém jste zprávu dostali)."
+HUB_SHARE_HINT = ("Chcete-li kolegům dát i hub na feedback: `pflanzer hub --host 0.0.0.0` "
+                  "(stejná síť) nebo `pflanzer hub --tunnel auto` (odkudkoli, s heslem); "
+                  "pak znovu `pflanzer preview status`.")
+
+
+def hub_data() -> dict[str, Any]:
+    try:
+        from tool.cli import db
+        data = json.loads((Path(db.DATA_ROOT) / "hub.json").read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError, TypeError, ImportError):
+        return {}
+
+
+def shareable_hub_url(res: dict[str, Any]) -> str | None:
+    """URL hubu, kterou otevřou stejní lidé jako preview: tunel ↔ tunel, LAN ↔ LAN. Hub jen
+    na localhostu (nebo jiný druh dosahu než preview) se kolegům nenabízí."""
+    data = hub_data()
+    if any(v.get("tunnel_url") for v in (res.get("variants") or {}).values()):
+        url = data.get("public_url")
+    elif res.get("host") == "0.0.0.0":
+        url = data.get("lan_url")
+    else:
+        url = None
+    return str(url) if url else None
+
+
+def pdm_contact(slug: str | None) -> str:
+    """Kdo přijímá feedback: human_owner role Produkt (#2), jinak Decider, jinak „PdM“."""
+    if slug:
+        try:
+            from tool.cli.db import transaction
+            with transaction() as conn:
+                row = conn.execute(
+                    "SELECT p.decider_name, (SELECT human_owner FROM roles r WHERE "
+                    "r.project_id = p.id AND r.catalog_idx = 2) FROM projects p WHERE p.slug = ?",
+                    (slug,)).fetchone()
+            if row:
+                for name in (row[1], row[0]):
+                    if name and str(name).strip():
+                        return str(name).strip()
+        except Exception:  # noqa: BLE001 — advisory only
+            pass
+    return "PdM"
 
 
 def hub_urls() -> tuple[str, str]:
@@ -1224,7 +1267,9 @@ def _variants_phrase(n: int) -> tuple[str, str]:
         {1: "jedna varianta"}.get(n, words.get(n, f"{n} variant"))
 
 
-def share_message(res: dict[str, Any], hub: str | None) -> str:
+def share_message(res: dict[str, Any], hub: str | None, contact: str | None = None) -> str:
+    """Zpráva pro kolegy: nikdy neradí příkazy CLI (kolegové tool nemají)."""
+    contact = contact or "PdM"
     rows = "\n".join(f"  Varianta {n}: {v['url']}" for n, v in res["variants"].items())
     until = res.get("deadline") or "[doplňte termín]"
     count = len(res["variants"])
@@ -1243,9 +1288,9 @@ def share_message(res: dict[str, Any], hub: str | None) -> str:
            f"Co udělat: {todo}\n"
            f"Do kdy: {until}.")
     if hub:
-        msg += f"\nZpětnou vazbu zapište sem: {hub}"
+        msg += f"\nFeedback napište {contact} (kanál, ve kterém jste zprávu dostali), nebo do hubu: {hub}"
     else:
-        msg += f"\n{FEEDBACK_FALLBACK}"
+        msg += "\n" + FEEDBACK_FALLBACK.format(contact=contact)
     return msg
 
 
@@ -1258,10 +1303,12 @@ def _up_view(res: dict[str, Any]) -> tuple[list[str], str, str]:
             lines.append(f"  + repo {role}: {r['url']} (interně, bez hesla)")
     lines.append(f"Přihlášení: uživatel {res['user']}, heslo {res['password']}")
     lines.extend(f"Info: {n}" for n in res.get("notes") or [])
-    hub = hub_urls()[1] if hub_running() else None
-    msg = share_message(res, hub)
+    hub = shareable_hub_url(res) if hub_running() else None
+    msg = share_message(res, hub, pdm_contact(slug))
     lines.append("Zpráva k přeposlání zástupcům:\n\n"
                  + "\n".join(f"> {ln}" for ln in msg.splitlines()) + "\n")
+    if not hub:
+        lines.append("Pro PdM (ne do zprávy): " + HUB_SHARE_HINT)
     lines.append(f"Stav a zastavení: `pflanzer preview status --slug {slug}`, "
                  f"`pflanzer preview down --slug {slug}`.")
     nxt = ("Pošlete zprávu zástupcům a nechte tento počítač zapnutý po dobu Asyncu; potom "

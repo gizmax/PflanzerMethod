@@ -79,6 +79,24 @@ def list_feedback(
     )
 
 
+def _check_collecting(db: Session, variant: Variant) -> None:
+    """Po Go se feedback sbírá jen k vítězi (jako připomínka), po Kill vůbec."""
+    sess = db.exec(select(PSession).where(PSession.id == variant.session_id)).first()
+    proj = db.exec(select(Project).where(Project.id == sess.project_id)).first() if sess else None
+    if not proj:
+        return
+    if proj.status == "killed":
+        raise HTTPException(409, "Projekt byl ukončen (Kill), feedback se už nesbírá.")
+    if proj.status == "handoff":
+        from .projects import _decision_info
+        info = _decision_info(db, proj) or {}
+        winner = info.get("winner")
+        if winner and variant.name != winner:
+            raise HTTPException(
+                409, f"Rozhodnutí padlo: vítězí varianta {winner}. K ostatním variantám se "
+                     "feedback už nesbírá; připomínky pište k vítězi.")
+
+
 @router.post("", status_code=201)
 def submit_feedback(
     payload: FeedbackIn,
@@ -88,6 +106,8 @@ def submit_feedback(
     variant = db.exec(select(Variant).where(Variant.id == payload.variant_id)).first()
     if not variant:
         raise HTTPException(404, f"Variant {payload.variant_id} not found")
+
+    _check_collecting(db, variant)
 
     # AI-only score deflation max 0.5 (perspektiva 14, devil's advocate Útok 6 caveat)
     score = payload.score if payload.score is not None else SEVERITY_DEFAULT_SCORE[payload.severity]

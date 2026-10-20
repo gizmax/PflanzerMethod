@@ -355,6 +355,8 @@ def tips_for(phase: str, ctx: dict[str, Any] | None = None, limit: int = 3,
     if ctx.get("mob"):   # jediná společná varianta: žádní poražení, nikomu se nepoděkuje „za poražené“
         generic = [t for t in generic if "Poraženým" not in t]
     ordered = conditional + [t for t in generic if t not in conditional]
+    if ctx.get("security_signed"):   # bezpečnost už podepsaná: rada „3 věty předem“ je mimo
+        ordered = [t for t in ordered if "3 vět" not in t]
     if seen is not None:
         shown = {_norm(t) for t in seen}
         ordered = [t for t in ordered if _norm(t) not in shown]
@@ -382,6 +384,15 @@ def tips_for_project(slug: str, phase: str, ctx: dict[str, Any] | None = None,
                 from tool.cli.triage import load_risk_profile
                 if load_risk_profile(conn, pid) == "throwaway":
                     ctx = {**(ctx or {}), "throwaway": True}
+            except Exception:  # noqa: BLE001 — advisory
+                pass
+            try:
+                done = conn.execute(
+                    "SELECT payload_json FROM audit_log WHERE target_type = 'project' AND "
+                    "target_id = ? AND action = 'checkpoint.bezpecnost' ORDER BY id DESC LIMIT 1",
+                    (pid,)).fetchone()
+                if done and json.loads(done[0] or "{}").get("status") == "ok":
+                    ctx = {**(ctx or {}), "security_signed": True}
             except Exception:  # noqa: BLE001 — advisory
                 pass
             try:

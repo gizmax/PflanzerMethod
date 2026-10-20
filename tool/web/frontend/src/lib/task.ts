@@ -3,7 +3,7 @@
 import { PATH_STEPS } from "./identity";
 import type { ProjectDetail } from "./types";
 
-export type RoleKey = "decider" | "bezpecnost" | "provoz" | "core" | "other";
+export type RoleKey = "decider" | "bezpecnost" | "provoz" | "signer" | "core" | "other";
 
 export type RoleTask = {
   key: RoleKey;
@@ -46,6 +46,24 @@ export function roleKey(
   return "other";
 }
 
+const SIGN_WINDOWS: Record<string, { window: string; check: string }> = {
+  bezpecnost: { window: "bezpecnost",
+    check: "jaká data vidí, kam data posílá, žádná tajemství v kódu ani logu, osobní údaje a souhlasy" },
+  provoz: { window: "provoz", check: "rollback, monitoring, on-call a náklady" },
+  design: { window: "design", check: "hlavní tok, kontrasty a ovládání z klávesnice" },
+};
+
+/** Krok s AI náhradou, který tato osoba skutečně podepisuje (jméno i krok sedí). */
+export function signingStep(
+  detail: ProjectDetail,
+  identity: { name: string; step: string } | null,
+): string | null {
+  const k = stepKey(identity?.step);
+  if (!identity || !k || !SIGN_WINDOWS[k]) return null;
+  if (!/^AI(:|\s|$)/i.test(detail.path_owners?.[k] ?? "")) return null;
+  return detail.confirmers?.[k] === identity.name ? k : null;
+}
+
 export function buildTask(
   detail: ProjectDetail,
   identity: { name: string; step: string } | null,
@@ -53,6 +71,20 @@ export function buildTask(
   deadline: string | null,
   slug: string,
 ): RoleTask {
+  const signKey = signingStep(detail, identity);
+  if (signKey && identity) {
+    const w = SIGN_WINDOWS[signKey];
+    return {
+      key: "signer",
+      optionalFeedback: false,
+      lead: "AI připravila draft tohoto kroku, podepisujete ho vy (20 min).",
+      steps: [
+        `U každé varianty (${range}) zkontrolujte AI draft: ${w.check}.`,
+        `Pak okno podepište tímto příkazem. Podmínky, které musí splnit PR, připište jako --conditions "první; druhá".`,
+      ],
+      command: `pflanzer checkpoint --slug ${slug} ${w.window} --by "${identity.name}" --note "co jsem ověřil"`,
+    };
+  }
   const key = roleKey(identity, detail.decider_name);
   const pmDat = dative(detail.pm_name);
   const tellPm = detail.pm_name
@@ -79,7 +111,7 @@ export function buildTask(
         lead: "Vaše okno: 20 min.",
         steps: [
           `U každé varianty (${range}) zkontrolujte: jaká data vidí, kam data posílá, žádná tajemství v kódu ani logu, osobní údaje a souhlasy.`,
-          `Pak okno podepište spolu s produktovým vlastníkem${detail.pm_name ? ` (${detail.pm_name})` : ""} tímto příkazem:`,
+          `Pak okno podepište tímto příkazem. Podmínky, které musí splnit PR, připište jako --conditions "první; druhá":`,
         ],
         command: `pflanzer checkpoint --slug ${slug} bezpecnost --by "${identity?.name ?? ""}" --note "co jsem ověřil"`,
       };
@@ -117,13 +149,13 @@ export function buildTask(
 export function feedbackExample(step: string | undefined, variant = "A"): string {
   switch (stepKey(step)) {
     case "bezpecnost":
-      return `Varianta ${variant} posílá e-mail zákazníka do analytiky bez souhlasu → riziko GDPR → odeslat až po souhlasu; API klíč je v kódu → přesunout do prostředí`;
+      return `U varianty ${variant} se osobní údaje posílají třetí straně bez souhlasu → riziko GDPR → odeslat až po souhlasu; přístupový klíč je v kódu → přesunout do prostředí`;
     case "provoz":
-      return `Varianta ${variant} nemá jak vrátit nasazení zpět ani alarm při výpadku platební brány → přidat feature flag a monitoring`;
+      return `Varianta ${variant} nemá jak vrátit nasazení zpět ani upozornění při výpadku → přidat feature flag a monitoring`;
     case "design":
-      return `U varianty ${variant} není jasné, co tlačítko Objednat udělá → uživatel váhá → přepsat popisek na „Zaplatit 1 290 Kč“`;
+      return `U varianty ${variant} není jasné, co hlavní tlačítko udělá → uživatel váhá → přepsat popisek na konkrétní akci`;
     default:
-      return `U varianty ${variant} jsem zkusil dokončit objednávku → po kliknutí se nic nestalo → čekal jsem potvrzení → přidat zprávu o úspěchu`;
+      return `U varianty ${variant} jsem zkusil dokončit hlavní úkol → po kliknutí se nic nestalo → čekal jsem potvrzení → přidat zprávu o úspěchu`;
   }
 }
 

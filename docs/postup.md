@@ -66,7 +66,8 @@ gantt
    AI design potvrzuje PdM (`pflanzer checkpoint … design`). Chybí-li
    security, podpis jde v pořadí: člověk z firmy s mandátem → Decider vědomě
    převezme riziko (`--override-triage`) → autor kódu jen jako poslední
-   možnost (varování).
+   možnost (varování). Podpis s výhradami: `--conditions "CSRF; rate limit"`
+   — podmínky skončí v SHIP.md a v checklistu PR.
 3. **Async (3–5 dní)** — všichni zástupci klikají na sandbox URL a komentují.
    Vývojář zapracovává.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,
@@ -78,7 +79,10 @@ gantt
    práh pilot 80 / production 85 ze 100 (throwaway: skóre informativně,
    Ship neblokuje),
    20 min checkpoint provozu (rollback, kdo je na telefonu, první hodina),
-   PR do repa produktu, deploy.
+   PR do repa produktu, deploy. U pilotu a production blokuje Ship
+   nepodepsané okno (u Lean podpisy oken nahrazují plný triage; ten běží
+   jen u stupně Full). Výhrady z podpisů (`--conditions`) jdou do SHIP.md
+   a checklistu PR.
 
 ## Kde varianty fyzicky jsou
 
