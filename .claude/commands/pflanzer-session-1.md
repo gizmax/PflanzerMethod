@@ -269,8 +269,10 @@ nástrojem **Write** do téhož souboru
 }
 ```
 
-Pravidla: `role_idx` = číslo role v catalogu (1 zadavatel, 2 PdM, 4 FE, 6 UX,
-7 security, 15 DevOps…; celé číslo 1–18), `user_value`/`effort`/`risk`/
+Pravidla: `role_idx` = číslo role v catalogu `docs/methodology/02-role-catalog.md`
+(1 zadavatel, 2 PdM, 4 FE, 6 UX, 7 security, 15 DevOps…; celé číslo 1–18),
+**ne číslo kroku cesty 1–6** (kroky a role mají jiné číslování — hledej podle názvu
+role v catalogu), `user_value`/`effort`/`risk`/
 `strategic_fit` jsou čísla 0–1, `commitment_level` je celé číslo 0–3 (0 =
 neúčastnit se mezi sessions, 3 = co-creation); mimo rozsah tool vrátí českou
 chybu a nic nezapíše. `rationale` povinný u každého řádku,

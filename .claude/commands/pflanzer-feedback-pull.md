@@ -54,14 +54,18 @@ bezpečnosti ne.
 pflanzer feedback_pull --slug <slug>
 ```
 
-Vrací `summary_path`, `feedback_count`, `critical_flags`. Při
+Vrací `summary_path`, `feedback_count`, `critical_flags`. Souhrn (`<slug>-summary.md`)
+obsahuje **plné texty připomínek** po variantách (critical → major → minor, vyřešené na
+konci); stejné řádky (zkrácené na ~120 znaků) ukazuje `pflanzer feedback list`. Při
 `feedback_count == 0` zastav a připomeň preview URL a termín; nepouštěj
 audit na prázdná data. Chybí hlasy zástupců některých kroků? Jmenuj je.
 
 ## Krok 3 — Audit discovery debtu
 
 Pokud `feedback_count > 0`, spusť sub-agenta `discovery-debt-detector`
-(read-only) nad summary a Kickoff zadáním; výstup ulož do
+(read-only) nad summary (musí obsahovat sekci „Připomínky podle varianty (plné
+texty)“ — bez textů audit nemá z čeho posoudit, které tvrzení jsou holé) a Kickoff
+zadáním; výstup ulož do
 `feedback/<slug>-debt.json` ve výstupní složce (`pflanzer data`).
 
 ## Krok 4 — Otevřené critical

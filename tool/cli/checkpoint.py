@@ -788,6 +788,7 @@ def checkpoint_summary(slug: str) -> list[dict[str, Any]]:
             "signed_by": r["signed_by"],
             "signer_kind": payload.get("signed_by_role") if signed else None,
             "ai_agent": payload.get("ai_agent") if signed else None,
+            "owner_ai": r.get("ai_agent"),   # krok zastupuje AI už v Kickoffu (path_owners „AI:…“)
             "note": payload.get("note") if signed else None,
             "designated_signer": r.get("designated") if r.get("ai_signer") else None,
             "conditions": conds.get(r["window"], []) if r["state"] == "ok" else [],

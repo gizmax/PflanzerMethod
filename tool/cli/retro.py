@@ -781,7 +781,12 @@ def ai_stand_in_share(project: dict[str, Any]) -> dict[str, Any]:
     except (json.JSONDecodeError, TypeError):
         owners = {}
     steps = [k for k in STEP_NAMES if str(owners.get(k) or "").strip()]
-    ai = [k for k in steps if is_ai_owner(owners.get(k))]
+    # AI náhrada = vlastník „AI:…“ v Kickoffu, nebo skutečný `--ai` podpis okna (stejně jako SHIP.md)
+    signed_ai: set[str] = set()
+    if project.get("slug"):
+        from tool.cli._compat import ai_stand_in_steps
+        signed_ai = ai_stand_in_steps(str(project["slug"]))
+    ai = [k for k in steps if is_ai_owner(owners.get(k)) or k in signed_ai]
     pct = round(len(ai) / len(steps) * 100) if steps else None
     return {"ai_steps": ai, "total_steps": len(steps), "pct": pct,
             "names": [STEP_NAMES[k] for k in ai]}

@@ -81,8 +81,11 @@ from tool.cli.quality_gates import run_all as run_gates  # noqa: E402
 from tool.cli.session_2 import (  # noqa: E402
     get_shortlist,
     get_winner,
+    open_remarks,
     overridden_critical_md,
     overridden_criticals,
+    remarks_checklist,
+    remarks_line,
     strip_reason,
     write_repo_decision_log,
 )
@@ -535,11 +538,15 @@ def hardening_run(
     with transaction() as conn:
         ov_crit = [c for c in overridden_criticals(conn, project_id)
                    if c["variant"] == winner["variant"]]
+        remarks = open_remarks(conn, project_id, winner["variant"])
     log_md = _render_log_section(winner, target, verdict, checkpoints, blocked_by,
                                  threshold_override, summary_line=summary_line,
                                  warnings=warnings, informational=informational)
     if ov_crit:
         log_md += "\n" + overridden_critical_md(ov_crit).replace("## ", "### ", 1)
+    if remarks:
+        log_md += ("\n### Otevřené připomínky k vítězi\n\n"
+                   + "\n".join(remarks_checklist(remarks)) + "\n")
     repo_log = write_repo_decision_log(
         slug, log_md,
         label="Ship (informativní porovnání)" if informational else "Ship")
@@ -556,6 +563,7 @@ def hardening_run(
         "warnings": warnings,
         "threshold_override": threshold_override,
         "provoz_signed": _provoz_done(triage_gate["windows"], checkpoints),
+        "open_remarks": remarks,
         "triage": {
             "gated": triage_gate["gated"],
             "windows": triage_gate["windows"],
@@ -1090,6 +1098,8 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
     failed = _failed_gate_lines(w.get("failures") or [])
     if failed:
         lines = [lines[0], *failed[:2], *lines[1:]]
+    if out.get("open_remarks") and not out.get("informational"):
+        lines.insert(1, remarks_line(len(out["open_remarks"])))
     if w.get("spa_line"):
         lines.insert(1, w["spa_line"])
     lines = lines[:5]

@@ -174,7 +174,9 @@ def rp_range_errors(rp: dict[str, Any]) -> list[str]:
     ri = rp.get("role_idx")
     if ri is not None and (isinstance(ri, bool) or not isinstance(ri, int)
                            or not 1 <= ri <= 18):
-        errs.append(f"„role_idx“ je číslo role z katalogu 1–18, dostal jsem {ri!r}.")
+        errs.append(f"„role_idx“ je číslo role z katalogu 1–18 (ne číslo kroku cesty 1–6; "
+                    f"např. 2 = Produkt, 6 = UX, 7 = Security, 15 = DevOps; "
+                    f"docs/methodology/02-role-catalog.md), dostal jsem {ri!r}.")
     return errs
 
 

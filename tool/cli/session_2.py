@@ -22,6 +22,8 @@ Pravidla:
 - **Otevřený critical feedback na vítězi blokuje Go**, pokud není
   `--override-critical "<důvod>"` (důvod jde do audit logu i decision logu).
   Vyřešený critical (`resolve`) neblokuje.
+- **Otevřené major/minor na vítězi neblokují**, ale Go je vypíše do decision logu, SHIP.md
+  a těla PR (checklist). `resolve --feedback-id N` funguje pro critical i major/minor.
 - **Druhé Go/Kill po platném Go/Kill** se odmítne; změna jen přes `--force --rationale`.
 - **Iterate max 1×** (další Build kolo). Třetí kolo = problém je špatně zadaný.
 - Decider se bere z projektu (`decider_name`); `--decider` je jen override.
@@ -45,7 +47,7 @@ from tool.cli.conflict_resolver import detect_conflicts  # noqa: E402
 from tool.cli.db import audit, current_actor, display_path, transaction  # noqa: E402
 from tool.cli.extract import BRAND, DATA_ROOT, table_has_col  # noqa: E402
 from tool.cli.feedback_pull import aggregate as pull_aggregate  # noqa: E402
-from tool.cli.feedback_pull import critical_summary_lines  # noqa: E402
+from tool.cli.feedback_pull import critical_summary_lines, dispute_lines, top_disputes  # noqa: E402
 from tool.cli.ux import (  # noqa: E402
     CzechArgumentParser,
     did_you_mean,
@@ -94,6 +96,44 @@ def resolved_criticals(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "ORDER BY f.id", (project_id,)).fetchall()
     return [{"id": r[0], "variant": r[1], "department": r[2], "rationale": r[3],
              "submitted_by": r[4], "resolved_note": r[5]} for r in rows]
+
+
+REMARK_LEVEL = {"high": "major", "medium": "minor", "low": "minor"}
+
+
+def open_remarks(conn: Any, project_id: int, variant: str | None = None) -> list[dict[str, Any]]:
+    """Otevřené major/minor připomínky (ne critical), volitelně jen na dané variantě.
+
+    Neblokují Go ani Ship; musí ale dojít do decision logu, SHIP.md a těla PR, ať se neztratí.
+    Řazeno major -> minor, pak podle id.
+    """
+    clause = " AND f.resolved_at IS NULL" if table_has_col(conn, "feedback", "resolved_at") else ""
+    rows = conn.execute(
+        "SELECT f.id, v.name, f.department, f.severity, f.rationale, f.submitted_by "
+        "FROM feedback f JOIN variants v ON v.id = f.variant_id "
+        "JOIN sessions s ON s.id = v.session_id "
+        f"WHERE s.project_id = ? AND f.severity != 'critical'{clause} ORDER BY f.id",
+        (project_id,)).fetchall()
+    out = [{"id": r[0], "variant": r[1], "department": r[2], "severity": r[3],
+            "level": REMARK_LEVEL.get(r[3], "minor"), "rationale": r[4], "submitted_by": r[5]}
+           for r in rows if variant is None or r[1] == variant]
+    return sorted(out, key=lambda c: (c["level"] != "major", c["id"]))
+
+
+def remark_text(c: dict[str, Any], limit: int = 200) -> str:
+    text = " ".join((c.get("rationale") or "").split())
+    return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def remarks_checklist(items: list[dict[str, Any]]) -> list[str]:
+    """`- [ ] (major, Petr) text` — jeden řádek na otevřenou připomínku vítěze."""
+    return [f"- [ ] ({c['level']}, {c.get('submitted_by') or 'autor neznámý'}) {remark_text(c)}"
+            for c in items]
+
+
+def remarks_line(n: int) -> str:
+    return (count(n, "otevřená připomínka", "otevřené připomínky", "otevřených připomínek")
+            + " k vítězi (neblokuje)")
 
 
 _REASON_PREFIX = re.compile(r"^\s*(?:důvod|duvod|reason)\s*[:\-–—]\s*", re.IGNORECASE)
@@ -351,6 +391,7 @@ def prep(slug: str) -> dict[str, Any]:
         "recommended_winner": recommended,
         "winner": agg["winner"],
         "critical_on_all_variants": agg["critical_on_all_variants"],
+        "top_disputes": top_disputes(agg["raw_feedback"], 3),
         "conflicts": conflicts["top_conflicts"][:3],  # top 3
         "unmapped_conflicts": conflicts["unmapped_count"],
         "next_action": _suggest_next_action(commitment_index, len(criticals), conflicts),
@@ -376,7 +417,7 @@ def _suggest_next_action(
 
 def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = None,
                      by: str | None = None) -> dict[str, Any]:
-    """Označ critical feedback jako vyřešený (opraveno / varianta ven / mimo scope).
+    """Označ feedback (critical, major i minor) jako vyřešený (opraveno / varianta ven / mimo scope).
 
     `by` (kdo to vyřešil) i `note` (jak) jsou povinné; neexistující id je chyba.
     """
@@ -411,8 +452,12 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
         remaining = open_criticals(conn, pid)
         focus = focus_variants(conn, pid)
         recommended = recommended_winner(conn, pid)
+        win = get_winner(conn, pid)
+        remarks_left = open_remarks(conn, pid, win) if win else open_remarks(conn, pid)
+        severities = {fid: known[fid][2] for fid in done}
     on_win, other = split_criticals(remaining, focus)
     return {"slug": slug, "resolved": done, "not_found": [], "by": by, "note": note,
+            "resolved_severity": severities, "open_remarks_left": remarks_left,
             "open_critical_left": len(remaining), "open_critical": remaining,
             "focus_variants": focus, "recommended_winner": recommended,
             "open_critical_on_winner": on_win,
@@ -521,6 +566,8 @@ def record_decision(
                 f"`--override-critical \"důvod\"`."
             )
 
+        remarks = open_remarks(conn, project_id, winner) if decision == "go" else []
+
         # Go pod prahem commitmentu: jen vědomě (--force + důvod), ať hláška „na Go stačí 60 %“
         # a zápis Go nejsou ve sporu.
         below_commitment: float | None = None
@@ -588,7 +635,7 @@ def record_decision(
             slug, decision, rationale, decider, iterate_focus,
             iterate_variants=iterate_variants, winner=winner, override_critical=override_critical,
             criticals=criticals, votes=votes, checkpoints=checkpoints,
-            all_criticals=all_open,
+            all_criticals=all_open, remarks=remarks,
         )
         conn.execute(
             "INSERT INTO decisions (project_id, type, body_md, atribuce_user, atribuce_ts) "
@@ -635,6 +682,7 @@ def record_decision(
         "new_status": new_status,
         "override_critical": override_critical,
         "open_critical_overridden": len(criticals) if override_critical else 0,
+        "open_remarks": remarks,
         "below_commitment": below_commitment,
         "summary_path": display_path(summary_path),
         "decision_log_repo": repo_log,
@@ -671,6 +719,7 @@ def render_decision_md(
     criticals: list[dict[str, Any]] | None = None,
     votes: list[dict[str, Any]] | None = None, checkpoints: list[str] | None = None,
     all_criticals: list[dict[str, Any]] | None = None,
+    remarks: list[dict[str, Any]] | None = None,
 ) -> str:
     when = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     lines = [
@@ -695,6 +744,13 @@ def render_decision_md(
         lines += ["### Override critical", "", f"Důvod: {strip_reason(override_critical)}", ""]
         for c in criticals or []:
             lines.append(f"- {describe_critical(c)}")
+        lines.append("")
+    if remarks:
+        lines += ["### Otevřené připomínky k vítězi", "",
+                  "Neblokují Go; jdou do SHIP.md a těla PR jako checklist.", ""]
+        lines += [f"- ({c['level']}, {c.get('submitted_by') or 'autor neznámý'}, "
+                  f"krok {c.get('department') or '?'}) #{c['id']}: {remark_text(c)}"
+                  for c in remarks]
         lines.append("")
     if checkpoints:
         lines += ["### Checkpointy", ""] + [f"- {c}" for c in checkpoints] + [""]
@@ -818,6 +874,7 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                      + ("" if out["ready_for_decision"] else
                         "; pod prahem jde Go jen vědomě přes `--force` s důvodem")
                      + ")")
+    lines += dispute_lines(out.get("top_disputes") or [])
     for c in out["conflicts"][:1]:
         lines.append(f"Hlavní spor u varianty {c['variant']}: {c['role_a']['label']} vs. "
                      f"{c['role_b']['label']}")
@@ -835,7 +892,7 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
                f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
                "--rationale \"proč\"`")
-    return (f"Příprava Rozhodnutí: {slug}", lines[:8], [], nxt,
+    return (f"Příprava Rozhodnutí: {slug}", lines[:12], [], nxt,
             {"open_critical": bool(on_win)})
 
 
@@ -852,6 +909,9 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
         lines.append("Decider přebil "
                      + plural(out["open_critical_overridden"], "kritický", "kritické", "kritických")
                      + f": {out['override_critical']}")
+    if out.get("open_remarks"):
+        lines.append(remarks_line(len(out["open_remarks"])) + " — jsou v decision logu a půjdou "
+                     "do SHIP.md a PR; vyřešit: `pflanzer session_2 resolve --feedback-id N`")
     lines.append("Zapsáno do decision logu"
                  + (f" ({out['decision_log_repo']}) — zatím jen v pracovní kopii, do originu ho "
                     "dostaneš až commitem a pushem:" if out.get("decision_log_repo")
@@ -910,7 +970,7 @@ def main() -> None:
                        help="změň už zapsané Go/Kill, nebo jdi do Go pod prahem commitmentu (vždy s --rationale)")
     p_dec.add_argument("--json", action="store_true")
 
-    p_res = sub.add_parser("resolve", help="Označ critical feedback jako vyřešený")
+    p_res = sub.add_parser("resolve", help="Označ feedback (critical, major i minor) jako vyřešený")
     p_res.add_argument("--slug", required=True)
     p_res.add_argument("--feedback-id", type=int, nargs="+", required=True)
     p_res.add_argument("--by", default=None, help="kdo to vyřešil (povinné)")
@@ -947,8 +1007,15 @@ def main() -> None:
                        f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
                "--rationale \"proč\"`")
                 phase = "after_resolve"
+            lines_r = [f"Vyřešeno: {ids} ({who})", left_line]
+            if out["open_remarks_left"]:
+                lines_r.append(f"Zbývá {remarks_line(len(out['open_remarks_left']))}.")
+            if out["resolved_severity"] and all(
+                    v != "critical" for v in out["resolved_severity"].values()) and not on_win:
+                nxt = (f"`pflanzer feedback list --slug {args.slug}` (co ještě zbývá), nebo "
+                       f"`pflanzer session_2 prep --slug {args.slug}`")
             emit(out, title=f"Vyřešeno: {ids}",
-                 lines=[f"Vyřešeno: {ids} ({who})", left_line],
+                 lines=lines_r,
                  next_step=nxt,
                  tips=tips(args.slug, phase, {"open_critical": bool(on_win)}, fallback="decide"),
                  as_json=args.json)
