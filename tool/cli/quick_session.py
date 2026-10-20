@@ -312,13 +312,13 @@ def _strip_diacritics(text: str) -> str:
 
 MISSING_STEP_HINTS = {
     "byznys": "Bez Decidera (člověka s mandátem říct Go nebo Kill) se Kickoff nesvolává. "
-              "Napiš jeho jméno — AI byznys zastoupit nesmí (ADR-0023).",
-    "produkt": "Může ho krýt Decider nebo PdM (napiš jméno). V Quick nebo u throwaway smí "
+              "Napište jeho jméno — AI byznys zastoupit nesmí (ADR-0023).",
+    "produkt": "Může ho krýt Decider nebo PdM (napište jméno). V Quick nebo u throwaway smí "
                "produkt zastoupit `AI`.",
-    "design": "V malém interním nástroji ho může krýt PdM (napiš jeho jméno), nebo dej `AI` — "
+    "design": "V malém interním nástroji ho může krýt PdM (napište jeho jméno), nebo zadejte `AI` — "
               "design smí zastoupit AI (ADR-0023).",
-    "vyvoj": "U klávesnice sedí vývojář — napiš jeho jméno. AI vývoj nezastoupí (ADR-0023).",
-    "bezpecnost": "Napiš jméno (stačí 20min okno), nebo `AI` jako pre-check — pilot "
+    "vyvoj": "U klávesnice sedí vývojář — napište jeho jméno. AI vývoj nezastoupí (ADR-0023).",
+    "bezpecnost": "Napište jméno (stačí 20min okno), nebo `AI` jako pre-check — pilot "
                   "a production ho pak musí podepsat člověk do 48 h (ADR-0023).",
     "provoz": "Napiš jméno z provozu (stačí 20min okno), nebo `AI` jako pre-check — u pilotu "
               "smí podepsat i vývojář z jádra (ADR-0023).",
@@ -455,6 +455,18 @@ _CONSTITUTION_BLANKET_RE = re.compile(
     r"|žádn[ée]\s+formul|zadn[ée]\s+formul|no\s+personal)")
 
 
+_NEGATION_WORDS = frozenset({
+    "bez", "ne", "nikoli", "nikoliv", "žádné", "žádný", "žádná", "žádnou", "žádného", "zadne",
+    "zadny", "nesbíráme", "nesbirame", "nechceme", "nepotřebujeme", "nepotrebujeme",
+    "nebudeme", "without", "no", "not"})
+
+
+def _negated_mention(text: str, start: int) -> bool:
+    """Zmínka termínu v záporu („bez telefonování“, „žádné e-maily“): 1–2 slova před ním."""
+    words = re.findall(r"[\w-]+", text[:start].lower())[-2:]
+    return any(w in _NEGATION_WORDS for w in words)
+
+
 def constitution_conflicts(hook: str, metric: str | None = None,
                            criteria: str | None = None,
                            cwd: Path | None = None) -> list[str]:
@@ -472,8 +484,10 @@ def constitution_conflicts(hook: str, metric: str | None = None,
              and not (_CONSTITUTION_DEV_SCOPE_RE.search(ln)
                       and not _CONSTITUTION_PROD_SCOPE_RE.search(ln))]
     brief = " ".join(x for x in (hook, metric, criteria) if x)
-    sensitive = sorted({m.group(1).lower() for m in _BRIEF_SENSITIVE_RE.finditer(brief)})
-    personal = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)})
+    sensitive = sorted({m.group(1).lower() for m in _BRIEF_SENSITIVE_RE.finditer(brief)
+                        if not _negated_mention(brief, m.start())})
+    personal = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)
+                       if not _negated_mention(brief, m.start())})
     # Pravidlo s výčtem „jen …“ bez plošného zákazu hlídá jen citlivá data.
     rules = [r for r in rules
              if sensitive or not (_CONSTITUTION_ALLOWLIST_RE.search(r)
@@ -618,8 +632,8 @@ def bootstrap(
         raise ValueError(
             f"target_repo_url je povinný pro risk_profile='{risk_profile}'. "
             "Bez něj Build vyrobí worktree v meta-repu = reuse 0 %. "
-            "Spusť `pflanzer init` v target repu (vyplní .pflanzer/project.toml) "
-            "nebo zadej target_repo_url='https://github.com/yourorg/yourapp' "
+            "Spusťte `pflanzer init` v target repu (vyplní .pflanzer/project.toml) "
+            "nebo zadejte target_repo_url='https://github.com/yourorg/yourapp' "
             "či target_repos='fe=https://github.com/org/web, be=https://github.com/org/api'."
         )
 
@@ -757,7 +771,7 @@ def bootstrap(
         if repos_json:
             if not _has_column(conn, "projects", "target_repos"):
                 raise ValueError(
-                    "DB nemá sloupec projects.target_repos — spusť `python3 tool/db/migrate.py`."
+                    "DB nemá sloupec projects.target_repos — spusťte `python3 tool/db/migrate.py`."
                 )
             conn.execute("UPDATE projects SET target_repos = ? WHERE id = ?",
                          (repos_json, project_id))
@@ -860,7 +874,7 @@ def _normalize_windows(raw: Any) -> list[dict[str, str]]:
     """Okna z Kickoffu -> [{"okno": …, "kdy": …}]. Přijme objekt, seznam textů nebo objektů."""
     if raw in (None, "", [], {}):
         return []
-    bad = ValueError("„windows“ ve specu: zadej objekt {\"Build\": \"st 21.10. 9:00-12:00\", "
+    bad = ValueError("„windows“ ve specu: zadejte objekt {\"Build\": \"st 21.10. 9:00-12:00\", "
                      "\"Rozhodnutí\": \"pá 30.10. 10:00\"}, nebo seznam textů "
                      "[\"Build st 21.10. 9:00-12:00\"].")
     out: list[dict[str, str]] = []
@@ -1068,7 +1082,7 @@ def _hook_from_project(slug: str) -> str:
     m = re.search(r"\*\*(.+?)\*\*", row[0] or "", re.S)
     hook = (m.group(1) if m else row[1] or "").strip()
     if not hook:
-        raise ValueError("Projekt nemá uložený hook — zadej ho: `--hook \"jedna věta\"`.")
+        raise ValueError("Projekt nemá uložený hook — zadejte ho: `--hook \"jedna věta\"`.")
     return hook
 
 
@@ -1145,7 +1159,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
                              "tuto variantu výslovně neuvádí")
             found = variant_findings(slug, nm)
             if found:
-                lines.append(f"Nálezy k variantě {nm} (oprav před dalším kolem; Kritické nejdřív):")
+                lines.append(f"Nálezy k variantě {nm} (opravte před dalším kolem; Kritické nejdřív):")
                 lines += [f"- {f}" for f in found]
             revise[nm] = f"Přístup varianty: {ang}.\n" + "\n".join(lines)
     elif focus:
@@ -1268,7 +1282,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
             for r, pth in (variant_worktrees(slug, repos, "mob" if mode == "mob" else "A")
                            if repos else [])},
         "push_hint": (
-            f"Commitni a pushni tests/acceptance/{slug}.feature — worktrees se klonují z originu "
+            f"Commitněte a pushněte tests/acceptance/{slug}.feature — worktrees se klonují z originu "
             "a jinak ho neuvidí."
         ) if has_feature and not _feature_in_origin(
             slug, (repos[0].branch if repos else None) or (proj[4] if proj and len(proj) > 4 else None)
@@ -1365,7 +1379,7 @@ class StackProfile:
 
     @property
     def run_text(self) -> str:
-        return f"`{self.run_cmd}`" if self.run_cmd else "podle README (příkaz napiš týmu do chatu)"
+        return f"`{self.run_cmd}`" if self.run_cmd else "podle README (příkaz napište týmu do chatu)"
 
 
 _JS_UI_DEPS = ("react", "vue", "svelte", "next", "nuxt", "@angular/core", "solid-js", "preact")
@@ -2026,9 +2040,9 @@ def record_voting(
     shown = [f"{v['name']} {v['prototype_url']}" for v in result.get("variants", [])
              if v.get("prototype_url")]
     result["next_step"] = (
-        (f"Async: pošli zástupcům odkazy na {'variantu' if len(shown) == 1 else 'varianty'} "
-         f"({', '.join(shown)}) a dej jim {async_days(slug)}. "
-         if shown else "Async: nejdřív doplň preview URL variant (viz varování), jinak je zástupci "
+        (f"Async: pošlete zástupcům odkazy na {'variantu' if len(shown) == 1 else 'varianty'} "
+         f"({', '.join(shown)}) a dejte jim {async_days(slug)}. "
+         if shown else "Async: nejdřív doplňte preview URL variant (viz varování), jinak je zástupci "
                        "neuvidí. ")
         + f"Pak `/pm feedback {slug}` a `/pm decide {slug}`."
     )
@@ -2137,7 +2151,7 @@ def render_handoff(slug: str) -> str:
             f"Checkpoint Bezpečnost & právo (20 min) musí proběhnout před Ship.\n"
         )
 
-    decision_block = "_(Rozhodnutí ještě nezaznamenáno — spusť `/pm decide`.)_"
+    decision_block = "_(Rozhodnutí ještě nezaznamenáno — spusťte `/pm decide`.)_"
     if decision:
         decision_block = decision[0]
 
@@ -2211,7 +2225,7 @@ def write_handoff(slug: str) -> Path:
 
 
 BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.json
-(soubor zapiš nástrojem Write; obsah:)
+(uložte JSON do souboru; obsah:)
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
  "risk_profile": "pilot", "personal_data": false, "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
@@ -2237,18 +2251,29 @@ BOOTSTRAP_EPILOG = """Pole specu (JSON):
 Příklad:
 """ + BOOTSTRAP_EXAMPLE
 
+def _role_list_line() -> str:
+    """Stručný výpis 18 rolí katalogu („1 Zadavatel, 2 Produkt manažer, …“) pro nápovědu."""
+    try:
+        from tool.cli.roles import load_catalog
+        return ", ".join(f"{r['idx']} {str(r['label']).split(' / ')[0]}"
+                         for r in load_catalog()["roles"])
+    except Exception:  # noqa: BLE001 — jen nápověda
+        return "viz docs/methodology/02-role-catalog.md"
+
+
 VOTE_EPILOG = """Pole specu (JSON):
   slug, facilitator, votes [{name, builder, description, prototype_url?,
   role_preferences [{role_idx, user_value, effort, risk, strategic_fit,
-  commitment_level, rationale}]}], decider_call {shortlist, rationale,
+  commitment_level, rationale, role?}]}], decider_call {shortlist, rationale,
   veto_register, parking_lot}, real_urls? {varianta: url}
 
 builder = jedna z hodnot: """ + ", ".join(sorted(ALLOWED_BUILDERS)) + """
-(pokud stavíte ručně bez AI, dej `manual`).
+(pokud stavíte ručně bez AI, zadejte `manual`).
 
 role_idx = číslo role v katalogu 1–18 (docs/methodology/02-role-catalog.md), NE číslo
 kroku cesty 1–6. Např. 2 = Produkt manažer, 4 = Frontend, 6 = UX / Designer,
-7 = Security, 15 = DevOps.
+7 = Security, 15 = DevOps. Pole `role` (název role) je jen popisek pro čtenáře,
+nástroj ho ignoruje. Role v katalogu: """ + _role_list_line() + """.
 
 Příklad:
 """ + VOTE_EXAMPLE
@@ -2321,7 +2346,7 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
 def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
     if out.get("blocked"):
         emit(out, title="Prompty zatím nejde připravit", lines=[out.get("reason", "")],
-             next_step="vyřeš důvod výše a spusť příkaz znovu", as_json=as_json)
+             next_step="vyřešte důvod výše a spusťte příkaz znovu", as_json=as_json)
         return
     if as_json:
         emit(out, title="", as_json=True)
@@ -2406,7 +2431,7 @@ def main() -> None:
     p = CzechArgumentParser(prog="pflanzer quick_session", description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    spec_help = "JSON soubor (zapiš nástrojem Write; `-` čte stdin)"
+    spec_help = "JSON soubor (např. .pflanzer/specs/…; `-` čte stdin)"
     raw = argparse.RawDescriptionHelpFormatter
     p_boot = sub.add_parser(
         "bootstrap", help="Kickoff: Charter + role + jména kroků cesty + odložený triage",

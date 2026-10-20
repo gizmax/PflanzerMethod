@@ -3,12 +3,12 @@
 **Pflanzer Method | pflanzer.cz/method**
 
 > Pro koho: pro **buildera** (PdM nebo vývojáře), který pilot rozjíždí.
-> Šéfovi (Decideru) pošli [`pro-decidera.md`](pro-decidera.md), průběh v obrázku
+> Šéfovi (Decideru) pošlete [`pro-decidera.md`](pro-decidera.md), průběh v obrázku
 > je v [`postup.md`](postup.md), výjimky a „co když…“ ve [`faq.md`](faq.md).
 
 Metoda: malá skupina se zástupci celé cesty od nápadu po provoz postaví s AI
 tři běžící varianty na vašem reálném repu, Decider rozhodne nad nimi a vítěz
-jde jako PR. Potřebuješ **~1 týden přípravy** (hlavně kalendáře) a **~8 dní**
+jde jako PR. Potřebujete **~1 týden přípravy** (hlavně kalendáře) a **~8 dní**
 na pilot. Hodí se to na menší věc s jednou metrikou; **nehodí** na platby,
 regulované banky, nativní mobilní appky ani projekt bez člověka, který smí
 říct Go i Kill — [test 30 sekund](faq.md#hodí-se-to-pro-nás).
@@ -61,7 +61,7 @@ Na každém kroku stačí jeden příkaz (v Claude Code `/pm <krok>`).
 | # | Krok | Příkaz | Kdo, kolik |
 |---|------|--------|-----------|
 | 1 | Kickoff: zadání na 1 stránku, jména 6 kroků, otázka „Jak vážné to je? demo / pilot / ostré“ | `/pm start` (bez Claude Code: `pflanzer start --spec kickoff.json`) | Decider + jádro, 15 min |
-| 2 | Build: AI staví 3 varianty, kontroly běží průběžně | `/pm build` (nápověda: `pflanzer build`) | jádro, 3 h |
+| 2 | Build: AI staví 3 varianty, kontroly běží průběžně | `/pm build` (nápověda: `pflanzer build`; kód píšete ručně? `pflanzer worktree setup --slug S --builder manual`) | jádro, 3 h |
 | 3 | Zápis hodnocení Buildu (hub bez něj varianty neukáže) | `pflanzer record --spec soubor.json` | builder |
 | 4 | Sdílení: preview i hub, jedna adresa + heslo, hotová zpráva kolegům | `pflanzer share --slug S` | builder, 5 min |
 | 5 | Sběr feedbacku (Async): zástupci proklikají a komentují | `/pm feedback` (terminál: `pflanzer feedback add --slug S --variant A --role Design --by "Jméno" --severity critical\|major\|minor --text "…"`, přehled `pflanzer feedback list --slug S`) | všichni, ~15 min denně, 3–5 dní |
@@ -70,9 +70,9 @@ Na každém kroku stačí jeden příkaz (v Claude Code `/pm <krok>`).
 | 8 | Retro: kolik kódu vítěze žije v produkci | `/pm retro S` (`pflanzer retro measure --slug S --pr-url URL`, bez gh `--merge-commit <sha>`) | builder, po merge |
 
 Slug (krátký) vypíše Kickoff; lze ho zadat i ve specu (`"slug"`). Po sběru feedbacku
-(po Rozhodnutí) zastavíš sdílení: `pflanzer share down --slug S`. Report pro vedení:
+(po Rozhodnutí) zastavíte sdílení: `pflanzer share down --slug S`. Report pro vedení:
 `pflanzer report summary --slug S`. Termín ve zprávě kolegům se spočítá z délky sběru
-feedbacku; vlastní zadáš `pflanzer share --slug S --deadline "pátek 17:00"`.
+feedbacku; vlastní zadáte `pflanzer share --slug S --deadline "pátek 17:00"`.
 Souhrn feedbacku: `/pm feedback` (terminál `pflanzer feedback_pull --slug S`).
 **Kde jste?** `/pm` řekne fázi a jeden další krok. Rozhodnutí se zapisují do
 repa (`.pflanzer/decisions/<slug>.md`) — commitněte je. Spěcháte? `/pm live

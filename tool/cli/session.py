@@ -281,7 +281,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         if status not in ("triage", "session_1", "session_2"):
             raise ValueError(
                 f"Project status='{status}'. Build vyžaduje 'triage' "
-                f"(spusť `/pm start` / triage pro {slug} nejdřív) nebo Iterate po Rozhodnutí."
+                f"(spusťte `/pm start` / triage pro {slug} nejdřív) nebo Iterate po Rozhodnutí."
             )
 
         # Role lookup: catalog_idx → role row metadata
@@ -494,8 +494,8 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
     if no_commit:
         warnings.append(
             f"Chybí commitment_level u {', '.join(no_commit)} — bez něj Rozhodnutí Go neprojde "
-            f"(tým se musí za vítěze postavit aspoň ze 60 %). Doplň ho do specu (0 = nezapojím se, "
-            f"1 = jen připomínky, 2 = pomůžu, 3 = co-creation) a zapiš znovu `pflanzer record --spec …`.")
+            f"(tým se musí za vítěze postavit aspoň ze 60 %). Doplňte ho do specu (0 = nezapojím se, "
+            f"1 = jen připomínky, 2 = pomůžu, 3 = co-creation) a zapište znovu `pflanzer record --spec …`.")
     if len(no_url_variants) == 1:
         warnings.append(
             f"Varianta {no_url_variants[0]} nemá preview URL — zástupci v Asyncu nemají na co "
@@ -661,7 +661,7 @@ def main() -> None:
         out = run_from_json(args.spec)
     except ValueError as e:
         exit_if_project_missing(e)
-        die(str(e), "pflanzer session --spec spec.json   (JSON zapiš nástrojem Write)\n"
+        die(str(e), "pflanzer session --spec spec.json   (JSON uložte do souboru)\n"
             "Formát specu:\n" + SPEC_EXAMPLE)
     ranked = sorted(out["variants"], key=lambda v: -v["preference_score"])
     lines = ["Hlasování jádra (0–1, vyšší = lepší): "

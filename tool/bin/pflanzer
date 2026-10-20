@@ -75,6 +75,7 @@ case "$SUB" in
     echo ""
     echo "Build nemá jeden příkaz — vede ho /pm build (Claude Code). Kroky v terminálu:"
     echo "  pflanzer worktree setup --slug S     # worktrees: $VARIANTS (+ další repa projektu)"
+    echo "    (--builder manual = kód píšete ručně bez AI; pak v složkách variant commitujte a pushněte)"
     echo "  pflanzer prompts --slug S            # prompty pro buildery ($VARIANTS)"
     echo "  pflanzer record --spec spec.json     # zápis Buildu (šablona: .pflanzer/specs/S-vote.json)"
     echo "  pflanzer share --slug S              # pak sdílení: varianty + hub + hotová zpráva pro kolegy"

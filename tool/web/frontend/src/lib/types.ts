@@ -92,6 +92,8 @@ export type ProjectDetail = {
   core?: string[];
   shortlist?: string[];
   async_deadline?: string | null;
+  /** termín sběru feedbacku ze sdílení (volný text, např. „pátek 17:00“); null, pokud není zadaný */
+  feedback_deadline?: string | null;
   /** po Iterate: varianty druhého kola (prázdné = všechny) */
   variants_in_play?: string[];
   /** po Iterate: varianty, které vypadly (jen informace) */

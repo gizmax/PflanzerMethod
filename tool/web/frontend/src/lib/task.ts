@@ -177,13 +177,16 @@ export function feedbackExample(step: string | undefined, variant = "A"): string
   }
 }
 
+/** Jediná formulace přihlášení k náhledu v celém hubu. */
+export const PREVIEW_LOGIN_TEXT = "Při otevření náhledu zadejte libovolné jméno a heslo k náhledům.";
+
 /** Jak se přihlásit k náhledu (odkazy jinak vedou na přihlašovací okno prohlížeče). */
 export function previewLoginText(detail: ProjectDetail): string | null {
   const l = detail.preview_login;
   if (!l) return null;
-  if (l.password) return `Náhled se otevře po přihlášení: uživatel ${l.user}, heslo ${l.password}.`;
+  if (l.password) return `${PREVIEW_LOGIN_TEXT} Heslo: ${l.password}.`;
   const who = detail.pm_name ? `Heslo vám pošle ${detail.pm_name}` : "Heslo vám pošle produktový vlastník";
-  return `Náhled je chráněný heslem (uživatel ${l.user}). ${who}.`;
+  return `${PREVIEW_LOGIN_TEXT} ${who}.`;
 }
 
 const PROFILE_LINE: Record<string, string> = {

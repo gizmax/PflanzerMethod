@@ -2017,28 +2017,59 @@ def gate_human(gate: str) -> str:
     return GATE_HUMAN.get(gate, gate_label(gate))
 
 
-def unverified_human(u: dict[str, str]) -> str:
-    """Neověřená brána lidsky: „pokrytí testy — neměřeno, chybí nástroj (c8 / pytest-cov)“."""
+def unverified_human(u: dict[str, str], technical: bool = False) -> str:
+    """Neověřená brána pro Decidera bez zkratek: „pokrytí testy (nástroj na měření chybí)“,
+    „přístupnost pro lidi se zdravotním postižením (jednostránková aplikace — ověřte ručně)“.
+    `technical=True` (SHIP-detail.md) přidá názvy nástrojů a norem (c8 / pytest-cov, WCAG)."""
+    gate = u["gate"]
     reason = (u.get("reason") or "").strip()
-    hint = _TOOL_HINTS.get(u["gate"])
-    if hint and reason.startswith("chybí") and "nástroj" in reason:
-        reason = f"chybí nástroj ({hint})"
-    return f"{gate_human(u['gate'])} — neměřeno" + (f", {reason}" if reason else "")
+    if gate == "a11y":
+        label = "přístupnost pro lidi se zdravotním postižením" + (" (WCAG)" if technical else "")
+        if reason.startswith("SPA"):
+            return f"{label} (jednostránková aplikace — bez prohlížeče to nejde ověřit, ověřte ručně)"
+    elif gate == "coverage" and reason.startswith("chybí") and "nástroj" in reason:
+        return "pokrytí testy (nástroj na měření chybí" + (f": {_TOOL_HINTS['coverage']}" if technical else "") + ")"
+    else:
+        label = gate_human(gate)
+    return f"{label} — neměřeno" + (f", {reason}" if reason else "")
 
 
 _PLAIN_VERDICTS = ("pod prahem", "splňuje práh", "informativně", "BLOKOVÁNO", "blokováno")
 
 
+def _kontroly_neprobehly(k: int) -> str:
+    verb = "neproběhla" if k == 1 else "neproběhly" if 2 <= k <= 4 else "neproběhlo"
+    noun = "kontrola" if k == 1 else "kontroly" if 2 <= k <= 4 else "kontrol"
+    return f"{k} {noun} {verb}"
+
+
+def _open_on_winner(n: int) -> str:
+    if n == 1:
+        return "na vítězi zůstává 1 otevřená připomínka"
+    if 2 <= n <= 4:
+        return f"na vítězi zůstávají {n} otevřené připomínky"
+    return f"na vítězi zůstává {n} otevřených připomínek"
+
+
 def score_sentence(score: int, target: int | None, n_ran: int | None,
                    unverified: list[str] | None = None, verdict: str | None = None,
-                   extra: str = "") -> str:
+                   extra: str = "", open_on_winner: int = 0, n_unverified: int | None = None) -> str:
     """Lidská věta o skóre: „**Skóre 78 ze 100 — pod prahem 80.** Spočteno z 5 automatických kontrol.
     Neověřeno: typová kontrola, pokrytí testy.“
+
+    Když část kontrol neproběhla (a je práh), říká to hned hlavní věta: „**Skóre 100 ze 100
+    z 6 automatických kontrol — 3 kontroly neproběhly, skóre je proto jen částečné.**“ (ADR-0024:
+    výpočet se nemění, jen text). `open_on_winner` = počet otevřených Důležitých/Kritických na
+    vítězi; věta pak končí „…; na vítězi zůstávají 2 otevřené připomínky.“
 
     `target=None` = bez prahu (jen fakta, bez tučného); `n_ran=None` = počet bran neznáme
     (vícerepo). Když běží málo bran, věta to přizná: „Spočteno jen ze 4 bran — orientační.“
     """
     few = n_ran is not None and n_ran < MIN_SOLID_GATES
+    k = n_unverified if n_unverified is not None else len(unverified or [])
+    open_txt = f"; {_open_on_winner(open_on_winner)}" if open_on_winner > 0 else ""
+    parts: list[str] = []
+    partial = False
     if target is None:
         head = f"Skóre {score} ze 100."
     else:
@@ -2052,9 +2083,18 @@ def score_sentence(score: int, target: int | None, n_ran: int | None,
             tail = f"splňuje práh {target}"
         else:
             tail = f"pod prahem {target}"
-        head = f"**Skóre {score} ze 100 — {tail}.**"
-    parts = [head]
-    if n_ran is not None:
+        if k > 0:
+            partial = True
+            src = f" {_brany(n_ran)}" if n_ran is not None and not few else ""
+            head = (f"**Skóre {score} ze 100{src} — {_kontroly_neprobehly(k)}, "
+                    f"skóre je proto jen částečné{open_txt}.**")
+            parts.append(head)
+            parts.append(tail[0].upper() + tail[1:] + ".")
+        else:
+            head = f"**Skóre {score} ze 100 — {tail}{open_txt}.**"
+    if not partial:
+        parts = [head]
+    if n_ran is not None and (few or not partial):
         parts.append(f"Spočteno jen {_brany(n_ran)} — orientační." if few
                      else f"Spočteno {_brany(n_ran)}.")
     if extra:
@@ -2069,7 +2109,8 @@ def score_sentence(score: int, target: int | None, n_ran: int | None,
 
 
 def gates_summary_line(score: int, results: list[Any], reasons: bool = False,
-                       target: int | None = None, verdict: str | None = None) -> str:
+                       target: int | None = None, verdict: str | None = None,
+                       open_on_winner: int = 0, technical: bool = False) -> str:
     """Jedna lidská věta o skóre (viz `score_sentence`).
 
     „**Skóre 78 ze 100 — pod prahem 80.** Spočteno z 5 automatických kontrol. Neověřeno: typová kontrola,
@@ -2087,10 +2128,14 @@ def gates_summary_line(score: int, results: list[Any], reasons: bool = False,
     unv_names = {u["gate"] for u in unv}
     ran = [r for r in results if st(r) in RAN_STATUSES]
     missing = [r for r in results if st(r) not in RAN_STATUSES and g(r) not in unv_names]
-    names = [unverified_human(u) for u in unv]
-    names += [f"{gate_human(g(r))}: {skip_reason(r)}" if reasons and skip_reason(r)
-              else gate_human(g(r)) for r in missing]
-    return score_sentence(score, target, len(ran), names, verdict)
+    names = [unverified_human(u, technical) for u in unv]
+    def label(r: Any) -> str:
+        return ("přístupnost pro lidi se zdravotním postižením" if g(r) == "a11y" and not technical
+                else gate_human(g(r)))
+
+    names += [f"{label(r)}: {skip_reason(r)}" if reasons and skip_reason(r)
+              else label(r) for r in missing]
+    return score_sentence(score, target, len(ran), names, verdict, open_on_winner=open_on_winner)
 
 
 def spa_line(results: list[Any]) -> str:
@@ -2301,7 +2346,7 @@ def _render_md(slug: str, variant: str, results: list[GateResult],
 
 # Quality gates — {slug} / varianta {variant}
 
-> {gates_summary_line(score, results, target=target, verdict=verdict_label(score, target, score_info['low_confidence'], unverified_gates(results)))}
+> {gates_summary_line(score, results, target=target, verdict=verdict_label(score, target, score_info['low_confidence'], unverified_gates(results)), technical=True)}
 > Stack: `{stack.label}` · Aplikovatelné brány: {score_info['applicable_gates']} z {score_info['total_gates']} · {score_info['counts']}
 > Zdroj příkazů: {gate_source or 'autodetekce'}
 {low}

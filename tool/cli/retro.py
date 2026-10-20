@@ -1165,7 +1165,9 @@ Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
 ---
 
 *Zdroj dat: tabulka `outcomes` v DB toolu (`pflanzer db`) · další readout
-zapiš přes `/pm retro {p['slug']}`.*
+zapiš přes `/pm retro {p['slug']}` nebo v terminálu `pflanzer retro record --slug {p['slug']}
+--milestone T+30 --metric <metrika> --value <N>`; po merge změř kód vítěze přes
+`pflanzer retro measure --slug {p['slug']} --pr-url <URL PR>` (nebo `--merge-commit <sha>`).*
 """
 
 
@@ -1404,7 +1406,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
                 f"Kdo: {it['owner']}\n"
                 f"Co udělat: {it['deliverable']}\n"
                 f"Metriky: {', '.join(it['metrics'])}\n\n"
-                f"Zápis: /pm retro {slug}\n{it['record_cmd']}"
+                f"Zápis: /pm retro {slug} nebo v terminálu\n{it['record_cmd']}"
             )
             due = it["due"]
             summary = f"Pflanzer {it['label']} readout — {slug}"
@@ -1461,7 +1463,7 @@ def render_reminders(slug: str, fmt: str, from_date: str | None = None) -> str:
                 f"**Kdo:** {it['owner']}\n"
                 f"**Co udělat:** {it['deliverable']}\n"
                 f"**Metriky:** {', '.join(f'`{x}`' for x in it['metrics'])}\n\n"
-                f"Zápis výsledku: `/pm retro {slug}` nebo\n\n"
+                f"Zápis výsledku: `/pm retro {slug}` nebo v terminálu\n\n"
                 f"```\n{it['record_cmd']}\n```\n"
             )
             out.append(

@@ -18,7 +18,8 @@ def test_vote_has_no_default_choice() -> None:
     assert 'setChoice("go")' not in s
     assert "Vyberte Go, Iterate nebo Kill" in s
     # validace volby je dřív než kontrola vítěze
-    assert s.index("Vyberte Go, Iterate nebo Kill") < s.index("U volby Go vyberte variantu")
+    assert s.index("setErr(\"Vyberte Go, Iterate nebo Kill.\")") < s.index(
+        "setWinnerErr(\"Vyberte vítěznou variantu\")")
     # vítěz nemá výchozí hodnotu
     assert 'useState("")' in s and '<option value="">' in s
 

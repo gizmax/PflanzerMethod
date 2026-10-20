@@ -706,7 +706,8 @@ def _no_gates_score(score: int, target: int, verdict: str) -> str:
 
 
 def _gate_summary(gates: list, repo_gates: list[dict[str, Any]] | None = None,
-                  target: int | None = None, verdict: str | None = None) -> str:
+                  target: int | None = None, verdict: str | None = None,
+                  open_on_winner: int = 0) -> str:
     """„**Skóre 78 ze 100 — pod prahem 80.** Spočteno nad 5 branami. Neověřeno: …“ ze zapsaných
     quality_gates (věta včetně prahu a verdiktu).
 
@@ -715,12 +716,14 @@ def _gate_summary(gates: list, repo_gates: list[dict[str, Any]] | None = None,
     if repo_gates:
         total = aggregate_repos(repo_gates)["gate_score"]
         per_repo = " · ".join(f"{r['role']} {int(r['gate_score'])}/100" for r in repo_gates)
-        return score_sentence(total, target, None, [], verdict, extra=f"Po repech: {per_repo}.")
+        return score_sentence(total, target, None, [], verdict, extra=f"Po repech: {per_repo}.",
+                              open_on_winner=open_on_winner)
     rows = [{"gate": g[0], "status": g[1], "details": g[3] or ""} for g in gates]
     score = aggregate_score(
         [SimpleNamespace(gate_type=g[0], status=g[1]) for g in gates]  # type: ignore[misc]
     )["gate_score"]
-    return gates_summary_line(score, rows, target=target, verdict=verdict)
+    return gates_summary_line(score, rows, target=target, verdict=verdict,
+                              open_on_winner=open_on_winner)
 
 
 def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
@@ -1099,7 +1102,11 @@ def build_pr(slug: str, repo: str | None = None,
     pr_title_base = pr_title
     if cur_role:
         pr_title += f" ({cur_role})"
-    summary = _gate_summary(gates, rg, target, state["verdict"]) if gates else None
+    win_name = w[0] if w else None
+    open_win = sum(1 for c in (ctx.get("open_critical") or []) + (ctx.get("open_remarks_all") or [])
+                   if win_name and c["variant"] == win_name
+                   and c.get("severity", "critical") in ("critical", "high"))
+    summary = _gate_summary(gates, rg, target, state["verdict"], open_win) if gates else None
     ai_line = ai_stand_in_line(slug)
     sign_line = signatures_line(slug)
     resolved_on_win = [c for c in ctx.get("resolved_critical", [])
@@ -1109,8 +1116,9 @@ def build_pr(slug: str, repo: str | None = None,
                              f"- Varianta: `{w[0] if w else '—'}` ({builder}), větev `{branch or '—'}`"
                              + (f" @ `{head_sha[:10]}`" if head_sha else "")]
     if w:
-        body_lines.append(f"- Hlasování jádra v Buildu: {float(w[3] or 0):.2f} (0–1, vyšší = lepší)")
-    body_lines.append(f"- Brány: {summary or _no_gates_score(gate_score, target, state['verdict'])}")
+        body_lines.append(f"- Hodnocení jádra: {float(w[3] or 0):.2f}".replace(".", ",")
+                          + " z 1 (vyšší = lepší)")
+    body_lines.append(f"- Automatické kontroly: {summary or _no_gates_score(gate_score, target, state['verdict'])}")
     if acceptance:
         body_lines.append(f"- Acceptance: {acceptance}")
     if size_line:
@@ -1173,7 +1181,7 @@ def build_pr(slug: str, repo: str | None = None,
                "## Výstup Pflanzer Method",
                f"- Varianta: `{w[0] if w else '—'}` ({builder}), větev `{b['branch']}`{head}, "
                f"base `{b['base']}`",
-               f"- Brány repa {repo}: "
+               f"- Automatické kontroly repa {repo}: "
                + (gates_summary_line(x["gate_score"], x["results"]) if x else "neběžely")
                + f". Celkem: {summary or _no_gates_score(gate_score, target, state['verdict'])}"]
         if _repo_size(b):
@@ -1611,7 +1619,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 - **Varianta**: `{w[0]}` (`{builder}`)
 - **Vybrán podle**: {_winner_basis_md(ctx['winner_basis'])}
 - **Větev**: `{pr['branch']}`{f" @ `{pr['head_sha'][:10]}`" if pr['head_sha'] else ''} (target repo `{parts['target_repo']}`) — {origin_branch_state(wb['wt'], pr['branch'])}
-{f"- **Rozsah**: {count(pr['loc_added'], 'přidaný řádek', 'přidané řádky', 'přidaných řádků')}" + chr(10) if pr['loc_added'] is not None else ''}- **Brány**: {pr['gates_summary'] or _no_gates_score(score, target, verdict)}
+{f"- **Rozsah**: {count(pr['loc_added'], 'přidaný řádek', 'přidané řádky', 'přidaných řádků')}" + chr(10) if pr['loc_added'] is not None else ''}- **Automatické kontroly**: {pr['gates_summary'] or _no_gates_score(score, target, verdict)}
 
 ### Automatické kontroly ({pr['applicable']} z {pr['total']} aplikovatelných)
 
@@ -1719,7 +1727,7 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     state, ctx = pr["state"], pr["ctx"]
     owner = real(ctx["project"][8])
     lines = [f"SHIP.md: {tilde(path)}",
-             "Brány: " + re.sub(r"\*\*", "", pr['gates_summary'] or _no_gates_score(
+             "Automatické kontroly: " + re.sub(r"\*\*", "", pr['gates_summary'] or _no_gates_score(
                  pr['gate_score'], pr['target'], state['verdict']))]
     human = human_triage_blockers(slug, ctx["triage"]["windows"]) if ctx["triage"]["blocked_by"] else []
     lines += human[:2]

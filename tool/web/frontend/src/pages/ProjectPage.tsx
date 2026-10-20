@@ -119,7 +119,10 @@ export default function ProjectPage() {
           {task.lead && <p>{task.lead}</p>}
           <ol className="list-decimal pl-5 space-y-1">
             {task.steps.map((t, i) => <li key={i}>{t}</li>)}
-            {task.key !== "decider" && data.async_deadline && (
+            {task.key !== "decider" && data.feedback_deadline && (
+              <li>Feedback do: <strong>{data.feedback_deadline}</strong>.</li>
+            )}
+            {task.key !== "decider" && !data.feedback_deadline && data.async_deadline && (
               <li>Do <strong>{formatDate(data.async_deadline)}</strong>.</li>
             )}
           </ol>

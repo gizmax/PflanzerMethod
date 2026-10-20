@@ -19,9 +19,10 @@ def test_score_sentence_below_threshold_names_unverified_in_czech() -> None:
     res = _res(build="pass", tests="pass", lint="pass", smoke="pass", security="pass",
                types="skipped", coverage="skipped", a11y="skipped")
     line = quality_gates.gates_summary_line(78, res, target=80)
-    assert line.startswith("**Skóre 78 ze 100 — pod prahem 80.**")
-    assert "Spočteno z 5 automatických kontrol." in line
-    assert "Neověřeno: typová kontrola, pokrytí testy, přístupnost (WCAG)." in line
+    assert line.startswith("**Skóre 78 ze 100 z 5 automatických kontrol — 3 kontroly neproběhly, "
+                           "skóre je proto jen částečné.** Pod prahem 80.")
+    assert "Neověřeno: typová kontrola, pokrytí testy, přístupnost pro lidi se zdravotním "\
+           "postižením." in line and "WCAG" not in line
 
 
 def test_score_sentence_meets_threshold_and_informational() -> None:

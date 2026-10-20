@@ -231,8 +231,8 @@ def read_spec(arg: str | Path, *, example: str = "") -> dict[str, Any]:
         path = Path(arg)
         if not path.is_file():
             raise ValueError(f"Soubor se specem {path} neexistuje. "
-                             "Zapiš JSON do souboru (nástrojem Write, např. "
-                             ".pflanzer/specs/<slug>-kickoff.json) a zadej jeho cestu: --spec cesta.json")
+                             "Uložte JSON do souboru (např. .pflanzer/specs/<slug>-kickoff.json) "
+                             "a zadejte jeho cestu: --spec cesta.json")
         raw = path.read_text(encoding="utf-8")
         origin = f"ze souboru {path}"
     if not raw.strip():

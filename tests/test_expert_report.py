@@ -70,7 +70,7 @@ def test_summary_before_go_shows_state_and_gaps(project: dict[str, Any]) -> None
     md = report.render_summary_md(report.collect(project["slug"]))
     assert md.startswith(BRAND)
     assert "Zatím nepadlo" in md
-    assert "Brány zatím neběžely" in md
+    assert "Automatické kontroly zatím neběžely" in md
     assert "AI: neměřeno" in md and "Ještě neměřeno, měří se T+30" in md
     assert "## Další krok" in md
     assert len(md.splitlines()) <= 40
