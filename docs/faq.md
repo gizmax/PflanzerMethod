@@ -265,7 +265,9 @@ draft PR (`pflanzer worktree preview --slug <slug>`) nebo nahrávka průchodu
 
 - **Přebití prahu Shipu** (`pflanzer ship --slug S --override-threshold
   --rationale "…"`): Decider vědomě bere skóre pod práh (pilot 80 / production 85)
-  na sebe, jeho jméno jde do decision logu.
+  na sebe, jeho jméno jde do decision logu. Odkud jsou čísla 80 / 85 a 60 %
+  závaznosti a jak se kalibrují: [ADR-0024](decisions/0024-prahy-a-zavaznost.md).
+  Go pod 60 % závaznosti jde jen přes `pflanzer decide … --force --rationale`.
 - **Přebití triage / podpisu bezpečnosti** (`pflanzer ship --slug S
   --override-triage --rationale "…"`): jen pilot bez osobních dat, zapíše se
   jméno Decidera; právo to nepokrývá.

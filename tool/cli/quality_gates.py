@@ -83,6 +83,8 @@ RESULT_DETAIL_LIMIT = 700  # a11y důvody a názvy selhaných testů se vejdou c
 # Pořadí = fail-fast (levné → drahé).
 GATE_TYPES = ("build", "types", "lint", "tests", "coverage", "smoke", "acceptance",
               "security", "a11y", "observability")
+# Váhy bran ve váženém průměru přes běžící brány (SKIP / unsupported mimo jmenovatel);
+# zdůvodnění a výpočet skóre: docs/decisions/0024-prahy-a-zavaznost.md (ADR-0024).
 GATE_WEIGHTS = {  # Production readiness weight
     "build": 1.5,        # bez buildu se nešipuje
     "types": 1.5,        # type errors = bugs
@@ -335,7 +337,9 @@ def _skip(gate: str, reason: str) -> GateResult:
 
 
 UNVERIFIED_PREFIX = "NEOVĚŘENO:"
-PRODUCTION_TARGET = 85  # práh production; pilot 80
+# Práh production 85 / pilot 80 = výchozí hypotéza kalibrovaná retrem (T+30/T+90), přebít smí
+# jen Decider (`--override-threshold` + důvod); viz ADR-0024.
+PRODUCTION_TARGET = 85
 
 
 def _unverified(gate: str, short: str, long: str = "") -> GateResult:
