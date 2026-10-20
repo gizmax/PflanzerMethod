@@ -1752,7 +1752,9 @@ VOTE_HINT = ("Vyplň facilitátora, URL a hodnocení; tento klíč `_napoveda` v
              "(docs/methodology/02-role-catalog.md), NE číslo kroku cesty 1–6. Příklad: "
              "2 = Produkt manažer, 4 = Frontend, 6 = UX / Designer, 7 = Security, 15 = DevOps "
              "(v catalogu je 18 rolí, jedna řádka = jedna role); user_value/effort/risk/"
-             "strategic_fit 0 až 1, rationale povinný (jedna věta). Zápis: "
+             "strategic_fit 0 až 1, rationale povinný (jedna věta); commitment_level vyplň "
+             "vždy (0 = nezapojím se, 1 = jen připomínky, 2 = pomůžu, 3 = co-creation) — "
+             "Go potřebuje, aby se tým za vítěze postavil aspoň ze 60 %. Zápis: "
              "`pflanzer vote --spec <tento soubor>`.")
 
 
@@ -1765,7 +1767,7 @@ def vote_template(slug: str, variants: tuple[str, ...] | list[str]) -> dict[str,
         "votes": [{
             "name": v, "builder": "claude-code", "description": "", "prototype_url": "",
             "role_preferences": [{"role_idx": 1, "user_value": 0.5, "effort": 0.5, "risk": 0.5,
-                                  "strategic_fit": 0.5, "commitment_level": 1, "rationale": ""}],
+                                  "strategic_fit": 0.5, "commitment_level": None, "rationale": ""}],
         } for v in variants],
         "real_urls": {v: "" for v in variants},
         "decider_call": {"shortlist": [], "rationale": "", "veto_register": [],

@@ -5,7 +5,7 @@ cesty pošle připomínku e-mailem, facilitátor ji vloží). Zápis jde do stej
 tabulky `feedback` jako z hubu, takže `/pm feedback` (feedback_pull) ho vidí.
 
     pflanzer feedback add --slug S --variant A --role "Bezpečnost" \\
-        --severity critical|major|minor --text "..." [--author "Jméno"]
+        --by "Jméno" --severity critical|major|minor --text "..."
     pflanzer feedback list --slug S [--variant A] [--json]
 
 Závažnost: critical | major | minor (aliasy: high = major, medium, low = minor).
@@ -114,7 +114,11 @@ def add_feedback(
                 "Nejdřív zapiš varianty po Buildu (`/pm build`)."
             )
         role_id, department = _resolve_role(conn, project_id, role)
-        actor = author or current_actor()
+        actor = (author or "").strip() or current_actor()
+        if actor == "unknown":
+            raise ValueError(
+                "Nevím, kdo feedback píše — doplňte `--by \"Jméno\"` (autor jde do decision "
+                "logu a SHIP.md), nebo nastavte `git config user.name`.")
         cur = conn.execute(
             """
             INSERT INTO feedback (variant_id, role_id, severity, department, category,

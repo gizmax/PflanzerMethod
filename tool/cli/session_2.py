@@ -579,8 +579,9 @@ def record_decision(
                 if not force:
                     raise ValueError(
                         f"Tým se za vedoucí variantu postaví jen z {idx:.0%}, na Go stačí "
-                        f"{COMMITMENT_THRESHOLD:.0%}. Nejdřív doplňte feedback "
-                        f"(`pflanzer feedback_pull --slug {slug}`), nebo Decider jde do Go vědomě: "
+                        f"{COMMITMENT_THRESHOLD:.0%}. Commitment se počítá z hlasování Buildu: doplňte "
+                        f"`commitment_level` (0–3) v `.pflanzer/specs/{slug}-vote.json` a zapište "
+                        f"znovu `pflanzer vote --spec …`, nebo Decider jde do Go vědomě: "
                         f"`pflanzer session_2 decide --slug {slug} go --winner {winner} --force "
                         f"--rationale \"proč Go i pod prahem\"` (důvod půjde do decision logu).")
                 rationale = (f"[Go pod prahem commitmentu: {idx:.0%} < "
@@ -885,9 +886,9 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                f"--note \"…\"`, nebo na Rozhodnutí zvolte Iterate s cílem ho opravit "
                f"(`pflanzer session_2 decide --slug {slug} iterate --variants {','.join(focus or ['A'])} --iterate-focus \"…\" --rationale \"…\"`)")
     elif not out["ready_for_decision"]:
-        nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — sežeň víc hlasů "
-               f"a feedbacku: `pflanzer feedback add --slug {slug} --variant {(focus or ['A'])[0]} --role Produkt "
-               "--severity major --text \"…\"`")
+        nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — doplňte "
+               f"`commitment_level` v hlasování (`.pflanzer/specs/{slug}-vote.json`, pak "
+               "`pflanzer vote --spec …`)")
     else:
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
                f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
