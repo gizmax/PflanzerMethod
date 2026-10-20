@@ -1,5 +1,8 @@
 """`pflanzer share` — jeden příkaz pro sdílení Buildu s kolegy.
 
+Pořadí: build -> `pflanzer record` (zápis Buildu) -> share (sběr feedbacku). Bez zapsaného
+Buildu share varuje: hub zatím varianty neukáže.
+
 Spustí preview variant (`preview up`) a hub (jako `pflanzer hub`, se stejným heslem) a vypíše
 JEDNU zprávu pro kolegy: jednu adresu (hub, z něhož vedou odkazy na varianty), jedno heslo
 (zvlášť) a termín.
@@ -97,6 +100,21 @@ def share_text(hub_url: str, deadline: str | None) -> str:
             f"Do kdy: {until}.")
 
 
+NOT_RECORDED_WARNING = ("Build ještě není zapsaný — hub zatím varianty neukáže. Nejdřív "
+                        "`pflanzer record --spec …`, pak share. Zprávu kolegům zatím "
+                        "neposílejte (`pflanzer share down --slug {slug}` a znovu `share` "
+                        "po zápisu, nebo ji pošlete až po `record`).")
+
+
+def _build_recorded(slug: str) -> bool:
+    """Je Build zapsaný (`pflanzer record`)? Bez něj hub variantám nic neukáže."""
+    try:
+        from tool.cli.status import _last_build
+        return bool(_last_build(slug))
+    except Exception:  # noqa: BLE001 — poradní kontrola nesmí shodit sdílení
+        return True
+
+
 def up(slug: str, *, tunnel: str = "auto", password: str | None = None,
        deadline: str | None = None) -> dict[str, Any]:
     if password is not None and not password.strip():
@@ -188,9 +206,12 @@ def up(slug: str, *, tunnel: str = "auto", password: str | None = None,
     else:
         hub_url = f"http://127.0.0.1:{port}/method/"
     body = share_text(hub_url, deadline)
-    return {"slug": slug, "hub_url": hub_url, "password": password, "user": res["user"],
+    build_recorded = _build_recorded(slug)
+    if not build_recorded:
+        warnings.insert(0, NOT_RECORDED_WARNING.format(slug=slug))
+    return {"build_recorded": build_recorded, **{"slug": slug, "hub_url": hub_url, "password": password, "user": res["user"],
             "deadline": deadline, "message": body, "hub_port": port,
-            "variants": res["variants"], "warnings": warnings, "tunnel": bool(use_tunnel)}
+            "variants": res["variants"], "warnings": warnings, "tunnel": bool(use_tunnel)}}
 
 
 def _stop_hub(state: dict[str, Any]) -> bool:
@@ -241,7 +262,10 @@ def main(argv: list[str] | None = None) -> None:
     except (ValueError, RuntimeError) as exc:
         die(str(exc))
         return
-    lines = ["Zpráva pro kolegy (přeposlat):",
+    head = ("Zpráva pro kolegy (přeposlat):" if res.get("build_recorded", True) else
+            "Zpráva pro kolegy — NEODESÍLAT, dokud nezapíšete Build (hub zatím varianty "
+            "neukáže):")
+    lines = [head,
              *[f"> {ln}" for ln in res["message"].splitlines() if ln.strip()],
              f"Heslo (uživatelské jméno je libovolné): {res['password']}",
              "Heslo pošlete jiným kanálem než adresu (jiný chat, SMS, telefon)."]
@@ -249,8 +273,10 @@ def main(argv: list[str] | None = None) -> None:
         lines.append("Adresa funguje jen ve stejné síti; pro kolegy mimo síť nainstalujte "
                      "cloudflared a spusťte sdílení znovu.")
     emit(res, title="Sdílení běží", lines=lines,
-         next_step=f"po Asyncu `pflanzer share down --slug {res['slug']}`, "
-                   f"pak `/pm feedback {res['slug']}`",
+         next_step=(f"po Asyncu `pflanzer share down --slug {res['slug']}`, "
+                    f"pak `/pm feedback {res['slug']}`" if res.get("build_recorded", True) else
+                    f"`pflanzer record --spec …` (zápis Buildu), pak pošlete zprávu kolegům; "
+                    f"po Asyncu `pflanzer share down --slug {res['slug']}`"),
          warnings=res["warnings"], as_json=args.json)
 
 

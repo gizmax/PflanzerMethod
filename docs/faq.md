@@ -276,8 +276,8 @@ projektu (`pflanzer doctor --slug <slug>`) nebo z `default_risk_profile` v
 ## Tunel, LAN a preview
 
 Nejrychlejší cesta, jak dát kolegům jednu adresu a heslo, je
-`pflanzer share --slug <slug>`: spustí preview variant i hub a vypíše jednu
-zprávu k přeposlání. Zastavení: `pflanzer share down --slug <slug>`.
+`pflanzer share --slug <slug>` (až po zápisu Buildu `pflanzer record`, jinak hub
+varianty neukáže): spustí preview variant i hub a vypíše jednu zprávu k přeposlání. Zastavení: `pflanzer share down --slug <slug>`.
 
 Pod ním jsou dvě části, které můžete spouštět i zvlášť:
 

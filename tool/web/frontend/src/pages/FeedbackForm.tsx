@@ -62,7 +62,7 @@ export default function FeedbackForm() {
     setArea(k ? AREA_BY_STEP[k] ?? "general" : "general");
     setWcagLevel(k === "design" ? "AA" : "N/A");
     setAiActDim("");
-  }, [variantId, identity?.step]);
+  }, [variantId, identity?.step, identity?.name]);
 
   const back = `/${slug}/compare`;
   if (loadError) return <ErrorScreen error={loadError} backTo={`/${slug}`} backLabel="Zpět na projekt" />;

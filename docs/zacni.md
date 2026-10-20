@@ -61,8 +61,8 @@ Na každém kroku stačí jeden příkaz (v Claude Code `/pm <krok>`).
 |---|------|--------|-----------|
 | 1 | Kickoff: zadání na 1 stránku, jména 6 kroků, otázka „Jak vážné to je? demo / pilot / ostré“ | `/pm start` (bez Claude Code: `pflanzer start --spec kickoff.json`) | Decider + jádro, 15 min |
 | 2 | Build: AI staví 3 varianty, kontroly běží průběžně | `/pm build` (nápověda: `pflanzer build`) | jádro, 3 h |
-| 3 | Sdílení: preview i hub, jedna adresa + heslo, hotová zpráva kolegům | `pflanzer share --slug S` | builder, 5 min |
-| 4 | Zápis hodnocení Buildu | `pflanzer record --spec soubor.json` | builder |
+| 3 | Zápis hodnocení Buildu (hub bez něj varianty neukáže) | `pflanzer record --spec soubor.json` | builder |
+| 4 | Sdílení: preview i hub, jedna adresa + heslo, hotová zpráva kolegům | `pflanzer share --slug S` | builder, 5 min |
 | 5 | Sběr feedbacku (Async): zástupci proklikají a komentují | `/pm feedback` (terminál: `pflanzer feedback add --slug S --variant A --role Design --by "Jméno" --severity critical\|major\|minor --text "…"`, přehled `pflanzer feedback list --slug S`) | všichni, ~15 min denně, 3–5 dní |
 | 6 | Rozhodnutí: demo, top 3 spory, Decider hlasuje poslední → Go / Iterate (max 1×) / Kill | `/pm decide` (`pflanzer decide`) | Decider + jádro, 60–90 min |
 | 7 | Ship: kontroly jen na vítěze, nástroj vyrobí `SHIP.md` a text PR; PR otevře vlastník repa příkazem `gh pr create` z konce `SHIP.md` | `/pm ship` (`pflanzer ship --slug S`) | vývojáři + provoz, 1–2 dny |
@@ -86,7 +86,7 @@ okna, režim stavby a prahy se z toho odvodí; přebít je lze
 | Odpověď | Stupeň | Okna k podpisu |
 |---|---|---|
 | demo | Quick | žádná (triage se nespouští; před pilotem nový Kickoff) |
-| pilot bez osobních dat | Lean | **Zadání** (Decider) + **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
+| pilot bez osobních dat | Lean | **Zadání** (samo při Kickoffu) + **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
 | pilot s osobními daty | Lean | Zadání, Bezpečnost & právo, Provoz |
 | ostré | Lean (s osobními daty Full) | Zadání, Bezpečnost & právo, Provoz (u Full Právo (DPIA) samostatně jen když triage DPIA odloží) |
 
@@ -101,10 +101,16 @@ okna, režim stavby a prahy se z toho odvodí; přebít je lze
 | Den ~8 | Ship 1–2 dny + checkpoint provozu 20 min | vývojáři + provoz |
 
 Okno se podepisuje jedním příkazem: `pflanzer checkpoint --slug S
-zadani|bezpecnost|provoz|bezpecnost-provoz --by "<jméno>" --note "…"`. Zadání podepisuje Decider (`--by "Decider"`). Bez podpisu Ship pilotu
-neprojde. Kde okno zastoupila AI, zapíše se jako návrh (`--ai --agent <agent>`)
-a podepíše ho člověk. Kdo podepíše, když security není:
-[`faq.md`](faq.md#security-nebo-dpo-na-plný-úvazek).
+bezpecnost|provoz|bezpecnost-provoz --by "<jméno>" --note "…"`. **Zadání se
+podepíše samo při Kickoffu** jménem Decidera (když je ve specu metrika, kill
+kritérium a jména kroků); `pflanzer status` ho ukáže mezi podpisy. Ručně
+(`checkpoint … zadani --by "<jméno Decidera>"`, jméno, ne slovo „Decider“) jen když
+Kickoff šel bez metriky nebo kill kritéria. Bez podpisů Ship pilotu neprojde.
+Kde okno zastoupila AI, zapíše se jako návrh (`--ai --agent <agent>`) a podepíše
+ho člověk. **Design za AI** je zapsaný už v Kickoffu: člověk (PdM) jen potvrdí
+`pflanzer checkpoint --slug S design --by "Jméno" --note "co jste zkontrolovali"`;
+`--ai` použijte jen, když AI návrh vzniká až dodatečně. Kdo podepíše, když
+security není: [`faq.md`](faq.md#security-nebo-dpo-na-plný-úvazek).
 
 ### Bez Claude Code
 
@@ -126,7 +132,8 @@ Stupeň Full (ostré s osobními údaji) doporučí `/pm triage`; bez Claude Cod
 prázdné = čeká na podpis.
 
 Další kroky v terminálu: `pflanzer build` (nápověda k Buildu), `pflanzer prompts --slug S`,
-`pflanzer share --slug S`, `pflanzer record --spec soubor.json`, `pflanzer decide`, `pflanzer ship`.
+`pflanzer record --spec soubor.json` (zápis Buildu), `pflanzer share --slug S` (sdílení
+ke sběru feedbacku), `pflanzer decide`, `pflanzer ship`.
 
 ## Zasekli jste se?
 

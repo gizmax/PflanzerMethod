@@ -30,6 +30,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
 PYTHON_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
 GO_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.go.md.template"
+NEXT_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.next.md.template"
 NODE_BACKEND_TEMPLATE_PATH = (PLUGIN_ROOT / "tool" / "templates"
                               / "INTEGRATION_GUIDE.node-backend.md.template")
 GENERIC_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.generic.md.template"
@@ -59,6 +60,18 @@ def _node_is_backend(path: Path) -> bool:
     return bool(deps & set(BACKEND_DEPS)) and not deps & set(FRONTEND_DEPS)
 
 
+def _node_has_dep(path: Path, dep: str) -> bool:
+    import json
+    for pkg in [path / "package.json", *(w / "package.json" for w in workspace_packages(path))]:
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if dep in (data.get("dependencies") or {}) or dep in (data.get("devDependencies") or {}):
+            return True
+    return False
+
+
 def guide_template_for(path: Path) -> Path:
     """INTEGRATION_GUIDE šablona podle stacku: Python / Go; Node (React/TS) a repo bez rozpoznaného
     stacku (bez package.json) dostane generic variantu, jen neznámé s package.json zůstává Node."""
@@ -68,6 +81,8 @@ def guide_template_for(path: Path) -> Path:
         stack = None
     if stack == "node" and NODE_BACKEND_TEMPLATE_PATH.is_file() and _node_is_backend(path):
         return NODE_BACKEND_TEMPLATE_PATH
+    if stack == "node" and NEXT_TEMPLATE_PATH.is_file() and _node_has_dep(path, "next"):
+        return NEXT_TEMPLATE_PATH
     if stack == "python" and PYTHON_TEMPLATE_PATH.is_file():
         return PYTHON_TEMPLATE_PATH
     if stack == "go" and GO_TEMPLATE_PATH.is_file():

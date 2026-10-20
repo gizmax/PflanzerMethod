@@ -123,7 +123,7 @@ Prakticky:
 - Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,
   preview namespace v Kubernetes, review apps v GitLabu). Dohodne se na
   Kickoffu se zástupcem provozu; nic nového se nestaví.
-- Odkazy na 3 URL + feedback sbírá web hub — `pflanzer share --slug S` (jedna adresa + heslo; detaily `preview` a `hub` ve [`faq.md`](faq.md#tunel-lan-a-preview)), nebo offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
+- Odkazy na 3 URL + feedback sbírá web hub — `pflanzer share --slug S` po `pflanzer record` (jedna adresa + heslo; detaily `preview` a `hub` ve [`faq.md`](faq.md#tunel-lan-a-preview)), nebo offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
 - Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
   bezpečnosti & práva.
 
@@ -131,7 +131,7 @@ Prakticky:
 
 1. **Lokální preview s heslem** — `pflanzer share --slug <slug>` (pod ním
    `pflanzer preview up --slug <slug>`) spustí aplikaci z worktrees A/B/C, před každou postaví malý proxy s heslem
-   (uživatel `pflanzer`) a štítkem „Varianta X k rozhodnutí — není to hotový
+   (libovolné uživatelské jméno, rozhoduje heslo) a štítkem „Varianta X k rozhodnutí — není to hotový
    produkt“ a vypíše 3 URL + hotovou zprávu zástupcům. S `cloudflared` v PATH
    (`--tunnel auto`) dostane každá varianta veřejnou `https://*.trycloudflare.com`
    URL, jinak jen lokální / LAN (`--host 0.0.0.0`). Kód nikam neodchází; provoz

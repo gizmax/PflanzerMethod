@@ -27,7 +27,7 @@ def test_help_default_is_path_only(tmp_path: Path) -> None:
     for cmd in ("start", "build", "prompts", "share", "record", "feedback", "decide", "ship",
                 "checkpoint", "status", "doctor"):
         assert f"pflanzer {cmd}" in out
-    order = [out.index(f"pflanzer {c}") for c in ("start", "build", "prompts", "share", "record",
+    order = [out.index(f"pflanzer {c}") for c in ("start", "build", "prompts", "record", "share",
                                                   "feedback", "decide", "ship", "checkpoint")]
     assert order == sorted(order)
     assert "session_2" not in out and "a11y_html" not in out and "apprun" not in out

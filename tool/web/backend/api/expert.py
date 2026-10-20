@@ -31,9 +31,12 @@ router = APIRouter(prefix="/api/projects", tags=["expert"])
 
 STEP_LABELS = {"byznys": "Byznys", "produkt": "Produkt", "design": "Design",
                "vyvoj": "Vývoj", "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz"}
-WINDOW_STEP = {"bezpecnost": "bezpecnost", "provoz": "provoz", "design": "design"}
-WINDOW_LABEL = {"bezpecnost": "Bezpečnost & právo", "provoz": "Provoz", "design": "Design (AI)"}
-WINDOW_TRACKS = {"bezpecnost": ("security", "legal"), "provoz": ("platform",)}
+WINDOW_STEP = {"zadani": "byznys", "bezpecnost": "bezpecnost", "provoz": "provoz",
+               "design": "design"}
+WINDOW_LABEL = {"zadani": "Zadání", "bezpecnost": "Bezpečnost & právo", "provoz": "Provoz",
+                "design": "Design (AI)"}
+WINDOW_TRACKS = {"zadani": ("discovery",), "bezpecnost": ("security", "legal"),
+                 "provoz": ("platform",)}
 CHOICES = ("go", "iterate", "kill")
 COLLECTING = ("session_1",)
 VOTING = ("session_1", "session_2")
@@ -168,7 +171,7 @@ def get_windows(slug: str, db: Session = Depends(get_session)) -> dict:
                         "state": state, "signer": signer,
                         "command": checkpoint_command(slug, "bezpecnost-provoz", signer)})
     for window, step in WINDOW_STEP.items():
-        if merged and window != "design":
+        if merged and window not in ("design", "zadani"):
             continue
         owner = owners.get(step)
         if window == "design":

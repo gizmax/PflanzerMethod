@@ -249,6 +249,13 @@ def _decision_info(db: Session, project: Project) -> dict[str, Any] | None:
             "below_commitment": last.get("below_commitment")}
 
 
+def _build_running(db: Session, project_id: int) -> bool:
+    """Worktrees stojí (`worktree.setup`), Build ještě není zapsaný (jako `pflanzer status`)."""
+    return db.exec(select(AuditLog).where(
+        AuditLog.action == "worktree.setup", AuditLog.target_type == "project",
+        AuditLog.target_id == project_id)).first() is not None
+
+
 @router.get("/{slug}")
 def get_project(slug: str, request: Request, db: Session = Depends(get_session)) -> dict:
     project = db.exec(select(Project).where(Project.slug == slug)).first()
@@ -287,5 +294,6 @@ def get_project(slug: str, request: Request, db: Session = Depends(get_session))
                              if in_play and n not in in_play],
         "preview_login": _preview_login(slug, request),
         "kill": _kill_info(db, project),
+        "build_running": _build_running(db, project.id),
         **risk,
     }

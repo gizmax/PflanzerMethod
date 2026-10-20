@@ -61,7 +61,7 @@ export default function ProjectPage() {
     <div className="space-y-6">
       <header className="space-y-2">
         <h1>{project.name}</h1>
-        <p className="pf-pill">{phaseLabel(project.status)}</p>
+        <p className="pf-pill">{phaseLabel(project.status, !!data.build_running)}</p>
       </header>
 
       {!identity ? (
@@ -139,6 +139,10 @@ export default function ProjectPage() {
         </section>
       )}
       {inAsync && slug && <MissingBanner slug={slug} />}
+      {slug && (project.status === "session_1" || project.status === "session_2") && (
+        <SilentVote compact slug={slug} identityName={identity?.name ?? null}
+          variants={(data.variants_in_play?.length ? data.variants_in_play : names)} />
+      )}
       {(data.variants_dropped?.length ?? 0) > 0 && (
         <p className="text-sm text-muted">
           Po Iterate pokračují varianty {(data.variants_in_play ?? []).join(", ")};

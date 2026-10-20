@@ -344,7 +344,7 @@ def test_feedback_summary_shows_phase_in_words(project: dict[str, Any],
     vote(project["slug"], status="session_1")
     md = feedback_pull.render_summary_md(feedback_pull.aggregate(project["slug"]))
     assert "session_1" not in md
-    assert "Stav projektu: Build hotový" in md
+    assert "Stav projektu: Build zapsaný" in md
 
 
 def test_doctor_next_step_mentions_multi_repo_init_and_primary_start(tmp_path: Path) -> None:
