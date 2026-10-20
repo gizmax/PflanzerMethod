@@ -576,7 +576,7 @@ def main() -> None:
     parser.add_argument("--spec", required=True,
                         help="JSON se vstupy Charteru, nebo `-` pro stdin (target_repo_url se doplní "
                              "z .pflanzer/project.toml). Doporučená cesta je /pm start "
-                             "(quick_session bootstrap).")
+                             "(quick_session bootstrap); ukázka spec: pflanzer start --help.")
     parser.add_argument("--json", action="store_true", help="Strojový výstup")
     args = parser.parse_args()
     from tool.cli.ux import die, emit, read_spec, tips_for_project
@@ -588,8 +588,8 @@ def main() -> None:
         md = render_charter_md(inp)
         pid = persist_charter(inp, md)
     except TypeError as exc:
-        die(f"Spec nesedí na Charter: {exc}. Doporučená cesta je `pflanzer quick_session "
-            "bootstrap --spec soubor.json` (viz /pm start).")
+        die(f"Spec nesedí na Charter: {exc}. Doporučená cesta je `pflanzer start --spec "
+            "soubor.json` (ukázka: pflanzer start --help).")
         return
     except ValueError as exc:
         die(str(exc))

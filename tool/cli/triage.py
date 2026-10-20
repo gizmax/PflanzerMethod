@@ -192,7 +192,7 @@ def triage_changed_brief(slug: str) -> str | None:
         if ids:
             parts.append(f"{t} {ids[0]}" + (f"–{ids[-1]}" if len(ids) > 1 else ""))
     return ("Triage změnila zadání: " + ", ".join(parts) + f" ({len(cons)} omezení) — prompty to "
-            "už obsahují (`pflanzer quick_session prompts`); zvažte úpravu Charteru "
+            f"už obsahují (`pflanzer prompts --slug {slug}`); zvažte úpravu Charteru "
             f"(`data/charters/{slug}.md`, nebo nový `pflanzer charter --spec …`).")
 
 

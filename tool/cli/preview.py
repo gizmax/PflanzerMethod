@@ -598,6 +598,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
     if tunnel == "cloudflared" and not have_cf:
         raise ValueError("Chybí `cloudflared` v PATH. Nainstalujte ho (např. "
                          "`brew install cloudflared`), nebo použijte --tunnel none.")
+    tunnel = "none" if tunnel == "off" else tunnel
     use_tunnel = tunnel == "cloudflared" or (tunnel == "auto" and have_cf)
 
     secondary = _secondary_dirs(slug)
@@ -609,7 +610,8 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
         if spec is None:
             raise ValueError(
                 f"Pro variantu {name} nevím, jak spustit aplikaci. Doplňte do "
-                f".pflanzer/project.toml v target repu:\n  [preview]\n  "
+                f".pflanzer/project.toml v hlavním repu (stačí upravit hlavní repo, preview si "
+                f"config vezme odtud; worktrees nemusíte měnit):\n  [preview]\n  "
                 'command = "npm run dev -- --port {port}"\n(v příkazu `{port}` nahradí '
                 "preview číslem portu).")
         for port in (app_port, app_port + 1):
@@ -630,7 +632,7 @@ def up(slug: str, *, password: str | None = None, tunnel: str = "auto",
             if sspec is None:
                 skipped_repos.append(
                     f"Repo {role} (varianta {name}) se nespouští — nevím jak. Doplňte do "
-                    f".pflanzer/project.toml:\n  [preview.{role}]\n  command = \"…{{port}}…\"")
+                    f".pflanzer/project.toml v hlavním repu:\n  [preview.{role}]\n  command = \"…{{port}}…\"")
                 continue
             if not apprun.port_free(port, "127.0.0.1"):
                 raise ValueError(f"Port {port} (repo {role}) je obsazený. Zvolte jiný základ: "
@@ -856,7 +858,7 @@ def restart(slug: str, *, variants: list[str] | None = None,
         spec = apprun.detect_run(wt, v["app_port"])
         if spec is None:
             raise ValueError(f"Pro variantu {name} nevím, jak spustit aplikaci "
-                             "(viz `[preview] command` v .pflanzer/project.toml).")
+                             "(doplňte `[preview] command` do .pflanzer/project.toml v hlavním repu).")
         spec.env = {**_links(urls), **browser_env(urls), **spec.env}
         log = Path(v["log"])
         log.write_bytes(b"")
@@ -1338,6 +1340,7 @@ def main(argv: list[str] | None = None) -> None:
     pu.add_argument("--slug", required=True)
     pu.add_argument("--password", default=None, help="Heslo (jinak se vygeneruje)")
     pu.add_argument("--tunnel", choices=["auto", "cloudflared", "none"], default="auto",
+                    type=lambda v: "none" if v == "off" else v,  # `off` = alias staré nápovědy
                     help="auto = cloudflared, když je v PATH; none = jen lokálně")
     pu.add_argument("--host", default="127.0.0.1",
                     help="127.0.0.1 (jen tento počítač) nebo 0.0.0.0 (celá síť)")

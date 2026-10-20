@@ -8,6 +8,7 @@
 
 - Python: <3.11 | 3.12 | 3.13>, virtuální prostředí v `.venv/` (`python -m venv .venv`)
 - Závislosti: <uv | pip + requirements.txt | poetry | pip-tools> (`<příkaz instalace>`)
+- Test/lint nástroje (`pytest`, `ruff`) deklaruj v `requirements-dev.txt` nebo dev závislostech — worktrees je jinak nenainstalují
 - Web framework: <FastAPI | Flask | Django | žádný (CLI / knihovna)>
 - Spuštění lokálně: `<uvicorn app.main:app --reload | flask run | python manage.py runserver>`
 

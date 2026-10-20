@@ -1178,7 +1178,8 @@ def _measure_md(slug: str, pr: dict[str, Any]) -> str:
     lines = [
         "- Kolik kódu vítěze přežilo v `main` a za kolik dní se dostal do produkce (cíl ≥ 80 %, "
         "≤ 14 dní). Po merge, z worktree vítěze: "
-        f"`pflanzer retro measure --slug {slug} --pr-url \"$(gh pr view --json url -q .url)\"`",
+        f"`pflanzer retro measure --slug {slug} --pr-url \"$(gh pr view --json url -q .url)\"` "
+        "(bez `gh`: `--merge-commit <sha>`)",
     ]
     for k, v in (("Hlavní metrika", pr["metrics"][0]), ("Ranná metrika", pr["metrics"][1]),
                  ("Pojistka (guardrail)", pr["metrics"][2])):

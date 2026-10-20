@@ -126,6 +126,21 @@ Pak **restartujte Claude Code v tom repu** a napište `/pm` — bez argumentu
 zjistí stav a doporučí jeden další krok (v čerstvém repu spustí `doctor`
 a navrhne `/pm start`).
 
+### Bez Claude Code
+
+Kickoff jde i z terminálu: zapište spec do `kickoff.json` a spusťte
+`pflanzer start --spec kickoff.json` (všechna pole: `pflanzer start --help`).
+
+```json
+{"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
+ "risk_profile": "pilot", "target_repo_url": "https://github.com/firma/appka",
+ "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
+                 "bezpecnost": "Jana", "provoz": "Karel"}}
+```
+
+Další kroky v terminálu: `pflanzer build` (nápověda k Buildu), `pflanzer prompts --slug S`,
+`pflanzer vote`, `pflanzer decide`, `pflanzer ship`.
+
 ### Instalace v korporátu: co přesně skript dělá
 
 Skript nemusíte pouštět naslepo. Stáhněte si ho, přečtěte a pak spusťte:

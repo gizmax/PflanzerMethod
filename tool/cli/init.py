@@ -232,24 +232,64 @@ def _node_presets(target: Path) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _read_py_text(target: Path, names: tuple[str, ...]) -> str:
+    out = []
+    for n in names:
+        try:
+            out.append((target / n).read_text(encoding="utf-8", errors="replace").lower())
+        except OSError:
+            pass
+    return "\n".join(out)
+
+
+def _python_has_tests(target: Path) -> bool:
+    if (target / "pytest.ini").exists() or (target / "tests").is_dir():
+        return True
+    return next(target.glob("test_*.py"), None) is not None
+
+
+def _python_tool_configured(target: Path, tool: str) -> bool:
+    """Nástroj je „nakonfigurovaný/deklarovaný“: vlastní config soubor, sekce v pyproject/setup.cfg/tox,
+    nebo zmínka v requirements*.txt / Pipfile / Makefile."""
+    if any((target / f).exists() for f in (f"{tool}.toml", f".{tool}.toml", f".{tool}.cfg")):
+        return True
+    names = ("pyproject.toml", "setup.cfg", "tox.ini", "Pipfile", "Makefile")
+    text = _read_py_text(target, names)
+    for req in target.glob("requirements*.txt"):
+        text += "\n" + _read_py_text(target, (req.name,))
+    return re.search(rf"(?<![\w-]){re.escape(tool)}(?![\w-])", text) is not None
+
+
+def _python_presets(target: Path) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {"#build": {"cmd": "python -m build"}}
+    out["types"] = {"cmd": "mypy ."}  # beze změny: bez konfigurace mypy brána sama skipne
+    lint_tool = next((t for t in ("ruff", "flake8", "pyflakes") if _python_tool_configured(target, t)), None)
+    if lint_tool == "ruff":
+        out["lint"] = {"cmd": "ruff check ."}
+    elif lint_tool:
+        out["lint"] = {"cmd": f"python3 -m {lint_tool} ."}
+    else:
+        out["#lint"] = {"cmd": "ruff check ."}
+    if _python_has_tests(target):
+        out["tests"] = {"cmd": "python3 -m pytest -q"}
+    else:
+        out["#tests"] = {"cmd": "python3 -m pytest -q"}
+    out["#smoke"] = {"builtin": True}  # po doplnění [preview] command v .pflanzer/project.toml
+    out["#coverage"] = {"cmd": "python3 -m pytest -q --cov --cov-branch --cov-report=term",
+                        "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
+                        **COVERAGE_THRESHOLDS}
+    out["security"] = {"builtin": True}
+    out["#security"] = {"cmd": "pip-audit"}
+    return out
+
+
 def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
     """Per-stack gate specs. `gate` = active entry, `#gate` = commented example."""
     security = {"security": {"builtin": True}}
     if stack == "node":
         return _node_presets(target)
     if stack == "python":
-        return {
-            "#build": {"cmd": "python -m build"},
-            "types": {"cmd": "mypy ."},
-            "lint": {"cmd": "ruff check ."},
-            "tests": {"cmd": "python3 -m pytest -q"},
-            "#smoke": {"builtin": True},  # po doplnění [preview] command v .pflanzer/project.toml
-            "#coverage": {"cmd": "python3 -m pytest -q --cov --cov-branch --cov-report=term",
-                          "parse": r"regex:^TOTAL\s.*?(?P<metric>\d+(?:\.\d+)?)%\s*$",
-                          **COVERAGE_THRESHOLDS},
-            **security,
-            "#security": {"cmd": "pip-audit"},
-        }
+        return _python_presets(target)
     if stack == "maven":
         return {
             "build": {"cmd": "mvn -q -DskipTests compile"},

@@ -151,7 +151,10 @@ def _is_node_project(path: Path) -> bool:
 
 
 def _is_python_project(path: Path) -> bool:
-    return (path / "pyproject.toml").exists() or (path / "setup.py").exists()
+    # Jedna definice pro init, gates i doctor: pyproject/setup.py/setup.cfg/Pipfile/requirements*.txt.
+    if any((path / f).exists() for f in ("pyproject.toml", "setup.py", "setup.cfg", "Pipfile")):
+        return True
+    return next(path.glob("requirements*.txt"), None) is not None
 
 
 # Non-Node/Python stacks (audit N7). They are only consulted when the dir is
@@ -267,7 +270,7 @@ def detect_stack_info(path: Path) -> Stack:
         st.workspaces = apprun.workspace_packages(path)
     st.has_tsconfig = (path / "tsconfig.json").exists() or any(
         (w / "tsconfig.json").exists() for w in st.workspaces)
-    st.python = any((path / f).exists() for f in ("pyproject.toml", "setup.py", "requirements.txt"))
+    st.python = _is_python_project(path)
     if not st.node and not st.python:
         found = detect_stack(path)
         st.other = found if found in OTHER_STACKS else None

@@ -32,9 +32,10 @@ Test 30 sekund je na začátku [`docs/zacni.md`](docs/zacni.md).
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # 1. instalace
 pflanzer init            # 2. v repu produktu: INTEGRATION_GUIDE + CONSTITUTION
-pflanzer doctor          # 3. je repo připravené ke Kickoffu? (řekne i co opravit)
-git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push   # 4. push
-/pm start                # 5. v Claude Code: Kickoff, 15 min
+                         #    (vyplňte docs/INTEGRATION_GUIDE.md, např. v Claude Code)
+git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push   # 3. commit + push
+pflanzer doctor          # 4. je repo připravené ke Kickoffu? (kontroluje i push; řekne co opravit)
+/pm start                # 5. v Claude Code: Kickoff, 15 min (bez Claude Code: pflanzer start --spec kickoff.json)
 ```
 
 Skript si můžete předem přečíst (`curl … -o install.sh; less install.sh`),
