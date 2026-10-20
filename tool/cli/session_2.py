@@ -60,7 +60,9 @@ from tool.cli.ux import (  # noqa: E402
 SESSIONS_DIR = DATA_ROOT / "sessions"
 VALID_DECISIONS = {"go", "iterate", "kill"}
 VALID_VARIANTS = ("A", "B", "C")
-COMMITMENT_THRESHOLD = 0.6  # Default; over-ridable per Charter (TODO: schema field)
+# Práh závaznosti (commitment index z hodnocení Buildu, 0-3 -> %). Výchozí hypotéza kalibrovaná
+# retrem; zdůvodnění, kalibrace a kdo smí přebít (Decider, `--force` + důvod) v ADR-0024.
+COMMITMENT_THRESHOLD = 0.6
 
 DECISION_LABEL = {"go": "Go", "iterate": "Iterate", "kill": "Kill"}
 

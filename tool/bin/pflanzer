@@ -24,6 +24,8 @@ if [ "$#" -eq 0 ]; then
   echo "  pflanzer ship        # Ship: quality gates + PR"
   echo "  pflanzer share       # varianty + hub + zpráva pro kolegy"
   echo ""
+  echo "Pro vedení: pflanzer report summary --slug S · pflanzer report portfolio"
+  echo ""
   echo "Vše: pflanzer help"
   exit 0
 fi
@@ -94,6 +96,10 @@ case "$SUB" in
     echo "  pflanzer checkpoint --slug S zadani|bezpecnost|pravo|provoz|design --by JMÉNO --note …"
     echo "  pflanzer status                # kde projekt stojí a co je další krok"
     echo "  pflanzer doctor                # je target repo připravené ke Kickoffu?"
+    echo ""
+    echo "Pro vedení:"
+    echo "  pflanzer report summary --slug S   # jedna stránka: rozhodnutí, náklad, kvalita, rizika"
+    echo "  pflanzer report portfolio          # tabulka přes všechny projekty (--csv soubor.csv)"
     echo ""
     echo "Správa: root (kořen metody), db (cesta k DB), data (datová složka), update (git pull + migrace)"
     echo ""

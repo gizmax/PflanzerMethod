@@ -849,6 +849,101 @@ def _build_metrics(project_id: int) -> dict[str, Any]:
     return {"variants": variants, "feedback": int(fb[0] or 0), "critical": int(fb[1] or 0)}
 
 
+def _tokens_text(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}".replace(".", ",") + " M tokenů"
+    if n >= 1_000:
+        return f"{round(n / 1_000)} tis. tokenů"
+    return f"{n} tokenů"
+
+
+def _usd_czk_rate() -> float | None:
+    """Kurz USD→Kč jen z `PFLANZER_USD_CZK` (nic si nevymýšlíme); jinak None."""
+    import os
+    try:
+        rate = float(os.environ.get("PFLANZER_USD_CZK", "").replace(",", "."))
+    except ValueError:
+        return None
+    return rate if rate > 0 else None
+
+
+def leadership_numbers(slug: str) -> dict[str, Any]:
+    """4 čísla pro vedení na jednom místě (retro report, `pflanzer report`).
+
+    days-to-prod (cíl ≤ 14), % LOC vítěze, které přežilo (cíl ≥ 80), AI náklad na Go
+    (tokeny + odhad USD/Kč z `ai_usage`) a podíl kroků se zástupcem AI (ADR-0023).
+    Co není změřené, má `None` — nikdy nic neodhadujeme.
+    """
+    with transaction() as conn:
+        project = _load_project(conn, slug)
+        pid = int(project["id"])
+        ship = {r[0]: r[1] for r in conn.execute(
+            "SELECT metric, value FROM outcomes WHERE project_id = ? AND milestone = 'ship' "
+            "AND metric IN ('days_to_prod', 'loc_reused_pct') AND value IS NOT NULL "
+            "ORDER BY recorded_at, id", (pid,)).fetchall()}
+        usage = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(input_tokens + output_tokens), 0), "
+            "SUM(est_usd) FROM ai_usage WHERE project_id = ?", (pid,)).fetchone()
+        throwaway = is_throwaway(conn, project)
+    days = ship.get("days_to_prod")
+    reuse = ship.get("loc_reused_pct")
+    rows, tokens, usd = int(usage[0] or 0), int(usage[1] or 0), usage[2]
+    rate = _usd_czk_rate()
+    share = ai_stand_in_share(project)
+    return {
+        "days_to_prod": {"value": days, "target": TARGET_DAYS_TO_PROD,
+                         "ok": None if days is None else days <= TARGET_DAYS_TO_PROD},
+        "loc_survival_pct": {"value": reuse, "target": TARGET_REUSE_PCT,
+                             "ok": None if reuse is None else reuse >= TARGET_REUSE_PCT},
+        "ai_cost": {"measured": bool(rows), "tokens": tokens if rows else None,
+                    "usd": None if usd is None else round(float(usd), 2),
+                    "czk": (round(float(usd) * rate) if usd is not None and rate else None)},
+        "ai_share": {"pct": share["pct"], "ai_steps": share["ai_steps"],
+                     "total_steps": share["total_steps"], "names": share["names"]},
+        "throwaway": throwaway,
+        "measured": days is not None or reuse is not None,
+    }
+
+
+def leadership_ai_cost_text(cost: dict[str, Any]) -> str:
+    """„1,2 M tokenů, odhad ≈ $4.20 (≈ 96 Kč)“ / „tokeny změřené, cena neznámá“ / „neměřeno“."""
+    if not cost["measured"]:
+        return "neměřeno"
+    txt = _tokens_text(int(cost["tokens"] or 0))
+    if cost["usd"] is None:
+        return txt + ", cena nenastavená (ceník v tool/templates/README-ai-usage.md)"
+    txt += f", odhad ≈ ${cost['usd']:.2f}"
+    if cost["czk"] is not None:
+        txt += f" (≈ {cost['czk']} Kč)"
+    return txt
+
+
+def leadership_lines(nums: dict[str, Any]) -> list[str]:
+    """Čtyři řádky „Název: hodnota — cíl“ (stejné pro retro report i `pflanzer report`)."""
+    d, r = nums["days_to_prod"], nums["loc_survival_pct"]
+    mark = {True: "cíl splněn", False: "pod cílem", None: ""}
+    days = (f"{_fmt_value(d['value'], 'dní')} (cíl ≤ {d['target']}) — {mark[d['ok']]}"
+            if d["value"] is not None else f"neměřeno (cíl ≤ {d['target']} dní)")
+    loc = (f"{_fmt_value(r['value'], '%')} (cíl ≥ {r['target']:.0f} %) — {mark[r['ok']]}"
+           if r["value"] is not None else f"neměřeno (cíl ≥ {r['target']:.0f} %)")
+    s = nums["ai_share"]
+    if not s["total_steps"]:
+        share = "kroky cesty nejsou v Kickoffu vyplněné"
+    else:
+        share = (f"{s['pct']} % ({len(s['ai_steps'])} z "
+                 f"{count(s['total_steps'], 'kroku', 'kroků', 'kroků')} cesty)")
+    return [f"Dny do produkce (Go → merge): {days}",
+            f"Kód vítěze, který přežil: {loc}",
+            f"AI náklad na Go: {leadership_ai_cost_text(nums['ai_cost'])}",
+            f"Podíl kroků se zástupcem AI (ADR-0023): {share}"]
+
+
+def leadership_block_md(slug: str) -> str:
+    """Blok „Pro vedení: 4 čísla“ na začátek retro reportu."""
+    lines = leadership_lines(leadership_numbers(slug))
+    return "## Pro vedení: 4 čísla\n\n" + "\n".join(f"- {x}" for x in lines) + "\n"
+
+
 def build_report(slug: str) -> dict[str, Any]:
     with transaction() as conn:
         _ensure_outcomes_table(conn)
@@ -1039,6 +1134,7 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 > Rozhodnutí (Go): {local_date(go_dt).isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
 > Postup měření: `docs/methodology/07-handoff-do-vyvoje.md`, kapitola Retro.
 
+{leadership_block_md(slug)}
 **{_primary_line(data['primary'])}**
 
 Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
