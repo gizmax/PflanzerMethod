@@ -1165,13 +1165,62 @@ RENDERERS: dict[str, Any] = {
 }
 
 
+def _winner_local_path(ctx: dict[str, Any]) -> str | None:
+    ext = (ctx.get("extracted_by_variant") or {}).get(ctx.get("winner") or "") or {}
+    return ext.get("local_path")
+
+
+def render_demo_readme(ctx: dict[str, Any]) -> str:
+    """Throwaway: jedna stránka místo osmi rolí — co ukázat, jak spustit, co je fake."""
+    p = ctx["project_tuple"]
+    stack, cmds = stack_commands(_winner_local_path(ctx))
+    rationale = (ctx.get("project") or {}).get("throwaway_rationale") or ""
+    measure = clean_text(p[13]) if p[13] else "metrika z Kickoffu"
+    kill = p[16] or "kill kritérium z Kickoffu"
+    return f"""# Demo — {p[1]}
+
+> Projekt: `{p[2]}` · Vygenerováno: {_now()} · Throwaway (kód nejde do produkce)
+
+## Co ukázat
+
+- **Hypotéza**: {p[5] or 'doplnit'}
+- **Vítěz Rozhodnutí**: {ctx.get('winner') or '—'}
+- Projdi hlavní cestu uživatele z Kickoffu od začátku do konce; ukaž, co hypotézu potvrzuje.
+
+## Jak spustit
+
+Stack: {stack}. Příkazy ve větvi vítěze:
+
+```bash
+{cmds}
+```
+
+## Co je fake
+
+- Data, uživatelé a integrace jsou ukázkové; nic tu není produkční
+  (bez auth, bez zálohování, bez monitoringu).
+{f'- Důvod throwaway: {rationale}' if rationale else '- Doplň sem, co přesně je v demu nasimulované.'}
+
+## Co dál
+
+- Metrika dema: {measure}
+- Kill kritérium: {kill}
+- Vyhodnocení v termínu: `pflanzer retro reminders --slug {p[2]}`
+"""
+
+
 def generate(slug: str) -> dict[str, Any]:
     ctx = _fetch_project_context(slug)
     out_dir = HANDOFF_DIR / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[str] = []
-    for name, fn in RENDERERS.items():
+    throwaway = ctx.get("risk_profile") == "throwaway"
+    if throwaway:
+        path = out_dir / "README.md"
+        path.write_text(f"{BRAND}\n\n{render_demo_readme(ctx)}", encoding="utf-8")
+        written.append(path.name)
+    for name, fn in ({} if throwaway else RENDERERS).items():
         path = out_dir / f"{name}.md"
         path.write_text(f"{BRAND}\n\n{fn(ctx)}", encoding="utf-8")
         written.append(path.name)
@@ -1202,7 +1251,10 @@ def generate(slug: str) -> dict[str, Any]:
         "files": written,
         "metrics": metrics_entry,
         "metrics_file": tilde(METRICS_PATH),
+        "throwaway": throwaway,
         "next_step": (
+            "Throwaway: otevři `SHIP.md` a `README.md` (co ukázat, jak spustit, co je fake)."
+            if throwaway else
             "Otevři `SHIP.md` (PR příkaz + sekce 'Změř po 30 dnech'); promote-to-prod "
             "checklisty jsou v `qa.md` a `platform.md`."
         ),
@@ -1234,15 +1286,19 @@ def main() -> None:
         die(f"{e} Přehled projektů: `pflanzer status`.", "pflanzer handoff --slug moje-appka")
     m = out["metrics"]
     lines = [f"Hlavní dokument: {out['out_dir']}/SHIP.md (PR příkaz a měření na jedné stránce)",
-             f"Doplňkové podklady pro role: "
-             f"{count(len(out['files']) - 1, 'soubor', 'soubory', 'souborů')} v {out['out_dir']}"]
+             (f"Demo README (co ukázat, jak spustit, co je fake): {out['out_dir']}/README.md"
+              if out.get("throwaway") else
+              f"Doplňkové podklady pro role: "
+              f"{count(len(out['files']) - 1, 'soubor', 'soubory', 'souborů')} v {out['out_dir']}")]
     days = m.get("time_to_handoff_days")
     if days is not None:
         lines.append(f"Od Kickoffu k předání: {count(int(days), 'den', 'dny', 'dní')}")
     if m.get("feedback_critical"):
         lines.append(f"Kritických připomínek v Asyncu bylo {m['feedback_critical']}.")
     emit(out, title=f"Předání hotové: {args.slug}", lines=lines,
-         next_step=("otevři `SHIP.md`, branch owner spustí `gh pr create` z jeho konce; "
+         next_step=("otevři `SHIP.md` a `README.md`; throwaway jde jen jako demo"
+                    if out.get("throwaway") else
+                    "otevři `SHIP.md`, branch owner spustí `gh pr create` z jeho konce; "
                     "kontrolní seznamy před nasazením jsou v `qa.md` a `platform.md`"),
          tips=tips(args.slug, "handoff", {}), as_json=args.json)
 

@@ -152,6 +152,21 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
 (po merge vítěze `measure`, hned `reminders`, pak T+7/30/60/90 readouty).
 `killed` → jen oznám; nový projekt = `start`.
 
+**Dva stavy, které router nesmí splést (pilot Ponk):**
+
+- **Quick projekt (`/pm live`) s blokovaným Kickoffem** (CONSTITUTION vs. zadání,
+  nezabookovaná okna, chybějící podpis): po odblokování doporuč **tentýž mód**
+  — `/pm live <slug>` (pokračuje od Buildu, Kickoff se neopakuje) —, ne
+  `/pm build`. Stupeň Quick poznáš v `pflanzer status --slug S` („stupeň
+  Quick“); `/pm build` je pro Lean/Full. Tool u Quick po Kickoffu někdy vypíše
+  `/pm build`; ber to jako synonymum a řekni uživateli `/pm live <slug>`.
+- **Build už proběhl, chybí jen zápis** (v target repu worktrees s commity
+  `pflanzer/<slug>-…`, preview případně běží, `pflanzer status` hlásí „Build
+  běží“ / další krok `pflanzer vote`): nikdy neříkej „stavba neproběhla“ a
+  nenabízej restart Buildu. Nabídni **zápis hlasování** — šablona je v
+  `.pflanzer/specs/<slug>-vote.json` (vytvořil ji `worktree setup`) — a jako
+  další krok `pflanzer vote --spec .pflanzer/specs/<slug>-vote.json`.
+
 ### 2a. Typické otázky (volný text v `/pm`)
 
 **„Security nám nepodepíše, co teď?“**

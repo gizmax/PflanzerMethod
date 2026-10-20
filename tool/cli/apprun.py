@@ -67,6 +67,18 @@ def read_preview_config(wt: Path, role: str | None = None) -> dict[str, Any]:
     return sec
 
 
+def venv_env(wt: Path | str) -> dict[str, str]:
+    """Env s `<wt>/.venv/bin` na začátku PATH (když `.venv` existuje), jinak prázdné.
+
+    `make test` / `make run` ve worktree tak volají `python` z `.venv`, ne systémový."""
+    for d in (".venv", "venv"):
+        vbin = Path(wt) / d / "bin"
+        if (vbin / "python").exists() or (vbin / "python3").exists():
+            return {"PATH": f"{vbin}{os.pathsep}{os.environ.get('PATH', '')}",
+                    "VIRTUAL_ENV": str(Path(wt) / d)}
+    return {}
+
+
 def python_for(wt: Path) -> str:
     env = os.environ.get("PFLANZER_PYTHON")
     if env:
@@ -273,7 +285,7 @@ def start_app(spec: RunSpec, log_path: Path) -> subprocess.Popen:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     # Vlajky jsou v preview / Buildu vždy zapnuté (viz INTEGRATION_GUIDE), jinak varianta
     # ukáže stránku bez nové funkce. spec.env (např. PORT) má přednost.
-    env = {**os.environ, **PREVIEW_ENV, **spec.env}
+    env = {**os.environ, **venv_env(spec.cwd), **PREVIEW_ENV, **spec.env}
     with open(log_path, "ab") as log:
         return subprocess.Popen(
             spec.argv, shell=spec.shell, cwd=str(spec.cwd), env=env,

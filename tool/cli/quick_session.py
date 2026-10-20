@@ -56,7 +56,13 @@ from tool.cli.db import (  # noqa: E402
 from tool.cli.roles import persist_roles  # noqa: E402
 from tool.cli.session import persist as persist_session  # noqa: E402
 from tool.cli.session import rp_range_errors  # noqa: E402
-from tool.cli.tier import TIER_LABELS, validate_tier  # noqa: E402
+from tool.cli.tier import (  # noqa: E402
+    MOB_ITERATIONS,
+    QUICK_BUILD_MINUTES,
+    TIER_LABELS,
+    project_tier,
+    validate_tier,
+)
 from tool.cli.ux import (  # noqa: E402
     CzechArgumentParser,
     async_days,
@@ -856,8 +862,8 @@ MOB_ITERATION_ANGLES = [
      "Postav nejdůležitější část flow. Mob driver/navigator rotation 8 min. "
      "Tým všichni vidí každý keystroke."),
     ("iter2", "refine or pivot",
-     "Z iterace 1: co fungovalo (drž), co ne (přepiš). Po obsahu druhé "
-     "iteraci voting nebo pokud jeste zbývá čas — opt-in iter3."),
+     "Z iterace 1: co fungovalo (drž), co ne (přepiš). Po druhé "
+     "iteraci následuje voting, nebo pokud ještě zbývá čas, opt-in iter3."),
     ("iter3", "ambitious 3rd (opt-in, warning: degraded quality)",
      "Pouze pokud iter1+2 hotové < 60 min. Risk: rushed, low quality."),
 ]
@@ -951,7 +957,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
 
     `mode=None` -> režim uložený v projektu (Kickoff `session_mode`). Po Iterate se staví
     jen varianty druhého kola (`status.iterate_plan`) a do promptů jde „Cíl tohoto kola“.
-    V mob modu je jedna společná varianta `mob`; n_variants = počet iterací (default 2).
+    V mob modu je jedna společná varianta `mob`; n_variants = počet iterací (default podle
+    stupně: Quick 1 kolo × 30 min, jinak 2; `tier.MOB_ITERATIONS`).
     """
     from tool.cli.status import iterate_plan, split_iterate_focus, variant_findings
 
@@ -969,7 +976,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
     if mode == "parallel" and plan:      # druhé kolo: jen varianty, které pokračují
         angles = [a for a in VARIANT_ANGLES if a[0] in plan["variants"]] or VARIANT_ANGLES
     if n_variants is None:
-        n_variants = len(angles) if mode == "parallel" else 2
+        n_variants = len(angles) if mode == "parallel" else MOB_ITERATIONS.get(
+            project_tier(slug), 2)
     n_variants = min(n_variants, len(angles))
     revise: dict[str, str] = {}
     if focus and mode == "parallel" and plan:
@@ -1027,6 +1035,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         repos = []
     stack = _detect_stack_for(slug, repos)
 
+    throwaway = bool(proj and proj[2] == "throwaway")
     constraints = []
     if proj:
         if proj[0] == "L3":
@@ -1035,7 +1044,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
                 r"(?i)\b(ai|llm|chat\w*|gener\w+|asistent\w*|umělá|umela)\b", hook):
             constraints.append("⚠ Pokud používáš AI v UI (chat / generation), přidej watermark + human-in-the-loop")
         if proj[2] == "throwaway":
-            constraints.append("Throw-away prototyp — nepřemýšlej o testech / produkčním kódu")
+            constraints.append(THROWAWAY_RULE)
         elif stack.js_frontend:
             constraints.append("Evolve target — drž se design system tokenů, žádné inline styly")
         else:
@@ -1057,7 +1066,7 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
             facilitator, ai_text = _render_mob_iteration_prompt(
                 hook, brief, constraints, slug=slug, iteration=name,
                 iteration_idx=i, total_iterations=n_variants, repos=repos,
-                has_feature=has_feature, stack=stack,
+                has_feature=has_feature, stack=stack, throwaway=throwaway,
             )
             placeholder_url = f"local://pflanzer/{slug}-mob{run_hint}"
             angle = f"iterace {i + 1}/{n_variants}: {angle}"
@@ -1065,14 +1074,16 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         else:
             facilitator, head, tail = _render_builder_prompt_parts(
                 hook, brief, constraints, builder, slug=slug, variant=name, repos=repos,
-                has_feature=has_feature, stack=stack, revise=revise.get(name))
+                has_feature=has_feature, stack=stack, revise=revise.get(name),
+                throwaway=throwaway)
             ai_text = f"{head}\n{tail}" if tail else head
             if tail and mode == "parallel":
                 heads[name] = head
                 if not common_text:       # pravidla se liší jen písmenem varianty -> X
                     common_text = (_render_builder_prompt_parts(
                         hook, brief, constraints, builder, slug=slug, variant="X",
-                        repos=repos, has_feature=has_feature, stack=stack)[2])
+                        repos=repos, has_feature=has_feature, stack=stack,
+                        throwaway=throwaway)[2])
             if builder in ("claude-code", "codex-cli"):
                 placeholder_url = f"local://pflanzer/{slug}-{name}{run_hint}"
             else:
@@ -1109,7 +1120,8 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
         ) if has_feature and not _feature_in_origin(
             slug, (repos[0].branch if repos else None) or (proj[4] if proj and len(proj) > 4 else None)
             or "main") else None,
-        "setup_text": _setup_block(slug) if heads else "",
+        "setup_text": (_setup_block(slug) if heads and not all(
+            _worktrees_ready(slug, repos, p.name) for p in prompts) else ""),
         "common_text": common_text,
         "variant_heads": heads,
         "target_repos": [r.to_dict() for r in repos],
@@ -1124,6 +1136,10 @@ def builder_prompts(slug: str, hook: str, n_variants: int | None = None,
             for p in prompts
         ],
     }
+
+
+THROWAWAY_RULE = ("Throw-away prototyp — žádný produkční kód ani pokrytí; testy: stačí 1 smoke / "
+                  "akceptační test hlavního toku (kroky níže na to odkazují)")
 
 
 def keyboard_owner(slug: str) -> str | None:
@@ -1267,7 +1283,8 @@ def stack_profile(path: Path | None) -> StackProfile:
                             acceptance_glob=_node_acceptance_glob(path, scripts, deps),
                             nextjs=nextjs, detail=_next_label(path) if nextjs else None)
     if stack == "python":
-        cmds = ["make test" if "test" in targets else "python3 -m pytest"]
+        vpy = ".venv/bin/python" if (path / ".venv" / "bin" / "python").exists() else "python3"
+        cmds = ["make test" if "test" in targets else f"{vpy} -m pytest"]
         if "lint" in targets:
             cmds.append("make lint")
         elif _uses_ruff(path):
@@ -1315,7 +1332,7 @@ def _detect_stack_for(slug: str, repos: list[TargetRepo]) -> StackProfile:
 
 def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
                    *, mob: bool = False, stack: StackProfile | None = None,
-                   multi_repo: bool = False) -> str:
+                   multi_repo: bool = False, throwaway: bool = False) -> str:
     """Společná pravidla pro AI buildera (v0.5): constitution, kontroly v Buildu, štítek."""
     stack = stack or StackProfile()
     acc_file = (stack.acceptance_glob or
@@ -1325,15 +1342,21 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
                  else "tests/acceptance/*.test.js"))
     acc_note = (" (package `acceptance`; Ship spustí `go test ./tests/acceptance/...`)"
                 if stack.stack == "go" else "")
+    scenarios = ("implementace musí pokrýt hlavní tok; u throw-away stačí 1 smoke / akceptační "
+                 "test hlavního toku (ne všechny scénáře)" if throwaway
+                 else "implementace musí projít všemi scénáři")
     feature_line = (
         f"3. Přečti `tests/acceptance/{slug}.feature` (Deciderovo zadání) — "
-        "implementace musí projít všemi scénáři. Akceptační testy k nim napiš do "
+        f"{scenarios}. Akceptační test(y) k nim napiš do "
         f"`{acc_file}`{acc_note} (běžný test runner projektu"
         f"{'; v TS projektu .test.ts, ne .js' if acc_file.endswith('.ts') or acc_file.endswith('.ts(x)') else ''}"
         ") — Ship je spustí jako bránu acceptance.\n"
         if has_feature else ""
     )
     n = 4 if has_feature else 3
+    green = ("commitni JEN zelené (throw-away: stačí, že prochází ten 1 smoke / akceptační test "
+             f"hlavního toku v `{acc_file}`, víc testů nepiš)" if throwaway
+             else "commitni JEN zelené")
     label = f"Varianta {variant} k rozhodnutí — není to hotový produkt"
     checks = (f"kontroly repa, ve kterém jsi měnil kód (příkazy jsou u každého repa v seznamu "
               f"repozitářů výše; primární repo: {stack.check_text})" if multi_repo
@@ -1346,6 +1369,10 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
             f"běží; pokud ho potřebuješ, hned po něm spusť `pflanzer preview restart --slug "
             f"{slug} --variants {'<VARIANTA>' if mob else variant}`. Dev odznak Next překrývá "
             "rohy UI (CTA): v `next.config` nastav `devIndicators: false`.")
+    venv_rule = ""
+    if stack.stack == "python" and not stack.nextjs:
+        venv_rule = (f"\n{n + 7}. Python: `.venv/bin` je v PATH (Makefile volá `python` / `pytest` "
+                     "z `.venv`); mimo `make` použij `.venv/bin/python`, ne systémový `python3`.")
     return f"""POVINNÝ POSTUP (NEKÓDUJ, DOKUD KROKY 1–{n} NEJSOU HOTOVÉ):
 1. Přečti `.pflanzer/CONSTITUTION.md` a drž se jí (nepřekročitelná pravidla).
 2. Přečti `docs/INTEGRATION_GUIDE.md` a drž se jeho konvencí (auth, API klient,
@@ -1353,17 +1380,17 @@ def _builder_rules(slug: str, hook: str, variant: str, has_feature: bool,
 {feature_line}{n}. Přečti 3–5 existujících souborů podobného typu (glob) a použij stejné patterns.
 
 PAK kóduj:
-{n + 1}. Po KAŽDÉM logickém kroku spusť {checks} a commitni JEN zelené.
+{n + 1}. Po KAŽDÉM logickém kroku spusť {checks} a {green}.
    Červené oprav před commitem — kontroly běží během Buildu, ne až v Ship.
 {n + 2}. Žádné nové závislosti bez důvodu v commit message.
 {n + 3}. Na první obrazovku (a do README varianty) dej viditelný štítek:
    „{label}“ + problem statement: „{hook}“. (Bez obrazovky: totéž do README a výpisu příkazu.)
-{n + 4}. Commit v Conventional Commits: `feat({slug}): {'mob ' if mob else 'variant '}{variant} — <jednou větou co se mění>`
+{n + 4}. Commit v Conventional Commits: `feat({slug}): {'mob' if mob else 'variant ' + variant} — <jednou větou co se mění>`
    Trailery Pflanzer-* doplní git hook; NIKDY nepřidávej `Co-Authored-By` za AI.
 {n + 5}. Nová funkce musí být dosažitelná odkazem z `/` a zapnutá v preview
    (preview běží s `PFLANZER_PREVIEW=1` a `FEATURE_FLAGS=all`; flag nesmí být default OFF).
 {n + 6}. Při rozporu má přednost zadání z Kickoffu (Charter, .feature) před
-   CONSTITUTION / INTEGRATION_GUIDE; rozpor napiš do commit message a nezastavuj se.{next_rules}"""
+   CONSTITUTION / INTEGRATION_GUIDE; rozpor napiš do commit message a nezastavuj se.{next_rules}{venv_rule}"""
 
 
 BE_CONTRACT_FIRST = (
@@ -1457,6 +1484,7 @@ def _render_mob_iteration_prompt(
     slug: str, iteration: str, iteration_idx: int, total_iterations: int,
     repos: list[TargetRepo] | None = None,
     has_feature: bool = False, stack: StackProfile | None = None,
+    throwaway: bool = False,
 ) -> tuple[str, str]:
     """Mob mode — sequential iteration v 1 worktree (ADR-0016).
 
@@ -1481,7 +1509,11 @@ def _render_mob_iteration_prompt(
             repo_block += "\n" + _multi_repo_rules(slug, "mob", repos) + "\n"
 
     if iteration_idx == 0:
-        facilitator = f"""**SETUP (facilitátor, 1× per Build):**
+        if _worktrees_ready(slug, repos, "mob"):
+            setup_block = (f"**Worktree `{slug}-mob` už existuje** (větev pflanzer/{slug}-mob) — "
+                           "setup se nespouští znovu.\n\n")
+        else:
+            setup_block = f"""**SETUP (facilitátor, 1× per Build):**
 
 ```bash
 pflanzer worktree setup --slug {slug} --mode mob
@@ -1489,7 +1521,13 @@ pflanzer worktree setup --slug {slug} --mode mob
 # → Branch: pflanzer/{slug}-mob (single shared)
 ```
 
-**Tým u 1 monitoru** (max 5 lidí — víc = zúžit scope nebo přesunout zástupce na okna):
+"""
+        if total_iterations == 1:
+            timing = (f"- **Stavba: 1 kolo × {QUICK_BUILD_MINUTES} min** (Quick). Druhá iterace není; "
+                      "po ní rovnou zápis do toolu (`pflanzer vote`).")
+        else:
+            timing = "- **Hard break 25 min** (observer fatigue)"
+        facilitator = f"""{setup_block}**Tým u 1 monitoru** (max 5 lidí — víc = zúžit scope nebo přesunout zástupce na okna):
 
 ```bash
 cd {mob_path}
@@ -1505,7 +1543,7 @@ claude{mob_add_dirs}
 {feature_obs}  - Voice of QA — flag missing test coverage
 - **Decider mute kontrakt**: Decider u stavby není (anti-HiPPO); do Buildu
   nemluví, rozhoduje až při Rozhodnutí.
-- **Hard break 25 min** (observer fatigue)
+{timing}
 
 Do AI vlož text z bloku „Vlož do AI“ níže."""
         ai_head = f"Cíl týmu: {hook}\n\nTato iterace ({iteration}, 1/{total_iterations}): {brief}"
@@ -1536,7 +1574,7 @@ jděte rovnou na zápis do toolu a Rozhodnutí. Facilitátor se zeptá týmu:
     ai = f"""{ai_head}
 {repo_block}
 {_builder_rules(slug, hook, 'mob', has_feature, mob=True, stack=stack,
-                multi_repo=len(repos) > 1)}
+                multi_repo=len(repos) > 1, throwaway=throwaway)}
 
 Constraints:
 {constraint_lines}
@@ -1546,11 +1584,21 @@ Output:
     return facilitator, ai
 
 
-def _setup_block(slug: str) -> str:
+def _worktrees_ready(slug: str, repos: list[TargetRepo], variant: str) -> bool:
+    """Worktree varianty (všech repo) už na disku existuje -> setup se v promptu nenabízí."""
+    if not repos:
+        return False
+    try:
+        return all(pth.exists() for _r, pth in variant_worktrees(slug, repos, variant))
+    except Exception:  # noqa: BLE001 — poradní údaj
+        return False
+
+
+def _setup_block(slug: str, variants: str = "A/B/C") -> str:
     """Sdílený setup worktrees (jednou per Build) — společný všem variantám."""
     return f"""**Setup worktree (1× per Build, dělá facilitátor):**
 `pflanzer worktree setup --slug {slug}` — naklonuje target repo(s) do `<data>/targets/`
-(`PFLANZER_TARGETS_DIR` přepíše), vyrobí worktrees A/B/C + hook s trailery + guard + install."""
+(`PFLANZER_TARGETS_DIR` přepíše), vyrobí worktrees {variants} + hook s trailery + guard + install."""
 
 
 def _render_builder_prompt(
@@ -1570,7 +1618,7 @@ def _render_builder_prompt_parts(
     slug: str | None = None, variant: str | None = None,
     repos: list[TargetRepo] | None = None,
     has_feature: bool = False, stack: StackProfile | None = None,
-    revise: str | None = None,
+    revise: str | None = None, throwaway: bool = False,
 ) -> tuple[str, str, str]:
     """(facilitátor, hlavička varianty, společná pravidla). Pro hosted buildery je tail prázdný.
 
@@ -1584,7 +1632,7 @@ def _render_builder_prompt_parts(
     repos = repos or []
     multi = len(repos) > 1 or bool(repos and repos[0].workspace)
     rules = _builder_rules(slug, hook, variant, has_feature, stack=stack,
-                           multi_repo=len(repos) > 1)
+                           multi_repo=len(repos) > 1, throwaway=throwaway)
     repo_block = ""
     add_dirs = "".join(f" --add-dir {_tilde(pth)}"
                        for _, pth in variant_worktrees(slug, repos, variant)[1:]) if repos else ""
@@ -1602,9 +1650,9 @@ def _render_builder_prompt_parts(
             cd_block += "   # --add-dir = BE / další repa varianty ve stejné CC session"
         elif builder == "codex-cli":
             cd_block += "      # OpenAI Codex CLI"
-        facilitator = f"""{_setup_block(slug)}
-
-**Tvoje dvojice (varianta {variant}):**
+        setup = ("" if _worktrees_ready(slug, repos, variant)
+                 else _setup_block(slug) + "\n\n")
+        facilitator = f"""{setup}**Tvoje dvojice (varianta {variant}):**
 
 ```bash
 {cd_block}
@@ -2118,7 +2166,8 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
         lines.append(f"Stack target repa: {out.get('stack_label') or out['stack']}; kontroly po každém kroku: "
                      f"{', '.join(out['check_commands']) or 'viz README'}")
     emit(out, title="Prompty pro buildery", lines=lines,
-         next_step=("setup worktrees (jednou), pak dvojice: `cd` do své varianty a do AI "
+         next_step=(("setup worktrees (jednou), pak dvojice" if out.get("setup_text")
+                     else "dvojice") + ": `cd` do své varianty a do AI "
                     "společná pravidla + blok varianty" if compact else
                     "vlož každému dvojici jen blok „Vlož do AI“ (tisk níže), zbytek je pro facilitátora"),
          tips=tips_for_project(out["slug"], "build"), as_json=False)
@@ -2127,8 +2176,9 @@ def _render_prompts(out: dict[str, Any], as_json: bool) -> None:
                  for pr in out["prompts"]]
         goal = heads[0][0] if heads and heads[0] else ""        # „Cíl týmu: …“ je pro všechny stejný
         rules = "\n".join(ln for ln in out["common_text"].splitlines() if ln.strip())
-        print(f"\n{out['setup_text']}\n\n"
-              "**Společná pravidla (do AI jako úvod; X = písmeno tvé varianty):**\n"
+        if out.get("setup_text"):
+            print(f"\n{out['setup_text']}")
+        print("\n**Společná pravidla (do AI jako úvod; X = písmeno tvé varianty):**\n"
               f"```\n{goal}\n{rules}\n```")
         for pr, head in zip(out["prompts"], heads):
             cd = re.search(r"```bash\n(.*?)\n```", pr["facilitator_text"].split(
@@ -2170,7 +2220,9 @@ def _render_vote(out: dict[str, Any], as_json: bool, slug: str) -> None:
         lines.append(f"Varianta {v['name']}: skóre {v['preference_score']:.2f} — {url}")
     lines.extend(_tie_lines(out["variants"]))
     emit(out, title="Hlasování zapsáno", lines=lines, next_step=out["next_step"],
-         tips=([] if as_json else tips_for_project(slug, "after_vote", limit=2)),
+         tips=([] if as_json else tips_for_project(
+             slug, "after_vote", {("single_variant" if len(out["variants"]) == 1
+                                   else "multi_variants"): True}, limit=2)),
          warnings=out.get("warnings"), as_json=as_json)
 
 
@@ -2196,7 +2248,7 @@ def main() -> None:
     p_prompts.add_argument("--hook", default=None,
                            help="Problem statement; bez něj se vezme z projektu (Kickoff)")
     p_prompts.add_argument("--n", type=int, default=None,
-                           help="Počet variant (default: 3, po Iterate jen ty, co pokračují; mob: 2 iterace)")
+                           help="Počet variant (default: 3, po Iterate jen ty, co pokračují; mob: Quick 1 kolo, jinak 2 iterace)")
     p_prompts.add_argument("--mode", choices=["parallel", "mob"], default=None,
                            help="parallel = 3 varianty paralelně; mob = jedna společná varianta "
                                 "(ADR-0016). Default: režim uložený v projektu")
@@ -2228,6 +2280,7 @@ def main() -> None:
             _render_prompts(out, args.json)
         elif args.cmd == "vote":
             spec = read_spec(args.spec, example=VOTE_EXAMPLE)
+            spec = {k: v for k, v in spec.items() if not str(k).startswith("_")}  # `_napoveda`
             if "variants" in spec and "votes" not in spec:   # spec ve formátu session.persist
                 spec["votes"] = spec.pop("variants")
             try:

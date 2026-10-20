@@ -118,8 +118,19 @@ ok "Wrapper: ${WRAPPER} -> ${PLUGIN_DIR}/tool/bin/pflanzer"
 
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
-  *) warn "${HOME}/.local/bin není v PATH — přidej do ~/.zshrc nebo ~/.bashrc:"
-     echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+  *) case "${SHELL:-}" in
+       */zsh)  RC_FILE="~/.zshrc" ;;
+       */bash) RC_FILE="~/.bashrc" ;;
+       *)      RC_FILE="~/.zshrc (zsh) nebo ~/.bashrc (bash)" ;;
+     esac
+     warn "Příkaz 'pflanzer' zatím není v PATH (chybí ${HOME}/.local/bin)."
+     echo "    Spusť jednou (zapíše řádek do ${RC_FILE}):"
+     case "${SHELL:-}" in
+       */zsh)  echo "      echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
+       */bash) echo "      echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc" ;;
+       *)      echo "      zsh:  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+               echo "      bash: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc" ;;
+     esac
      ;;
 esac
 

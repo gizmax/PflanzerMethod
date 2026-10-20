@@ -1,5 +1,5 @@
 ---
-description: Ship (/pm ship) — quality gates jen na vítěze, skóre X/100 (práh pilot 80 / production 85), checkpoint provozu, PR do target repa.
+description: Ship (/pm ship) — quality gates jen na vítěze, skóre X/100 (práh pilot 80 / production 85; throwaway: skóre informativně, Ship neblokuje), checkpoint provozu, PR do target repa.
 ---
 
 # Ship (`/pm ship`) — 1–2 dny
@@ -64,7 +64,8 @@ Pod povrchem:
 
 ## Krok 2 — Vyhodnocení
 
-- Skóre ≥ práh → připraveno; ukaž gates a co je warning.
+- Skóre ≥ práh → připraveno; ukaž gates a co je warning. **Throwaway:** skóre je jen
+  informativní, Ship neblokuje (práh 80 / 85 platí pro pilot / production).
 - Skóre < práh → konkrétní seznam, co dopravit (security/tests = blocker,
   lint/observability = warning). AskUserQuestion Decideru: pilot s malou
   skupinou a paralelní oprava / pauza a znovu `/pm ship` / Ship i přesto

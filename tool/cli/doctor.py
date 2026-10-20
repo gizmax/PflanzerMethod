@@ -439,7 +439,50 @@ def check_gates_yaml(repo: Path) -> dict[str, str] | None:
     return None
 
 
-def run_checks(repo: Path) -> list[dict[str, str]]:
+THROWAWAY_SOFT_INFO = ("CI konfigurace", "Package manager / lockfile")
+
+
+def resolve_risk_profile(repo: Path, slug: str | None = None) -> str | None:
+    """Risk profil: projekt v DB (když je `--slug`), jinak `default_risk_profile` z project.toml."""
+    if slug:
+        try:
+            from tool.cli.db import transaction
+            from tool.cli.triage import load_risk_profile
+            with transaction() as conn:
+                row = conn.execute("SELECT id FROM projects WHERE slug = ?", (slug,)).fetchone()
+                if row:
+                    return load_risk_profile(conn, int(row[0]))
+        except Exception:  # noqa: BLE001 — doctor nesmí padnout na DB
+            pass
+    val = _read_toml_project(repo).get("default_risk_profile")
+    return val.strip().lower() if val else None
+
+
+def soften_for_throwaway(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Throwaway demo: INTEGRATION_GUIDE jen doporučení (⚠), chybějící CI/lockfile jen info (✓)."""
+    out = []
+    for r in rows:
+        r = dict(r)
+        if r["check"] == "INTEGRATION_GUIDE.md" and r["status"] == FAIL:
+            r["status"] = WARN
+            r["advice"] = ("U throwaway je to jen doporučení (30 min navíc se u dema nevyplatí); "
+                           "AI bez něj hádá konvence repa. " + r["advice"]).strip()
+            r["impact"] = "Kickoff to neblokuje, ale AI bude hádat konvence repa"
+        elif r["check"] in THROWAWAY_SOFT_INFO and r["status"] == WARN:
+            r["status"] = OK
+            r["detail"] = r["detail"] + " (u throwaway jen info)"
+            r["advice"] = ""
+            r["impact"] = ""
+        out.append(r)
+    return out
+
+
+def run_checks(repo: Path, risk_profile: str | None = None) -> list[dict[str, str]]:
+    rows = _run_checks(repo)
+    return soften_for_throwaway(rows) if risk_profile == "throwaway" else rows
+
+
+def _run_checks(repo: Path) -> list[dict[str, str]]:
     git_rows, origin = check_git(repo)
     rows = list(git_rows)
     if git_rows[0]["status"] == FAIL and "není git repo" in git_rows[0]["detail"]:
@@ -492,6 +535,7 @@ def _human(repo: Path, rows: list[dict[str, str]]):
 def main() -> None:
     p = CzechArgumentParser(prog="pflanzer doctor", description=__doc__.split("\n")[0])
     p.add_argument("--target", default=".", help="Cesta k target repu (default: cwd)")
+    p.add_argument("--slug", help="Projekt, jehož risk profil se použije (jinak project.toml)")
     p.add_argument("--json", action="store_true", help="Strojový výstup")
     args = p.parse_args()
 
@@ -499,7 +543,7 @@ def main() -> None:
     if not repo.is_dir():
         die(f"{repo} není složka. Příklad: `pflanzer doctor --target ~/projekty/moje-appka`.")
         return
-    rows = run_checks(repo)
+    rows = run_checks(repo, resolve_risk_profile(repo, args.slug))
     fails = sum(r["status"] == FAIL for r in rows)
     data = {"brand": "Pflanzer Method | pflanzer.cz/method", "target": str(repo),
             "ready": fails == 0, "checks": rows}

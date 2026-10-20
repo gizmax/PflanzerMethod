@@ -738,6 +738,9 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
                          "u production je to blokace. Doplň nástroj a spusť Ship znovu.")
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
+    if meets and target <= 0:
+        return (f"Throwaway: skóre {score}/100 je informativní, Ship neblokuje. "
+                f"{ops}PR vítěze: {pr_step}")
     if meets:
         return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}"
     fails, warns = _failing(winner)
@@ -1069,6 +1072,9 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
         title = (f"Ship {slug}: připraveno jako draft — výjimka Decidera "
                  f"({ov['decider']}, {ov['score']} < {ov['target']})")
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
+    elif out.get("risk_profile") == "throwaway" and not human:
+        title = f"Ship {slug}: Throwaway: skóre je informativní, Ship neblokuje"
+        lines = [f"Vítěz {w['variant']}: {short}"]
     elif out["production_ready"]:
         title = f"Ship {slug}: připraveno"
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]

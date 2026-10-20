@@ -344,6 +344,20 @@ def _audit_state(conn: Any, pid: int) -> dict[str, Any]:
             "lessons": [x for x in lessons if x]}
 
 
+_VOTE_INLINE = ('{"slug": "<slug>", "facilitator": "JMÉNO", "votes": [{"name": "A", '
+                '"builder": "claude-code", "description": "…"}], '
+                '"decider_call": {"shortlist": ["A"], "rationale": "…"}}')
+
+
+def _vote_spec_hint(slug: str) -> str:
+    """Odkaz na předvyplněnou šablonu hlasování, jen když soubor opravdu existuje; jinak vzor inline."""
+    rel = f".pflanzer/specs/{slug}-vote.json"
+    for base in (Path.cwd(), REPO_ROOT):
+        if (base / rel).is_file():
+            return f"Hlasování: předvyplněná šablona v {rel} — doplňte jména a skóre."
+    return "Hlasování: spec napište do souboru, vzor: " + _VOTE_INLINE.replace("<slug>", slug)
+
+
 def project_detail(slug: str) -> dict[str, Any]:
     from tool.cli.checkpoint import guidance_core, list_checkpoints
     from tool.cli.triage import load_risk_profile
@@ -493,6 +507,8 @@ def project_detail(slug: str) -> dict[str, Any]:
     late = p["status"] == "handoff"  # po Go, před/při Ship — dřív je to plán, ne blokace
     blockers: list[dict[str, str]] = []
     info: list[str] = []
+    if nxt.startswith("pflanzer vote --spec "):
+        info.append(_vote_spec_hint(slug))
     for c in cps:
         if c["window"] == "zadani":
             continue

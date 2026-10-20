@@ -38,6 +38,21 @@ Předpoklad: Kickoff proběhl (`pflanzer status --slug <slug>`). Jinak
 > Jméno autora (vývojář u klávesnice) nastav jednou v target repu před
 > `worktree setup` — ne zvlášť v každém worktree současně (zámek configu selže).
 
+## Krok 00 — Rozpoznej stav (než cokoli stavíš)
+
+Spusť `pflanzer status --slug <slug>` a nejdřív zjisti, jestli Build už neproběhl.
+**Build je hotový, chybí jen zápis**, když platí aspoň jedno: status hlásí „Build
+běží“ nebo další krok `pflanzer vote`; v klonech target repa pod `data/targets/`
+existují worktrees `<slug>-A|B|C` (u mob `<slug>-mob`) s commity
+`git log --oneline <base>..HEAD`; preview běží (`pflanzer preview status --slug
+<slug>`). V tom případě **neříkej „stavba neproběhla“ a Build nespouštěj znovu**:
+projdi Krok 4 (push, preview — jen co chybí) a rovnou **Krok 5** (zápis; předvyplněná
+šablona je v `.pflanzer/specs/<slug>-vote.json`). Prázdné worktrees nebo žádné → pokračuj
+Krokem 0.
+
+Quick projekt (`/pm live`) po odblokovaném Kickoffu pokračuje **`/pm live <slug>`**
+(tento Build jako jeho druhá půlka), ne novým Kickoffem.
+
 ## Krok 0 — Výhrady z doctoru
 
 Spusť `pflanzer doctor` a jednou větou pojmenuj otevřené ⚠ **s vlastníkem
@@ -58,7 +73,8 @@ pflanzer quick_session prompts --slug <slug> --hook "<hook ze zadání>"
 
 Obojí bez `--mode` a bez `--n`: použije se **režim uložený v Kickoffu**
 (`session_mode`) — `parallel` = tři varianty A/B/C, `mob` = jedna společná
-varianta `mob` (větev `pflanzer/<slug>-mob`, jeden worktree, 2 iterace). Počet
+varianta `mob` (větev `pflanzer/<slug>-mob`, jeden worktree; Quick 1 kolo × 30 min,
+Lean/Full 2 iterace). Počet
 variant v hlášení vždy bere z toho, co tool skutečně postavil; nepiš „tři“,
 když je jedna. **Po Iterate** (druhé kolo) vydá `prompts` jen varianty, které
 pokračují, a do každého promptu dá „Cíl tohoto kola: …“ z Rozhodnutí — stejně
@@ -217,7 +233,10 @@ sám a najednou; hlasujte za to, co uvidí uživatel, ne za kód; důvod jednou
 větou; Decider hlasuje vždy poslední (na Rozhodnutí), nepřítomní přes Async.
 Skóre až po diff walkthrough.
 
-Zapiš spec nástrojem **Write** do `.pflanzer/specs/<slug>-vote.json`
+`pflanzer worktree setup` už vyrobil předvyplněnou šablonu
+`.pflanzer/specs/<slug>-vote.json` (varianty projektu, prázdné URL, klíč `_napoveda`,
+který `vote` ignoruje) — doplň ji (Edit), nepiš od nuly. Chybí-li, zapiš spec
+nástrojem **Write** do téhož souboru
 (necommituje se) a spusť `pflanzer quick_session vote --spec
 .pflanzer/specs/<slug>-vote.json`. Heredoc `--spec - <<'EOF'` je jen záloha
 (v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe).

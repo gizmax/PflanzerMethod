@@ -226,3 +226,15 @@ def worktree_project(project: dict[str, Any], tmp_targets: Path) -> Iterator[dic
         # Pre-created node_modules keeps quality_gates from running `npm install`.
         (wt / "node_modules").mkdir(exist_ok=True)
     yield {**project, "worktrees": wts}
+
+
+_STRAY = (REPO_ROOT / ".pflanzer", REPO_ROOT / "tests" / "acceptance")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_writes_into_tool_repo() -> Iterator[None]:
+    """Tests must not leave project files (specs, decision logs, .feature) in the tool repo."""
+    before = {p for p in _STRAY if p.exists()}
+    yield
+    leaked = [str(p.relative_to(REPO_ROOT)) for p in _STRAY if p.exists() and p not in before]
+    assert not leaked, f"testy zapsaly do repa toolu: {leaked} (chybí monkeypatch.chdir?)"
