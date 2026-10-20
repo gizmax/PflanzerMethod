@@ -1,8 +1,8 @@
 ---
-description: Async (/pm feedback, 3–5 dní) — sběr a agregace feedbacku zástupců (hub nebo offline), audit discovery debtu, blokace při otevřeném critical.
+description: Sběr feedbacku (Async, /pm feedback, 3–5 dní) — sběr a agregace feedbacku zástupců (hub nebo offline), audit discovery debtu, blokace při otevřeném critical.
 ---
 
-# Async (`/pm feedback`) — feedback zástupců
+# Sběr feedbacku (`/pm feedback`) — feedback zástupců
 
 > **Cesty:** soubory `docs/…` a `tool/…` zmíněné níže leží v kořeni metody
 > (`pflanzer root`), ne v target repu. Tool spouštěj vždy přes `pflanzer <cmd>`.
@@ -39,8 +39,8 @@ pflanzer feedback add --slug <slug> --variant A --role <krok/role> --by "<jméno
 pflanzer feedback list --slug <slug>
 ```
 
-Závažnost: `critical` (zobrazí se jako Kritické) · `major` (Vysoké) · `minor`
-(Střední / Nízké). `critical` = brání nasazení (bezpečnost, právo, data,
+Závažnost: `critical` (Kritické) · `major` (Důležité) · `minor`
+(Drobné). `critical` = brání nasazení (bezpečnost, právo, data,
 rozbitý hlavní tok). Nezneužívat; kdo dává critical, píše proč.
 
 Dobrý feedback: **co jsem zkoušel → co se stalo → co jsem čekal → co

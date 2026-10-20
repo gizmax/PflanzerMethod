@@ -555,6 +555,17 @@ def _human_name(value: str | None) -> str | None:
     return None if not v or v.upper().startswith("AI") or v.lower() == "pending" else v
 
 
+def _window_row(window: str, label: str, mine: list[dict[str, Any]],
+                owner: str | None) -> dict[str, Any]:
+    statuses = {t["status"] for t in mine}
+    state = ("ok" if statuses == {"ok"} else "blocked" if "blocked" in statuses
+             else "pending" if "pending" in statuses
+             else "deferred" if "deferred" in statuses else "missing")
+    signer = next((t["signed_by"] for t in mine if t["signed_by"]), None)
+    return {"window": window, "label": label, "state": state, "owner": owner,
+            "signed_by": signer}
+
+
 def triage_windows(conn: sqlite3.Connection, project_id: int,
                    tracks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Stav oken (zadani | bezpecnost | provoz) s jmény: kdo má podepsat a čím."""
@@ -563,6 +574,30 @@ def triage_windows(conn: sqlite3.Connection, project_id: int,
     decider = conn.execute("SELECT decider_name FROM projects WHERE id = ?",
                            (project_id,)).fetchone()
     out: list[dict[str, Any]] = []
+    from tool.cli.checkpoint import (
+        MERGED,
+        _load_signers,
+        _merged_owner,
+        _merged_signers,
+        merged_applies,
+    )
+    from tool.cli.checkpoint import WINDOWS as CP_WINDOWS
+    if merged_applies(conn, project_id):
+        # Pilot bez osobních dat: bezpečnost + provoz (+ právo) = jedno okno se čtyřmi tracky.
+        for window, label in WINDOW_LABEL.items():
+            if window != "zadani":
+                continue
+            mine = [t for t in tracks if WINDOW_FOR_TRACK.get(t["track"]) == window]
+            out.append(_window_row(window, label, mine, _human_name(
+                owners.get(WINDOW_OWNER_KEY[window]))
+                or (_human_name(decider[0]) if decider else None)))
+        msig = _merged_signers(_load_signers(conn, project_id))
+        mowner = _merged_owner(owners, msig)
+        merged_who = _human_name(mowner) or _human_name(msig.get("bezpecnost"))
+        mine = [t for t in tracks if t["track"] in CP_WINDOWS[MERGED]["tracks"]]
+        out.append(_window_row(MERGED, CP_WINDOWS[MERGED]["label"], mine,
+                               merged_who))
+        return out
     sec = next((t for t in tracks if t["track"] == "security"), None)
     legal = next((t for t in tracks if t["track"] == "legal"), None)
     # Plný triage odložil právo (DPIA) a bezpečnost je podepsaná → samostatné okno „pravo".

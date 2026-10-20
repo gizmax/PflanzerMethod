@@ -42,7 +42,7 @@ Předpoklad: Kickoff proběhl (`pflanzer status --slug <slug>`). Jinak
 
 Spusť `pflanzer status --slug <slug>` a nejdřív zjisti, jestli Build už neproběhl.
 **Build je hotový, chybí jen zápis**, když platí aspoň jedno: status hlásí „Build
-běží“ nebo další krok `pflanzer vote`; v klonech target repa pod `data/targets/`
+běží“ nebo další krok `pflanzer record`; v klonech target repa pod `data/targets/`
 existují worktrees `<slug>-A|B|C` (u mob `<slug>-mob`) s commity
 `git log --oneline <base>..HEAD`; preview běží (`pflanzer preview status --slug
 <slug>`). V tom případě **neříkej „stavba neproběhla“ a Build nespouštěj znovu**:
@@ -58,7 +58,7 @@ Quick projekt (`/pm live`) po odblokovaném Kickoffu pokračuje **`/pm live <slu
 Spusť `pflanzer doctor` a jednou větou pojmenuj otevřené ⚠ **s vlastníkem
 a termínem** (jména z kroků cesty v `pflanzer status`): preview chybí →
 zástupce provozu, chybí lockfile / testy → vývojář; termín „dnes, před
-pushem“. Bez preview Async nemá na co klikat — řekni to nahlas. Nic dalšího
+pushem“. Bez preview sběr feedbacku nemá na co klikat — řekni to nahlas. Nic dalšího
 neopakuj.
 
 ## Krok 1 — Worktrees a prompty
@@ -68,7 +68,7 @@ z Kickoffu (co má varianta uživateli slíbit), ze kterého vznikají tři úhl
 
 ```bash
 pflanzer worktree setup --slug <slug>
-pflanzer quick_session prompts --slug <slug> --hook "<hook ze zadání>"
+pflanzer prompts --slug <slug> --hook "<hook ze zadání>"
 ```
 
 Obojí bez `--mode` a bez `--n`: použije se **režim uložený v Kickoffu**
@@ -170,7 +170,7 @@ pflanzer checkpoint --slug <slug> bezpecnost --ai --agent security-expert \
 
 **Kdo podepíše, když security není** — pořadí (nikdy default autor kódu):
 (a) někdo z firmy s mandátem (DPO, IT security, compliance, 20 min);
-(b) Decider vědomě převezme riziko — `pflanzer session_3 --slug
+(b) Decider vědomě převezme riziko — `pflanzer ship --slug
 <slug> --override-triage --rationale "…"` (jeho jméno v decision logu;
 u pilotu bez osobních dat); (c) autor kódu jen jako poslední možnost
 u interního nástroje bez osobních dat — nástroj varuje, právo tím pokryté
@@ -208,7 +208,7 @@ Větve `pflanzer/<slug>-A/B/C` žijí v klonu target repa pod `data/targets/<slu
 V hlavním repu produktu tyto větve nejsou — `git push origin pflanzer/<slug>-A`
 tam skončí chybou „src refspec does not match“.
 
-**Připomeň: bez pushe nejsou preview URL a Async nemá na co klikat.**
+**Připomeň: bez pushe nejsou preview URL a sběr feedbacku nemá na co klikat.**
 Preview URL = to, co firma už má (Vercel/Netlify preview, review apps,
 preview namespace). Bez produkčních dat. Na každém preview viditelný štítek
 **„Varianta X — k rozhodnutí, ne produkt“** + 1 věta, jaký problém řeší.
@@ -220,7 +220,7 @@ nejde napojit na Vercel a kód nemá opouštět firmu — pak po pushi spusť
 dá před každou heslo (uživatel `pflanzer`) a štítek „Varianta X k rozhodnutí“,
 přes `cloudflared` (je-li v PATH) i veřejnou URL, zapíše URL k variantám a
 vypíše hotovou zprávu k přeposlání zástupcům (`--deadline "pátek 17:00"`).
-Počítač musí zůstat zapnutý po dobu Asyncu; konec: `pflanzer preview down
+Počítač musí zůstat zapnutý po dobu sběru feedbacku; konec: `pflanzer preview down
 --slug <slug>`. Projekt s víc repy (web + api): spustí se všechna repa varianty a
 primární najde ostatní v `<ROLE>_URL` (např. `API_URL`); příkaz sekundárního repa je
 `[preview.<role>] command` v `.pflanzer/project.toml`. Tunel = provoz jde přes Cloudflare — zmiň to na checkpointu
@@ -234,14 +234,14 @@ acceptance scénáři jako video + trace (`docs/postup.md`
 
 **Rady pro silent voting:** hlasuje jen přítomné jádro, každý napíše skóre
 sám a najednou; hlasujte za to, co uvidí uživatel, ne za kód; důvod jednou
-větou; Decider hlasuje vždy poslední (na Rozhodnutí), nepřítomní přes Async.
+větou; Decider hlasuje vždy poslední (na Rozhodnutí), nepřítomní přes sběr feedbacku.
 Skóre až po diff walkthrough.
 
 `pflanzer worktree setup` už vyrobil předvyplněnou šablonu
 `.pflanzer/specs/<slug>-vote.json` (varianty projektu, prázdné URL, klíč `_napoveda`,
-který `vote` ignoruje) — doplň ji (Edit), nepiš od nuly. Chybí-li, zapiš spec
+který `record` ignoruje) — doplň ji (Edit), nepiš od nuly. Chybí-li, zapiš spec
 nástrojem **Write** do téhož souboru
-(necommituje se) a spusť `pflanzer quick_session vote --spec
+(necommituje se) a spusť `pflanzer record --spec
 .pflanzer/specs/<slug>-vote.json`. Heredoc `--spec - <<'EOF'` je jen záloha
 (v omezených oprávněních ho blokuje bezpečnostní heuristika Bashe).
 **Přesný formát** (`record_voting` → `session.persist`), obsah souboru:
@@ -298,7 +298,7 @@ text pozvánky?“), ne seznamem možností.
 ## Co NEDĚLAT
 
 - Žádné placeholdery typu `sandbox.invalid` — bez skutečné preview URL
-  řekni, že Async nemá na co klikat.
+  řekni, že sběr feedbacku nemá na co klikat.
 - Nezakládej projekt tady; to je jen `/pm start`.
 - Negeneruj víc než 3 varianty. Nepouštěj víc než 4 experty paralelně.
 - Nepřepisuj veto bez rationale do decision logu.

@@ -351,9 +351,9 @@ def test_doctor_next_step_mentions_multi_repo_init_and_primary_start(tmp_path: P
     title, _lines, nxt, _w, _t = doctor._human(tmp_path, [
         {"check": "x", "status": doctor.OK, "detail": "", "advice": "", "impact": ""}])
     assert "každém repu" in nxt and "primárního" in nxt and "/pm start" in nxt
-    zacni = (REPO / "docs" / "zacni.md").read_text(encoding="utf-8")
-    assert "`pflanzer init` patří do **každého** repa" in zacni
-    assert "z **primárního** (web) repa" in zacni
+    faq = (REPO / "docs" / "faq.md").read_text(encoding="utf-8")
+    assert "`pflanzer init` patří do **každého** repa" in faq
+    assert "z **primárního** (web) repa" in faq
 
 
 def test_doctor_lockfile_advice_for_python_is_concrete(tmp_path: Path) -> None:
@@ -390,8 +390,8 @@ def test_multi_repo_prompt_names_browser_and_server_variable(
                    "/__pflanzer/api", "nehardcoduj"):
         assert needle in text, needle
     dev = (REPO / "docs" / "dev.md").read_text(encoding="utf-8")
-    zacni = (REPO / "docs" / "zacni.md").read_text(encoding="utf-8")
-    for doc in (dev, zacni):
+    faq = (REPO / "docs" / "faq.md").read_text(encoding="utf-8")
+    for doc in (dev, faq):
         assert "VITE_API_URL" in doc and "/__pflanzer/api" in doc
 
 

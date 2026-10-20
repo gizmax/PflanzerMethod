@@ -2,7 +2,8 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-> K čemu je tento dokument: jedna obrazovka pro toho, kdo má tři minuty.
+> Pro koho: pro kohokoli (Decidera, buildera i zástupce), kdo má tři minuty.
+> K čemu je tento dokument: jedna obrazovka.
 > Říká, co metoda je, a posílá na dokument, který potřebuješ.
 
 ## Co to je
@@ -15,7 +16,7 @@ Místo sériového předávání mezi odděleními rozhoduje najednou skupina,
 která rozhodnutí umí i zrealizovat.
 
 Povrch je jednoduchý: jeden vstup `/pm`, pět kroků
-**Kickoff → Build → Async → Rozhodnutí → Ship**, tři pravidla:
+**Kickoff → Build → Sběr feedbacku (Async) → Rozhodnutí → Ship**, tři pravidla:
 
 1. každý krok cesty má jméno,
 2. nejvýš 5 lidí naráz (jádro 3–4 celou dobu, ostatní na krátká okna),
@@ -29,7 +30,8 @@ dokumentech níže. Effort ~6–8 PD, kalendářně ~8 dní.
 | Chci… | Čti |
 |-------|-----|
 | metodu **použít** (default profil, stupně, průběh) | [`00-lean-pflanzer.md`](00-lean-pflanzer.md) |
-| **vyzkoušet první pilot** (lidé, instalace, den po dni) | [`../zacni.md`](../zacni.md) |
+| **vyzkoušet první pilot** (jedna stránka: lidé, instalace, cesta krok za krokem) | [`../zacni.md`](../zacni.md) |
+| výjimky a „co když nemáme…“ | [`../faq.md`](../faq.md) |
 | průběh v **obrázku** (diagramy, kde varianty fyzicky jsou) | [`../postup.md`](../postup.md) |
 | vědět, **kdy ji nepoužít** a proč funguje | [`01-filozofie-a-kdy-pouzit.md`](01-filozofie-a-kdy-pouzit.md) |
 | vybrat **zástupce** kroků cesty | [`02-role-catalog.md`](02-role-catalog.md) |
@@ -43,6 +45,6 @@ dokumentech níže. Effort ~6–8 PD, kalendářně ~8 dní.
 
 Kde se dokumenty liší, platí v tomto pořadí: ADR-0021 (model účasti
 a průběh) a ADR-0017 (stupně Quick / Lean / Full), pak `00-lean-pflanzer.md`,
-pak ostatní. Terminologie: Kickoff, Build, Async, Rozhodnutí, Ship.
+pak ostatní. Terminologie: Kickoff, Build, Sběr feedbacku (Async), Rozhodnutí, Ship.
 Starší označení „Session 1 / 2" znamenají Build / Rozhodnutí; „Session 3"
 se nepoužívá — Ship je pipeline, ne setkání.

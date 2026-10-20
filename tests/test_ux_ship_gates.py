@@ -168,6 +168,8 @@ def test_variants_other_than_winner_requires_rationale(worktree_project: dict[st
 def test_ship_blocked_message_names_people_and_windows(worktree_project: dict[str, Any],
                                                        vote: Callable[..., Any]) -> None:
     slug = worktree_project["slug"]
+    with transaction() as conn:   # osobní data = okna bezpečnost a provoz zvlášť
+        conn.execute("UPDATE projects SET data_class = 'L3' WHERE slug = ?", (slug,))
     with transaction() as conn:
         conn.execute("UPDATE projects SET path_owners_json = ? WHERE slug = ?",
                      ('{"bezpecnost": "Jana", "provoz": "Ondra"}', slug))

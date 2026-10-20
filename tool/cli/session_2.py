@@ -459,7 +459,7 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
     return {"slug": slug, "resolved": done, "not_found": [], "by": by, "note": note,
             "resolved_severity": severities, "open_remarks_left": remarks_left,
             "open_critical_left": len(remaining), "open_critical": remaining,
-            "focus_variants": focus, "recommended_winner": recommended,
+            "focus_variants": focus, "recommended_winner": recommended, "winner": win,
             "open_critical_on_winner": on_win,
             "open_critical_other": other}
 
@@ -581,7 +581,7 @@ def record_decision(
                         f"Tým se za vedoucí variantu postaví jen z {idx:.0%}, na Go stačí "
                         f"{COMMITMENT_THRESHOLD:.0%}. Závaznost se počítá z hlasování Buildu: doplňte "
                         f"`commitment_level` (0–3) v `.pflanzer/specs/{slug}-vote.json` a zapište "
-                        f"znovu `pflanzer vote --spec …`, nebo Decider jde do Go vědomě: "
+                        f"znovu `pflanzer record --spec …`, nebo Decider jde do Go vědomě: "
                         f"`pflanzer session_2 decide --slug {slug} go --winner {winner} --force "
                         f"--rationale \"proč Go i pod prahem\"` (důvod půjde do decision logu).")
                 rationale = (f"[Go pod prahem závaznosti: {idx:.0%} < "
@@ -891,7 +891,7 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
     elif not out["ready_for_decision"]:
         nxt = ("tým se zatím dost pevně nepostavil za žádnou variantu — doplňte "
                f"závaznost (`commitment_level`, 0–3) v hlasování (`.pflanzer/specs/{slug}-vote.json`, pak "
-               "`pflanzer vote --spec …`)")
+               "`pflanzer record --spec …`)")
     else:
         nxt = (f"Decider rozhodne: `pflanzer session_2 decide --slug {slug} go "
                f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
@@ -997,22 +997,33 @@ def main() -> None:
             on_win, other = out["open_critical_on_winner"], out["open_critical_other"]
             focus = out["focus_variants"]
             ids = ", ".join("#" + str(i) for i in out["resolved"])
+            decided = bool(out.get("winner"))
+            rec = out.get("recommended_winner") or (focus or ["A"])[0]
             if on_win:
-                left_line = (f"Zbývá otevřených kritických: {len(on_win)} na vítězi"
-                             f" ({'/'.join(focus)}), {len(other)} ostatní")
+                left_line = (f"Zbývá otevřených kritických: {len(on_win)} na "
+                             + (f"vítězi ({'/'.join(focus)})" if decided
+                                else f"{'shortlistu' if len(focus) > 1 else 'variantě'} "
+                                     f"{'/'.join(focus)}")
+                             + f", {len(other)} ostatní")
                 nxt = (f"`pflanzer session_2 resolve --slug {args.slug} --feedback-id "
                        f"{on_win[0]['id']} --by JMÉNO --note \"…\"`")
                 phase = "decide"
             else:
-                left_line = ("Na vítězi" + (f" ({'/'.join(focus)})" if focus else "")
+                left_line = (("Na vítězi" + (f" ({'/'.join(focus)})" if focus else "")
+                              if decided else
+                              "Na " + (f"variantě {'/'.join(focus)}" if len(focus) < 2
+                                       else f"shortlistu {'/'.join(focus)}"
+                                       if focus else "variantách"))
                              + " žádný kritický nezbývá"
                              + (f"; {len(other)} ostatní na poražených variantách Go neblokuje."
                                 if other else "."))
                 nxt = (f"`pflanzer session_2 decide --slug {args.slug} go "
-                       f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
-               "--rationale \"proč\"`")
+                       f"--winner {rec} --rationale \"proč\"`")
                 phase = "after_resolve"
             lines_r = [f"Vyřešeno: {ids} ({who})", left_line]
+            if not on_win and not decided and rec not in focus:
+                lines_r.append(f"Podle skóre vede varianta {rec} (shortlist z Buildu: "
+                               f"{'/'.join(focus)}); vítěze určí Decider při Go.")
             if out["open_remarks_left"]:
                 lines_r.append(f"Zbývá {remarks_line(len(out['open_remarks_left']))}.")
             if out["resolved_severity"] and all(

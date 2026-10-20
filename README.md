@@ -2,6 +2,8 @@
 
 **Pflanzer Method | [pflanzer.cz/method](https://pflanzer.cz/method)**
 
+> Pro koho: pro Decidera, buildera i zástupce kroků cesty, kteří chtějí metodu vyzkoušet.
+
 ## Co to je
 
 Malá skupina lidí, ve které je zastoupena **celá cesta od nápadu do produkce**
@@ -27,29 +29,30 @@ ho v omezené míře zastoupit AI, ale podepisuje vždy člověk.
 mobilní appky ani projekty bez člověka, který smí říct Go i Kill.
 Test 30 sekund je na začátku [`docs/zacni.md`](docs/zacni.md).
 
-## Quick start (5 kroků)
+## Quick start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # 1. instalace
-pflanzer init            # 2. v repu produktu: INTEGRATION_GUIDE + CONSTITUTION
-                         #    (vyplňte docs/INTEGRATION_GUIDE.md, např. v Claude Code)
-git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push   # 3. commit + push
-pflanzer doctor          # 4. je repo připravené ke Kickoffu? (kontroluje i push; řekne co opravit)
-/pm start                # 5. v Claude Code: Kickoff, 15 min (bez Claude Code: pflanzer start --spec kickoff.json)
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash   # jednou na stroj
+cd /cesta/k/vasemu/repu && pflanzer init     # jednou na repo (vyplňte docs/INTEGRATION_GUIDE.md)
+git add -A docs .pflanzer tests .gitignore .claude/settings.json && git commit -m "chore(pflanzer): init" && git push
+pflanzer doctor          # je repo připravené? řekne i co opravit
+/pm start                # v Claude Code: Kickoff, 15 min (bez Claude Code: pflanzer start --spec kickoff.json)
 ```
 
-Skript si můžete předem přečíst (`curl … -o install.sh; less install.sh`),
-mění jen `~/.claude/plugins/pflanzer`, `~/.pflanzer` a `~/.local/bin/pflanzer`.
-**Jediný příkaz, který si musíte pamatovat, je `/pm`** — řekne, kde projekt je,
-a doporučí jeden další krok. Nenajdete-li ho, zkuste `/pflanzer:pm`.
+Nebo v Claude Code rovnou `/pm` — v čerstvém repu provede `init` i `doctor`
+samo. **Jediný příkaz, který si musíte pamatovat, je `/pm`**; řekne, kde
+projekt je, a doporučí jeden další krok (nenajdete-li ho, zkuste `/pflanzer:pm`).
+Celá cesta jedním příkazem na krok (`start` → `build` → `share` → `record` →
+sběr feedbacku → `decide` → `ship` → `retro`) je na jedné stránce v
+[`docs/zacni.md`](docs/zacni.md); výjimky ve [`docs/faq.md`](docs/faq.md).
 
 ```
-Kickoff    /pm start     15 min, Decider + jádro     zadání na 1 stránku + jména 6 kroků
-Build      /pm build     3 h, jádro                  3 varianty paralelně, kontroly průběžně,
-                                                     20min checkpoint bezpečnost & právo
-Async      /pm feedback  3–5 dní, všichni            klikání na preview URL
-Rozhodnutí /pm decide    60–90 min, Decider + jádro  Go / Iterate (max 1×) / Kill
-Ship       /pm ship      1–2 dny, vývojáři + provoz  kontroly jen na vítěze, PR do main
+Kickoff            /pm start     15 min, Decider + jádro     zadání na 1 stránku + jména 6 kroků
+Build              /pm build     3 h, jádro                  3 varianty paralelně, kontroly průběžně,
+                                                             20min checkpoint bezpečnost & právo
+Sběr feedbacku     /pm feedback  3–5 dní, všichni            klikání na preview URL (Async)
+Rozhodnutí         /pm decide    60–90 min, Decider + jádro  Go / Iterate (max 1×) / Kill
+Ship               /pm ship      1–2 dny, vývojáři + provoz  kontroly jen na vítěze, PR do main
 ```
 
 Tři pravidla: každý krok cesty má jméno · max 5 lidí naráz · co umí automat,
@@ -61,7 +64,8 @@ a Build do 60–90 min, **Full** je pro regulované prostředí
 
 ## Kam dál
 
-- [`docs/zacni.md`](docs/zacni.md) — první pilot: kolik to stojí, co zařídit s lidmi, co když nemáme designéra či security
+- [`docs/zacni.md`](docs/zacni.md) — první pilot na jedné stránce: checklist, instalace, cesta krok za krokem
+- [`docs/faq.md`](docs/faq.md) — výjimky: co když nemáme designéra či security, víc repozitářů, tunel, měření
 - [`docs/pro-decidera.md`](docs/pro-decidera.md) — stránka pro šéfa a hotový e-mail
 - [`docs/postup.md`](docs/postup.md) — postup v 5 krocích a diagramy
 - [`docs/methodology/00-lean-pflanzer.md`](docs/methodology/00-lean-pflanzer.md) — 1-pager metody

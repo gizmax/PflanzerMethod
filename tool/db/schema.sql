@@ -234,6 +234,22 @@ CREATE TABLE IF NOT EXISTS decisions (
 CREATE INDEX IF NOT EXISTS idx_decisions_project ON decisions(project_id);
 
 -- ==========================================================================
+-- decision_votes (tiché hlasování zástupců v hubu před Rozhodnutím; hub nezapisuje
+-- rozhodnutí, jen názory — `pflanzer decide` zůstává jediná cesta)
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS decision_votes (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  voter TEXT NOT NULL,
+  choice TEXT NOT NULL CHECK (choice IN ('go','iterate','kill')),
+  winner TEXT,
+  comment TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_decision_votes_project ON decision_votes(project_id);
+
+-- ==========================================================================
 -- audit_log (DORA 7-letá retence)
 -- ==========================================================================
 CREATE TABLE IF NOT EXISTS audit_log (

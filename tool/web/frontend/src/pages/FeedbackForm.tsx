@@ -5,7 +5,7 @@ import type { Feedback, ProjectDetail, Variant } from "../lib/types";
 import { ErrorScreen, Loading } from "../components/StateScreen";
 import { IdentityPicker } from "../components/IdentityPicker";
 import { SEVERITY } from "../lib/text";
-import { feedbackExample } from "../lib/task";
+import { feedbackExample, stepKey } from "../lib/task";
 import { vocative } from "../lib/identity";
 import { useIdentity, usePageTitle } from "../lib/hooks";
 
@@ -17,6 +17,11 @@ const AREAS: [string, string][] = [
   ["general", "Obecné"], ["ux", "Použitelnost"], ["security", "Bezpečnost"],
   ["legal", "Právo a soukromí"], ["tech", "Technika"], ["a11y", "Přístupnost"],
 ];
+
+/** Oblast podle kroku cesty zástupce (předvyplněno, jde přepsat). */
+const AREA_BY_STEP: Record<string, string> = {
+  bezpecnost: "security", provoz: "tech", design: "a11y", vyvoj: "tech", produkt: "ux", byznys: "general",
+};
 
 export default function FeedbackForm() {
   const { slug, variantId } = useParams<{ slug: string; variantId: string }>();
@@ -49,11 +54,15 @@ export default function FeedbackForm() {
       .catch(setLoadError);
   }, [slug, identity?.name]);
 
-  // přechod na další variantu = čistý formulář
+  // přechod na další variantu = čistý formulář; podrobnosti se předvyplní podle role
   useEffect(() => {
     setSeverity(""); setRationale(""); setErrors({}); setSubmitError(null);
     setSubmitted(false); setSubmitting(false);
-  }, [variantId]);
+    const k = stepKey(identity?.step);
+    setArea(k ? AREA_BY_STEP[k] ?? "general" : "general");
+    setWcagLevel(k === "design" ? "AA" : "N/A");
+    setAiActDim("");
+  }, [variantId, identity?.step]);
 
   const back = `/${slug}/compare`;
   if (loadError) return <ErrorScreen error={loadError} backTo={`/${slug}`} backLabel="Zpět na projekt" />;
@@ -203,18 +212,25 @@ export default function FeedbackForm() {
                 {AREAS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </div>
-            <div>
-              <label htmlFor="adv-ai" className="pf-label">Právní nebo etická oblast (volitelné)</label>
-              <input id="adv-ai" className="pf-input" value={aiActDim} onChange={(e) => setAiActDim(e.target.value)}
-                placeholder="např. transparentnost, lidský dohled (pojem z AI Act)" />
-            </div>
-            <div>
-              <label htmlFor="adv-wcag" className="pf-label">Úroveň přístupnosti (jen u problémů s přístupností)</label>
-              <select id="adv-wcag" className="pf-input" value={wcagLevel ?? "N/A"}
-                onChange={(e) => setWcagLevel(e.target.value as Feedback["wcag_level"])}>
-                {WCAG.map(([w, l]) => <option key={w} value={w} title={`technický kód: WCAG ${w}`}>{l}</option>)}
-              </select>
-            </div>
+            <details className="rounded-md border border-line p-3">
+              <summary className="pf-summary">Další podrobnosti</summary>
+              <div className="mt-3 space-y-4">
+              <div>
+                <label htmlFor="adv-ai" className="pf-label">Právní nebo etická oblast (volitelné)</label>
+                <input id="adv-ai" className="pf-input" value={aiActDim} onChange={(e) => setAiActDim(e.target.value)}
+                  placeholder={stepKey(identity.step) === "bezpecnost"
+                    ? "např. ochrana osobních údajů, transparentnost (pojem z AI Act)"
+                    : "např. transparentnost, lidský dohled (pojem z AI Act)"} />
+              </div>
+              <div>
+                <label htmlFor="adv-wcag" className="pf-label">Úroveň přístupnosti (jen u problémů s přístupností)</label>
+                <select id="adv-wcag" className="pf-input" value={wcagLevel ?? "N/A"}
+                  onChange={(e) => setWcagLevel(e.target.value as Feedback["wcag_level"])}>
+                  {WCAG.map(([w, l]) => <option key={w} value={w} title={`technický kód: WCAG ${w}`}>{l}</option>)}
+                </select>
+              </div>
+              </div>
+            </details>
             <label htmlFor="adv-aionly" className="flex min-h-[44px] items-center gap-3">
               <input id="adv-aionly" type="checkbox" checked={isAiOnly} onChange={(e) => setIsAiOnly(e.target.checked)}
                 className="h-5 w-5 accent-[rgb(var(--c-accent))]" />

@@ -2,7 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-> Jedna stránka pro člověka, který bude rozhodovat (Decider). Čtení: 3 minuty.
+> Pro koho: pro **Decidera**, člověka, který bude rozhodovat. Jedna stránka, čtení 3 minuty.
 
 ## Problém
 

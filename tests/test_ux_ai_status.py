@@ -89,7 +89,7 @@ def test_missing_step_error_is_human(tmp_db: Path, bare_repo: Path) -> None:
 
 
 def test_checkpoint_ai_pending_for_pilot_then_countersigned(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="pil", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="pil", target_repo_url=file_url(bare_repo),
                       metric="10 z 15 lidí do 30 dnů", path_owners=_owners(bezpecnost="AI"))
     res = checkpoint.sign("pil", "bezpecnost", ai=True, agent="security-expert",
                           note="AI pre-check: žádná reálná data")
@@ -119,7 +119,8 @@ def test_checkpoint_ai_refused_for_kickoff_window(tmp_db: Path, bare_repo: Path)
 
 
 def test_checkpoint_stand_in_warning_and_ops_developer(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="zast", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="zast", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     res = checkpoint.sign("zast", "bezpecnost", by="Karel", note="ok")
     assert any("Karel není zástupce kroku Bezpečnost & právo (Lucie)" in w and "zástup" in w
                for w in res["warnings"])
@@ -129,7 +130,8 @@ def test_checkpoint_stand_in_warning_and_ops_developer(tmp_db: Path, bare_repo: 
 
 
 def test_checkpoint_blocked_next_step_names_owner(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="blk", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="blk", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     res = checkpoint.sign("blk", "provoz", by="Karel", note="chybí rollback", blocked=True)
     assert res["status"] == "blocked"
     assert 'pflanzer checkpoint --slug blk provoz --by "Karel"' in res["next_step"]
@@ -181,7 +183,8 @@ def test_window_over_five_names_who_should_come(tmp_db: Path, bare_repo: Path) -
 
 def test_status_blocked_checkpoint_has_owner_and_command(tmp_db: Path, bare_repo: Path,
                                                          vote: Callable[..., Any]) -> None:
-    bootstrap_project(slug="st", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="st", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     vote("st")
     checkpoint.sign("st", "provoz", by="Karel", note="chybí monitoring", blocked=True)
     d = status.project_detail("st")
@@ -191,7 +194,7 @@ def test_status_blocked_checkpoint_has_owner_and_command(tmp_db: Path, bare_repo
 
 
 def test_status_ai_draft_names_signer(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="aid", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="aid", target_repo_url=file_url(bare_repo),
                       path_owners=_owners(bezpecnost="AI"))
     checkpoint.sign("aid", "bezpecnost", ai=True, note="AI pre-check")
     d = status.project_detail("aid")
@@ -248,7 +251,8 @@ def test_status_after_ship_recommends_retro_and_human_output(
 
 
 def test_status_before_ship_lists_missing_signatures(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="go", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="go", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     set_status("go", "handoff")  # Go, Ship zatím ne
     d = status.project_detail("go")
     assert {b["window"] for b in d["blockers"] if b["kind"] == "missing_signature"} == {

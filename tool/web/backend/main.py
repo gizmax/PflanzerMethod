@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
+from .api import expert as expert_router
 from .api import feedback as feedback_router
 from .api import projects as projects_router
 from .api import variants as variants_router
@@ -136,6 +137,7 @@ REQUIRE_ACTOR = [Depends(get_actor)]
 app.include_router(projects_router.router, dependencies=REQUIRE_ACTOR)
 app.include_router(variants_router.router, dependencies=REQUIRE_ACTOR)
 app.include_router(feedback_router.router, dependencies=REQUIRE_ACTOR)
+app.include_router(expert_router.router, dependencies=REQUIRE_ACTOR)
 
 # Wire dependencies via FastAPI's dependency_overrides (Depends captures
 # function refs at decoration time, so module-level reassignment doesn't work).
@@ -144,6 +146,8 @@ app.dependency_overrides[variants_router.get_session] = get_session
 app.dependency_overrides[variants_router.get_actor] = get_actor
 app.dependency_overrides[feedback_router.get_session] = get_session
 app.dependency_overrides[feedback_router.get_actor] = get_actor
+app.dependency_overrides[expert_router.get_session] = get_session
+app.dependency_overrides[expert_router.get_actor] = get_actor
 
 
 @app.get("/api/health")
@@ -164,6 +168,9 @@ def api_root() -> dict[str, object]:
             "POST /api/projects/{slug}/variants",
             "GET  /api/feedback?project={slug}",
             "POST /api/feedback",
+            "GET  /api/projects/{slug}/missing",
+            "GET  /api/projects/{slug}/windows",
+            "GET|POST /api/projects/{slug}/votes (+ /votes/reveal)",
         ],
     }
 

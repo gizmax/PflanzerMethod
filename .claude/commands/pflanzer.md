@@ -29,11 +29,11 @@ zvlášť (jiný den, Decider si vezme okno).
 0. **Projekt už existuje?** (`pflanzer status --slug <slug>`): Kickoff proběhl nebo byl
    blokován a po odblokování pokračuješ — **neopakuj Kickoff** a nedoporučuj `/pm build`;
    pokračuj tímto příkazem (`/pm live <slug>`) krokem 2. Build hotový a chybí jen zápis
-   (`pflanzer vote`) → rovnou krok 3, ne restart Buildu.
+   (`pflanzer record`) → rovnou krok 3, ne restart Buildu.
 1. **Kickoff** — přečti `.claude/commands/pflanzer-charter.md` a proveď ho
    celý (doctor → sběr → spec zapsaný Write do
    `.pflanzer/specs/<slug>-kickoff.json` →
-   `pflanzer quick_session bootstrap --spec .pflanzer/specs/<slug>-kickoff.json`;
+   `pflanzer start --spec .pflanzer/specs/<slug>-kickoff.json`;
    heredoc jen jako záloha; u každého chybějícího kroku nabídka [jméno] / [stejný
    člověk jako X] / [AI náhrada — jen kde ADR-0023 dovolí]). Krok bez jména
    a bez povolené AI náhrady = STOP. Decider je přítomen jen pro tuto část.
@@ -64,6 +64,6 @@ Připomeň: bez pushe nejsou preview URL. Na konci **jeden** další krok:
 
 ## Co NEDĚLAT
 
-- Nezakládej projekt jinak než přes `pflanzer quick_session bootstrap`.
+- Nezakládej projekt jinak než přes `pflanzer start`.
 - Nepřeskakuj `doctor` ani checkpoint bezpečnosti & práva.
-- Žádné Sessions/Slices; terminologie Kickoff, Build, Async, Rozhodnutí, Ship.
+- Žádné Sessions/Slices; terminologie Kickoff, Build, Sběr feedbacku (Async), Rozhodnutí, Ship.

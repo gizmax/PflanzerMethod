@@ -488,7 +488,7 @@ def persist(spec: dict[str, Any]) -> dict[str, Any]:
         warnings.append(
             f"Chybí commitment_level u {', '.join(no_commit)} — bez něj Rozhodnutí Go neprojde "
             f"(tým se musí za vítěze postavit aspoň ze 60 %). Doplň ho do specu (0 = nezapojím se, "
-            f"1 = jen připomínky, 2 = pomůžu, 3 = co-creation) a zapiš znovu `pflanzer vote --spec …`.")
+            f"1 = jen připomínky, 2 = pomůžu, 3 = co-creation) a zapiš znovu `pflanzer record --spec …`.")
     if len(no_url_variants) == 1:
         warnings.append(
             f"Varianta {no_url_variants[0]} nemá preview URL — zástupci v Asyncu nemají na co "

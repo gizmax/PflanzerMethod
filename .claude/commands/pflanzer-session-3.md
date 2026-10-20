@@ -22,7 +22,7 @@ tohoto kroku.)
 
 Kód vítěze je ve **worktree target repa** (větev `pflanzer/<slug>-<X>`,
 ADR-0009). **Cestu nehledej ručně** (datová složka se liší podle
-`PFLANZER_DATA`) — rovnou spusť `pflanzer session_3 --slug <slug>`: tool
+`PFLANZER_DATA`) — rovnou spusť `pflanzer ship --slug <slug>`: tool
 worktree vítěze najde sám, a když chybí, řekne to i s příkazem. Ship gate nic
 nekopíruje a na GitHub URL se neptá.
 URL buildru (Bolt / v0 / Lovable) je jen fallback u `--prefer-hosted`
@@ -31,8 +31,8 @@ projektů (`--repo-urls`); skeleton pro `pilot` / `production` nikdy.
 ## Krok 1 — Gates jen na vítěze
 
 ```bash
-pflanzer session_3 --slug <slug>
-pflanzer session_3 --slug <slug> --variants A    # výslovně vítěz
+pflanzer ship --slug <slug>
+pflanzer ship --slug <slug> --variants A    # výslovně vítěz
 ```
 
 Jiná varianta než vítěz Rozhodnutí jen s `--rationale "…"` (zapíše se do
@@ -63,7 +63,7 @@ Pod povrchem:
   discovery, bezpečnost → security + legal, provoz → platform), takže Ship
   blokuje jen nepodepsané nebo zablokované okno (a AI draft bez podpisu
   člověka); `/pm triage` je potřeba jen u stupně Full. Throwaway: neblokuje. Override jen Decider přes
-  `pflanzer session_3 --slug <slug> --override-triage --rationale "…"`
+  `pflanzer ship --slug <slug> --override-triage --rationale "…"`
   (zápis do decision logu).
 
 ## Krok 2 — Vyhodnocení
@@ -75,7 +75,7 @@ Pod povrchem:
   skupinou a paralelní oprava / pauza a znovu `/pm ship` / Ship i přesto
   (override + rationale do decision logu). Neuhýbej: gate fail = pozdější bug.
 - Ship pod prahem (jen Decider, skóre < práh; triage ani minimum bran se tím
-  neobchází): `pflanzer session_3 --slug <slug> --override-threshold --rationale "…"`
+  neobchází): `pflanzer ship --slug <slug> --override-threshold --rationale "…"`
   → verdikt „pod prahem — Ship na odpovědnost Decidera", draft PR, sekce „Výjimka z prahu" v SHIP.md i PR.
   **Výjimka vždy s termínem opravy:** do rationale napiš, co se doopraví,
   kdo to udělá a do kdy (např. „a11y a testy do 14 dní, Jan“); jinak se z

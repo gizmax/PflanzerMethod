@@ -1755,11 +1755,11 @@ VOTE_HINT = ("Vyplň facilitátora, URL a hodnocení; tento klíč `_napoveda` v
              "strategic_fit 0 až 1, rationale povinný (jedna věta); commitment_level vyplň "
              "vždy (0 = nezapojím se, 1 = jen připomínky, 2 = pomůžu, 3 = co-creation) — "
              "Go potřebuje, aby se tým za vítěze postavil aspoň ze 60 %. Zápis: "
-             "`pflanzer vote --spec <tento soubor>`.")
+             "`pflanzer record --spec <tento soubor>`.")
 
 
 def vote_template(slug: str, variants: tuple[str, ...] | list[str]) -> dict[str, Any]:
-    """Předvyplněná šablona specu pro `pflanzer vote` (varianty projektu, prázdné URL)."""
+    """Předvyplněná šablona specu pro `pflanzer record` (varianty projektu, prázdné URL)."""
     return {
         "_napoveda": VOTE_HINT,
         "slug": slug,
@@ -1939,7 +1939,7 @@ def _dispatch(args: argparse.Namespace) -> None:
         title, lines, nxt = _setup_view(s)
         tpl = write_vote_template(args.slug, s.mode)
         if tpl:
-            lines.append(f"Šablona zápisu Buildu: `{tpl}` (vyplníš po Buildu, `pflanzer vote --spec`; "
+            lines.append(f"Šablona zápisu Buildu: `{tpl}` (vyplníš po Buildu, `pflanzer record --spec`; "
                          "necommituje se).")
         emit(_setup_json(s), title=title, lines=lines + _setup_warnings(s), next_step=nxt,
              tips=[] if args.json else tips_for_project(args.slug, "after_setup"),

@@ -2,6 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
+> Pro koho: pro každého zástupce, který chce vidět celý průběh na jedné obrazovce.
 > Průběh na jednu obrazovku. Detail: [`methodology/00-lean-pflanzer.md`](methodology/00-lean-pflanzer.md).
 > Diagram popisuje výchozí stupeň **Lean** (Build 3 h). Kratší je **Quick**
 > (`/pm live`, Kickoff + Build v jednom, 60–90 min), delší **Full** pro
@@ -15,7 +16,7 @@ flowchart LR
     K["<b>1. Kickoff</b><br/>15 min<br/>Decider + jádro<br/><i>/pm start</i>"]
     B["<b>2. Build</b><br/>3 h<br/>jádro, AI staví A/B/C<br/><i>/pm live</i>"]
     S{{"Checkpoint<br/>bezpečnost & právo<br/>20 min"}}
-    A["<b>3. Async</b><br/>3–5 dní<br/>všichni klikají a komentují<br/><i>/pm feedback</i>"]
+    A["<b>3. Sběr feedbacku</b><br/>3–5 dní<br/>všichni klikají a komentují<br/><i>/pm feedback</i>"]
     R{"<b>4. Rozhodnutí</b><br/>60–90 min<br/>Decider hlasuje poslední<br/><i>/pm decide</i>"}
     P{{"Checkpoint<br/>provoz<br/>20 min"}}
     SH["<b>5. Ship</b><br/>1–2 dny<br/>vývojáři + provoz<br/><i>/pm ship</i>"]
@@ -44,7 +45,7 @@ gantt
     section Provoz
     Checkpoint + Ship   :8, 1d
     section Všichni zástupci
-    Async klikání       :3, 4d
+    Sběr feedbacku       :3, 4d
 ```
 
 ## Postup v 5 krocích
@@ -57,8 +58,8 @@ gantt
    napiš jméno (byznys, produkt, design, vývoj, bezpečnost & právo, provoz).
    Zabookuj okna. *Chybí jméno → nesvolávat.* Kde člověk chybí, může krok
    v omezené míře zastoupit AI (design, předkontrola bezpečnosti a provozu);
-   podepisuje vždy člověk — tabulka v [`zacni.md`](zacni.md#co-když-nemáme).
-2. **Build (3 h)** — jádro u jedné obrazovky (online: vývojář sdílí jednu obrazovku, ne 3 breakout místnosti). AI staví 3 varianty paralelně (výchozí; volitelně `mob` = jedna společná varianta u jednoho monitoru, ADR-0016; režim se volí v Kickoffu a drží celou cestu). Po Iterate jdou do druhého kola jen varianty, které pokračují, a Async je kratší (1–2 dny).
+   podepisuje vždy člověk — tabulka v [`faq.md`](faq.md#co-když-nemáme).
+2. **Build (3 h)** — jádro u jedné obrazovky (online: vývojář sdílí jednu obrazovku, ne 3 breakout místnosti). AI staví 3 varianty paralelně (výchozí; volitelně `mob` = jedna společná varianta u jednoho monitoru, ADR-0016; režim se volí v Kickoffu a drží celou cestu). Po Iterate jdou do druhého kola jen varianty, které pokračují, a sběr feedbacku je kratší (1–2 dny).
    Kontroly (lint, testy, build) běží průběžně. Checkpoint 20 min
    s bezpečností & právem potvrdí tři věci: jaká data AI vidí, kam smí
    síť a kolik smí AI stát (plus riziko podstrčené instrukce v cizím textu).
@@ -68,7 +69,7 @@ gantt
    převezme riziko (`--override-triage`) → autor kódu jen jako poslední
    možnost (varování). Podpis s výhradami: `--conditions "CSRF; rate limit"`
    — podmínky skončí v SHIP.md a v checklistu PR.
-3. **Async (3–5 dní)** — všichni zástupci klikají na sandbox URL a komentují.
+3. **Sběr feedbacku (Async), 3–5 dní** — všichni zástupci klikají na sandbox URL a komentují.
    Vývojář zapracovává.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,
    tiché hlasování, Decider poslední → **Go / Iterate / Kill**.
@@ -109,7 +110,7 @@ flowchart LR
 | Kdy | Kód | Běžící varianta | Kdo ji vidí |
 |-----|-----|-----------------|-------------|
 | **Build** | 3 oddělené kopie repa (worktrees) na notebooku buildera, každý ve vlastní branchi `pflanzer/<slug>-A/B/C` target repa | lokálně, 3 dev servery na 3 portech (např. `:3001`, `:3002`, `:3003`) | jádro u jedné obrazovky |
-| **Async + Rozhodnutí** | branche pushnuté do target repa | **preview deploy každé branche** (bez produkčních dat, noindex, štítek „k rozhodnutí, ne produkt") — 3 URL | všichni zástupci ve svém prohlížeči, bez účtu na prod |
+| **Sběr feedbacku + Rozhodnutí** | branche pushnuté do target repa | **preview deploy každé branche** (bez produkčních dat, noindex, štítek „k rozhodnutí, ne produkt") — 3 URL | všichni zástupci ve svém prohlížeči, bez účtu na prod |
 | **Ship** | vítězná branche → PR do `main` target repa; poražené branche se smažou | produkční deploy přes běžnou pipeline | uživatelé |
 
 Prakticky:
@@ -122,16 +123,14 @@ Prakticky:
 - Sandbox = **to, co firma už má na preview** (Vercel / Netlify preview,
   preview namespace v Kubernetes, review apps v GitLabu). Dohodne se na
   Kickoffu se zástupcem provozu; nic nového se nestaví.
-- Odkazy na 3 URL + feedback sbírá web hub — `pflanzer hub`
-  (`http://localhost:8000/method/` bez přihlášení; pro kolegy
-  `--host 0.0.0.0 --password …`), nebo offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
+- Odkazy na 3 URL + feedback sbírá web hub — `pflanzer share --slug S` (jedna adresa + heslo; detaily `preview` a `hub` ve [`faq.md`](faq.md#tunel-lan-a-preview)), nebo offline `pflanzer feedback add`. Lidé klikají na URL, ne na notebook buildera.
 - Sandbox nesmí vidět produkční data ani síť — to je předmět checkpointu
   bezpečnosti & práva.
 
 **Možnosti, jak varianty zpřístupnit** (od nejjednoduššího):
 
-1. **Lokální preview s heslem** — `pflanzer preview up --slug <slug>`
-   spustí aplikaci z worktrees A/B/C, před každou postaví malý proxy s heslem
+1. **Lokální preview s heslem** — `pflanzer share --slug <slug>` (pod ním
+   `pflanzer preview up --slug <slug>`) spustí aplikaci z worktrees A/B/C, před každou postaví malý proxy s heslem
    (uživatel `pflanzer`) a štítkem „Varianta X k rozhodnutí — není to hotový
    produkt“ a vypíše 3 URL + hotovou zprávu zástupcům. S `cloudflared` v PATH
    (`--tunnel auto`) dostane každá varianta veřejnou `https://*.trycloudflare.com`
@@ -139,7 +138,7 @@ Prakticky:
    přes tunel ale jde přes Cloudflare (zapsat na checkpointu bezpečnosti).
    Příkaz aplikace: `.pflanzer/project.toml` → `[preview] command = "… {port}"`,
    jinak autodetekce (`npm run dev`/`npm start`, `make run`, `python -m`).
-   Počítač buildera musí běžet po dobu Asyncu; `pflanzer preview status|down`.
+   Počítač buildera musí běžet po dobu sběru feedbacku; `pflanzer preview status|down`.
    Vhodné, když interní GitHub nejde napojit na Vercel a kód nemá opustit firmu.
 2. **Preview deploy firmy** — push branchí, preview URL z CI (výše). Vercel
    a podobné jsou volitelné, ne default.

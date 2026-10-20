@@ -53,7 +53,8 @@ def test_status_after_go_critical_on_loser_is_info_and_next_is_ship(
 
 def test_status_after_go_missing_signatures_names_person(
         tmp_db: Path, bare_repo: Path, vote: Callable[..., Any]) -> None:
-    bootstrap_project(slug="go3", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="go3", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     vote("go3")
     session_2.record_decision(slug="go3", decision="go", winner="A", rationale="A")
     assert status.project_detail("go3")["next_step"].startswith(
@@ -97,7 +98,7 @@ def test_project_list_shows_same_next_step_as_detail(tmp_db: Path, bare_repo: Pa
 
 
 def test_code_author_signing_security_is_flagged(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="autor", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="autor", target_repo_url=file_url(bare_repo),
                       path_owners=_owners(bezpecnost="AI"))
     res = checkpoint.sign("autor", "bezpecnost", by="Tomáš", note="prošel jsem to")
     assert res["status"] == "ok" and res["signed_by_role"] == "autor kódu"
@@ -109,7 +110,8 @@ def test_code_author_signing_security_is_flagged(tmp_db: Path, bare_repo: Path) 
 
 
 def test_signer_kinds_representative_substitute_and_ai(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="kinds", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="kinds", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)
     checkpoint.sign("kinds", "bezpecnost", by="Lucie", note="ok")
     checkpoint.sign("kinds", "provoz", by="Tomáš", note="vývojář z jádra (pilot)")
     s = {r["window"]: r for r in checkpoint.checkpoint_summary("kinds")}
@@ -119,7 +121,7 @@ def test_signer_kinds_representative_substitute_and_ai(tmp_db: Path, bare_repo: 
 
 
 def test_ai_draft_then_human_keeps_agent_in_summary(tmp_db: Path, bare_repo: Path) -> None:
-    bootstrap_project(slug="draft", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="draft", target_repo_url=file_url(bare_repo),
                       path_owners=_owners(bezpecnost="AI"))
     checkpoint.sign("draft", "bezpecnost", ai=True, agent="security-expert", note="pre-check")
     s = {r["window"]: r for r in checkpoint.checkpoint_summary("draft")}
@@ -136,7 +138,7 @@ def test_decision_log_ai_draft_wording(tmp_db: Path, bare_repo: Path,
     repo = tmp_path / "target"
     (repo / ".pflanzer").mkdir(parents=True)
     monkeypatch.chdir(repo)
-    bootstrap_project(slug="log", target_repo_url=file_url(bare_repo),
+    bootstrap_project(personal_data=True, slug="log", target_repo_url=file_url(bare_repo),
                       path_owners=_owners(bezpecnost="AI"))
     checkpoint.sign("log", "bezpecnost", ai=True, agent="security-expert", note="pre-check")
     text = (repo / ".pflanzer" / "decisions" / "log.md").read_text(encoding="utf-8")

@@ -102,3 +102,35 @@ export type ProjectDetail = {
   kill?: { reason: string | null; lessons: { text: string; by: string | null }[] } | null;
   risk_profile?: "throwaway" | "pilot" | "production";
 };
+
+export type MissingInfo = {
+  collecting: boolean;
+  missing: { name: string; steps: string[]; labels: string[] }[];
+  text: string | null;
+};
+
+export type SignWindow = {
+  window: string;
+  label: string;
+  state: string;
+  signer: string | null;
+  command: string;
+};
+
+export type VoteChoice = "go" | "iterate" | "kill";
+export type VoteOut = { voter: string; choice: VoteChoice; winner: string | null; comment: string };
+
+export type VotesState = {
+  enabled: boolean;
+  revealed: boolean;
+  is_decider: boolean;
+  decider: string | null;
+  can_vote: boolean;
+  can_reveal: boolean;
+  voters: { name: string; voted: boolean }[];
+  decider_voted: boolean;
+  mine: VoteOut | null;
+  votes: VoteOut[];
+  tally: Record<VoteChoice, number> | null;
+  command: string | null;
+};

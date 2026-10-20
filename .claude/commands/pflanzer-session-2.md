@@ -21,7 +21,7 @@ Zástupce bezpečnosti/provozu přizvi jen při otevřeném critical v jeho krok
 ## Krok 1 — Příprava
 
 ```bash
-pflanzer session_2 prep --slug <slug>
+pflanzer decide prep --slug <slug>
 ```
 
 Ukaž na TV: commitment index, top 3 spory (osa, hlasy per krok cesty,
@@ -56,17 +56,17 @@ splní metodu bez změny API; nechceme zatím B-ův report; riziko ceny hlídá
 Petra přes týdenní dashboard.“
 
 ```bash
-pflanzer session_2 decide --slug <slug> go --winner A --rationale "<1–2 věty>"   # u mob mode: --winner mob
-pflanzer session_2 decide --slug <slug> go --winner A --rationale "…" --override-critical "<důvod>"
-pflanzer session_2 decide --slug <slug> iterate --variants A,B --rationale "…" --iterate-focus "<co změnit>"   # max 1×
-pflanzer session_2 decide --slug <slug> kill --rationale "…"
+pflanzer decide --slug <slug> go --winner A --rationale "<1–2 věty>"   # u mob mode: --winner mob
+pflanzer decide --slug <slug> go --winner A --rationale "…" --override-critical "<důvod>"
+pflanzer decide --slug <slug> iterate --variants A,B --rationale "…" --iterate-focus "<co změnit>"   # max 1×
+pflanzer decide --slug <slug> kill --rationale "…"
 # critical vyřešen jinak než overridem (--by a --note jsou povinné):
-pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note "<jak>"
+pflanzer decide resolve --slug <slug> --feedback-id <id> --by "<kdo>" --note "<jak>"
 # Go pod prahem commitmentu (tým se za vedoucí variantu postaví < 60 %): jen vědomě,
 # důvod půjde do decision logu:
-pflanzer session_2 decide --slug <slug> go --winner A --force --rationale "proč Go i pod prahem"
+pflanzer decide --slug <slug> go --winner A --force --rationale "proč Go i pod prahem"
 # druhé rozhodnutí po Go jen výslovně:
-pflanzer session_2 decide --slug <slug> go --winner B --rationale "…" --force
+pflanzer decide --slug <slug> go --winner B --rationale "…" --force
 ```
 
 - **Mob mode** (jedna společná varianta `mob`): není co porovnávat, `prep` to řekne

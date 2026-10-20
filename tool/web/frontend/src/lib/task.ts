@@ -29,6 +29,13 @@ export function dative(full: string | null | undefined): string | null {
   return null;
 }
 
+/** Stejná osoba: jedno jméno je podmnožinou slov druhého (Petr / Petr Novák). */
+export function sameName(a: string, b: string): boolean {
+  const ta = a.toLowerCase().split(/\s+/).filter(Boolean);
+  const tb = b.toLowerCase().split(/\s+/).filter(Boolean);
+  return ta.length > 0 && tb.length > 0 && (ta.every((t) => tb.includes(t)) || tb.every((t) => ta.includes(t)));
+}
+
 export function stepKey(stepLabel: string | undefined): string | null {
   return PATH_STEPS.find(([k, l]) => l === stepLabel || k === stepLabel)?.[0] ?? null;
 }
@@ -87,6 +94,8 @@ export function buildTask(
   }
   const key = roleKey(identity, detail.decider_name);
   const pmDat = dative(detail.pm_name);
+  // Když se dívá sám vedoucí Produktu, nemá smysl radit „Řekněte Petrovi“ — oslovíme ho přímo.
+  const iAmPm = !!identity && !!detail.pm_name && sameName(identity.name, detail.pm_name);
   const tellPm = detail.pm_name
     ? (pmDat ? `Řekněte ${pmDat}` : `Řekněte tomu, kdo vede Produkt (${detail.pm_name})`)
     : "Řekněte produktovému vlastníkovi";
@@ -100,7 +109,7 @@ export function buildTask(
           : "Do Rozhodnutí nemusíte nic psát.",
         steps: [
           `Prohlédněte si varianty ${range} (10 min).`,
-          `${tellPm}, co by vás zastavilo.`,
+          iAmPm ? "Poznamenejte si, co by vás zastavilo." : `${tellPm}, co by vás zastavilo.`,
           "Hlasujete až na Rozhodnutí, poslední.",
         ],
       };
@@ -132,7 +141,9 @@ export function buildTask(
         lead: "Sbírejte feedback a opravujte.",
         steps: [
           `Otevřete varianty ${range} a vyzkoušejte hlavní tok.`,
-          `Ke každé napište, co vás zastaví. ${tellPm}, co ladit.`,
+          iAmPm
+            ? "Ke každé napište, co vás zastaví. Produkt vedete vy, takže sami rozhodnete, co ladit."
+            : `Ke každé napište, co vás zastaví. ${tellPm}, co ladit.`,
         ],
       };
     default:

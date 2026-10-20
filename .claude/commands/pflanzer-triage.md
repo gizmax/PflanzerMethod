@@ -67,7 +67,7 @@ JSON spec format:
    Security `K`, Legal `D`, Platform `PROD-B`, Discovery `C`). Nástroj je uloží, podpis okna
    (`pflanzer checkpoint …`) je převezme do podmínek okna (podepisující je tím potvrzuje;
    vědomé odpuštění: `--waive K3 --rationale "proč"`), SHIP.md, PR checklist a `compliance.md`
-   je ukážou a `pflanzer quick_session prompts` je přidá builderům jako „Omezení z triage“
+   je ukážou a `pflanzer prompts` je přidá builderům jako „Omezení z triage“
    (security/legal/platform). Po triage `pflanzer status` řekne, že triage změnila zadání —
    zvaž úpravu Charteru.
 

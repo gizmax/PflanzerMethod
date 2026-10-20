@@ -109,7 +109,7 @@ def open_triage_conditions(slug: str) -> list[str]:
 
 
 _WINDOW_LABELS = {"zadani": "Zadání", "design": "Design", "bezpecnost": "Bezpečnost", "provoz": "Provoz",
-                  "pravo": "Právo", "data": "Data", "podpora": "Podpora"}
+                  "bezpecnost-provoz": "Bezpečnost a provoz", "pravo": "Právo", "data": "Data", "podpora": "Podpora"}
 
 
 def _window_ai_evidence(r: dict[str, Any]) -> bool:
@@ -124,7 +124,7 @@ def _window_ai_evidence(r: dict[str, Any]) -> bool:
 def ai_stand_in_steps(slug: str) -> set[str]:
     """Kroky cesty (klíče jako v path_owners), za které stála AI náhrada podle oken/podpisů."""
     step_of = {"zadani": "byznys", "bezpecnost": "bezpecnost", "pravo": "bezpecnost",
-               "provoz": "provoz", "design": "design"}
+               "bezpecnost-provoz": "bezpecnost", "provoz": "provoz", "design": "design"}
     return {step_of[r["window"]] for r in checkpoint_rows(slug)
             if r.get("window") in step_of and _window_ai_evidence(r)}
 

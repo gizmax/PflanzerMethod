@@ -189,6 +189,8 @@ def test_ship_state_production_unverified_acceptance_does_not_pass_pilot_warns()
 
 def test_signatures_mark_foreign_signer_as_zastup(voted: dict[str, Any]) -> None:
     slug = voted["slug"]
+    with transaction() as conn:   # osobní data = okna bezpečnost a provoz zvlášť
+        conn.execute("UPDATE projects SET data_class = 'L3' WHERE slug = ?", (slug,))
     checkpoint.sign(slug, "provoz", by="Kdokoli Cizí", note="rollback a on-call prošli")
     assert "Provoz: Kdokoli Cizí (zástup)" in (handoff_pr.signatures_line(slug) or "")
     pr = handoff_pr.build_pr(slug)

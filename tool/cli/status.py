@@ -90,7 +90,7 @@ def _phase(status: str, ship: str, feedback_count: int, critical: int,
         return "Kickoff rozpracovaný", "/pm start"
     if status == "triage":
         if build_running:  # worktrees jsou, Build se ještě nezapsal do toolu → zapsat, ne stavět znovu
-            return "Build běží", "pflanzer vote --spec .pflanzer/specs/<slug>-vote.json"
+            return "Build běží", "pflanzer record --spec .pflanzer/specs/<slug>-vote.json"
         return "Kickoff hotový", "/pm build"
     if status == "session_1":
         if feedback_count == 0:
@@ -509,7 +509,7 @@ def project_detail(slug: str) -> dict[str, Any]:
     late = p["status"] == "handoff"  # po Go, před/při Ship — dřív je to plán, ne blokace
     blockers: list[dict[str, str]] = []
     info: list[str] = []
-    if nxt.startswith("pflanzer vote --spec "):
+    if nxt.startswith("pflanzer record --spec "):
         info.append(_vote_spec_hint(slug))
     if not killed:
         try:

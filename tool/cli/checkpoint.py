@@ -64,14 +64,23 @@ WINDOWS: dict[str, dict[str, Any]] = {
     # Jen AI náhrada designu: žádný triage track (CHECK má 4 hodnoty), podpis je v audit logu.
     "design": {"label": "Design (AI)", "tracks": ()},
 }
+# Pilot (Lean) bez osobních dat a bez AI Act triggeru: bezpečnost a provoz jsou JEDNO okno
+# (20 min, jeden podpis). Právo se otevře jen při osobních datech / AI Act high.
+MERGED = "bezpecnost-provoz"
+MERGED_MINUTES = 20
+WINDOWS[MERGED] = {"label": "Bezpečnost a provoz", "tracks": ("security", "legal", "platform")}
 ALIASES = {"kickoff": "zadani", "discovery": "zadani", "security": "bezpecnost",
            "legal": "pravo", "dpia": "pravo", "platform": "provoz",
-           "ops": "provoz", "ux": "design"}
+           "ops": "provoz", "ux": "design", "bezpecnost_provoz": MERGED,
+           "bezpecnost-a-provoz": MERGED, "security-ops": MERGED}
+# Okna, která u sloučeného projektu přebírá MERGED (staré návody `bezpecnost` / `provoz` fungují).
+MERGED_ABSORBS = ("bezpecnost", "provoz")
+SECURITY_WINDOWS = ("bezpecnost", MERGED)
 
 
 # Okno -> krok cesty, jehož zástupce ho podepisuje.
 WINDOW_STEP = {"zadani": "byznys", "bezpecnost": "bezpecnost", "provoz": "provoz",
-               "design": "design", "pravo": "bezpecnost"}
+               "design": "design", "pravo": "bezpecnost", MERGED: "bezpecnost"}
 SIGNER_KINDS = ("zástupce", "zástup", "autor kódu", "AI draft")
 AI_DRAFT_MARK = "AI draft — čeká na podpis člověka"
 USAGE = ('  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "co se ověřilo"\n'
@@ -91,8 +100,65 @@ def _window(name: str) -> str:
         near = ALIASES.get(near, near) if near else None
         raise ValueError(f"Neznámé okno ‚{name}‘."
                          + (f" Myslel jste ‚{near}‘?" if near else "")
-                         + " Okna: zadani | bezpecnost | pravo | provoz | design.")
+                         + " Okna: zadani | bezpecnost | pravo | provoz | design "
+                         "(u pilotu bez osobních dat: bezpecnost-provoz).")
     return key
+
+
+def is_merged_profile(risk: str | None, tier: str | None, data_class: str | None,
+                      ai_act_tier: str | None) -> bool:
+    """Pilot + Lean + bez osobních dat (třída < L3) + bez AI Act high = jedno okno Bezpečnost a provoz."""
+    return (risk == "pilot" and tier == "lean"
+            and str(data_class or "").upper() not in ("L3", "L4")
+            and str(ai_act_tier or "").lower() not in ("high", "unacceptable"))
+
+
+def merged_applies(conn: Any, pid: int, risk: str | None = None) -> bool:
+    """Má projekt jedno okno Bezpečnost a provoz? Starší projekt s už podepsaným dílčím oknem
+    nebo s plným triage zůstává u oddělených oken (podpisy se nepřepisují)."""
+    from tool.cli.tier import infer_tier
+    from tool.cli.triage import load_risk_profile
+    try:
+        risk = risk or load_risk_profile(conn, pid)
+        if risk != "pilot":
+            return False
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
+        sel = "data_class, ai_act_tier, capacity_profile" + (", tier" if "tier" in cols else "")
+        row = conn.execute(f"SELECT {sel} FROM projects WHERE id = ?", (pid,)).fetchone()
+        if not row:
+            return False
+        tier = row[3] if len(row) > 3 and row[3] else infer_tier(conn, pid, row[2])
+        if not is_merged_profile(risk, tier, row[0], row[1]):
+            return False
+        if any(a in _last_audit(conn, pid) for a in ("bezpecnost", "provoz", "pravo")):
+            return False
+        for r in conn.execute("SELECT artefact_md FROM triage WHERE project_id = ? AND track "
+                              "IN ('security','legal','platform')", (pid,)).fetchall():
+            if "Kickoff" not in (r[0] or "")[:80]:
+                return False        # proběhl plný triage: okna zůstávají oddělená
+        return True
+    except Exception:  # noqa: BLE001 — poradní rozhodnutí, starší DB bez sloupců
+        return False
+
+
+def _merged_owner(owners: dict[str, str], signers: dict[str, str] | None = None) -> str | None:
+    """Vlastník sloučeného okna: zástupce Bezpečnosti; když ho zastupuje AI bez určeného
+    podepisujícího a provoz má člověka, tak zástupce Provozu."""
+    sec, prov = owners.get("bezpecnost"), owners.get("provoz")
+    if _human(sec):
+        return sec
+    if sec and _human((signers or {}).get("bezpecnost") or (signers or {}).get("provoz")):
+        return sec                          # AI draft má určeného podepisujícího
+    if _human(prov):
+        return prov
+    return sec or prov
+
+
+def _merged_signers(signers: dict[str, str]) -> dict[str, str]:
+    out = dict(signers)
+    if not out.get("bezpecnost") and out.get("provoz"):
+        out["bezpecnost"] = out["provoz"]
+    return out
 
 
 def _same_person(a: str | None, b: str | None) -> bool:
@@ -141,7 +207,7 @@ def _signer_kind(window: str, who: str, owner: str | None, owners: dict[str, str
                  core: list[str], *, ai: bool, designated: str | None = None) -> str:
     if ai:
         return "AI draft"
-    if window == "bezpecnost" and _is_code_author(who, owners, core):
+    if window in SECURITY_WINDOWS and _is_code_author(who, owners, core):
         return "autor kódu"
     if designated and _same_person(who, designated):
         return "zástupce"  # určený podepisující (Kickoff / ai_signers)
@@ -187,6 +253,9 @@ def guidance_core(window: str, owners: dict[str, str], risk: str) -> str:
             who_can = f"{named('Decider', decider)} nebo DPO/právník"
         elif window == "provoz":
             who_can = f"{named('Decider', decider)} nebo člověk odpovědný za provoz"
+        elif window == MERGED:
+            who_can = (f"{named('Decider', decider)} nebo člověk odpovědný za bezpečnost "
+                       "či provoz")
         elif window == "bezpecnost":
             who_can = f"{named('Decider', decider)} nebo člověk odpovědný za bezpečnost"
         else:
@@ -274,8 +343,6 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                          "(zapisuje se do audit logu).\nPříklad:\n"
                          '  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "…" '
                          '--waive K3 --rationale "řeší se v jiném projektu"')
-    label = WINDOWS[window]["label"]
-    step = WINDOW_STEP[window]
     now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     warnings: list[str] = []
     countersigned = False
@@ -286,10 +353,24 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         if proj[1] == "killed":
             raise ValueError(killed_message(slug))
         pid = int(proj[0])
+        merged = merged_applies(conn, pid)
+        if window in MERGED_ABSORBS and merged:
+            window = MERGED
+            warnings.append("U tohoto pilotu jsou bezpečnost a provoz jedno okno — podepsáno "
+                            "okno Bezpečnost a provoz.")
+        elif window == MERGED and not merged:
+            raise ValueError(
+                "Okno bezpecnost-provoz je jen pro pilot (Lean) bez osobních dat. Tento projekt "
+                "má okna zvlášť: `bezpecnost` a `provoz` (případně `pravo`).")
+        label = WINDOWS[window]["label"]
+        step = WINDOW_STEP[window]
         owners = _load_owners(conn, pid)
         signers = _load_signers(conn, pid)
         core = _load_core(conn, pid)
         owner = owners.get(step)
+        if window == MERGED:
+            signers = _merged_signers(signers)
+            owner = _merged_owner(owners, signers)
         if window == "pravo":
             leg = conn.execute("SELECT status, artefact_md FROM triage WHERE project_id = ? "
                                "AND track = 'legal'", (pid,)).fetchone()
@@ -342,6 +423,10 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             if (window == "provoz" and risk == "pilot"
                     and _same_person(who, owners.get("vyvoj"))):
                 allowed = True
+            if window == MERGED and any(
+                    _human(owners.get(k)) and _same_person(who, owners.get(k))
+                    for k in ("bezpecnost", "provoz")):
+                allowed = True
             if window == "design" and _same_person(who, owners.get("produkt")):
                 allowed = True
             if owner_human and not allowed:
@@ -376,7 +461,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                     f"{who} je autor kódu — u pilotu dovoleno, zapíšu jako „potvrdil autor "
                     "kódu“; právní kontrolu (GDPR, smlouvy) tím nepokrývá — doporučeno nechat "
                     "přečíst Deciderem nebo DPO.")
-        if window in ("bezpecnost", "pravo") and not blocked:
+        if window in (*SECURITY_WINDOWS, "pravo") and not blocked:
             from tool.cli.session_2 import open_criticals, overridden_criticals
             sec_re = re.compile(r"(?i)bezpe|secur|pr[aá]v|legal|gdpr|compliance")
             risky = [c for c in overridden_criticals(conn, pid)
@@ -549,6 +634,7 @@ CHARTER_SIGN_LINES = {
     "zadani": "- Decider podpis (datum + jméno):",
     "bezpecnost": "- Checkpoint Bezpečnost & právo",
     "provoz": "- Checkpoint Provoz",
+    MERGED: ("- Checkpoint Bezpečnost & právo", "- Checkpoint Provoz"),
 }
 
 
@@ -561,6 +647,7 @@ def _stamp_charter(slug: str, window: str, who: str, status: str) -> bool:
     prefix = CHARTER_SIGN_LINES.get(window)
     if not prefix or status == "blocked":
         return False
+    prefixes = (prefix,) if isinstance(prefix, str) else tuple(prefix)
     from tool.cli import charter as _charter
     path = Path(_charter.CHARTER_DIR) / f"{slug}.md"
     try:
@@ -572,7 +659,7 @@ def _stamp_charter(slug: str, window: str, who: str, status: str) -> bool:
         f"AI draft ({who}, {day}) — čeká na podpis člověka"
     out, changed = [], False
     for line in text.split("\n"):
-        if line.startswith(prefix):
+        if line.startswith(prefixes):
             head = line.split(":", 1)[0]
             new = f"{head}: {mark}"
             if new != line:
@@ -684,6 +771,8 @@ def signature_conditions(slug: str) -> list[dict[str, str]]:
             if c["state"] != want:
                 continue
             win = c["window"] or c["window_for"]
+            if win in (*MERGED_ABSORBS, "pravo") and MERGED in labels:
+                win = MERGED
             out.append({"text": f"[{c['id']}] {c['text']}", "window": win,
                         "label": labels.get(win) or WINDOWS.get(win, {}).get("label", win),
                         "by": str(c.get("by") or ""), "state": want,
@@ -703,6 +792,7 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
         signers = _load_signers(conn, pid)
         core = _load_core(conn, pid)
         risk = load_risk_profile(conn, pid)
+        merged = merged_applies(conn, pid, risk)
         last = _last_audit(conn, pid)
         rows = {r[0]: r for r in conn.execute(
             "SELECT track, status, signed_by, signed_at FROM triage WHERE project_id = ?",
@@ -714,8 +804,16 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
     pravo_split = "pravo" in last or not (
         not lg0 or (sec0 and lg0[1] == sec0[1] and lg0[2] == sec0[2]) or lg0[1] == "čeká")
     out = []
+    if merged:
+        signers = _merged_signers(signers)
     for key, w in WINDOWS.items():
+        if key == MERGED and not merged:
+            continue
+        if merged and key in (*MERGED_ABSORBS, "pravo"):
+            continue            # sloučené okno nahrazuje bezpečnost + provoz (+ právo)
         owner = owners.get(WINDOW_STEP[key])
+        if key == MERGED:
+            owner = _merged_owner(owners, signers)
         if key == "design":
             if not is_ai_owner(owner):
                 continue            # design dělá člověk: okno není potřeba
@@ -738,11 +836,14 @@ def list_checkpoints(slug: str) -> list[dict[str, Any]]:
                      "pending" if "pending" in statuses else "čeká")
             signer = next((r[2] for r in tracks if r and r[1] in ("ok", "blocked", "pending")),
                           None)
+            if risk == "throwaway" and key != "zadani" and state == "čeká":
+                continue        # demo: okna se nevyžadují (AI pre-check se ukáže, pokud je)
         out.append({"window": key, "label": w["label"], "state": state, "signed_by": signer,
                     "owner": owner_display(owner, WINDOW_STEP[key]) or None,
                     "signer": _signer_for(key, owner, owners, risk, signers, core),
                     "designated": _designated(key, owner, owners, risk, signers, core),
                     "ai_signer": (signers.get(WINDOW_STEP[key]) if is_ai_owner(owner) else None),
+                    "minutes": MERGED_MINUTES if key == MERGED else None,
                     "signed_at": next((r[3] for r in tracks if r and r[1] == "ok"), None)
                     if key != "design" else None,
                     "note": (last.get(key) or {}).get("note") if state == "blocked" else None,
@@ -823,7 +924,8 @@ def design_gate(slug: str) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> None:
     p = CzechArgumentParser(prog="pflanzer checkpoint", description=__doc__.split("\n")[0])
     p.add_argument("--slug", required=True)
-    p.add_argument("window", nargs="?", help="zadani | bezpecnost | pravo | provoz | design (pravo jen při odloženém právu z plného triage)")
+    p.add_argument("window", nargs="?", help="zadani | bezpecnost | pravo | provoz | design | bezpecnost-provoz (pilot bez osobních dat: "
+                   "bezpecnost i provoz podepíšou toto jedno okno; pravo jen při odloženém právu z plného triage)")
     p.add_argument("--by", default="", help="Kdo za krok cesty podepisuje (jméno z Kickoffu)")
     p.add_argument("--note", default="", help="Co se ověřilo / co chybí (povinné)")
     p.add_argument("--conditions", action="append", default=[],

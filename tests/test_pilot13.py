@@ -53,7 +53,7 @@ def _add_feedback(slug: str, variant: str, severity: str, text: str) -> None:
 
 def test_phase_build_running_points_to_vote_not_session() -> None:
     _phase, nxt = status._phase("triage", "none", 0, 0, build_running=True)
-    assert nxt == "pflanzer vote --spec .pflanzer/specs/<slug>-vote.json"
+    assert nxt == "pflanzer record --spec .pflanzer/specs/<slug>-vote.json"
     assert "pflanzer session" not in nxt
     src = (REPO / "tool" / "cli" / "status.py").read_text(encoding="utf-8")
     assert "pflanzer session --spec" not in src
@@ -63,9 +63,9 @@ def test_checkpoint_after_build_without_vote_gives_same_vote_step(
         worktree_project: dict[str, Any]) -> None:
     slug = worktree_project["slug"]
     assert status.project_detail(slug)["next_step"] == (
-        f"pflanzer vote --spec .pflanzer/specs/{slug}-vote.json")
+        f"pflanzer record --spec .pflanzer/specs/{slug}-vote.json")
     out = checkpoint.sign(slug, "bezpecnost", by="Lucie", note="syntetická data")
-    assert out["next_step"] == f"pflanzer vote --spec .pflanzer/specs/{slug}-vote.json"
+    assert out["next_step"] == f"pflanzer record --spec .pflanzer/specs/{slug}-vote.json"
 
 
 def test_after_vote_without_preview_urls_next_is_preview_up(
