@@ -146,6 +146,8 @@ def up(slug: str, *, tunnel: str = "auto", password: str | None = None,
             host = "0.0.0.0"
             warnings.append("Převzaté preview běží jen lokálně; hub je dostupný v síti, "
                             "odkazy na varianty jen na tomto počítači.")
+        if not use_tunnel and preview.has_personal_data(slug):
+            warnings.append(preview.PERSONAL_DATA_NET_WARNING)
     else:
         password = password or preview._gen_password()
         host = "127.0.0.1" if use_tunnel else "0.0.0.0"  # bez tunelu musí být dostupné v síti

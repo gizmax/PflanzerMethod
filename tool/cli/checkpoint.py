@@ -479,16 +479,29 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
             risky = [c for c in overridden_criticals(conn, pid)
                      if sec_re.search(str(c.get("department") or ""))
                      and not _critical_resolved(conn, c["id"])]
+            from tool.cli.session_2 import get_winner
+            from tool.cli.ux import severity_label
+            winner = get_winner(conn, pid)
+
+            def _where(c: dict[str, Any]) -> str:
+                v = c.get("variant")
+                if not v:
+                    return ""
+                if winner and v != winner:
+                    return f" na poražené variantě {v} — Ship vítěze neblokuje"
+                return f" na variantě {v}"
             for c in risky:
                 warnings.append(
-                    f"⚠ Na vítězi je přebitý critical od {c.get('submitted_by') or 'neznámého autora'}: "
+                    f"⚠ Přebité „{severity_label('critical')}“ od "
+                    f"{c.get('submitted_by') or 'neznámého autora'}{_where(c)}: "
                     f"{_clip(c.get('rationale'))} — podepisujete i s ním? "
                     f"(Decider ho přebil: {_clip(c['reason'], 80)})")
             known = {c["id"] for c in risky}
             for c in open_criticals(conn, pid):
                 if sec_re.search(str(c.get("department") or "")) and c["id"] not in known:
                     warnings.append(
-                        f"⚠ Otevřený critical od {c.get('submitted_by') or 'neznámého autora'} "
+                        f"⚠ Otevřené „{severity_label('critical')}“ od "
+                        f"{c.get('submitted_by') or 'neznámého autora'}{_where(c)} "
                         f"({c['department']}): {_clip(c.get('rationale'))} — podepisujete i s ním?")
         tracks = list(WINDOWS[window]["tracks"])
         if window == "bezpecnost":
