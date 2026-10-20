@@ -281,7 +281,8 @@ def _gh_merge_info(pr_url: str) -> tuple[str, str | None] | None:
         capture_output=True, text=True, timeout=60,
     )
     if res.returncode != 0:
-        print(f"[retro] warn: gh pr view selhal: {res.stderr.strip()}", file=sys.stderr)
+        print(f"[retro] warn: gh pr view selhal: {res.stderr.strip()} — zadej `--merge-commit <sha>`",
+              file=sys.stderr)
         return None
     data = json.loads(res.stdout or "{}")
     sha = (data.get("mergeCommit") or {}).get("oid")

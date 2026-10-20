@@ -3,7 +3,8 @@
 Pořadí zjištění příkazu:
 1. `.pflanzer/project.toml` → `[preview] command = "… {port} …"` (shell, env PORT)
 2. Node: `npm run dev` / `npm start` (env PORT; u Vite se přidá `--port`)
-3. Python: Makefile cíl `run` (env PORT), `python -m uvicorn modul:app`, nebo
+3. Python: Makefile cíl `run` (env PORT), `python -m uvicorn modul:app`, Flask
+   (`python -m flask --app app run`), nebo
    `python -m <balíček>` s `__main__.py` (env PORT).
 4. Makefile cíl `run` (Go i další, env PORT), jinak Go `go run .` / `go run ./cmd/<app>`.
 Interpreter: `PFLANZER_PYTHON` > `.venv/bin/python` / `venv/bin/python` > `python3`.
@@ -46,11 +47,8 @@ class RunSpec:
 PREVIEW_ENV = {"PFLANZER_PREVIEW": "1", "FEATURE_FLAGS": "all"}
 
 
-def read_preview_config(wt: Path, role: str | None = None) -> dict[str, Any]:
-    """Sekce `[preview]` z `.pflanzer/project.toml` (prázdná, když chybí / nejde přečíst).
-
-    S `role` vrací per-repo blok `[preview.<role>]` (multi-repo projekt)."""
-    path = Path(wt) / ".pflanzer" / "project.toml"
+def _preview_section(root: Path, role: str | None = None) -> dict[str, Any]:
+    path = Path(root) / ".pflanzer" / "project.toml"
     if not path.is_file():
         return {}
     try:
@@ -65,6 +63,84 @@ def read_preview_config(wt: Path, role: str | None = None) -> dict[str, Any]:
         sub = sec.get(role)
         return sub if isinstance(sub, dict) else {}
     return sec
+
+
+def _git_out(cwd: Path, *args: str) -> tuple[int, str]:
+    try:
+        r = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True,
+                           timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+    return r.returncode, r.stdout.strip()
+
+
+def _norm_repo(u: str, base: Path | None = None) -> str:
+    u = (u or "").strip()
+    if not u:
+        return ""
+    if "://" not in u and not u.startswith("git@"):
+        try:
+            p = Path(u)
+            u = str((p if p.is_absolute() or base is None else base / p).resolve())
+        except OSError:
+            pass
+    u = re.sub(r"^git@([^:]+):", r"https://\1/", u)
+    return re.sub(r"(\.git)?/*$", "", u).lower()
+
+
+def main_repo_for(wt: Path) -> Path | None:
+    """Hlavní (target) repo uživatele pro klon/worktree varianty: cwd, pokud je to stejný repo.
+
+    Worktrees se klonují z originu, takže `.pflanzer/project.toml` doplněný v hlavním repu
+    se do nich nedostane. Shoda: origin worktree = `target_repo_url` z project.toml
+    (nebo origin) cwd repa. Jinak None."""
+    wt = Path(wt).resolve()
+    rc, top = _git_out(Path.cwd(), "rev-parse", "--show-toplevel")
+    main = Path(top).resolve() if rc == 0 and top else Path.cwd().resolve()
+    if main == wt or not (main / ".pflanzer" / "project.toml").is_file():
+        return None
+    rc, origin = _git_out(wt, "remote", "get-url", "origin")
+    want = _norm_repo(origin, wt) if rc == 0 else ""
+    if not want:
+        return None
+    have = set()
+    try:
+        import tomllib
+        proj = tomllib.loads((main / ".pflanzer" / "project.toml").read_text(encoding="utf-8"))
+        have.add(_norm_repo(str((proj.get("project") or {}).get("target_repo_url") or ""), main))
+    except Exception:  # noqa: BLE001
+        pass
+    rc, morigin = _git_out(main, "remote", "get-url", "origin")
+    if rc == 0:
+        have.add(_norm_repo(morigin, main))
+    return main if want in have else None
+
+
+def _wt_untouched(wt: Path) -> bool:
+    """project.toml ve worktree je tracked a beze změny (tj. jen kopie z originu)."""
+    rel = ".pflanzer/project.toml"
+    rc, _ = _git_out(wt, "ls-files", "--error-unmatch", rel)
+    if rc != 0:
+        return False
+    rc, out = _git_out(wt, "status", "--porcelain", "--", rel)
+    return rc == 0 and not out
+
+
+def read_preview_config(wt: Path, role: str | None = None) -> dict[str, Any]:
+    """Sekce `[preview]` z `.pflanzer/project.toml` (prázdná, když chybí / nejde přečíst).
+
+    S `role` vrací per-repo blok `[preview.<role>]` (multi-repo projekt).
+
+    Worktree přebije hlavní repo jen když ho sám změnil; když v něm `[preview]` chybí
+    (nebo je jen nezměněná kopie z originu), vezme se config z hlavního repa (cwd)."""
+    own = _preview_section(wt, role)
+    if own.get("command") and not _wt_untouched(Path(wt)):
+        return own
+    main_root = main_repo_for(Path(wt))
+    main = _preview_section(main_root, role) if main_root else {}
+    if main.get("command") and (not own.get("command") or main != own):
+        return main
+    return own
 
 
 def venv_env(wt: Path | str) -> dict[str, str]:
@@ -197,6 +273,13 @@ def _detect_python(wt: Path, port: int) -> RunSpec | None:
                 argv = [py, "-m", "uvicorn", f"{mod}:app", "--host", APP_HOST,
                         "--port", str(port)]
                 return RunSpec(" ".join(argv), argv, env, wt, f"uvicorn {mod}:app")
+    if re.search(r"\bflask\b", declared, re.IGNORECASE):
+        for mod, rel in (("app", "app.py"), ("wsgi", "wsgi.py"), ("main", "main.py"),
+                         ("app", "app/__init__.py")):
+            if re.search(r"\bFlask\(", _read(wt / rel)):
+                argv = [py, "-m", "flask", "--app", mod, "run", "--host", APP_HOST,
+                        "--port", str(port)]
+                return RunSpec(" ".join(argv), argv, env, wt, f"flask --app {mod}")
     pkg_dirs = [p for p in [*wt.glob("*/"), *wt.glob("src/*/")]
                 if (p / "__main__.py").is_file() and not p.name.startswith((".", "_", "test"))]
     if pkg_dirs:

@@ -235,6 +235,50 @@ def check_package_manager(repo: Path) -> dict[str, str]:
                   "pilot půjde, ale kontroly v Ship nebudou mít co instalovat")
 
 
+def _py_declared_text(repo: Path) -> str:
+    """Lowercase text všech míst, kde Python repo deklaruje závislosti (worktree z nich instaluje)."""
+    names = [p.name for p in _requirements_files(repo)] + ["pyproject.toml", "setup.py", "setup.cfg",
+                                                            "Pipfile", "tox.ini"]
+    out = []
+    for n in names:
+        try:
+            out.append((repo / n).read_text(encoding="utf-8", errors="replace").lower())
+        except OSError:
+            pass
+    return "\n".join(out)
+
+
+def check_python_test_deps(repo: Path) -> dict[str, str] | None:
+    """Repo má pytest testy, ale pytest (příp. ruff/pyflakes z Makefile/configu) není deklarovaný."""
+    is_py = bool(_requirements_files(repo)) or any(
+        (repo / f).exists() for f in ("pyproject.toml", "setup.py", "setup.cfg", "Pipfile"))
+    has_tests = (repo / "pytest.ini").exists() or (repo / "tests").is_dir() \
+        or next(repo.glob("test_*.py"), None) is not None
+    if not is_py or not has_tests:
+        return None
+    declared = _py_declared_text(repo)
+    has = lambda tool: re.search(rf"(?<![\w-]){tool}(?![\w-])", declared) is not None  # noqa: E731
+    used = ""
+    for n in ("Makefile", "ruff.toml", ".ruff.toml", "tox.ini"):
+        try:
+            used += (repo / n).read_text(encoding="utf-8", errors="replace").lower()
+        except OSError:
+            pass
+    missing = [] if has("pytest") else ["pytest"]
+    for tool in ("ruff", "pyflakes", "flake8"):
+        if re.search(rf"(?<![\w-]){tool}(?![\w-])", used) and not has(tool):
+            missing.append(tool)
+    if (repo / "ruff.toml").exists() and "ruff" not in missing and not has("ruff"):
+        missing.append("ruff")
+    if not missing:
+        return None
+    name = "Test nástroje v závislostech"
+    return _check(name, WARN, f"{', '.join(missing)} není deklarovaný v requirements*.txt / pyproject",
+                  f"Přidej `{'`, `'.join(missing)}` do requirements-dev.txt (nebo dev závislostí v "
+                  "pyproject) a commitni.",
+                  "worktree je nenainstaluje, Ship pak skončí na neověřených testech")
+
+
 def _scripts(repo: Path) -> tuple[dict[str, str], str]:
     """Return ({test, lint, build} -> how found, stack label)."""
     found: dict[str, str] = {}
@@ -275,9 +319,11 @@ def _scripts(repo: Path) -> tuple[dict[str, str], str]:
             found.setdefault("lint", "ruff/flake8/mypy")
         if "[build-system]" in text:
             found.setdefault("build", "python -m build")
-    elif (repo / "requirements.txt").is_file() or (repo / "pytest.ini").exists():
+    elif _requirements_files(repo) or any((repo / f).exists() for f in (
+            "pytest.ini", "setup.py", "setup.cfg", "Pipfile")):
         stack = "Python" if stack == "neznámý stack" else stack
-        if (repo / "pytest.ini").exists() or (repo / "tests").is_dir():
+        if (repo / "pytest.ini").exists() or (repo / "tests").is_dir() \
+                or next(repo.glob("test_*.py"), None) is not None:
             found.setdefault("test", "pytest")
 
     if (repo / "Cargo.toml").is_file():
@@ -297,7 +343,7 @@ def check_scripts(repo: Path) -> list[dict[str, str]]:
         if key in found:
             rows.append(_check(label, OK, f"{found[key]} ({stack})"))
         elif key == "build" and (repo / "Makefile").is_file():
-            is_py = (repo / "pyproject.toml").is_file() or (repo / "requirements.txt").is_file()
+            is_py = (repo / "pyproject.toml").is_file() or bool(_requirements_files(repo))
             if is_py:  # shodně s quality_gates._python_build: bez cíle `build` běží compileall
                 rows.append(_check(label, OK, "Makefile bez cíle `build` (Python: build není "
                                    "nutný, Ship zkontroluje syntaxi přes compileall)"))
@@ -496,6 +542,9 @@ def _run_checks(repo: Path) -> list[dict[str, str]]:
     if gy:
         rows.append(gy)
     rows.extend(check_scripts(repo))
+    dep_row = check_python_test_deps(repo)
+    if dep_row:
+        rows.append(dep_row)
     rows.append(check_ci(repo))
     rows.append(check_preview(repo))
     rows.extend(check_pushed(repo, origin is not None))

@@ -15,6 +15,7 @@ if [ "$#" -eq 0 ]; then
   echo ""
   echo "Nejčastější příkazy:"
   echo "  pflanzer status      # kde projekt stojí a co je další krok"
+  echo "  pflanzer start       # Kickoff bez Claude Code (--spec kickoff.json)"
   echo "  pflanzer doctor      # je target repo připravené ke Kickoffu?"
   echo "  pflanzer checkpoint  # podpis okna (zadani | bezpecnost | pravo | provoz | design)"
   echo "  pflanzer build       # nápověda k Buildu (worktrees, prompty, preview)"
@@ -43,6 +44,8 @@ case "$SUB" in
       claude plugin marketplace update pflanzer-method || true
       claude plugin update pflanzer@pflanzer-method || true
     fi ;;
+  start)
+    PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" bootstrap "$@" ;;
   ship)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/session_3.py" "$@" ;;
   decide)
@@ -81,6 +84,7 @@ case "$SUB" in
     echo ""
     echo "Cesta projektem:"
     echo "  pflanzer status                # kde projekt stojí a co je další krok"
+    echo "  pflanzer start --spec kickoff.json   # Kickoff bez Claude Code (ukázka: pflanzer start --help)"
     echo "  pflanzer build                 # nápověda k Buildu (worktrees, prompty, preview, zápis)"
     echo "  pflanzer preview up --slug S   # spustí varianty (všechna repa) s heslem (+ tunel); down|status"
     echo "  pflanzer vote --spec spec.json # zápis Buildu (hlasování jádra)"
@@ -105,7 +109,7 @@ case "$SUB" in
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"
     if [ ! -f "$SCRIPT" ]; then
-      CMDS="root db data update help ship decide vote prompts build $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
+      CMDS="root db data update help start ship decide vote prompts build $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
       # shellcheck disable=SC2086
       NEAR="$(python3 -c 'import difflib,sys; m=difflib.get_close_matches(sys.argv[1], sys.argv[2:], n=1, cutoff=0.6); print(m[0] if m else "")' "$SUB" $CMDS)"
       echo "Pflanzer Method | pflanzer.cz/method" >&2

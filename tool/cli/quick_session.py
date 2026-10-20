@@ -701,7 +701,8 @@ def bootstrap(
             "Triage odložený (Kickoff nemá 48h pre-read). Checkpoint Bezpečnost & "
             "právo proběhne do 48 h po Buildu, před Ship."
         ),
-        "next_step": f"/pm triage {slug}" if tier == "full" else f"/pm build {slug}",
+        "next_step": (f"/pm triage {slug}" if tier == "full" else
+                      f"/pm build {slug} (v terminálu: `pflanzer build --slug {slug}`)"),
     }
 
 
@@ -2070,7 +2071,7 @@ def write_handoff(slug: str) -> Path:
 # --------------------------------------------------------------------------
 
 
-BOOTSTRAP_EXAMPLE = """pflanzer quick_session bootstrap --spec .pflanzer/specs/moje-appka-kickoff.json
+BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.json
 (soubor zapiš nástrojem Write; obsah:)
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
  "risk_profile": "pilot", "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů",

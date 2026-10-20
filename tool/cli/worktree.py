@@ -1845,8 +1845,7 @@ def _setup_view(s: WorktreeSetup) -> tuple[str, list[str], str]:
         extra = "".join(f" --add-dir {o['worktrees']['A']}" for o in s.repos[1:] if "A" in o["worktrees"])
         nxt = (f"`cd {_tilde(first_path)} && claude{extra}` — varianta A; B a C stejně v sousedních "
                "složkách (každá dvojice u klávesnice pracuje v jedné složce). "
-               "Prompty: `pflanzer quick_session prompts --slug "
-               f"{s.slug} --hook \"…\"`")
+               f"Prompty: `pflanzer prompts --slug {s.slug}`")
     return f"Worktrees připravené — `{s.slug}`", lines, nxt
 
 
