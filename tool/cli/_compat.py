@@ -5,12 +5,34 @@ Moduly Shipu, Rozhodnutí a Retra je volají, aby fungovaly i se starší verzí
 from __future__ import annotations
 
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tool.cli import ux as _ux  # noqa: E402
+
+
+def parse_aware(value: Any) -> datetime | None:
+    """SQLite `CURRENT_TIMESTAMP` / ISO text -> aware datetime (bez pásma = UTC)."""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        text = str(value or "").strip().replace("Z", "+00:00")
+        if not text:
+            return None
+        try:
+            dt = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def local_date(value: Any) -> date | None:
+    """Kalendářní datum v místním pásmu (stejné, jaké používá decision log)."""
+    dt = parse_aware(value)
+    return dt.astimezone().date() if dt else None
 
 
 def plural(n: int, one: str, few: str, many: str) -> str:

@@ -185,10 +185,16 @@ def aggregate(slug: str) -> dict[str, Any]:
             },
         )
 
+    try:
+        from tool.cli.status import _phase  # lazy; lidský název fáze jako v `pflanzer status`
+        phase = _phase(status, "none", len(feedback), len(critical_flags))[0]
+    except Exception:  # noqa: BLE001 — název fáze je jen popisek
+        phase = status
     return {
         "slug": slug,
         "project_name": name,
         "project_status": status,
+        "project_phase": phase,
         "feedback_count": len(feedback),
         "by_severity": dict(by_severity),
         "by_department": dept_avg,
@@ -296,7 +302,7 @@ def render_summary_md(agg: dict[str, Any]) -> str:
 
 # Souhrn feedbacku — {agg['project_name']}
 
-> Slug: `{agg['slug']}` · Staženo: {today} · Stav projektu: `{agg['project_status']}`
+> Slug: `{agg['slug']}` · Staženo: {today} · Stav projektu: {agg['project_phase']}
 > Async → vstup pro Rozhodnutí (Go / Iterate / Kill).
 
 ## Přehled

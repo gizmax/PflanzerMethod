@@ -1226,6 +1226,19 @@ def _node_acceptance_glob(path: Path, scripts: dict[str, Any], deps: dict[str, A
     return "tests/acceptance/*.test.js"
 
 
+def _uses_ruff(path: Path) -> bool:
+    """Má Python repo ruff (konfigurace nebo závislost)? Pak patří lint do kontrol."""
+    if any((path / f).is_file() for f in ("ruff.toml", ".ruff.toml")):
+        return True
+    for f in ("pyproject.toml", "requirements.txt", "requirements-dev.txt"):
+        try:
+            if re.search(r"\bruff\b", (path / f).read_text(encoding="utf-8", errors="replace")):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def stack_profile(path: Path | None) -> StackProfile:
     """Detect the stack of a repo/worktree from manifests (best effort, never raises)."""
     if path is None or not path.is_dir():
@@ -1257,6 +1270,8 @@ def stack_profile(path: Path | None) -> StackProfile:
         cmds = ["make test" if "test" in targets else "python3 -m pytest"]
         if "lint" in targets:
             cmds.append("make lint")
+        elif _uses_ruff(path):
+            cmds.append("ruff check .")
         run = "make run" if "run" in targets else None
         return StackProfile("python", cmds, run, acceptance_glob="tests/acceptance/test_*.py")
     if stack == "go":
@@ -1277,8 +1292,10 @@ def stack_profile(path: Path | None) -> StackProfile:
             cmds = ["make test"]
         return StackProfile(stack, cmds, run)
     if targets & {"test", "check"}:
-        return StackProfile(None, [f"make {'test' if 'test' in targets else 'check'}"],
-                            "make run" if "run" in targets else None)
+        cmds = [f"make {'test' if 'test' in targets else 'check'}"]
+        if "lint" in targets:  # např. Python repo jen s requirements.txt: test i lint
+            cmds.append("make lint")
+        return StackProfile(None, cmds, "make run" if "run" in targets else None)
     return StackProfile()
 
 
@@ -1408,7 +1425,13 @@ def _multi_repo_rules(slug: str, variant: str, repos: list[TargetRepo]) -> str:
             "připojená přes `--add-dir`). Všude jinde jen čti. Změny dělej v tom repu, kam "
             "patří (UI v primárním, API v jeho repu), commituj per repo na branch "
             f"`pflanzer/{slug}-{variant}`. Preview spustí všechna repa; primární najde ostatní "
-            "v env `<ROLE>_URL` (např. `API_URL`) — adresy nehardcoduj.")
+            "v env `<ROLE>_URL` — adresy ani porty nehardcoduj. Na API odkazuj takto: v prohlížeči "
+            "(kód UI) čti `import.meta.env.VITE_API_URL` (Vite; Next `process.env.NEXT_PUBLIC_API_URL`, "
+            "CRA `REACT_APP_API_URL`) a volej `${VITE_API_URL}/cesta`; na serveru (SSR, skripty, "
+            "server-to-server) čti `API_URL`. V preview je prohlížečová proměnná relativní cesta "
+            "`/__pflanzer/api` za heslem preview (proxy ji směruje na API stejné varianty), "
+            "proto skládej URL jen z ní, bez `http://localhost:…`. Pro roli jiného jména "
+            "nahraď `API` jejím názvem velkými písmeny.")
 
 
 def _primary_path(slug: str, variant: str, repos: list[TargetRepo]) -> str:

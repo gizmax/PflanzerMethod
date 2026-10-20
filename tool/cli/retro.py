@@ -33,7 +33,13 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
+from tool.cli._compat import (  # noqa: E402
+    ProjectNotFound,
+    count,
+    exit_if_project_missing,
+    local_date,
+    tips,
+)
 from tool.cli.charter import is_ai_owner  # noqa: E402
 from tool.cli.db import DATA_ROOT, audit, current_actor, transaction  # noqa: E402
 from tool.cli.extract import tilde  # noqa: E402
@@ -322,42 +328,24 @@ def _fork_point(repo: Path, base_ref: str, winner_sha: str, winner_branch: str) 
 # --------------------------------------------------------------------------
 
 
-def measure(
-    *, slug: str, pr_url: str | None = None, merge_commit: str | None = None,
-    base: str | None = None, repo_path: str | None = None,
-    winner: str | None = None, fetch: bool = True,
+def _split_roles(items: list[str] | dict[str, str] | None, what: str) -> dict[str, str]:
+    """`ROLE=hodnota` (opakovatelné) -> {role: hodnota}."""
+    if isinstance(items, dict):
+        return dict(items)
+    out: dict[str, str] = {}
+    for it in items or []:
+        role, sep, val = it.partition("=")
+        if not sep or not role.strip() or not val.strip():
+            raise ValueError(f"{what} očekává ROLE=hodnota (např. api=https://…), dostal jsem „{it}“.")
+        out[role.strip()] = val.strip()
+    return out
+
+
+def _measure_repo(
+    *, slug: str, winner_name: str, repo: Path, pr_url: str | None,
+    merge_commit: str | None, base: str | None, fetch: bool,
 ) -> dict[str, Any]:
-    """Measure how much of the winner branch reached production unchanged.
-
-    Heuristic (documented, conservative):
-    - `loc_winner` = lines added by the winner branch:
-      `git diff --numstat <fork>..<winner>` where fork = merge-base of the
-      winner and `--base` (default `<merge_commit>^1`).
-    - For each path the winner added lines to, `removed` = lines deleted in
-      `git diff --numstat <winner> <merge_commit> -- <paths>` (lines present
-      on the winner tip but not in the merged result).
-    - `loc_merged_unchanged` = Σ max(0, added_winner(path) − removed(path)).
-      Any removal in a winner-touched file counts against reuse, including
-      removals of pre-existing lines or by unrelated commits that landed on
-      the target branch before the merge → the number is a lower bound.
-      A modified line counts as one removal (+ one addition, ignored).
-    - `loc_reused_pct` = loc_merged_unchanged / loc_winner × 100.
-    - `days_to_prod` = calendar days from Rozhodnutí GO (sessions/decisions)
-      to the merge (gh `mergedAt`, else committer date of the merge commit).
-      Merge is used as the prod proxy; if deploy happens later, record the
-      real deploy date as a note.
-    - `winner_commits` = `git rev-list --count <fork>..<winner>`.
-    Works for merge commits and squash merges; for rebase merges pass the
-    tip of the rebased series as `--merge-commit` and the fork as `--base`.
-    """
-    with transaction() as conn:
-        _ensure_outcomes_table(conn)
-        project = _load_project(conn, slug)
-        project_id = int(project["id"])
-        go_dt, go_source = _go_date(conn, project_id)
-    winner_name = winner or _winner_name(slug, project_id)
-
-    repo = _resolve_repo(project, repo_path)
+    """Měření jednoho repa (bez zápisu do DB): LOC winnera v merge, počet commitů, čas merge."""
     remotes = _git(repo, "remote", check=False).split()
     if fetch and "origin" in remotes:
         _git(repo, "fetch", "origin", "--prune")
@@ -408,39 +396,192 @@ def measure(
         loc_unchanged += kept
         per_file.append({"path": path, "added_winner": added,
                          "removed_after": removed, "unchanged": kept})
-    reuse_pct = round(loc_unchanged / loc_winner * 100, 1) if loc_winner else None
-
     winner_commits = int(_git(repo, "rev-list", "--count", f"{fork_sha}..{winner_sha}") or 0)
-
     merge_dt = _parse_ts(merged_at) or _parse_ts(
         _git(repo, "log", "-1", "--format=%cI", merge_sha)
     )
-    days_to_prod = (
-        (merge_dt.date() - go_dt.date()).days if (merge_dt and go_dt) else None
-    )
+    return {
+        "repo": repo, "winner_branch": winner_branch, "winner_ref": winner_ref,
+        "winner_sha": winner_sha, "fork_sha": fork_sha, "fork_source": fork_source,
+        "merge_sha": merge_sha, "merge_source": merge_source, "merge_dt": merge_dt,
+        "loc_winner": loc_winner, "loc_unchanged": loc_unchanged, "per_file": per_file,
+        "ignored_files": ignored_files, "winner_commits": winner_commits,
+        "files": len(added_by_path), "evidence": pr_url or f"commit:{merge_sha}",
+    }
 
-    evidence = pr_url or f"commit:{merge_sha}"
+
+def _repo_clone(slug: str, winner_name: str, target: Any, primary: bool,
+                repo_path: str | None) -> Path:
+    """Lokální git clone/worktree repa varianty: --repo-path, worktree `<slug>-<X>[-role]`, cache."""
+    if repo_path:
+        return _resolve_repo({"target_repo_url": target.url}, repo_path)
+    try:
+        from tool.cli.worktree import worktree_dir
+        wt = worktree_dir(slug, winner_name, target, primary)
+        if wt.is_dir() and _git(wt, "rev-parse", "--git-dir", check=False):
+            return wt.resolve()
+    except (ImportError, ValueError):
+        pass
+    return _resolve_repo({"target_repo_url": target.url}, None)
+
+
+def _pct(unchanged: int, total: int) -> float | None:
+    return round(unchanged / total * 100, 1) if total else None
+
+
+def measure(
+    *, slug: str, pr_url: str | None = None, merge_commit: str | None = None,
+    base: str | None = None, repo_path: str | None = None,
+    winner: str | None = None, fetch: bool = True,
+    repo_prs: list[str] | dict[str, str] | None = None,
+    repo_merges: list[str] | dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Measure how much of the winner branch reached production unchanged.
+
+    Heuristic (documented, conservative):
+    - `loc_winner` = lines added by the winner branch:
+      `git diff --numstat <fork>..<winner>` where fork = merge-base of the
+      winner and `--base` (default `<merge_commit>^1`).
+    - For each path the winner added lines to, `removed` = lines deleted in
+      `git diff --numstat <winner> <merge_commit> -- <paths>` (lines present
+      on the winner tip but not in the merged result).
+    - `loc_merged_unchanged` = Σ max(0, added_winner(path) − removed(path)).
+      Any removal in a winner-touched file counts against reuse, including
+      removals of pre-existing lines or by unrelated commits that landed on
+      the target branch before the merge → the number is a lower bound.
+      A modified line counts as one removal (+ one addition, ignored).
+    - `loc_reused_pct` = loc_merged_unchanged / loc_winner × 100.
+    - `days_to_prod` = calendar days from Rozhodnutí GO (sessions/decisions)
+      to the merge (gh `mergedAt`, else committer date of the merge commit).
+      Merge is used as the prod proxy; if deploy happens later, record the
+      real deploy date as a note.
+    - `winner_commits` = `git rev-list --count <fork>..<winner>`.
+    Multi-repo projekt (`target_repos`): měří se **každé repo zvlášť** (worktree
+    `<slug>-<X>-<role>`, větev `pflanzer/<slug>-<X>` v každém repu) a navíc součet.
+    Primární repo bere `--pr-url` / `--merge-commit`, ostatní `--repo-pr ROLE=URL`
+    a `--repo-merge ROLE=SHA`; repo bez PR/merge se neměří a výstup to řekne
+    („měřeno jen web“).
+    Works for merge commits and squash merges; for rebase merges pass the
+    tip of the rebased series as `--merge-commit` and the fork as `--base`.
+    """
+    with transaction() as conn:
+        _ensure_outcomes_table(conn)
+        project = _load_project(conn, slug)
+        project_id = int(project["id"])
+        go_dt, go_source = _go_date(conn, project_id)
+    winner_name = winner or _winner_name(slug, project_id)
+
+    targets: list[Any] = []
+    try:
+        from tool.cli.worktree import load_target_repos
+        targets = load_target_repos(slug, project)
+    except Exception:  # noqa: BLE001 — bez target_repos měříme jedno repo jako dřív
+        targets = []
+    multi = len(targets) > 1
+    prs, merges = _split_roles(repo_prs, "--repo-pr"), _split_roles(repo_merges, "--repo-merge")
+    unknown = sorted(r for r in {*prs, *merges} if r not in {t.role for t in targets})
+    if unknown:
+        raise ValueError(f"Repo {', '.join(unknown)} v projektu není "
+                         f"(jsou: {', '.join(t.role for t in targets) or 'jedno repo'}).")
+
+    repo_results: list[dict[str, Any]] = []  # změřená repa
+    unmeasured: list[dict[str, str]] = []
+    if not multi:
+        res = _measure_repo(slug=slug, winner_name=winner_name,
+                            repo=_resolve_repo(project, repo_path), pr_url=pr_url,
+                            merge_commit=merge_commit, base=base, fetch=fetch)
+        res["role"] = targets[0].role if targets else None
+        repo_results.append(res)
+    else:
+        for idx, t in enumerate(targets):
+            primary = idx == 0
+            t_pr = pr_url if primary else prs.get(t.role)
+            t_merge = merge_commit if primary else merges.get(t.role)
+            if primary and not (t_pr or t_merge):
+                raise ValueError(
+                    f"Chybí PR nebo merge commit primárního repa `{t.role}`: "
+                    "`--pr-url <URL>` nebo `--merge-commit <sha>`; ostatní repa "
+                    + ", ".join(f"`--repo-pr {x.role}=<URL>`" for x in targets[1:]) + ".")
+            if not (t_pr or t_merge):
+                unmeasured.append({"role": t.role,
+                                   "reason": f"chybí `--repo-pr {t.role}=<URL>` "
+                                             f"(nebo `--repo-merge {t.role}=<sha>`)"})
+                continue
+            clone = _repo_clone(slug, winner_name, t, primary, repo_path if primary else None)
+            res = _measure_repo(slug=slug, winner_name=winner_name, repo=clone, pr_url=t_pr,
+                                merge_commit=t_merge, base=base if primary else None,
+                                fetch=fetch)
+            res["role"] = t.role
+            repo_results.append(res)
+
+    loc_winner = sum(r["loc_winner"] for r in repo_results)
+    loc_unchanged = sum(r["loc_unchanged"] for r in repo_results)
+    reuse_pct = _pct(loc_unchanged, loc_winner)
+    winner_commits = sum(r["winner_commits"] for r in repo_results)
+    merge_dts = [r["merge_dt"] for r in repo_results if r["merge_dt"]]
+    merge_dt = max(merge_dts) if merge_dts else None  # hotovo, až je ve všech změřených repech
+    # oba okamžiky jako aware datetime, kalendářní dny v jednom (místním) pásmu
+    go_day = local_date(go_dt) if go_dt else None
+    merge_day = local_date(merge_dt) if merge_dt else None
+    days_to_prod = (merge_day - go_day).days if (merge_day and go_day) else None
+    for r in repo_results:
+        d = local_date(r["merge_dt"]) if r["merge_dt"] else None
+        r["days_to_prod"] = (d - go_day).days if (d and go_day) else None
+
+    first = repo_results[0]
+    measured_names = [r["role"] for r in repo_results]
+    coverage = ""
+    if multi:
+        coverage = ("měřeno: " + ", ".join(measured_names)
+                    + ("; neměřeno: " + ", ".join(u["role"] for u in unmeasured)
+                       if unmeasured else ""))
+    ignored_files = sorted({f for r in repo_results for f in r["ignored_files"]})
+    evidence = first["evidence"]
     heuristic = (
-        f"added(winner) - removed(winner..merge) per path; fork={fork_sha[:10]} "
-        f"({fork_source}); winner={winner_sha[:10]}; merge={merge_sha[:10]} ({merge_source})"
+        f"added(winner) - removed(winner..merge) per path; fork={first['fork_sha'][:10]} "
+        f"({first['fork_source']}); winner={first['winner_sha'][:10]}; "
+        f"merge={first['merge_sha'][:10]} ({first['merge_source']})"
     )
+    n_files = sum(r["files"] for r in repo_results)
     rows: list[tuple[str, float | None, str, str]] = [
         ("loc_winner", float(loc_winner), "loc",
-         f"{len(added_by_path)} files; {winner_branch}"
-         + (f"; ignorováno {len(ignored_files)} souborů nástroje" if ignored_files else "")),
-        ("loc_merged_unchanged", float(loc_unchanged), "loc", heuristic),
-        ("loc_reused_pct", reuse_pct, "%", f"target >= {TARGET_REUSE_PCT:.0f} %"),
-        ("winner_commits", float(winner_commits), "commits", f"{fork_sha[:10]}..{winner_sha[:10]}"),
+         f"{n_files} files; {first['winner_branch']}"
+         + (f"; ignorováno {len(ignored_files)} souborů nástroje" if ignored_files else "")
+         + (f"; součet repa ({coverage})" if multi else "")),
+        ("loc_merged_unchanged", float(loc_unchanged), "loc",
+         heuristic + (f"; součet repa ({coverage})" if multi else "")),
+        ("loc_reused_pct", reuse_pct, "%",
+         f"target >= {TARGET_REUSE_PCT:.0f} %" + (f"; {coverage}" if multi else "")),
+        ("winner_commits", float(winner_commits), "commits",
+         f"{first['fork_sha'][:10]}..{first['winner_sha'][:10]}"
+         + (f"; součet repa ({coverage})" if multi else "")),
     ]
     if days_to_prod is not None:
         rows.append((
             "days_to_prod", float(days_to_prod), "days",
-            f"GO {go_dt.date().isoformat()} ({go_source}) -> merge "
-            f"{merge_dt.date().isoformat()}; target <= {TARGET_DAYS_TO_PROD}",
+            f"GO {go_day.isoformat()} ({go_source}) -> merge "
+            f"{merge_day.isoformat()}; target <= {TARGET_DAYS_TO_PROD}"
+            + (f"; poslední z repa ({coverage})" if multi else ""),
         ))
     else:
         print("[retro] warn: datum Rozhodnutí (Go) nenalezeno — days_to_prod se nezapíše.",
               file=sys.stderr)
+    if multi:  # per repo: metrika@role
+        for r in repo_results:
+            role = r["role"]
+            rows += [
+                (f"loc_winner@{role}", float(r["loc_winner"]), "loc",
+                 f"{r['files']} files; {r['winner_branch']} v repu {role}"),
+                (f"loc_merged_unchanged@{role}", float(r["loc_unchanged"]), "loc",
+                 f"merge={r['merge_sha'][:10]} ({r['merge_source']}) v repu {role}"),
+                (f"loc_reused_pct@{role}", _pct(r["loc_unchanged"], r["loc_winner"]), "%",
+                 f"repo {role}"),
+                (f"winner_commits@{role}", float(r["winner_commits"]), "commits",
+                 f"{r['fork_sha'][:10]}..{r['winner_sha'][:10]} v repu {role}"),
+            ]
+            if r["days_to_prod"] is not None:
+                rows.append((f"days_to_prod@{role}", float(r["days_to_prod"]), "days",
+                             f"repo {role}"))
 
     actor = current_actor()
     metrics = [r[0] for r in rows]
@@ -448,7 +589,8 @@ def measure(
         # measure is recomputable: replace previous ship rows for these metrics
         conn.execute(
             f"DELETE FROM outcomes WHERE project_id = ? AND milestone = 'ship' "
-            f"AND metric IN ({','.join('?' * len(metrics))})",
+            f"AND (metric IN ({','.join('?' * len(metrics))}) "
+            f"OR (metric GLOB '*@*' AND metric GLOB '[ldw]*'))",
             (project_id, *metrics),
         )
         for metric, value, unit, notes in rows:
@@ -459,20 +601,21 @@ def measure(
             )
         audit(
             conn, action="retro.measure", target_type="project", target_id=project_id,
-            payload={"slug": slug, "winner": winner_name, "merge_commit": merge_sha,
+            payload={"slug": slug, "winner": winner_name, "merge_commit": first["merge_sha"],
                      "pr_url": pr_url, "loc_reused_pct": reuse_pct,
-                     "days_to_prod": days_to_prod},
+                     "days_to_prod": days_to_prod, "repos": measured_names,
+                     "unmeasured": [u["role"] for u in unmeasured]},
         )
 
-    return {
+    out = {
         "slug": slug,
         "winner": winner_name,
-        "winner_branch": winner_ref,
-        "repo": str(repo),
-        "fork_point": fork_sha,
-        "fork_point_source": fork_source,
-        "merge_commit": merge_sha,
-        "merge_commit_source": merge_source,
+        "winner_branch": first["winner_ref"],
+        "repo": str(first["repo"]),
+        "fork_point": first["fork_sha"],
+        "fork_point_source": first["fork_source"],
+        "merge_commit": first["merge_sha"],
+        "merge_commit_source": first["merge_source"],
         "merged_at": merge_dt.isoformat() if merge_dt else None,
         "session2_go_at": go_dt.isoformat() if go_dt else None,
         "loc_winner": loc_winner,
@@ -484,11 +627,22 @@ def measure(
             "reuse_ok": reuse_pct is not None and reuse_pct >= TARGET_REUSE_PCT,
             "days_to_prod_ok": days_to_prod is not None and days_to_prod <= TARGET_DAYS_TO_PROD,
         },
-        "per_file": per_file,
+        "per_file": first["per_file"] if not multi else [
+            {**f, "repo": r["role"]} for r in repo_results for f in r["per_file"]],
         "ignored_files": ignored_files,
         "evidence_url": evidence,
+        "measured_repos": measured_names,
+        "unmeasured_repos": unmeasured,
         "next_step": f"pflanzer retro report --slug {slug}",
     }
+    if multi:
+        out["per_repo"] = [
+            {"role": r["role"], "repo": str(r["repo"]), "loc_winner": r["loc_winner"],
+             "loc_merged_unchanged": r["loc_unchanged"],
+             "loc_reused_pct": _pct(r["loc_unchanged"], r["loc_winner"]),
+             "days_to_prod": r["days_to_prod"], "winner_commits": r["winner_commits"],
+             "merge_commit": r["merge_sha"]} for r in repo_results]
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -714,7 +868,7 @@ def build_report(slug: str) -> dict[str, Any]:
     today = date.today()
     milestones = []
     for m in MILESTONES:
-        due = (go_dt.date() + timedelta(days=MILESTONE_DAYS[m])) if go_dt else None
+        due = (local_date(go_dt) + timedelta(days=MILESTONE_DAYS[m])) if go_dt else None
         has_rows = any(r["milestone"] == m for r in rows)
         if has_rows:
             state = "recorded"
@@ -832,7 +986,7 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 # Retro — {p['name']}
 
 > Slug: `{p['slug']}` · Vygenerováno: {now} · Stav projektu: `{p['status']}`
-> Rozhodnutí (Go): {go_dt.date().isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
+> Rozhodnutí (Go): {local_date(go_dt).isoformat() if go_dt else '_neznámé_'} ({data['go_source']})
 > Postup měření: `docs/methodology/07-handoff-do-vyvoje.md`, kapitola Retro.
 
 **{_primary_line(data['primary'])}**
@@ -854,6 +1008,9 @@ Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
 - `loc_reused_pct` = řádky přidané winner branchí, které v merge commitu
   zůstaly beze změny (heuristika `added − removed` po cestách, které winner
   změnil; konzervativní dolní odhad — viz `pflanzer retro measure --help`).
+- U projektu přes víc repozitářů je `loc_*` / `winner_commits` / `days_to_prod` bez přípony
+  součet (dny: poslední merge) za **změřená** repa (poznámka řádku říká, která) a řádky
+  `metrika@role` jsou per repo.
 - `days_to_prod` = kalendářní dny od Rozhodnutí (Go) do merge commitu (proxy
   pro první prod deploy).
 - T+7/30/60/90 = ruční readouty (`pflanzer retro record`), evidence URL povinně
@@ -996,7 +1153,7 @@ def _reminder_items(
     if from_date:
         start, start_source = date.fromisoformat(from_date), "--from"
     elif go_dt:
-        start, start_source = go_dt.date(), "Rozhodnutí (Go)"
+        start, start_source = local_date(go_dt), "Rozhodnutí (Go)"
     else:
         raise ValueError(
             "Datum Rozhodnutí (Go) v DB není. Zadej `--from YYYY-MM-DD`."
@@ -1199,6 +1356,10 @@ def main() -> None:
     p_measure.add_argument("--base", help="Base ref pro fork point (default: <merge-commit>^1)")
     p_measure.add_argument("--repo-path", help="Lokální clone target repa (default: ~/.pflanzer/targets/<repo>)")
     p_measure.add_argument("--winner", help="Jméno winner varianty (default: stejné pravidlo jako SHIP.md)")
+    p_measure.add_argument("--repo-pr", action="append", default=[], metavar="ROLE=URL",
+                           help="Multi-repo: mergnuté PR sekundárního repa (opakovatelné)")
+    p_measure.add_argument("--repo-merge", action="append", default=[], metavar="ROLE=SHA",
+                           help="Multi-repo: merge commit sekundárního repa (opakovatelné)")
     p_measure.add_argument("--no-fetch", action="store_true", help="Nepouštět git fetch origin")
 
     p_record = sub.add_parser(
@@ -1255,7 +1416,8 @@ def main() -> None:
             out = measure(slug=args.slug, pr_url=args.pr_url,
                           merge_commit=args.merge_commit, base=args.base,
                           repo_path=args.repo_path, winner=args.winner,
-                          fetch=not args.no_fetch)
+                          fetch=not args.no_fetch, repo_prs=args.repo_pr,
+                          repo_merges=args.repo_merge)
             lines = [f"Varianta {out['winner']}: {out['loc_merged_unchanged']} z {out['loc_winner']} "
                      f"nových řádků zůstalo beze změny"
                      + (f" ({out['loc_reused_pct']:g} %, cíl ≥ {TARGET_REUSE_PCT:.0f} %)"
@@ -1264,6 +1426,15 @@ def main() -> None:
                 lines.append(f"Od Go do merge: "
                              f"{count(out['days_to_prod'], 'den', 'dny', 'dní')} "
                              f"(cíl ≤ {TARGET_DAYS_TO_PROD})")
+            for r in out.get("per_repo") or []:
+                lines.append(f"  repo {r['role']}: {r['loc_merged_unchanged']} z "
+                             f"{r['loc_winner']} řádků beze změny"
+                             + (f" ({r['loc_reused_pct']:g} %)"
+                                if r["loc_reused_pct"] is not None else ""))
+            if out["unmeasured_repos"]:
+                lines.append("Měřeno jen " + ", ".join(out["measured_repos"]) + "; neměřeno: "
+                             + "; ".join(f"{u['role']} ({u['reason']})"
+                                         for u in out["unmeasured_repos"]))
             if out["ignored_files"]:
                 n_ign = len(out["ignored_files"])
                 lines.append(f"Nepočítám {count(n_ign, 'soubor', 'soubory', 'souborů')} "

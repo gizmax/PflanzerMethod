@@ -94,8 +94,13 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
   v `--json` je nastaven, když `.feature` existuje v kterémkoli repu.
 - **Preview:** `preview up` spustí pro každou variantu všechna repa. Sekundární
   běží na portu `app + 1000 + idx` (idx = pořadí repa, primární 0); primární dostane
-  env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (`API_URL=http://127.0.0.1:<port>`).
-  Proxy s heslem je jen před primárním. Příkaz sekundárního repa:
+  env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (server, `API_URL=http://127.0.0.1:<port>`)
+  a pro prohlížeč `VITE_<ROLE>_URL`, `NEXT_PUBLIC_<ROLE>_URL`, `REACT_APP_<ROLE>_URL`
+  = relativní `/__pflanzer/<role>`. Proxy s heslem je jen před primárním a cestu
+  `/__pflanzer/<role>/…` přepošle (bez prefixu, metoda, tělo a hlavičky) na sekundární
+  repo téže varianty; aplikace tak v prohlížeči volá `${VITE_API_URL}/slots` (v preview je
+  `VITE_API_URL=/__pflanzer/api`; Next `NEXT_PUBLIC_API_URL`, CRA `REACT_APP_API_URL`) za
+  stejným heslem a nic nehardcoduje; na serveru čte `API_URL`. Příkaz sekundárního repa:
 
   ```toml
   [preview]            # primární repo

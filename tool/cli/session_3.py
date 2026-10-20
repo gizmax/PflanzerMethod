@@ -42,6 +42,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from tool.cli._compat import ProjectNotFound, count, exit_if_project_missing, tips  # noqa: E402
+from tool.cli.charter import reviewer_hint  # noqa: E402
 from tool.cli.db import audit, display_path, transaction  # noqa: E402
 from tool.cli.extract import (  # noqa: E402
     BRAND,
@@ -706,14 +707,15 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
                informational: bool = False, decided: str | None = None,
                human: list[str] | None = None, provoz_done: bool = False) -> str:
     score = winner["gates"]["gate_score"]
-    pr_step = (f"`pflanzer handoff_pr --slug {slug}` a `/pm handoff {slug}`")
+    pr_step = (f"`pflanzer handoff_pr --slug {slug}` vypíše příkazy k otevření PR (SHIP.md), "
+               f"potom `/pm handoff {slug}`. {reviewer_hint(slug)}")
     ops = "" if provoz_done else "Checkpoint provozu (20 min), pak "
     if informational:
         return (f"Tohle bylo jen porovnání: vítěz z Rozhodnutí je {decided}. Pro Ship spusť "
                 f"`pflanzer session_3 --slug {slug}` bez --variants.")
     if threshold_override and not blocked_by:
         return (f"Skóre {score}/100 je pod prahem {target}, Ship běží na odpovědnost Decidera "
-                f"({threshold_override['decider']}). {ops}{'d' if ops else 'D'}raft PR: {pr_step}.")
+                f"({threshold_override['decider']}). {ops}{'d' if ops else 'D'}raft PR: {pr_step}")
     if blocked_by and target > 0:
         parts: list[str] = []
         triage_b = [b for b in blocked_by if b.startswith("triage:")]
@@ -737,7 +739,7 @@ def _next_step(winner: dict[str, Any], meets: bool, target: int, slug: str,
         parts.append(f"Skóre {score}/100 (práh {target}).")
         return " ".join(parts)
     if meets:
-        return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}."
+        return f"Skóre {score}/100 (práh {target}). {ops}PR vítěze: {pr_step}"
     fails, warns = _failing(winner)
     hard = _hard_failed(winner)
     head = (f"Skóre {score}/100 (práh {target}), ale {_hard_fail_message(winner, hard)} — "
@@ -817,11 +819,22 @@ def _render_report(
             return "pod prahem"
         return "splňuje práh ⚠" if unv else "splňuje práh"
 
+    def _gates_run_cell(r: dict[str, Any]) -> str:
+        """Spuštěné brány: u jednoho repa `6/10`, u více repa celkem + per repo."""
+        repos = r["gates"].get("repos") or []
+        if len(repos) > 1:
+            total = sum(e["gates_run"] for e in repos)
+            cell = (f"{total}/{len(GATE_TYPES) * len(repos)} celkem ("
+                    + ", ".join(f"{e['role']} {e['gates_run']}/{len(GATE_TYPES)}"
+                                for e in repos) + ")")
+        else:
+            cell = f"{r['sufficiency']['gates_run']}/{len(GATE_TYPES)}"
+        return cell + ("" if r["sufficiency"]["sufficient"] else " (málo)")
+
     var_table = "\n".join(
         f"| {r['variant']} | `{r['builder']}` | {r['preference_score']:.2f} | "
         f"**{r['gates']['gate_score']}/100** | {status_label(r['gates']['gate_score'], unverified_gates(r['gates']['results']))} | "
-        f"{r['sufficiency']['gates_run']}/{len(GATE_TYPES)}"
-        f"{'' if r['sufficiency']['sufficient'] else ' (málo)'} | "
+        f"{_gates_run_cell(r)} | "
         f"`{r['extraction']['method']}` | {r['extraction'].get('branch') or '—'} | "
         f"{r['adapter']['source']} |"
         for r in per_variant

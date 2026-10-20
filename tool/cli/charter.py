@@ -247,6 +247,33 @@ def people_check(core: list[str] | None, path_owners: dict[str, str] | None) -> 
     return warnings
 
 
+def reviewer_hint(slug: str) -> str:
+    """Kdo má PR zkontrolovat: jen lidé mimo jádro (path_owners mimo core), jinak obecně."""
+    generic = "PR musí zkontrolovat někdo mimo jádro (kdo u Buildu nebyl)."
+    try:
+        with transaction() as conn:
+            row = conn.execute("SELECT core_json, path_owners_json FROM projects WHERE slug = ?",
+                               (slug,)).fetchone()
+        core = json.loads(row[0]) if row and row[0] else []
+        owners = json.loads(row[1]) if row and row[1] else {}
+    except Exception:  # noqa: BLE001 — jen nápověda
+        return generic
+    core_txt = " ".join(str(c) for c in core).casefold()
+    if not core_txt.strip():  # bez uvedeného jádra tvoří jádro stavitelé
+        core_txt = " ".join(str(owners.get(k) or "") for k in ("vyvoj", "produkt", "design")
+                            ).casefold()
+    outside: list[str] = []
+    for who in owners.values():
+        name = str(who or "").strip()
+        if (not name or name.lower() == "ai" or name.lower().startswith("ai:")
+                or name.casefold() in core_txt or name in outside):
+            continue
+        outside.append(name)
+    if outside:
+        return f"PR musí zkontrolovat někdo mimo jádro, např. {' nebo '.join(outside)}."
+    return generic
+
+
 @dataclass
 class CharterInput:
     """Kickoff inputs — must mirror the `/pm start` fields."""
