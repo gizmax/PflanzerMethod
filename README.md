@@ -52,7 +52,7 @@ Build              /pm build     3 h, jádro                  3 varianty paralel
                                                              20min checkpoint bezpečnost & právo
 Sběr feedbacku     /pm feedback  3–5 dní, všichni            klikání na preview URL (Async)
 Rozhodnutí         /pm decide    60–90 min, Decider + jádro  Go / Iterate (max 1×) / Kill
-Ship               /pm ship      1–2 dny, vývojáři + provoz  kontroly jen na vítěze, PR do main
+Ship               /pm ship      1–2 dny, vývojáři + provoz  kontroly jen na vítěze, SHIP.md + text PR
 ```
 
 Tři pravidla: každý krok cesty má jméno · max 5 lidí naráz · co umí automat,

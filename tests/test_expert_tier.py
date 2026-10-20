@@ -236,3 +236,19 @@ def test_resolve_before_decision_speaks_about_variant(
     assert "Na vítězi (" not in out                   # Rozhodnutí ještě nepadlo (tip v ux.py = C1)
     assert "shortlistu A/B žádný kritický nezbývá" in out
     assert "go --winner A" in out                     # doporučení odpovídá skóre (A vede)
+
+
+def test_hub_sees_merged_window_through_sqlmodel(tmp_db: Path, bare_repo: Path) -> None:
+    """Pilot 21: hub volá CLI pravidlo přes SQLAlchemy spojení bez sqlite3.Row – musí platit."""
+    pytest.importorskip("sqlmodel")
+    from sqlmodel import Session, create_engine
+
+    from tool.cli.db import DB_PATH
+    from tool.web.backend.api import expert
+    bootstrap_project(slug="hubmerge", risk_profile="pilot", path_owners=OWNERS,
+                      target_repo_url=file_url(bare_repo))
+    with transaction() as conn:
+        pid = conn.execute("SELECT id FROM projects WHERE slug='hubmerge'").fetchone()[0]
+        assert checkpoint.merged_applies(conn, pid)
+    with Session(create_engine(f"sqlite:///{DB_PATH}")) as db:
+        assert expert._merged_window(db, pid)

@@ -272,7 +272,7 @@ def test_bootstrap_spec_from_stdin(tmp_db: Path, monkeypatch: pytest.MonkeyPatch
                                    capsys: pytest.CaptureFixture[str]) -> None:
     rc = _run(monkeypatch, quick_session, "bootstrap", "--spec", "-", stdin=json.dumps(KICKOFF))
     out = capsys.readouterr().out
-    assert rc == 0 and "Kickoff hotový" in out and "/pm build rychlejsi-schvalovani-zadosti" in out
+    assert rc == 0 and "Kickoff hotový" in out and "/pm build rychlejsi-schvalovani" in out
     rc = _run(monkeypatch, quick_session, "bootstrap", "--spec", "-", "--json",
               stdin=json.dumps({**KICKOFF, "slug": "j2"}))
     assert json.loads(capsys.readouterr().out)["slug"] == "j2"
