@@ -140,7 +140,8 @@ def test_checkpoint_blocked_next_step_names_owner(tmp_db: Path, bare_repo: Path)
 def test_checkpoint_cli_human_and_json(tmp_db: Path, bare_repo: Path,
                                        monkeypatch: pytest.MonkeyPatch,
                                        capsys: pytest.CaptureFixture[str]) -> None:
-    bootstrap_project(slug="cli", target_repo_url=file_url(bare_repo), path_owners=_owners())
+    bootstrap_project(slug="cli", target_repo_url=file_url(bare_repo), path_owners=_owners(),
+                      personal_data=True)  # oddělená okna (bez osobních dat by se sloučila)
     rc = _run(monkeypatch, checkpoint, "--slug", "cli", "bezpecnost", "--by", "Lucie",
               "--note", "ok")
     out = capsys.readouterr().out

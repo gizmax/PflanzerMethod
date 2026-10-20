@@ -88,7 +88,7 @@ okna, režim stavby a prahy se z toho odvodí; přebít je lze
 | demo | Quick | žádná (triage se nespouští; před pilotem nový Kickoff) |
 | pilot bez osobních dat | Lean | **Zadání** (Decider) + **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
 | pilot s osobními daty | Lean | Zadání, Bezpečnost & právo, Provoz |
-| ostré | Lean (s osobními daty Full) | Zadání, Bezpečnost & právo, Provoz (+ Právo/DPIA u Full) |
+| ostré | Lean (s osobními daty Full) | Zadání, Bezpečnost & právo, Provoz (u Full Právo (DPIA) samostatně jen když triage DPIA odloží) |
 
 ### Okna a podpisy
 
@@ -118,6 +118,12 @@ Kickoff jde i z terminálu: zapište spec do `kickoff.json` a spusťte
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"}}
 ```
+
+Stupeň Full (ostré s osobními údaji) doporučí `/pm triage`; bez Claude Code zapište
+4 výsledky (discovery, security, legal, platform) do `triage.json` a spusťte
+`pflanzer triage --spec triage.json` (schéma a ukázka: `pflanzer triage --help`,
+[`faq.md`](faq.md#triage-bez-claude-code)). `signed_by` v triage je podpis člověka;
+prázdné = čeká na podpis.
 
 Další kroky v terminálu: `pflanzer build` (nápověda k Buildu), `pflanzer prompts --slug S`,
 `pflanzer share --slug S`, `pflanzer record --spec soubor.json`, `pflanzer decide`, `pflanzer ship`.

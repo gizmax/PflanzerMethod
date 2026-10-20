@@ -118,7 +118,7 @@ export type SignWindow = {
 };
 
 export type VoteChoice = "go" | "iterate" | "kill";
-export type VoteOut = { voter: string; choice: VoteChoice; winner: string | null; comment: string };
+export type VoteOut = { voter: string; choice: VoteChoice; winner: string | null; comment: string; iterate_variants?: string[] };
 
 export type VotesState = {
   enabled: boolean;

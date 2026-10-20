@@ -155,6 +155,7 @@ class DecisionVote(SQLModel, table=True):
     choice: str  # go | iterate | kill
     winner: str | None = None
     comment: str = ""
+    iterate_variants: str | None = None  # "A,B" — varianty do dalšího kola (jen u Iterate)
     created_at: datetime = Field(default_factory=utcnow)
 
 

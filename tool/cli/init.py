@@ -30,6 +30,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.md.template"
 PYTHON_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.python.md.template"
 GO_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.go.md.template"
+NODE_BACKEND_TEMPLATE_PATH = (PLUGIN_ROOT / "tool" / "templates"
+                              / "INTEGRATION_GUIDE.node-backend.md.template")
 GENERIC_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "INTEGRATION_GUIDE.generic.md.template"
 CONSTITUTION_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "CONSTITUTION.md.template"
 GATES_TEMPLATE_PATH = PLUGIN_ROOT / "tool" / "templates" / "pflanzer.gates.yml.template"
@@ -40,6 +42,22 @@ from tool.cli.apprun import workspace_packages  # noqa: E402
 from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
+FRONTEND_DEPS = ("react", "vue", "svelte", "next", "vite", "@angular/core", "nuxt", "solid-js", "preact")
+BACKEND_DEPS = ("express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hono")
+
+
+def _node_is_backend(path: Path) -> bool:
+    """Node repo s backend frameworkem a bez frontend frameworku (ani ve workspace)."""
+    import json
+    deps: set[str] = set()
+    for pkg in [path / "package.json", *(w / "package.json" for w in workspace_packages(path))]:
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        deps |= set((data.get("dependencies") or {})) | set((data.get("devDependencies") or {}))
+    return bool(deps & set(BACKEND_DEPS)) and not deps & set(FRONTEND_DEPS)
+
 
 def guide_template_for(path: Path) -> Path:
     """INTEGRATION_GUIDE šablona podle stacku: Python / Go; Node (React/TS) a repo bez rozpoznaného
@@ -48,6 +66,8 @@ def guide_template_for(path: Path) -> Path:
         stack = detect_stack(path)
     except OSError:
         stack = None
+    if stack == "node" and NODE_BACKEND_TEMPLATE_PATH.is_file() and _node_is_backend(path):
+        return NODE_BACKEND_TEMPLATE_PATH
     if stack == "python" and PYTHON_TEMPLATE_PATH.is_file():
         return PYTHON_TEMPLATE_PATH
     if stack == "go" and GO_TEMPLATE_PATH.is_file():
@@ -76,9 +96,13 @@ def git_add_command(target_repo: Path | None = None) -> str:
         paths.append(".gitignore")
     if (target_repo / ".claude" / "settings.json").exists():
         paths.append(".claude/settings.json")
+    for extra in INSTALLED_EXTRA:    # lockfile a CI patří do init commitu, jinak je CI bez nich nereprodukovatelné
+        if (target_repo / extra).exists():
+            paths.append(extra)
     return f"git add -A {' '.join(paths)}"
 
 
+INSTALLED_EXTRA = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock", ".github"]
 CANONICAL_EXTRA = [".gitignore", ".claude/settings.json"]
 
 

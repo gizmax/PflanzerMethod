@@ -42,13 +42,4 @@ export const PATH_STEPS: [string, string][] = [
 export const stepLabel = (key: string): string =>
   PATH_STEPS.find(([k]) => k === key)?.[1] ?? key;
 
-/** Hrubé oslovení (5. pád) pro "Díky, Evo." — jen jisté případy, jinak jméno beze změny. */
-export function vocative(fullName: string): string {
-  const first = fullName.trim().split(/\s+/)[0] || fullName;
-  if (/[aA]$/.test(first) && first.length > 2) return first.slice(0, -1) + "o";
-  const known: Record<string, string> = {
-    Petr: "Petře", Martin: "Martine", Tomáš: "Tomáši", Jan: "Jane", Pavel: "Pavle",
-    Ondřej: "Ondřeji", Michal: "Michale", Marek: "Marku", Karel: "Karle", Jakub: "Jakube",
-  };
-  return known[first] ?? first;
-}
+export { vocative } from "./czech";

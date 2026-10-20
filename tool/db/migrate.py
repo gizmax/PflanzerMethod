@@ -72,6 +72,10 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("resolved_at", "TIMESTAMP"),
         ("resolved_note", "TEXT"),
     ],
+    # Pilot 22: varianty do dalšího kola u hlasu Iterate
+    "decision_votes": [
+        ("iterate_variants", "TEXT"),
+    ],
 }
 
 

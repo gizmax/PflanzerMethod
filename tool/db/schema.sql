@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS decision_votes (
   choice TEXT NOT NULL CHECK (choice IN ('go','iterate','kill')),
   winner TEXT,
   comment TEXT NOT NULL DEFAULT '',
+  iterate_variants TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

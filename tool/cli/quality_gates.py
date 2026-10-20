@@ -1931,6 +1931,38 @@ def unverified_gates(results: list[Any]) -> list[dict[str, str]]:
     return out
 
 
+def warned_gates(results: list[Any]) -> list[str]:
+    """Lidské názvy bran, které doběhly s varováním (WARN); skóre je nezhoršují (ADR-0024)."""
+    out: list[str] = []
+    for r in results:
+        status = r.status if hasattr(r, "status") else r.get("status")
+        if status != "warn":
+            continue
+        gate = r.gate_type if hasattr(r, "gate_type") else r["gate"]
+        label = gate_label(gate)
+        if label not in out:
+            out.append(label)
+    return out
+
+
+PERSONAL_DATA_CLASSES = ("L3", "L4")
+PERSONAL_DATA_GATES = ("coverage", "tests", "security")
+
+
+def gate_risk_notes(warned: list[str], unverified: list[dict[str, str]] | None,
+                    risk_profile: str | None = None, data_class: str | None = None) -> list[str]:
+    """Věty o branách s varováním a (u production s osobními daty L3/L4) o neověřených testech
+    a bezpečnosti. Skóre nechávají být, jen ho poctivě doplňují."""
+    notes: list[str] = []
+    if warned:
+        notes.append("Varování: " + ", ".join(warned))
+    if risk_profile == "production" and str(data_class or "").upper() in PERSONAL_DATA_CLASSES:
+        names = [gate_label(u["gate"]) for u in unverified or [] if u["gate"] in PERSONAL_DATA_GATES]
+        if names:
+            notes.append(f"neověřeno u osobních dat ({data_class}): {', '.join(names)}")
+    return notes
+
+
 def acceptance_unverified(unverified: list[dict[str, str]] | None) -> bool:
     return any(u["gate"] == "acceptance" for u in unverified or [])
 

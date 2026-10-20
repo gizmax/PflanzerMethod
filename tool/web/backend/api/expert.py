@@ -192,6 +192,7 @@ class VoteIn(BaseModel):
     choice: str
     winner: str | None = Field(default=None, max_length=40)
     comment: str = Field(default="", max_length=500)
+    iterate_variants: list[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("choice")
     @classmethod
@@ -205,6 +206,11 @@ class VoteIn(BaseModel):
 def _ensure_table(db: Session) -> None:
     """Starší DB bez migrace: tabulku hlasů vytvoříme (idempotentně) při prvním použití."""
     SQLModel.metadata.create_all(db.get_bind(), tables=[DecisionVote.__table__])  # type: ignore[attr-defined]
+    conn = db.connection()
+    cols = {r[1] for r in conn.exec_driver_sql("PRAGMA table_info(decision_votes)").fetchall()}
+    if "iterate_variants" not in cols:  # tabulka z dřívější verze bez sloupce
+        conn.exec_driver_sql("ALTER TABLE decision_votes ADD COLUMN iterate_variants TEXT")
+        db.commit()
 
 
 def _reveal_row(db: Session, project_id: int) -> AuditLog | None:
@@ -227,10 +233,12 @@ def _is_decider(project: Project, actor: str) -> bool:
     return bool(project.decider_name) and same_person(actor, project.decider_name)
 
 
-def vote_command(slug: str, choice: str, winner: str | None, rationale: str) -> str:
+def vote_command(slug: str, choice: str, winner: str | None, rationale: str,
+                 variants: list[str] | None = None) -> str:
     rationale = (rationale or "důvod v jedné větě").replace('"', "'")
     win = f" --winner {winner}" if choice == "go" and winner else ""
-    return f'pflanzer decide --slug {slug} {choice}{win} --rationale "{rationale}"'
+    var = f" --variants {','.join(variants)}" if choice == "iterate" and variants else ""
+    return f'pflanzer decide --slug {slug} {choice}{win}{var} --rationale "{rationale}"'
 
 
 def _state(db: Session, project: Project, actor: str) -> dict[str, Any]:
@@ -266,13 +274,19 @@ def _state(db: Session, project: Project, actor: str) -> dict[str, Any]:
         "mine": _vote_out(mine) if mine else None,
         "votes": [_vote_out(v) for v in shown],
         "tally": tally if revealed else None,
-        "command": (vote_command(project.slug, lead.choice, lead.winner, lead.comment)
+        "command": (vote_command(project.slug, lead.choice, lead.winner, lead.comment,
+                                 _variants(lead))
                     if lead is not None else None),
     }
 
 
+def _variants(v: DecisionVote) -> list[str]:
+    return [x for x in (v.iterate_variants or "").split(",") if x]
+
+
 def _vote_out(v: DecisionVote) -> dict[str, Any]:
-    return {"voter": v.voter, "choice": v.choice, "winner": v.winner, "comment": v.comment}
+    return {"voter": v.voter, "choice": v.choice, "winner": v.winner, "comment": v.comment,
+            "iterate_variants": _variants(v)}
 
 
 @router.get("/{slug}/votes")
@@ -295,14 +309,19 @@ def post_vote(slug: str, payload: VoteIn, db: Session = Depends(get_session),
     if payload.choice == "go" and not (payload.winner or "").strip():
         raise HTTPException(422, "U volby Go uveďte vítěznou variantu.")
     winner = (payload.winner or "").strip() or None
+    picked = [x.strip() for x in payload.iterate_variants
+              if x.strip() and "," not in x and len(x.strip()) <= 40]
+    its = ",".join(dict.fromkeys(picked)) or None if payload.choice == "iterate" else None
     mine = db.exec(select(DecisionVote).where(
         DecisionVote.project_id == project.id, DecisionVote.voter == actor)).first()
     if mine:
         mine.choice, mine.winner, mine.comment = payload.choice, winner, payload.comment.strip()
+        mine.iterate_variants = its
         db.add(mine)
     else:
         db.add(DecisionVote(project_id=project.id, voter=actor, choice=payload.choice,
-                            winner=winner, comment=payload.comment.strip()))
+                            winner=winner, comment=payload.comment.strip(),
+                            iterate_variants=its))
     write_audit(db, actor=actor, action="vote.cast", target_type="project",
                 target_id=project.id, payload={"choice": payload.choice})
     db.commit()
