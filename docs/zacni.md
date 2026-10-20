@@ -63,12 +63,14 @@ Na každém kroku stačí jeden příkaz (v Claude Code `/pm <krok>`).
 | 2 | Build: AI staví 3 varianty, kontroly běží průběžně | `/pm build` (nápověda: `pflanzer build`) | jádro, 3 h |
 | 3 | Sdílení: preview i hub, jedna adresa + heslo, hotová zpráva kolegům | `pflanzer share --slug S` | builder, 5 min |
 | 4 | Zápis hodnocení Buildu | `pflanzer record --spec soubor.json` | builder |
-| 5 | Sběr feedbacku (Async): zástupci proklikají a komentují | `/pm feedback` | všichni, ~15 min denně, 3–5 dní |
+| 5 | Sběr feedbacku (Async): zástupci proklikají a komentují | `/pm feedback` (terminál: `pflanzer feedback add --slug S --variant A --role Design --by "Jméno" --severity critical\|major\|minor --text "…"`, přehled `pflanzer feedback list --slug S`) | všichni, ~15 min denně, 3–5 dní |
 | 6 | Rozhodnutí: demo, top 3 spory, Decider hlasuje poslední → Go / Iterate (max 1×) / Kill | `/pm decide` (`pflanzer decide`) | Decider + jádro, 60–90 min |
-| 7 | Ship: kontroly jen na vítěze, PR do `main` | `/pm ship` (`pflanzer ship`) | vývojáři + provoz, 1–2 dny |
-| 8 | Retro: kolik kódu vítěze žije v produkci | `/pm retro S` | builder, po merge |
+| 7 | Ship: kontroly jen na vítěze, nástroj vyrobí `SHIP.md` a text PR; PR otevře vlastník repa příkazem `gh pr create` z konce `SHIP.md` | `/pm ship` (`pflanzer ship --slug S`) | vývojáři + provoz, 1–2 dny |
+| 8 | Retro: kolik kódu vítěze žije v produkci | `/pm retro S` (`pflanzer retro measure --slug S --pr-url URL`, bez gh `--merge-commit <sha>`) | builder, po merge |
 
-Po Kickoffu zastavíš sdílení příkazem `pflanzer share down --slug S`.
+Slug (krátký) vypíše Kickoff; lze ho zadat i ve specu (`"slug"`). Po sběru feedbacku
+(po Rozhodnutí) zastavíš sdílení: `pflanzer share down --slug S`. Report pro vedení:
+`pflanzer report summary --slug S`.
 **Kde jste?** `/pm` řekne fázi a jeden další krok. Rozhodnutí se zapisují do
 repa (`.pflanzer/decisions/<slug>.md`) — commitněte je. Spěcháte? `/pm live
 "co řešíme"` spojí Kickoff a Build (stupeň Quick, 60–90 min).
@@ -84,9 +86,9 @@ okna, režim stavby a prahy se z toho odvodí; přebít je lze
 | Odpověď | Stupeň | Okna k podpisu |
 |---|---|---|
 | demo | Quick | žádná (triage se nespouští; před pilotem nový Kickoff) |
-| pilot bez osobních dat | Lean | jedno: **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
-| pilot s osobními daty | Lean | Bezpečnost & právo, Provoz |
-| ostré | Lean (s osobními daty Full) | Bezpečnost & právo, Provoz (+ Právo/DPIA u Full) |
+| pilot bez osobních dat | Lean | **Zadání** (Decider) + **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
+| pilot s osobními daty | Lean | Zadání, Bezpečnost & právo, Provoz |
+| ostré | Lean (s osobními daty Full) | Zadání, Bezpečnost & právo, Provoz (+ Právo/DPIA u Full) |
 
 ### Okna a podpisy
 
@@ -99,7 +101,7 @@ okna, režim stavby a prahy se z toho odvodí; přebít je lze
 | Den ~8 | Ship 1–2 dny + checkpoint provozu 20 min | vývojáři + provoz |
 
 Okno se podepisuje jedním příkazem: `pflanzer checkpoint --slug S
-bezpecnost|provoz --by "<jméno>" --note "…"`. Bez podpisu Ship pilotu
+zadani|bezpecnost|provoz|bezpecnost-provoz --by "<jméno>" --note "…"`. Zadání podepisuje Decider (`--by "Decider"`). Bez podpisu Ship pilotu
 neprojde. Kde okno zastoupila AI, zapíše se jako návrh (`--ai --agent <agent>`)
 a podepíše ho člověk. Kdo podepíše, když security není:
 [`faq.md`](faq.md#security-nebo-dpo-na-plný-úvazek).
@@ -111,7 +113,8 @@ Kickoff jde i z terminálu: zapište spec do `kickoff.json` a spusťte
 
 ```json
 {"hook": "Rychlejší schvalování žádostí", "decider_name": "Dana Nováková",
- "risk_profile": "pilot", "target_repo_url": "https://github.com/firma/appka",
+ "risk_profile": "pilot", "personal_data": false,
+ "metric": "10 z 15 lidí otevře přehled 3× týdně do 30 dnů", "target_repo_url": "https://github.com/firma/appka",
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"}}
 ```

@@ -278,4 +278,4 @@ def test_setup_summary_mentions_npm_and_no_pair_phrase() -> None:
 
 def test_help_lists_all_checkpoint_windows() -> None:
     text = (ROOT / "tool" / "bin" / "pflanzer").read_text(encoding="utf-8")
-    assert "zadani|bezpecnost|pravo|provoz|design" in text
+    assert "zadani|bezpecnost-provoz|bezpecnost|pravo|provoz|design" in text

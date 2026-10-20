@@ -765,14 +765,45 @@ def _collapse_sections(lines: list[str]) -> list[str]:
     return out
 
 
+_XYZ_TEMPLATE = re.compile(r"^\s*Problém k vyřešení:\s*\*\*(.+?)\*\*", re.S)
+
+
+def _clean_hook(hook: str) -> str:
+    """Zadání jednou větou: ze šablony „Problém k vyřešení: **X**. Ověříme…“ jen X."""
+    text = " ".join(hook.split())
+    m = _XYZ_TEMPLATE.match(text)
+    return m.group(1).strip().rstrip(".") if m else text
+
+
+def _failed_gates(failures: list[tuple[str, str]]) -> list[tuple[str, int]]:
+    """Selhané brány (ne dílčí nálezy): [(klíč brány, počet nálezů)] v pořadí výskytu."""
+    out: dict[str, int] = {}
+    for g, _line in failures:
+        out[g] = out.get(g, 0) + 1
+    return list(out.items())
+
+
+def _failed_gates_text(failed: list[tuple[str, int]]) -> str:
+    """„1 brána selhala: přístupnost (3 nálezy)“ / „2 brány selhaly: sestavení, testy (1 nález)“."""
+    def label(key: str) -> str:
+        role, _sep, gate = key.rpartition(":")
+        return gate_label(gate) + (f" v repu {role}" if role else "")
+    n = len(failed)
+    names = ", ".join(f"{label(k)} ({count(c, 'nález', 'nálezy', 'nálezů')})" for k, c in failed)
+    verb = "selhala" if n == 1 else ("selhaly" if n < 5 else "selhalo")
+    return f"{count(n, 'brána', 'brány', 'bran')} {verb}: {names}"
+
+
 def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int,
              open_conditions: int, failures: int, override: dict[str, Any] | None,
              overridden: bool, unverified: list[dict[str, str]], blocked_by: list[str],
-             metric: str | None) -> list[str]:
+             metric: str | None, failed_gates: list[tuple[str, int]] | None = None) -> list[str]:
     """Tři řádky na začátek PR: Co to je / Co ověřit / Rizika."""
-    what = trim_words(" ".join(hook.split()), 200)
+    what = trim_words(_clean_hook(hook), 200)
     if winner:
         what += f" (varianta {winner})"
+    if metric:
+        what += f"; metrika úspěchu: {trim_words(' '.join(metric.split()), 120).rstrip('.')}"
     check: list[str] = []
     if open_crit:
         check.append(f"{open_crit} otevřených kritických připomínek na vítězi")
@@ -780,7 +811,9 @@ def _pr_lead(*, hook: str, winner: str | None, open_crit: int, open_remarks: int
         check.append(f"{open_remarks} otevřených připomínek (neblokují merge)")
     if open_conditions:
         check.append(f"{open_conditions} {_cond_word(open_conditions)} z podpisů oken")
-    if failures:
+    if failed_gates:
+        check.append(_failed_gates_text(failed_gates))
+    elif failures:
         check.append(f"{failures} selhaných automatických kontrol")
     check_txt = ("; ".join(check) + " — detaily v sekcích níže" if check else
                  "nic otevřeného; projdi diff" + (f" a metriku úspěchu: {metric}" if metric else ""))
@@ -1073,7 +1106,8 @@ def build_pr(slug: str, repo: str | None = None,
         open_crit=sum(1 for c in (ctx.get("open_critical") or [])
                       if w and c["variant"] == w[0]),
         open_remarks=len(remark_lines), open_conditions=sum(1 for x in cond_lines if x.startswith("- [ ]")),
-        failures=len(failures), override=state["threshold_override"],
+        failures=len(failures), failed_gates=_failed_gates(failures),
+        override=state["threshold_override"],
         overridden=bool(ov_md), unverified=state["unverified"] if target > 0 else [],
         blocked_by=state["blocked_by"], metric=metric_primary)
     body_lines = [body_lines[0], "", *lead, *_collapse_sections(body_lines[1:])]
@@ -1549,6 +1583,25 @@ def write_ship(slug: str) -> Path:
     return out
 
 
+def pr_create_command(ship_path: Path) -> str | None:
+    """Jednořádkový `pflanzer handoff_pr … | gh pr create …` z konce SHIP.md (první blok)."""
+    try:
+        text = Path(ship_path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    lines = text.splitlines()
+    for i, ln in enumerate(lines):
+        if "gh pr create" in ln:
+            parts = [ln.rstrip()]
+            j = i
+            while parts[-1].endswith("\\") and j + 1 < len(lines):
+                parts[-1] = parts[-1][:-1].rstrip()
+                j += 1
+                parts.append(lines[j].strip())
+            return " ".join(x for x in parts if x)
+    return None
+
+
 def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     """Data pro lidský výstup po zápisu SHIP.md."""
     pr = build_pr(slug)
@@ -1561,7 +1614,7 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     lines += human[:2]
     for x in pr["failures"][:1]:
         lines.append(f"Selhalo {x[0]}: {x[1]}")
-    lines += pr["critical_lines"][:1]
+    lines += [re.sub(r"^\s*[-*]\s+", "", x) for x in pr["critical_lines"][:1]]
     if pr.get("remarks"):
         lines.append(remarks_line(len(pr["remarks"])))
     warnings = list(pr["warnings"])

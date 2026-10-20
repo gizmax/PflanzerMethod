@@ -180,10 +180,10 @@ def main(argv: list[str] | None = None) -> None:
     except (ValueError, RuntimeError) as exc:
         die(str(exc))
         return
-    quoted = "\n".join(f"> {ln}" for ln in res["message"].splitlines())
-    lines = ["Zpráva pro kolegy (přeposlat):", "", quoted, "",
+    lines = ["Zpráva pro kolegy (přeposlat):",
+             *[f"> {ln}" for ln in res["message"].splitlines() if ln.strip()],
              f"Heslo (uživatelské jméno je libovolné): {res['password']}",
-             "Heslo pošlete jiným kanálem než adresu (jiný chat, SMS, telefon).", ""]
+             "Heslo pošlete jiným kanálem než adresu (jiný chat, SMS, telefon)."]
     if not res["tunnel"]:
         lines.append("Adresa funguje jen ve stejné síti; pro kolegy mimo síť nainstalujte "
                      "cloudflared a spusťte sdílení znovu.")

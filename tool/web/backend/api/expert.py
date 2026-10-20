@@ -6,6 +6,7 @@ Hub tu nic nepodepisuje ani nerozhoduje: jen čte stav z DB a skládá hotové p
 """
 from __future__ import annotations
 
+import sqlite3
 import unicodedata
 from typing import Any
 
@@ -135,9 +136,17 @@ def _merged_window(db: Session, project_id: int) -> bool:
     """Pilot bez osobních dat má jedno okno Bezpečnost a provoz (stejné pravidlo jako CLI)."""
     try:
         from tool.cli.checkpoint import merged_applies
-        return bool(merged_applies(db.connection().connection.dbapi_connection, project_id))
     except Exception:  # noqa: BLE001 — hub bez CLI na PYTHONPATH: oddělená okna
         return False
+    raw = db.connection().connection.dbapi_connection
+    prev = raw.row_factory
+    raw.row_factory = sqlite3.Row  # CLI dotazy čtou řádky podle jmen sloupců
+    try:
+        return bool(merged_applies(raw, project_id))
+    except Exception:  # noqa: BLE001 — poradní rozhodnutí
+        return False
+    finally:
+        raw.row_factory = prev
 
 
 @router.get("/{slug}/windows")

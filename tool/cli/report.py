@@ -106,7 +106,8 @@ def _gate_rows(conn: Any, pid: int, winner: str | None) -> list[dict[str, str]]:
 
 def _gate_info(rows: list[dict[str, str]], target: int | None) -> dict[str, Any]:
     if not rows:
-        return {"ran": False, "score": None, "target": target, "sentence": None, "unverified": []}
+        return {"ran": False, "score": None, "target": target, "sentence": None, "unverified": [],
+                "failed": []}
     from tool.cli.quality_gates import (
         aggregate_score,
         gate_label,
@@ -116,7 +117,9 @@ def _gate_info(rows: list[dict[str, str]], target: int | None) -> dict[str, Any]
     score = int(aggregate_score(
         [SimpleNamespace(gate_type=r["gate"], status=r["status"]) for r in rows])["gate_score"])  # type: ignore[arg-type]
     unv = [gate_label(u["gate"]) for u in unverified_gates(rows)]
+    failed = [gate_label(r["gate"]) for r in rows if r["status"] == "fail"]
     return {"ran": True, "score": score, "target": target, "unverified": unv,
+            "failed": list(dict.fromkeys(failed)),
             "sentence": gates_summary_line(score, rows, target=target)}
 
 
@@ -191,6 +194,11 @@ def collect(slug: str) -> dict[str, Any]:
     if high:
         risks.append(f"Důležité otevřené: {len(high)} ("
                      + _more([_sentence(r["rationale"], 60) for r in high]) + ")")
+    if gates.get("failed"):
+        n = len(gates["failed"])
+        risks.append(f"{n} {'brána' if n == 1 else 'brány' if n < 5 else 'bran'} "
+                     f"{'selhala' if n == 1 else 'selhaly' if n < 5 else 'selhalo'}: "
+                     + _more(gates["failed"], 4))
     for c in overridden[:2]:
         due = f", termín {c['deadline']}" if c.get("deadline") else ""
         risks.append(f"Vědomě přebito ({c['decider']}, {c['at']}): "

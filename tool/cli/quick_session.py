@@ -49,6 +49,7 @@ from tool.cli.db import (  # noqa: E402
     audit,
     current_actor,
     display_path,
+    get_connection,
     load_project_toml,
     resolve_local_repo_url,
     transaction,
@@ -161,6 +162,13 @@ def _cut_at_word(text: str, max_len: int, sep: str) -> str:
 SLUG_MAX_WORDS = 5
 
 
+SLUG_STOPWORDS = frozenset(
+    "a i o u k s v z ve ze na do od po pro pri pod nad za se si je to ten ta "
+    "the of for and to in on at by with from an".split())
+SLUG_AUTO_WORDS = 3
+SLUG_AUTO_MAX = 24
+
+
 def slugify(s: str, max_len: int = 40, max_words: int = SLUG_MAX_WORDS) -> str:
     """Convert hook into URL-safe slug: max ~5 words, cut on a word boundary."""
     s = _strip_diacritics(s.lower().strip())
@@ -170,6 +178,49 @@ def slugify(s: str, max_len: int = 40, max_words: int = SLUG_MAX_WORDS) -> str:
         s = "-".join(words[:max_words])
     s = _cut_at_word(s, max_len, "-")
     return s or f"session-{date.today().isoformat()}"
+
+
+def auto_slug(hook: str, existing: set[str] | frozenset[str] = frozenset()) -> str:
+    """Krátký slug pro psaní do příkazů: max 3 významová slova, <= 24 znaků, bez předložek."""
+    base = _strip_diacritics(hook.lower().strip())
+    words = [w for w in re.sub(r"[^a-z0-9]+", " ", base).split()
+             if w not in SLUG_STOPWORDS and len(w) > 1]
+    picked: list[str] = []
+    for w in words:
+        if len(picked) >= SLUG_AUTO_WORDS:
+            break
+        if len("-".join([*picked, w])) > SLUG_AUTO_MAX:
+            if not picked:
+                picked.append(w[:SLUG_AUTO_MAX])
+            break
+        picked.append(w)
+    slug = "-".join(picked) or slugify(hook)
+    cand, n = slug, 2
+    while cand in existing:
+        cand = f"{slug}-{n}"
+        n += 1
+    return cand
+
+
+def _existing_slugs(hook: str = "") -> set[str]:
+    """Slugy obsazené projekty s JINÝM hookem. Stejný hook = stejný projekt (nový Kickoff,
+    např. povýšení dema na pilot, přepíše charter místo založení `-2`)."""
+    want = " ".join(hook.split()).casefold()
+    try:
+        conn = get_connection()
+        try:
+            rows = conn.execute("SELECT slug, xyz_hypothesis, name FROM projects").fetchall()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 — kolize se jen vyhýbáme, nikdy nerozbijí Kickoff
+        return set()
+    taken = set()
+    for slug, xyz, name in rows:
+        m = re.search(r"\*\*(.+?)\*\*", xyz or "", re.S)
+        stored = " ".join(((m.group(1) if m else name) or "").split()).casefold()
+        if not want or stored != want:
+            taken.add(slug)
+    return taken
 
 
 TITLE_MAX = 50
@@ -392,8 +443,16 @@ _CONSTITUTION_PROD_SCOPE_RE = re.compile(
     r"(?i)(produkc|production|\bprod\b|aplikac|uživatel|uzivatel|zákazn|zakazn|návštěv|navstev"
     r"|\bweb|formul)")
 _BRIEF_PERSONAL_RE = re.compile(
-    r"(?i)(telefon|jm[eé]n[oa]|e-?mail|objedn[aá]v|rezervac|rezervov|formul[aá]ř|formular"
-    r"|kontakt|adres[ay])")
+    r"(?i)(telefon|jm[eé]n[oa]|e-?mail|formul[aá]ř|formular|kontakt|adres[ay])")
+# Skutečně citlivá data: tady L1 („jen jméno a počet“) opravdu nestačí.
+_BRIEF_SENSITIVE_RE = re.compile(
+    r"(?i)(platb|platebn|platit|platbu|karet|karta|kart[ou]\b|iban|bankovn|zdrav|diagn|rodn[eé]\s+[cč][ií]sl"
+    r"|občansk|obcansk|hesl|biometr|\bGPS\b|poloh)")
+# Pravidlo povoluje jen úzký výčet („L1, jen jméno a počet“) – nezakazuje sběr bez výjimky.
+_CONSTITUTION_ALLOWLIST_RE = re.compile(r"(?i)\b(jen|pouze)\b")
+_CONSTITUTION_BLANKET_RE = re.compile(
+    r"(?i)(nesm[ií]\s+sb[ií]rat|nesb[ií]r|bez\s+osobn|žádn[ée]\s+osobn|zadn[ée]\s+osobn"
+    r"|žádn[ée]\s+formul|zadn[ée]\s+formul|no\s+personal)")
 
 
 def constitution_conflicts(hook: str, metric: str | None = None,
@@ -413,7 +472,13 @@ def constitution_conflicts(hook: str, metric: str | None = None,
              and not (_CONSTITUTION_DEV_SCOPE_RE.search(ln)
                       and not _CONSTITUTION_PROD_SCOPE_RE.search(ln))]
     brief = " ".join(x for x in (hook, metric, criteria) if x)
-    wanted = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)})
+    sensitive = sorted({m.group(1).lower() for m in _BRIEF_SENSITIVE_RE.finditer(brief)})
+    personal = sorted({m.group(1).lower() for m in _BRIEF_PERSONAL_RE.finditer(brief)})
+    # Pravidlo s výčtem „jen …“ bez plošného zákazu hlídá jen citlivá data.
+    rules = [r for r in rules
+             if sensitive or not (_CONSTITUTION_ALLOWLIST_RE.search(r)
+                                  and not _CONSTITUTION_BLANKET_RE.search(r))]
+    wanted = sorted({*personal, *sensitive})
     if not rules or not wanted:
         return []
     return [
@@ -508,7 +573,8 @@ def bootstrap(
     profile = RISK_PROFILES[risk_profile]
     session_mode = _normalize_session_mode(session_mode)
     windows_list = _normalize_windows(windows)
-    slug = slug or slugify(hook)
+    auto_slug_used = not slug
+    slug = slug or auto_slug(hook, _existing_slugs(hook))
     path_owners, short_signers = _split_shorthand_owners(path_owners)
     owners_by_step = _normalize_path_owners(path_owners)  # fail fast, before any write
     signers_by_step = _normalize_ai_signers(ai_signers, short_signers)
@@ -726,6 +792,7 @@ def bootstrap(
     return {
         "project_id": project_id,
         "slug": slug,
+        "slug_auto": auto_slug_used,
         "name": name,
         "risk_profile": risk_profile,
         "roles_count": len(selected),
@@ -952,9 +1019,9 @@ def recommend_mode(
     # Hard blocks (room geometry per cognitive-load perspektiva)
     if room_size > 5:
         return "parallel", (
-            f"Tým má {room_size} lidí > 5 (Hunter Industries cap). "
-            "Mob breaks at 6+ — observer fatigue + 70/30 air-time inequity. "
-            "Paralelní škáluje přidáním dvojic; mob ne."
+            f"V týmu je {room_size} lidí, víc než 5 v jedné místnosti se u jedné klávesnice "
+            "zahltí (část lidí jen přihlíží a mluví pořád ti samí). Paralelní varianty "
+            "se dají rozdělit mezi dvojice."
         )
     if has_veto_role and risk_profile != "throwaway":
         return "parallel", (
@@ -2190,8 +2257,10 @@ def _bootstrap_from_spec(spec: dict[str, Any]) -> dict[str, Any]:
 def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) -> None:
     owners = out.get("path_owners") or {}
     lines = [
-        f"Projekt „{out['name']}“ je založen (`{out['slug']}`), stupeň "
+        f"Projekt „{out['name']}“ je založen, stupeň "
         f"{TIER_LABELS.get(out.get('tier') or '', out.get('tier'))}.",
+        f"Slug projektu: **`{out['slug']}`** — píšete ho do příkazů jako `--slug`."
+        + (" Chcete jiný, zadejte ve specu `\"slug\"`." if out.get("slug_auto") else ""),
         f"Decider: {out['decider']}",
     ]
     if out.get("tier_note"):

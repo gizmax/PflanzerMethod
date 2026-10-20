@@ -84,6 +84,7 @@ WINDOW_STEP = {"zadani": "byznys", "bezpecnost": "bezpecnost", "provoz": "provoz
 SIGNER_KINDS = ("zástupce", "zástup", "autor kódu", "AI draft")
 AI_DRAFT_MARK = "AI draft — čeká na podpis člověka"
 USAGE = ('  pflanzer checkpoint --slug <slug> bezpecnost --by "Jana" --note "co se ověřilo"\n'
+         '  pflanzer checkpoint --slug <slug> bezpecnost-provoz --by "Jana" --note "…"  (sloučené okno pilotu)\n'
          '  pflanzer checkpoint --slug <slug> provoz --ai --note "AI pre-check"')
 
 
@@ -345,6 +346,7 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                          '--waive K3 --rationale "řeší se v jiném projektu"')
     now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     warnings: list[str] = []
+    infos: list[str] = []
     countersigned = False
     with transaction() as conn:
         proj = conn.execute("SELECT id, status FROM projects WHERE slug = ?", (slug,)).fetchone()
@@ -356,8 +358,8 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
         merged = merged_applies(conn, pid)
         if window in MERGED_ABSORBS and merged:
             window = MERGED
-            warnings.append("U tohoto pilotu jsou bezpečnost a provoz jedno okno — podepsáno "
-                            "okno Bezpečnost a provoz.")
+            infos.append("podepsáno sloučené okno Bezpečnost a provoz "
+                         "(u tohoto pilotu jsou bezpečnost a provoz jedno okno)")
         elif window == MERGED and not merged:
             raise ValueError(
                 "Okno bezpecnost-provoz je jen pro pilot (Lean) bez osobních dat. Tento projekt "
@@ -573,7 +575,8 @@ def sign(slug: str, window: str, *, by: str = "", note: str, blocked: bool = Fal
                                        and c["key"] not in waived_keys
                                        and c["key"] not in {t["key"] for t in taken}],
             "charter_updated": charter_updated,
-            "decision_log_repo": log, "warnings": warnings, "next_step": next_step}
+            "decision_log_repo": log, "warnings": warnings, "infos": infos,
+            "next_step": next_step}
 
 
 def merge_artefact(previous: str | None, window: str, label: str, block: str) -> str:
@@ -996,6 +999,7 @@ def main(argv: list[str] | None = None) -> None:
     if out.get("waived_conditions"):
         lines.append("Odpuštěno: " + "; ".join(f"[{w['id']}] ({w['rationale']})"
                                               for w in out["waived_conditions"]))
+    lines.extend(f"Info: {i}" for i in out.get("infos") or [])
     if out["decision_log_repo"]:
         lines.append(f"Zapsáno do `{out['decision_log_repo']}`.")
     phase = {"provoz": "checkpoint_provoz", "design": "checkpoint_design"}.get(

@@ -234,7 +234,7 @@ def _list_view(slug: str, rows: list[dict[str, Any]]) -> tuple[str, list[str], s
 
 def main() -> None:
     p = CzechArgumentParser(prog="pflanzer feedback", description=__doc__.split("\n")[0])
-    sub = p.add_subparsers(dest="cmd", required=True, parser_class=CzechArgumentParser)
+    sub = p.add_subparsers(dest="cmd", required=False, parser_class=CzechArgumentParser)
 
     a = sub.add_parser("add", help="Zapíše jeden feedback (offline)")
     a.add_argument("--slug", required=True)
@@ -256,6 +256,12 @@ def main() -> None:
     ls_p.add_argument("--json", action="store_true")
 
     args = p.parse_args()
+    if not args.cmd:
+        emit({}, title="Feedback: co dál", lines=[
+            "Zapsat připomínku: `pflanzer feedback add --slug S --variant A --role Design "
+            "--by \"Jméno\" --severity critical|major|minor --text \"…\"`",
+            "Vypsat zapsané: `pflanzer feedback list --slug S`"])
+        return
     try:
         if args.cmd == "add":
             res = add_feedback(
@@ -293,9 +299,11 @@ def main() -> None:
                 phase = "after_critical"
             else:
                 nxt, phase = f"`pflanzer feedback list --slug {res['slug']}`", "async"
+            # Tip, který jen opakuje „Další krok“ (resolve / override), se nevypisuje podruhé.
+            shown = [t for t in tips(res["slug"], phase, {}, limit=3)
+                     if "session_2 resolve" not in t and "--override-critical" not in t][:2]
             emit(res, title=f"Feedback #{res['id']} zapsán", lines=lines,
-                 next_step=nxt,
-                 tips=tips(res["slug"], phase, {}, limit=2), as_json=args.json)
+                 next_step=nxt, tips=shown, as_json=args.json)
         else:
             rows = list_feedback(args.slug, args.variant)
             if args.json:

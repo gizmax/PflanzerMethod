@@ -333,6 +333,11 @@ def hardening_run(
         triage_gate = ship_triage_gate(conn, project_id)
 
     risk_profile = triage_gate["risk_profile"]
+    # Podpisy oken vyžaduje jen pilot/production; demo (throwaway) žádná okna nemá.
+    human_blockers_all = (human_triage_blockers(slug, triage_gate["windows"])
+                          if triage_gate["gated"] else [])
+    human_blockers = human_blockers_all
+    _pending_gate_msg = ""
 
     # Fail loud dřív, než poběží jakákoli brána: každá hardenovaná varianta potřebuje použitelný
     # zdroj kódu (worktree > hosted URL > skeleton jen pro throwaway), viz extract.plan_extraction.
@@ -353,9 +358,9 @@ def hardening_run(
                 )
                 triage_gate = ship_triage_gate(conn, project_id)
         else:
-            print("[ship gate] Ship je blokovaný podpisy oken, production_ready bude false:\n  "
-                  + "\n  ".join(human_triage_blockers(slug, triage_gate["windows"])),
-                  file=sys.stderr)
+            _pending_gate_msg = (
+                "[ship gate] Ship je blokovaný podpisy oken, production_ready bude false:\n  "
+                + "\n  ".join(human_blockers_all))
 
     per_variant: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
@@ -478,10 +483,10 @@ def hardening_run(
                         "spuštění aplikace) nepadá. Pusť Ship bez `--override-threshold`.")
             )
         if blocked_by:
-            print(f"[ship gate] Výjimku z prahu zatím nejde použít, protože Ship blokuje "
-                  f"{', '.join(blocked_by)}. Nejdřív to vyřeš (chybějící podpisy lze přebít "
-                  "přes `--override-triage --rationale \"…\"`).",
-                  file=sys.stderr)
+            warnings.append(
+                f"Výjimku z prahu zatím nejde použít, protože Ship blokuje "
+                f"{', '.join(blocked_by)}. Nejdřív to vyřeš (chybějící podpisy lze přebít "
+                "přes `--override-triage --rationale \"…\"`).")
         else:
             with transaction() as conn:
                 dec_id = record_threshold_override(
@@ -502,6 +507,9 @@ def hardening_run(
     if threshold_override:
         verdict = (("neprošlo brány — " if hard_fail else "pod prahem — ")
                    + f"Ship na odpovědnost Decidera ({threshold_override['decider']})")
+    if target <= 0 and not informational:
+        verdict = (f"informativně (demo) — neblokuje; před pilotem nový Kickoff s risk "
+                   f"profilem pilot, skóre {w_score}/100")
     if informational:
         verdict = (f"informativně — {winner['variant']} není vítěz z Rozhodnutí ({decided}); "
                    f"production_ready=false")
@@ -578,6 +586,10 @@ def hardening_run(
         "production_readiness_target": target,
         "production_ready": production_ready,
         "blocked_by": blocked_by,
+        "gate_notice": _pending_gate_msg.replace("[ship gate] ", "") or None,
+        "production_ready_reason": _production_reason(
+            production_ready, target, risk_profile, informational, blocked_by,
+            hard_fail, w_score, threshold_override),
         "informational": informational,
         "decided_winner": decided,
         "warnings": warnings,
@@ -587,7 +599,7 @@ def hardening_run(
         "triage": {
             "gated": triage_gate["gated"],
             "windows": triage_gate["windows"],
-            "human_blockers": human_triage_blockers(slug, triage_gate["windows"]),
+            "human_blockers": human_blockers,
             "tracks": {t["track"]: t["display"] for t in triage_gate["tracks"]},
             "override": triage_gate["override"],
         },
@@ -623,7 +635,7 @@ def hardening_run(
             "next_step": _next_step(winner, meets, target, slug, blocked_by,
                                     threshold_override, informational=informational,
                                     decided=decided,
-                                    human=human_triage_blockers(slug, triage_gate["windows"]),
+                                    human=human_blockers,
                                     provoz_done=_provoz_done(triage_gate["windows"], checkpoints)),
         },
         "per_variant": [
@@ -650,6 +662,25 @@ def hardening_run(
         "decision_log_repo": repo_log,
     }
     return out
+
+
+def _production_reason(production_ready: bool, target: int, risk_profile: str,
+                       informational: bool, blocked_by: list[str], hard_fail: list[str],
+                       score: int, threshold_override: dict[str, Any] | None) -> str:
+    """Jednou větou, proč je production_ready true/false (u dema ne kvůli podpisům)."""
+    if production_ready:
+        return ("splněn práh i brány" if not threshold_override
+                else "Ship pod prahem na odpovědnost Decidera")
+    if informational:
+        return "běh je jen porovnání, vítěz z Rozhodnutí se nemění"
+    if target <= 0:
+        return (f"demo ({risk_profile}) není produkce; skóre je informativní, "
+                "podpisy oken ani práh se nevyžadují")
+    if blocked_by:
+        return "Ship blokuje: " + ", ".join(blocked_by)
+    if hard_fail:
+        return "padá klíčová brána (sestavení, testy nebo spuštění aplikace)"
+    return f"skóre {score}/100 je pod prahem {target}"
 
 
 def _render_triage_md(triage_gate: dict[str, Any], slug: str) -> tuple[str, str]:
@@ -1101,11 +1132,12 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
         title = (f"Ship {slug}: připraveno jako draft — výjimka Decidera "
                  f"({ov['decider']}, {ov['score']} < {ov['target']})")
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
-    elif out.get("risk_profile") == "throwaway" and not human:
+    elif out.get("risk_profile") == "throwaway":
         title = f"Ship {slug}: Throwaway: skóre je informativní, Ship neblokuje"
         lines = [f"Vítěz {w['variant']}: {short}",
-                 "Demo: před pilotem nový Kickoff s risk profilem pilot (triage a okna "
-                 "bezpečnost a provoz se u dema nevyžadují)."]
+                 "Demo - informativní, neblokuje; před pilotem nový Kickoff s risk profilem "
+                 "pilot (podpisy oken zadání, bezpečnost a provoz se u dema nevyžadují).",
+                 f"production_ready=false: {out.get('production_ready_reason') or 'demo není produkce'}."]
     elif out["production_ready"]:
         title = f"Ship {slug}: připraveno"
         lines = [f"Vítěz {w['variant']}: {short} (práh {target})"]
@@ -1132,6 +1164,46 @@ def _human_ship(out: dict[str, Any], slug: str) -> tuple[str, list[str], list[st
         first = next(x for x in out["triage"]["windows"] if x["state"] != "ok")
         nxt = f"`{checkpoint_command(slug, first)}`"
     return title, lines, list(out.get("warnings") or []), nxt, ctx
+
+
+def _attach_ship_md(out: dict[str, Any], slug: str) -> None:
+    """Po Shipu rovnou vyrobí SHIP.md (text PR) a zapíše cestu a příkaz `gh pr create` do `out`.
+
+    `handoff_pr` zůstává pro opakované vygenerování. Informativní porovnání SHIP.md nedělá.
+    """
+    out["ship_path"] = None
+    out["pr_command"] = None
+    if out.get("informational"):
+        return
+    try:
+        from tool.cli.handoff_pr import pr_create_command, write_ship
+        path = write_ship(slug)
+        out["ship_path"] = tilde(path)
+        out["pr_command"] = pr_create_command(path)
+    except Exception as e:  # noqa: BLE001 — Ship samotný proběhl; SHIP.md jde vygenerovat znovu
+        out["ship_error"] = str(e)
+
+
+def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str], str]:
+    """(řádek o SHIP.md, další krok) — jeden krok: `gh pr create`, nebo PR ručně bez `gh`."""
+    path = out.get("ship_path")
+    if not path:
+        if out.get("ship_error"):
+            return [], (nxt + f" SHIP.md se nepodařilo vyrobit ({out['ship_error']}); "
+                        f"zkus `pflanzer handoff_pr --slug {slug}`.")
+        return [], nxt
+    cmd = out.get("pr_command")
+    w = out["winner"]
+    if out["triage"].get("human_blockers") and not out["production_ready"]:
+        return [f"SHIP.md (text PR): {path}"], nxt
+    if not cmd:
+        return [f"SHIP.md (text PR): {path}"], nxt
+    if shutil.which("gh"):
+        where = f"ve složce vítěze (`cd {tilde(w['local_path'])}`) " if w.get("local_path") else ""
+        return [f"SHIP.md (text PR): {path}"], (
+            f"Otevři PR {where}příkazem `{cmd}` (celý postup je na konci {path}).")
+    return [f"SHIP.md (text PR): {path}"], (
+        f"`gh` není k dispozici: otevřete PR ručně, text je v {path}.")
 
 
 def main() -> None:
@@ -1181,8 +1253,12 @@ def main() -> None:
     except (ExtractionError, ValueError) as e:
         exit_if_project_missing(e)
         die(str(e))
+    _attach_ship_md(out, args.slug)
     title, lines, warns, nxt, ctx = _human_ship(out, args.slug)
     ctx["open_critical"] = False
+    ship_lines, nxt = _ship_md_lines(out, args.slug, nxt)
+    if ship_lines:
+        lines = [*lines, *ship_lines]
     phase = "after_ship" if out["production_ready"] and not out.get("informational") else "ship"
     emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,
          tips=tips(args.slug, phase, ctx, fallback="ship"), as_json=args.json)

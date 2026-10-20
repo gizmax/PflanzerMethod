@@ -1307,8 +1307,8 @@ def _up_view(res: dict[str, Any]) -> tuple[list[str], str, str]:
     lines.extend(f"Info: {n}" for n in res.get("notes") or [])
     hub = shareable_hub_url(res) if hub_running() else None
     msg = share_message(res, hub, pdm_contact(slug))
-    lines.append("Zpráva k přeposlání zástupcům:\n\n"
-                 + "\n".join(f"> {ln}" for ln in msg.splitlines()) + "\n")
+    lines.append("Zpráva k přeposlání zástupcům:")
+    lines.extend(f"> {ln}" for ln in msg.splitlines() if ln.strip())
     if not hub:
         lines.append("Pro PdM (ne do zprávy): " + HUB_SHARE_HINT)
     lines.append(f"Stav a zastavení: `pflanzer preview status --slug {slug}`, "
