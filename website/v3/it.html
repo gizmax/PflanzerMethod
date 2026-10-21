@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pflanzer Method – vibe coding in azienda, in produzione</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Sviluppo con IA in azienda: business, sicurezza e operations allo stesso tavolo, tre varianti funzionanti, decisione in una settimana. Open source.">
+<!--ALT-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pflanzer Method">
+<meta property="og:title" content="Porti il vibe coding in produzione. Con tutti al tavolo dal primo giorno.">
+<meta property="og:description" content="Tutti al tavolo. Codice in produzione. Metodo e strumento open source per lo sviluppo con IA in azienda.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#EDF1EA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://pflanzer.cz/method/#web",
+      "url": "https://pflanzer.cz/method/",
+      "name": "Pflanzer Method",
+      "inLanguage": "it"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Pflanzer Method",
+      "applicationCategory": "DeveloperApplication",
+      "description": "Metodo e strumento per lo sviluppo con IA in azienda: sessioni comuni con i rappresentanti di tutti i passi del percorso, tre varianti funzionanti, decisione sul codice e passaggio allo sviluppo con firme e controlli automatici.",
+      "license": "https://opensource.org/licenses/MIT",
+      "url": "https://pflanzer.cz/method/",
+      "codeRepository": "https://github.com/gizmax/PflanzerMethod",
+      "softwareVersion": "0.6",
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "CZK"},
+      "author": {"@type": "Person", "name": "Tomáš Pflanzer"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "In che cosa Pflanzer Method si differenzia da un design sprint o da un hackathon?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Il risultato è codice funzionante nel vostro repository e alle sessioni comuni siedono anche sicurezza, legale e operations. Lo strumento gestisce le firme delle finestre, i controlli automatici e il passaggio della variante vincente allo sviluppo come pull request."}},
+        {"@type": "Question", "name": "Dobbiamo usare Claude Code?",
+         "acceptedAnswer": {"@type": "Answer", "text": "No. Il comando pflanzer funziona dal terminale, dal Kickoff con pflanzer start fino allo Ship. Claude Code aggiunge l’unico comando d’ingresso /pm e il builder IA."}},
+        {"@type": "Question", "name": "E se non abbiamo una persona della sicurezza, un designer o un referente delle operations?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Il ruolo mancante può essere coperto da una proposta dell’IA. La finestra la firma sempre una persona e la proposta dell’IA non sostituisce mai la sua firma. Decider e sviluppatore sono sempre persone."}},
+        {"@type": "Question", "name": "E se la sicurezza dice comunque di no?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Lo dice nella finestra, durante il percorso, non dopo settimane su un prodotto finito. Le condizioni della firma confluiscono nel testo della PR. Una firma mancante può essere superata solo dal Decider, in modo consapevole e con la motivazione nel decision log."}},
+        {"@type": "Question", "name": "Dobbiamo cambiare il nostro modo di sviluppare?",
+         "acceptedAnswer": {"@type": "Answer", "text": "No. La variante vincente arriva come pull request nel vostro repository e prosegue nella pipeline abituale. Il metodo cambia chi siede al tavolo della decisione e quando, non il vostro processo di sviluppo."}},
+        {"@type": "Question", "name": "Quanto tempo richiede un pilot?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Kickoff 15 minuti, Build 3 ore, raccolta feedback 3–5 giorni, Decisione 60–90 minuti. Un pilot richiede circa 6–8 giorni-persona, la demo 5, il rilascio in produzione 14."}},
+        {"@type": "Question", "name": "Quando non usare il metodo?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Per pagamenti e flussi di pagamento, per sistemi AI Act High-risk e regolamentati senza un livello di governance, per app mobile native, in presenza di forti dipendenze esterne, quando manca un Decider con il mandato di dire sia Go sia Kill e quando nel team manca uno sviluppatore."}},
+        {"@type": "Question", "name": "Quanto costa il metodo?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Metodo e strumento sono open source con licenza MIT. Si paga solo il tempo delle persone e l’IA che si utilizza; lo strumento mostra il costo dell’IA nel report."}}
+      ]
+    }
+  ]
+}
+</script>
+<style>
+/* Layout: wide, left-aligned, Swiss scale contrast. One relay element – the branch – crosses the hero and then carries the scroll story (silos → one table → three variants → one bloom → production). Everything else stays quiet. */
+:root{
+  --paper:#EDF1EA;      /* greenhouse glass */
+  --surface:#F7F9F4;
+  --ink:#13221A;
+  --muted:#55665B;
+  --line:#C6D1C5;
+  --leaf:#1E7A46;       /* brand: winner, Go */
+  --bud:#D6E7D2;
+  --dim:#A7B5A8;
+  --warn:#9A5B12;       /* late veto */
+  --display:"Bricolage Grotesque", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --t-1:.875rem; --t0:1rem; --t1:1.1875rem; --t2:1.5rem; --t3:clamp(1.9rem, 3.6vw, 2.75rem); --t4:clamp(2.5rem, 5.2vw, 4.9rem);
+  --ease:cubic-bezier(.65,0,.2,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:400 var(--t0)/1.6 var(--body);margin:0;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:80rem;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.025em}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px;border-radius:4px}
+code{font-family:var(--mono);font-size:.9em}
+.muted{color:var(--muted)}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding-block:1.25rem;flex-wrap:wrap}
+.lockup{font:700 var(--t0)/1 var(--display);display:flex;gap:.55rem;align-items:center;text-decoration:none}
+.lockup svg{width:24px;height:24px}
+.lockup span{color:var(--muted);font-weight:400}
+header nav{display:flex;gap:1.5rem;font-size:var(--t-1);flex-wrap:wrap}
+header nav a{text-decoration:none;color:var(--muted)}
+header nav a:hover{color:var(--ink)}
+.langs{display:flex;gap:.15rem;font-size:var(--t-1)}
+.langs a{text-decoration:none;color:var(--muted);padding:.2rem .45rem;border-radius:999px}
+.langs a:hover{color:var(--ink)}
+.langs a[aria-current="page"]{background:var(--ink);color:var(--paper)}
+
+/* buttons */
+.ctas{display:flex;gap:.75rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;padding:.9rem 1.25rem;border-radius:999px;font:600 var(--t0)/1 var(--body);text-decoration:none;border:1.5px solid var(--ink);transition:background .25s, color .25s, border-color .25s}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.primary:hover{background:var(--leaf);border-color:var(--leaf)}
+.btn.ghost:hover{border-color:var(--leaf);color:var(--leaf)}
+
+/* hero */
+.hero{padding-block:clamp(1.5rem, 4vw, 3rem) 0}
+.kicker{font:500 var(--t1)/1.3 var(--display);color:var(--muted);margin-bottom:1.25rem}
+.hero h1{font-size:var(--t4);font-weight:800;line-height:.98}
+.hero h1 .ln{display:block;overflow:hidden;padding-bottom:.06em}
+.hero h1 .ln > span{display:block;animation:rise .9s var(--ease) both}
+.hero h1 .ln:nth-child(2) > span{animation-delay:.12s;font-weight:300}
+@keyframes rise{from{transform:translateY(105%)}to{transform:none}}
+.hero-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:2rem 4rem;align-items:end;margin-top:2rem}
+.hero .lead{font-size:var(--t1);color:var(--muted);max-width:52ch;line-height:1.55;animation:fadein .8s .45s both}
+.hero .ctas{justify-content:flex-end;animation:fadein .8s .6s both}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.proof{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;margin-top:2rem;font-size:var(--t-1);color:var(--muted);list-style:none;padding:0}
+.proof li::before{content:"";display:inline-block;width:.45rem;height:.45rem;border-radius:50%;background:var(--leaf);margin-right:.5rem;vertical-align:.1em}
+
+/* hero branch: full-bleed relay line */
+.band{position:relative;margin-top:1.25rem}
+.band svg{display:block;width:100%;height:auto}
+.replay{position:absolute;right:max(16px, env(safe-area-inset-right, 0px));bottom:.25rem;font:500 var(--t-1)/1 var(--body);background:var(--paper);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:.45rem .85rem;cursor:pointer}
+.replay:hover{color:var(--ink);border-color:var(--ink)}
+.r-line{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
+.r-line.in{stroke:var(--muted);stroke-width:1.5}
+.r-line.win{stroke:var(--leaf);stroke-width:3}
+.r-node{fill:var(--surface);stroke:var(--ink);stroke-width:2}
+.r-lab{font:500 15px var(--body);fill:var(--muted)}
+.r-var{font:700 15px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.r-dot{fill:var(--leaf)}
+.r-petal{fill:var(--leaf)}
+.r-heart{fill:var(--surface)}
+.r-go{font:800 22px var(--display);fill:var(--leaf)}
+.lose .r-line,.lose .r-node{stroke:var(--dim)}
+.lose .r-var{fill:var(--dim)}
+.band :is(.r-node,.r-var,.r-dot,.r-petal,.r-heart,.r-go,.r-end){transform-box:fill-box;transform-origin:center}
+.r-dot{opacity:0}
+.play .r-line.in{animation:draw .7s var(--ease) both}
+.play .s-trunk{animation:draw .6s .55s var(--ease) both}
+.play .s-br{animation:draw .7s 1.05s var(--ease) both}
+.play .r-node,.play .r-var{animation:pop .35s 1.6s both}
+.play .r-dot{animation:pop .3s var(--d,2s) both, gone .5s 3.1s forwards}
+@keyframes gone{to{opacity:0}}
+.play .lose .s-br{animation:draw .7s 1.05s var(--ease) both, fadeline .6s 3.1s both}
+.play .lose .r-node{animation:pop .35s 1.6s both, fadeline .6s 3.1s both}
+.play .lose .r-var{animation:pop .35s 1.6s both, fadetext .6s 3.1s both}
+.play .s-win{animation:draw .8s 3.3s var(--ease) both}
+.play .r-petal{animation:bloom .55s cubic-bezier(.3,1.6,.5,1) both}
+.play .r-heart,.play .r-go,.play .r-end{animation:pop .4s 4.5s both}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:none}}
+@keyframes bloom{from{transform:scale(0) rotate(-50deg)}to{transform:none}}
+@keyframes fadeline{from{stroke:var(--ink)}to{stroke:var(--dim)}}
+@keyframes fadetext{from{fill:var(--ink)}to{fill:var(--dim)}}
+
+/* sections */
+section{padding-block:clamp(3.5rem, 7vw, 6rem);border-top:1px solid var(--line)}
+.head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:end;margin-bottom:2.5rem}
+.head h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.head p{color:var(--muted);max-width:52ch;font-size:var(--t1)}
+
+/* why */
+.why{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:2rem 4rem;align-items:start}
+.why .quote{font:700 clamp(1.7rem, 3.4vw, 2.6rem)/1.08 var(--display);letter-spacing:-.02em}
+.why .quote small{display:block;font:400 var(--t1)/1.5 var(--body);color:var(--muted);letter-spacing:0;margin-top:1.25rem;max-width:44ch}
+.why .story{display:flex;flex-direction:column;gap:1rem;font-size:1.0625rem;max-width:56ch}
+.why .story strong{font-weight:600}
+
+/* scrolly */
+.scrolly{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:2rem 3rem}
+.stage{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 1.5rem);align-self:start;height:min(78vh, 640px);display:flex;align-items:center}
+.stage svg{width:100%;height:auto;max-height:100%;overflow:visible}
+.steps{display:flex;flex-direction:column}
+.step{min-height:62vh;display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding-block:2rem;opacity:.35;transition:opacity .4s}
+.step.on{opacity:1}
+.step .when{font:600 var(--t-1)/1 var(--body);color:var(--leaf)}
+.step h3{font-size:var(--t2);font-weight:700;line-height:1.1}
+.step p{color:var(--muted);max-width:44ch}
+.step code{color:var(--ink)}
+.step:first-child{min-height:48vh}
+.step:last-child{min-height:56vh}
+
+/* stage drawing */
+.seat rect{fill:var(--surface);stroke:var(--ink);stroke-width:1.5;transition:stroke .6s, fill .6s}
+.seat text{font:500 13px var(--body);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.seat{transform:translate(var(--x0), var(--y0));transition:transform 1s var(--ease)}
+[data-step="0"] .seat.late rect{stroke:var(--warn)}
+[data-step="0"] .seat.late text{fill:var(--warn)}
+.handoff{fill:none;stroke:var(--dim);stroke-width:1.5;stroke-dasharray:4 6;transition:opacity .5s}
+.veto{font:600 13px var(--body);fill:var(--warn);transition:opacity .5s}
+.table{fill:var(--bud);stroke:none;transform-box:fill-box;transform-origin:center;transform:scale(.4);opacity:0;transition:transform .9s var(--ease), opacity .6s}
+.tlabel{font:600 14px var(--body);fill:var(--ink);text-anchor:middle;opacity:0;transition:opacity .5s .4s}
+.br{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease), stroke .6s}
+.vn{fill:var(--surface);stroke:var(--ink);stroke-width:2;opacity:0;transition:opacity .4s .6s, stroke .6s}
+.vl{font:700 14px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central;opacity:0;transition:opacity .4s .6s, fill .6s}
+.fb{fill:var(--leaf);opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .4s cubic-bezier(.3,1.6,.5,1), opacity .3s}
+.petal{fill:var(--leaf);transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .55s cubic-bezier(.3,1.6,.5,1)}
+.heart{fill:var(--surface);opacity:0;transition:opacity .3s .4s}
+.prod{fill:none;stroke:var(--leaf);stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease)}
+.sig{opacity:0;transform:translateX(-8px);transition:opacity .4s, transform .4s}
+.sig circle{fill:var(--leaf)}
+.sig path{fill:none;stroke:var(--surface);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sig text{font:500 13px var(--body);fill:var(--ink);dominant-baseline:central}
+.plabel{font:700 16px var(--display);fill:var(--leaf);opacity:0;transition:opacity .4s .5s}
+
+.scrolly [data-step]:not([data-step="0"]) .seat{transform:translate(var(--x1), var(--y1))}
+.scrolly [data-step]:not([data-step="0"]) .handoff,.scrolly [data-step]:not([data-step="0"]) .veto{opacity:0}
+.scrolly [data-step]:not([data-step="0"]) .table{transform:none;opacity:1}
+.scrolly [data-step]:not([data-step="0"]) .tlabel{opacity:1}
+.scrolly [data-step="2"] .br,.scrolly [data-step="3"] .br,.scrolly [data-step="4"] .br,.scrolly [data-step="5"] .br{stroke-dashoffset:0}
+.scrolly [data-step="2"] :is(.vn,.vl),.scrolly [data-step="3"] :is(.vn,.vl),.scrolly [data-step="4"] :is(.vn,.vl),.scrolly [data-step="5"] :is(.vn,.vl){opacity:1}
+.scrolly [data-step="3"] .fb{opacity:1;transform:none}
+.scrolly [data-step="4"] .lose :is(.br,.vn),.scrolly [data-step="5"] .lose :is(.br,.vn){stroke:var(--dim)}
+.scrolly [data-step="4"] .lose .vl,.scrolly [data-step="5"] .lose .vl{fill:var(--dim)}
+.scrolly [data-step="4"] .petal,.scrolly [data-step="5"] .petal{transform:none}
+.scrolly [data-step="4"] .heart,.scrolly [data-step="5"] .heart{opacity:1}
+.scrolly [data-step="5"] .prod{stroke-dashoffset:0}
+.scrolly [data-step="5"] .sig{opacity:1;transform:none}
+.scrolly [data-step="5"] .plabel{opacity:1}
+.scrolly [data-step="5"] .sig:nth-of-type(2){transition-delay:.15s}
+.scrolly [data-step="5"] .sig:nth-of-type(3){transition-delay:.3s}
+
+/* one question */
+.ask{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:2rem 4rem;align-items:start}
+.choices{display:flex;flex-direction:column;gap:.6rem}
+.q{font:700 var(--t2)/1.15 var(--display);margin-bottom:.5rem}
+.opt{display:flex;gap:1rem;align-items:baseline;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1.5px solid var(--line);border-radius:14px;padding:1rem 1.2rem;cursor:pointer;transition:border-color .25s, background .25s}
+.opt:hover{border-color:var(--ink)}
+.opt[aria-pressed="true"]{border-color:var(--leaf);background:var(--surface)}
+.opt b{font:700 var(--t1)/1 var(--display);min-width:4rem}
+.opt span{color:var(--muted);font-size:var(--t-1)}
+.pd{display:flex;align-items:center;gap:.6rem;margin-top:.75rem;font-size:var(--t-1);color:var(--muted)}
+.pd input{accent-color:var(--leaf);width:1.1rem;height:1.1rem}
+.derive{background:var(--surface);border-radius:20px;padding:clamp(1.25rem, 3vw, 2rem)}
+.derive dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.1rem 2rem;margin:0;align-items:baseline}
+.derive dt{font-size:var(--t-1);color:var(--muted)}
+.derive dd{margin:0;font-weight:500}
+.derive dd.big{font:800 clamp(2.2rem, 5vw, 3.4rem)/1 var(--display);letter-spacing:-.03em}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{font-size:var(--t-1);padding:.3rem .7rem;border-radius:999px;background:var(--bud);color:var(--ink);animation:chip .35s var(--ease) both}
+.chip.none{background:none;border:1px dashed var(--line);color:var(--muted)}
+@keyframes chip{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+.flip{animation:flip .45s var(--ease)}
+@keyframes flip{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.derive .note{margin-top:1.25rem;font-size:var(--t-1);color:var(--muted)}
+
+/* gains */
+.gains{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2rem}
+.gains div{border-top:2px solid var(--ink);padding-top:1rem}
+.gains h3{font-size:var(--t1);font-weight:700;margin-bottom:.5rem;line-height:1.2}
+.gains p{color:var(--muted);font-size:.9375rem}
+
+/* outputs */
+.outs{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.5rem}
+.doc{background:var(--surface);border-radius:20px;overflow:hidden;min-width:0}
+.doc .bar{display:flex;justify-content:space-between;gap:1rem;padding:.8rem 1.25rem;border-bottom:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+.doc .bar code{color:var(--ink)}
+.doc .body{padding:1.25rem 1.4rem;display:flex;flex-direction:column;gap:.75rem}
+.doc .body h3{font:700 var(--t1)/1.25 var(--display)}
+.doc .score{font-weight:600}
+.doc .score b{color:var(--leaf)}
+.doc ul{margin:0;padding-left:1.1rem;color:var(--muted)}
+.rows div{display:flex;justify-content:space-between;gap:1rem;padding:.9rem 1.25rem;border-bottom:1px solid var(--line)}
+.rows div:last-child{border-bottom:0}
+.rows span:first-child{color:var(--muted)}
+.rows span:last-child{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+
+/* rules */
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2rem 3rem}
+.rules h3{font-size:var(--t2);font-weight:700;line-height:1.1;margin-bottom:.6rem}
+.rules p{color:var(--muted)}
+
+/* kill band */
+.kill{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:center}
+.kill h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.kill p{color:var(--muted);font-size:var(--t1);max-width:50ch}
+
+/* fit */
+.fit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem 4rem}
+.fit h3{font-size:var(--t1);font-weight:700;margin-bottom:.9rem}
+.fit ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.5rem;color:var(--muted)}
+.fit .no h3{color:var(--warn)}
+
+/* faq */
+.faq{border-top:1px solid var(--line);max-width:58rem}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;list-style:none;padding:1.2rem 3rem 1.2rem 0;font:700 var(--t1)/1.3 var(--display);position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";position:absolute;right:.4rem;top:50%;width:.9rem;height:.9rem;margin-top:-.45rem;
+  background:linear-gradient(var(--leaf),var(--leaf)) center/100% 2px no-repeat, linear-gradient(var(--leaf),var(--leaf)) center/2px 100% no-repeat;transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(135deg)}
+.faq details p{padding-bottom:1.3rem;color:var(--muted);max-width:64ch;animation:fadein .35s both}
+
+/* start */
+.start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2rem 4rem;align-items:center}
+.start h2{font-size:var(--t4);font-weight:800;line-height:.95;max-width:12ch}
+.start .muted{margin-block:1.25rem 1.75rem;max-width:44ch;font-size:var(--t1)}
+.term{background:var(--ink);color:var(--paper);border-radius:20px;padding:1.25rem 1.4rem;font:400 .9rem/1.85 var(--mono);min-width:0;position:relative}
+.term pre{margin:0;overflow-x:auto;white-space:pre;padding-top:1.8rem}
+.term .c{opacity:.6}
+.copy{position:absolute;top:.75rem;right:.75rem;font:500 var(--t-1)/1 var(--body);background:transparent;color:var(--paper);border:1px solid var(--dim);border-radius:999px;padding:.4rem .8rem;cursor:pointer}
+footer{display:flex;justify-content:space-between;gap:.75rem 2rem;flex-wrap:wrap;padding-block:2rem 2.75rem;border-top:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+footer a{color:var(--ink)}
+footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
+
+@media (max-width:900px){
+  .hero-row,.head,.why,.ask,.outs,.start,.kill,.fit{grid-template-columns:minmax(0,1fr)}
+  .hero .ctas{justify-content:flex-start}
+  .gains{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rules{grid-template-columns:minmax(0,1fr)}
+  .scrolly{grid-template-columns:minmax(0,1fr)}
+  .stage{top:env(safe-area-inset-top, 0px);height:auto;background:var(--paper);z-index:2;padding-block:.5rem;border-bottom:1px solid var(--line)}
+  .stage svg{max-height:42vh}
+  .step{min-height:50vh}
+}
+@media (max-width:560px){ .gains{grid-template-columns:minmax(0,1fr)} header > nav:not(.langs){display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  html{scroll-behavior:auto}
+  .replay{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="lockup" href="#top" aria-label="Pflanzer Method, pflanzer.cz/method">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h7M9 12c3 0 3-6 7-6M9 12h7M9 12c3 0 3 6 7 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19.5" cy="12" r="2.6" fill="var(--leaf)"/></svg>
+    Pflanzer Method <span>|</span> <span>pflanzer.cz/method</span>
+  </a>
+  <nav aria-label="Sezioni della pagina">
+    <a href="#proc">Perché</a>
+    <a href="#jak">Come funziona</a>
+    <a href="#vystupy">Output</a>
+    <a href="#otazky">Domande</a>
+    <a href="#start">Iniziare</a>
+  </nav>
+  <!--LANGS-->
+</header>
+
+<main id="top">
+<div class="hero">
+  <p class="kicker">L’IA ha accelerato la scrittura del codice. Le approvazioni no.</p>
+  <h1><span class="ln"><span>Porti il vibe coding in produzione.</span></span><span class="ln"><span>Con tutti al tavolo dal primo giorno.</span></span></h1>
+  <div class="hero-row">
+    <p class="lead">Pflanzer Method è un metodo e uno strumento open source per lo sviluppo con IA in azienda. Porta alle stesse sessioni business, prodotto, design, sviluppo, sicurezza e operations. Nel Build di tre ore l’IA costruisce tre varianti funzionanti, su Go, Iterate o Kill si decide entro una settimana e la variante vincente passa allo sviluppo come pull request, con le firme.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#start">Partire con il primo pilot</a>
+      <a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md">Pagina per il Decider</a>
+    </div>
+  </div>
+  <ul class="proof" aria-label="Fatti sul metodo">
+    <li>Open source, licenza MIT</li>
+    <li>955 test automatici</li>
+    <li><a href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/research/srovnani-metod-2026.md">Confronto di 13 metodi di sviluppo con IA</a></li>
+  </ul>
+</div>
+</main>
+
+<div class="band">
+  <svg id="relay" class="play" viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="relay-t">
+    <title id="relay-t">Sei linee separate si uniscono in una. Questa si ramifica nelle varianti A, B e C, i rappresentanti danno feedback, B sboccia e prosegue come Go verso la produzione.</title>
+    <g aria-hidden="true">
+      <path class="r-line in" pathLength="1" d="M0 30 C120 30 150 115 250 115" style="animation-delay:0s"/>
+      <path class="r-line in" pathLength="1" d="M0 64 C120 64 150 115 250 115" style="animation-delay:.05s"/>
+      <path class="r-line in" pathLength="1" d="M0 98 C120 98 150 115 250 115" style="animation-delay:.1s"/>
+      <path class="r-line in" pathLength="1" d="M0 132 C120 132 150 115 250 115" style="animation-delay:.15s"/>
+      <path class="r-line in" pathLength="1" d="M0 166 C120 166 150 115 250 115" style="animation-delay:.2s"/>
+      <path class="r-line in" pathLength="1" d="M0 200 C120 200 150 115 250 115" style="animation-delay:.25s"/>
+    </g>
+    <text class="r-lab" x="268" y="92">Kickoff</text>
+    <path class="r-line s-trunk" pathLength="1" d="M250 115 H460"/>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 40 650 40"/>
+      <circle class="r-node" cx="668" cy="40" r="18"/><text class="r-var" x="668" y="40">A</text>
+    </g>
+    <g>
+      <path class="r-line s-br" pathLength="1" d="M460 115 H650"/>
+      <circle class="r-node" cx="668" cy="115" r="18"/><text class="r-var" x="668" y="115">B</text>
+    </g>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 190 650 190"/>
+      <circle class="r-node" cx="668" cy="190" r="18"/><text class="r-var" x="668" y="190">C</text>
+    </g>
+    <text class="r-lab" x="478" y="222">Build</text>
+    <g aria-hidden="true">
+      <circle class="r-dot" cx="708" cy="28" r="4.5" style="--d:2.0s"/>
+      <circle class="r-dot" cx="722" cy="52" r="4.5" style="--d:2.25s"/>
+      <circle class="r-dot" cx="708" cy="103" r="4.5" style="--d:2.1s"/>
+      <circle class="r-dot" cx="724" cy="121" r="4.5" style="--d:2.35s"/>
+      <circle class="r-dot" cx="710" cy="136" r="4.5" style="--d:2.55s"/>
+      <circle class="r-dot" cx="710" cy="186" r="4.5" style="--d:2.45s"/>
+    </g>
+    <text class="r-lab" x="740" y="222">Raccolta feedback</text>
+    <path class="r-line win s-win" pathLength="1" d="M686 115 H1080"/>
+    <text class="r-go" x="760" y="98">Go</text>
+    <g transform="translate(1110 115)">
+      <g transform="rotate(0)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.0s"/></g>
+      <g transform="rotate(72)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.1s"/></g>
+      <g transform="rotate(144)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.2s"/></g>
+      <g transform="rotate(216)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.3s"/></g>
+      <g transform="rotate(288)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.4s"/></g>
+      <circle class="r-heart" cx="0" cy="0" r="9"/>
+    </g>
+    <text class="r-lab r-end" x="1050" y="168">Produzione</text>
+  </svg>
+  <button class="replay" id="replay" type="button">Riproduci di nuovo</button>
+</div>
+
+<section id="proc" aria-labelledby="proc-h">
+  <div class="why">
+    <div>
+      <h2 id="proc-h" class="quote">Il vibe coding ha toccato il limite del silo.<small>Il vibe coding accelera un’azienda solo se al tavolo siedono tutti. Per questo esiste Pflanzer Method.</small></h2>
+    </div>
+    <div class="story">
+      <p>Abbiamo visto aziende provare il vibe coding per accelerare processi lenti. Un team con l’IA costruisce un prototipo in poche ore. Poi lo vedono per la prima volta sicurezza, legale e operations e iniziano le domande: dove sono i dati, chi lo gestirà, ha superato i controlli? Domande che si potevano risolvere il primo giorno arrivano dopo settimane e il prototipo resta in coda.</p>
+      <p><strong>L’IA ha accelerato la scrittura del codice. I passaggi di consegne tra i reparti sono rimasti gli stessi.</strong> Chi inizia con il vibe coding si scontra con il limite del proprio silo. Il lavoro non va oltre e l’accelerazione non arriva.</p>
+      <p>Pflanzer Method abbatte i silo portando alle sessioni comuni, dal primo giorno, i rappresentanti di tutti e sei i passi del percorso. Sicurezza e operations non giudicano il prodotto finito a cose fatte. Lo firmano lungo il percorso, in finestre brevi da 20 minuti.</p>
+    </div>
+  </div>
+</section>
+
+<section id="jak" aria-labelledby="jak-h">
+  <div class="head">
+    <h2 id="jak-h">Come Pflanzer Method abbatte i silo</h2>
+    <p>Sei passi del percorso, ciascuno con il nome di una persona. Sotto, lo strumento presidia firme, controlli di qualità, passaggio allo sviluppo e misurazione dopo il rilascio.</p>
+  </div>
+  <div class="scrolly">
+    <div class="stage" aria-hidden="true">
+      <svg id="stage" data-step="0" viewBox="0 0 800 520">
+        <ellipse class="table" cx="230" cy="270" rx="165" ry="100"/>
+        <text class="tlabel" x="230" y="275">Un solo tavolo</text>
+        <path class="handoff" d="M79 78 L189 148 L299 218 L409 288 L519 358 L629 428"/>
+        <text class="veto" x="470" y="470">veto tardivo</text>
+        <g class="seat" style="--x0:20px;--y0:60px;--x1:171px;--y1:152px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Business</text></g>
+        <g class="seat" style="--x0:130px;--y0:130px;--x1:314px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Prodotto</text></g>
+        <g class="seat" style="--x0:240px;--y0:200px;--x1:314px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Design</text></g>
+        <g class="seat" style="--x0:350px;--y0:270px;--x1:171px;--y1:352px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Sviluppo</text></g>
+        <g class="seat late" style="--x0:460px;--y0:340px;--x1:28px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Sicurezza</text></g>
+        <g class="seat late" style="--x0:570px;--y0:410px;--x1:28px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Operations</text></g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 110 584 110"/>
+          <circle class="vn" cx="600" cy="110" r="16"/><text class="vl" x="600" y="110">A</text>
+          <circle class="fb" cx="636" cy="98" r="4.5"/><circle class="fb" cx="646" cy="120" r="4.5"/>
+        </g>
+        <g>
+          <path class="br" pathLength="1" d="M400 270 H584"/>
+          <g transform="translate(600 270)">
+            <g transform="rotate(0)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(72)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(144)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(216)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(288)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+          </g>
+          <circle class="vn" cx="600" cy="270" r="16"/><text class="vl" x="600" y="270">B</text>
+          <circle class="heart" cx="600" cy="270" r="9"/>
+          <circle class="fb" cx="638" cy="248" r="4.5"/><circle class="fb" cx="650" cy="268" r="4.5"/><circle class="fb" cx="638" cy="290" r="4.5"/>
+        </g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 430 584 430"/>
+          <circle class="vn" cx="600" cy="430" r="16"/><text class="vl" x="600" y="430">C</text>
+          <circle class="fb" cx="638" cy="422" r="4.5"/>
+        </g>
+        <path class="prod" pathLength="1" d="M622 270 H790"/>
+        <text class="plabel" x="700" y="252">Produzione</text>
+        <g class="sig"><circle cx="672" cy="322" r="10"/><path d="M667 322 l3.5 3.5 l6 -7"/><text x="690" y="322">Brief</text></g>
+        <g class="sig"><circle cx="672" cy="352" r="10"/><path d="M667 352 l3.5 3.5 l6 -7"/><text x="690" y="352">Sicurezza</text></g>
+        <g class="sig"><circle cx="672" cy="382" r="10"/><path d="M667 382 l3.5 3.5 l6 -7"/><text x="690" y="382">Operations</text></g>
+      </svg>
+    </div>
+    <div class="steps">
+      <div class="step on" data-n="0"><span class="when">Oggi</span><h3>Passaggi di consegne in fila</h3><p>Il business passa al prodotto, il prodotto allo sviluppo, lo sviluppo alla sicurezza. Sicurezza, legale e operations vedono il prototipo solo alla fine e ogni passaggio aggiunge interpretazioni e un veto tardivo.</p></div>
+      <div class="step" data-n="1"><span class="when">Kickoff, 15 min</span><h3>Tutti allo stesso tavolo</h3><p>I rappresentanti dei sei passi del percorso siedono alle sessioni comuni fin dal primo giorno. Il nucleo è di 3–4 persone, gli altri entrano nelle finestre da 20 minuti. <code>/pm start</code></p></div>
+      <div class="step" data-n="2"><span class="when">Build, 3 h</span><h3>Tre varianti funzionanti</h3><p>L’IA costruisce le varianti A, B e C nel repository aziendale. Il nucleo siede davanti a un unico schermo. <code>/pm build</code></p></div>
+      <div class="step" data-n="3"><span class="when">Raccolta feedback, 3–5 giorni</span><h3>I rappresentanti cliccano e scrivono</h3><p>Un solo indirizzo, password a parte. Ognuno scrive cosa funziona e cosa no, direttamente sulla schermata. <code>pflanzer share</code></p></div>
+      <div class="step" data-n="4"><span class="when">Decisione, 60–90 min</span><h3>Si decide sul codice funzionante</h3><p>Il Decider dice Go, Iterate o Kill e vota per ultimo. Kill è un esito valido. <code>/pm decide</code></p></div>
+      <div class="step" data-n="5"><span class="when">Ship, 1–2 giorni</span><h3>In produzione, con le firme</h3><p>La variante vincente supera i controlli automatici. Brief, sicurezza e operations sono firmati lungo il percorso e le loro condizioni sono nel testo della PR. Dopo 30 giorni la retro misura quanto codice è rimasto in produzione. <code>/pm ship</code></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="otazka" aria-labelledby="otazka-h">
+  <div class="head">
+    <h2 id="otazka-h">All’inizio, una domanda</h2>
+    <p>Livello del metodo, finestre di firma e soglia di qualità derivano dalla risposta. Nessuno deve conoscere Quick, Lean o Full. Chi vuole può sovrascrivere i valori predefiniti.</p>
+  </div>
+  <div class="ask">
+    <div>
+      <p class="q">Quanto è seria la cosa?</p>
+      <div class="choices" role="group" aria-label="Quanto è seria la cosa">
+        <button class="opt" type="button" id="o-demo" data-k="demo" aria-pressed="false"><b>Demo</b><span>dimostrazione per la decisione, nulla in produzione</span></button>
+        <button class="opt" type="button" id="o-pilot" data-k="pilot" aria-pressed="true"><b>Pilot</b><span>5–20 utenti reali</span></button>
+        <button class="opt" type="button" id="o-ostre" data-k="ostre" aria-pressed="false"><b>Live</b><span>esercizio ordinario per tutti</span></button>
+      </div>
+      <label class="pd" for="pd"><input type="checkbox" id="pd"> Nei dati ci sono dati personali</label>
+    </div>
+    <div class="derive" aria-live="polite">
+      <dl id="derived">
+        <dt>Livello</dt><dd class="big" id="d-tier">Lean</dd>
+        <dt>Finestre di firma</dt><dd><div class="chips" id="d-win"><span class="chip">Brief</span><span class="chip">Sicurezza e operations</span></div></dd>
+        <dt>Soglia dello Ship</dt><dd id="d-thr">80 su 100</dd>
+        <dt>Capacità</dt><dd id="d-cap">~6–8 giorni-persona</dd>
+      </dl>
+      <p class="note" id="d-note">Un pilot senza dati personali ha una sola finestra comune da 20 minuti.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="zisk-h">
+  <div class="head">
+    <h2 id="zisk-h">Una velocità che regge fino alla produzione</h2>
+    <p>Quattro cose che cambiano.</p>
+  </div>
+  <div class="gains">
+    <div><h3>Nessuna sorpresa alla fine</h3><p>Sicurezza, legale e operations firmano lungo il percorso. Le loro condizioni confluiscono nel testo della PR, quindi non si attende un veto tardivo.</p></div>
+    <div><h3>Le dispute si chiudono con un clic</h3><p>Il team confronta tre varianti funzionanti, non tre interpretazioni dello stesso documento. Il feedback punta a una schermata concreta.</p></div>
+    <div><h3>Meno persone alle riunioni</h3><p>Il nucleo è di 3–4 persone. Il Decider partecipa a Kickoff e Decisione, sicurezza e operations alle finestre da 20 minuti.</p></div>
+    <div><h3>Il management riceve una pagina</h3><p>Decisione, costo, punteggio di qualità, rischi e firme su una sola pagina. Il quadro di tutti i progetti con un solo comando.</p></div>
+  </div>
+</section>
+
+<section id="vystupy" aria-labelledby="vystupy-h">
+  <div class="head">
+    <h2 id="vystupy-h">Gli output li legge anche il management</h2>
+    <p>Il punteggio è una frase, non un numero senza contesto. Dice da quanti controlli deriva, che cosa non è stato eseguito e che il rispetto del brief lo verificano le persone.</p>
+  </div>
+  <div class="outs">
+    <article class="doc" aria-labelledby="doc1">
+      <div class="bar"><code>SHIP.md</code><span>esempio, progetto fittizio</span></div>
+      <div class="body">
+        <h3 id="doc1">Vincitore B: prenotazione del tavolo in due clic</h3>
+        <p class="score"><b>Punteggio 87 su 100 da 8 controlli automatici</b>, soddisfa la soglia di 80.</p>
+        <p class="muted">Il punteggio misura la qualità tecnica, non se la variante rispetta il brief. Questo lo verificano il feedback dei rappresentanti e il Decider.</p>
+        <ul>
+          <li>Non verificato: copertura dei test (manca lo strumento di misura)</li>
+          <li>1 osservazione aperta sul vincitore: importante, passo Operations</li>
+          <li>Firmato: Brief, Sicurezza e operations</li>
+        </ul>
+      </div>
+    </article>
+    <article class="doc" aria-labelledby="doc2">
+      <div class="bar"><code id="doc2">pflanzer report summary</code><span>che cosa misura il report</span></div>
+      <div class="rows">
+        <div><span>Giorni da Go a merge</span><span>obiettivo ≤ 14</span></div>
+        <div><span>Codice del vincitore sopravvissuto</span><span>obiettivo ≥ 80%</span></div>
+        <div><span>Costo IA fino al Go</span><span>token e stima dei costi</span></div>
+        <div><span>Passi coperti dall’IA</span><span>quota su 6</span></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="pravidla-h">
+  <div class="head">
+    <h2 id="pravidla-h">Tre regole che non si piegano</h2>
+    <p>La semplicità all’esterno si regge su pochi punti fermi all’interno.</p>
+  </div>
+  <div class="rules">
+    <div><h3>L’IA prepara, la persona firma</h3><p>L’IA può coprire un ruolo mancante con una proposta. Decider e sviluppatore sono sempre persone e la loro firma l’IA non la sostituisce.</p></div>
+    <div><h3>Si decide sul codice funzionante</h3><p>Tre varianti operative nel repository aziendale, al posto di un documento o di un mockup.</p></div>
+    <div><h3>Kill è un esito valido</h3><p>Se una variante non raggiunge la metrica, il progetto si chiude con un insegnamento. L’insegnamento confluisce nel quadro di tutti i progetti.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="riziko-h">
+  <div class="kill">
+    <h2 id="riziko-h">Il peggior esito è un Kill dopo una settimana</h2>
+    <p>Se l’idea non funziona, lo si scopre sul codice funzionante prima che parta lo sviluppo. Il progetto si chiude con un insegnamento, che confluisce nel quadro di tutti i progetti. Nel metodo Kill è un esito valido e il team ne trae una lezione.</p>
+  </div>
+</section>
+
+<section aria-labelledby="fit-h">
+  <div class="head">
+    <h2 id="fit-h">A chi serve il metodo e quando no</h2>
+    <p>Il metodo è adatto a nuove funzionalità e strumenti interni che si possono costruire e mostrare in un pomeriggio.</p>
+  </div>
+  <div class="fit">
+    <div>
+      <h3>È adatto quando</h3>
+      <ul>
+        <li>c’è un Decider con il mandato di dire sia Go sia Kill,</li>
+        <li>nel team c’è almeno uno sviluppatore,</li>
+        <li>la funzionalità si può costruire nel repository aziendale e mostrare nel browser,</li>
+        <li>si sta provando il vibe coding e nulla è andato più veloce.</li>
+      </ul>
+    </div>
+    <div class="no">
+      <h3>Non va usato per</h3>
+      <ul>
+        <li>pagamenti e flussi di pagamento,</li>
+        <li>sistemi AI Act High-risk o DORA senza un livello di governance,</li>
+        <li>app mobile native con ciclo di rilascio tramite store,</li>
+        <li>progetti con una forte dipendenza esterna non simulabile.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="otazky" aria-labelledby="otazky-h">
+  <div class="head">
+    <h2 id="otazky-h">Domande frequenti</h2>
+    <p>Le risposte a ciò che i team chiedono prima del primo pilot.</p>
+  </div>
+  <div class="faq">
+    <details><summary>In che cosa si differenzia da un design sprint o da un hackathon?</summary><p>Il risultato è codice funzionante nel vostro repository e alle sessioni comuni siedono anche sicurezza, legale e operations. Lo strumento gestisce le firme delle finestre, i controlli automatici e il passaggio della variante vincente allo sviluppo come pull request.</p></details>
+    <details><summary>Dobbiamo usare Claude Code?</summary><p>No. Il comando <code>pflanzer</code> funziona dal terminale, da <code>pflanzer start</code> fino allo Ship. Claude Code aggiunge l’unico comando d’ingresso <code>/pm</code> e il builder IA.</p></details>
+    <details><summary>E se non abbiamo una persona della sicurezza, un designer o un referente delle operations?</summary><p>Il ruolo mancante può essere coperto da una proposta dell’IA. La finestra la firma sempre una persona e la proposta dell’IA non sostituisce mai la sua firma. Decider e sviluppatore sono sempre persone.</p></details>
+    <details><summary>E se la sicurezza dice comunque di no?</summary><p>Lo dice nella finestra, durante il percorso, non dopo settimane su un prodotto finito. Le condizioni della firma confluiscono nel testo della PR. Una firma mancante può essere superata solo dal Decider, in modo consapevole e con la motivazione nel decision log.</p></details>
+    <details><summary>Dobbiamo cambiare il nostro modo di sviluppare?</summary><p>No. La variante vincente arriva come pull request nel vostro repository e prosegue nella pipeline abituale. Il metodo cambia chi siede al tavolo della decisione e quando, non il vostro processo di sviluppo.</p></details>
+    <details><summary>Quanto tempo richiede un pilot?</summary><p>Kickoff 15 minuti, Build 3 ore, raccolta feedback 3–5 giorni, Decisione 60–90 minuti. Un pilot richiede circa 6–8 giorni-persona, la demo 5, il rilascio in produzione 14.</p></details>
+    <details><summary>Avete risultati da aziende reali?</summary><p>Non ancora. Il metodo ha superato 28 percorsi di prova completi su progetti fittizi. Dal primo pilot lo strumento misura i giorni da Go a merge e la quota di codice sopravvissuta in produzione. Pubblicheremo quei numeri quando ci saranno.</p></details>
+    <details><summary>Quanto costa il metodo?</summary><p>Metodo e strumento sono open source con licenza MIT. Si paga il tempo delle persone e l’IA che si utilizza. Lo strumento mostra il costo dell’IA nel report.</p></details>
+  </div>
+</section>
+
+<section id="start" aria-labelledby="start-h">
+  <div class="start">
+    <div>
+      <h2 id="start-h">Tutti al tavolo. Codice in produzione.</h2>
+      <p class="muted">Si parte dal primo pilot. Installazione una tantum per macchina, poi nel repository del progetto <code>/pm</code>, oppure senza Claude Code <code>pflanzer start</code>.</p>
+      <div class="ctas"><a class="btn primary" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/zacni.md">Partire con il primo pilot</a><a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod">Codice sorgente su GitHub</a></div>
+    </div>
+    <div class="term">
+      <button class="copy" id="copy" type="button">Copia</button>
+<pre id="cmd"><span class="c"># una tantum per macchina</span>
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash
+<span class="c"># nel repository del progetto</span>
+pflanzer init &amp;&amp; pflanzer doctor
+/pm</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="claim">Tutti al tavolo. Codice in produzione.</span>
+  <span><b>Pflanzer Method</b> | pflanzer.cz/method</span>
+  <span>Il metodo è sviluppato da Tomáš Pflanzer, <a href="https://wiseguys.co">Wiseguys</a></span>
+  <span>Versione 0.6, licenza MIT</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  var DATA = {
+    demo:  {tier:"Quick", win:[], thr:"indicativa, non bloccante", cap:"~5 giorni-persona",
+            note:"La demo non passa dal triage. Prima di un pilot basta un nuovo Kickoff con la risposta Pilot."},
+    pilot: {tier:"Lean", win:["Brief","Sicurezza e operations"], thr:"80 su 100", cap:"~6–8 giorni-persona",
+            note:"Un pilot senza dati personali ha una sola finestra comune da 20 minuti."},
+    ostre: {tier:"Lean", win:["Brief","Sicurezza e legale","Operations"], thr:"85 su 100", cap:"~14 giorni-persona",
+            note:"In un rilascio live, operations lo firma una persona delle operations. L’IA può preparare una bozza."}
+  };
+  var cur = "pilot", pd = document.getElementById("pd");
+  function flip(el){ el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip"); }
+  function render(){
+    var d = JSON.parse(JSON.stringify(DATA[cur]));
+    if (pd.checked && cur === "pilot") { d.win = ["Brief","Sicurezza e legale","Operations"]; d.note = "I dati personali comportano una classe di dati più alta, perciò finestre separate."; }
+    if (pd.checked && cur === "ostre") { d.tier = "Full"; d.win = ["Brief","Sicurezza e legale","Operations","Legale (DPIA), se il triage la rinvia"]; d.note = "Un rilascio live con dati personali passa dal triage completo."; }
+    if (pd.checked && cur === "demo") { d.note = "Demo con dati personali? Utilizzare solo dati di test."; }
+    var t = document.getElementById("d-tier");
+    if (t.textContent !== d.tier) { t.textContent = d.tier; flip(t); }
+    var w = document.getElementById("d-win"); w.innerHTML = "";
+    if (!d.win.length) { var n = document.createElement("span"); n.className = "chip none"; n.textContent = "nessuna"; w.appendChild(n); }
+    d.win.forEach(function(x, i){ var c = document.createElement("span"); c.className = "chip"; c.style.animationDelay = (i * 60) + "ms"; c.textContent = x; w.appendChild(c); });
+    ["d-thr","d-cap","d-note"].forEach(function(id, i){ var el = document.getElementById(id); var v = [d.thr, d.cap, d.note][i]; if (el.textContent !== v) { el.textContent = v; flip(el); } });
+  }
+  document.querySelectorAll(".opt").forEach(function(b){
+    b.addEventListener("click", function(){
+      cur = b.getAttribute("data-k");
+      document.querySelectorAll(".opt").forEach(function(o){ o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      render();
+    });
+  });
+  pd.addEventListener("change", render);
+
+  var relay = document.getElementById("relay");
+  document.getElementById("replay").addEventListener("click", function(){
+    relay.classList.remove("play"); void relay.getBoundingClientRect(); relay.classList.add("play");
+  });
+
+  var stage = document.getElementById("stage");
+  var steps = Array.prototype.slice.call(document.querySelectorAll(".step"));
+  function setStep(n){
+    stage.setAttribute("data-step", n);
+    steps.forEach(function(s){ s.classList.toggle("on", s.getAttribute("data-n") === String(n)); });
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting) setStep(e.target.getAttribute("data-n")); });
+    }, {rootMargin:"-45% 0px -45% 0px"});
+    steps.forEach(function(s){ io.observe(s); });
+  } else { setStep(5); steps.forEach(function(s){ s.classList.add("on"); }); }
+
+  var copy = document.getElementById("copy");
+  copy.addEventListener("click", function(){
+    var text = "curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash";
+    var done = function(){ copy.textContent = "Copiato"; setTimeout(function(){ copy.textContent = "Copia"; }, 1600); };
+    try { navigator.clipboard.writeText(text).then(done, selectCmd); } catch (e) { selectCmd(); }
+  });
+  function selectCmd(){
+    var r = document.createRange(); r.selectNodeContents(document.getElementById("cmd"));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    copy.textContent = "Selezionato, copiare";
+  }
+})();
+</script>
+</body>
+</html>

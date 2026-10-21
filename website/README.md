@@ -65,7 +65,22 @@ Nahraj na:
 - **Cloudflare Pages** — connect repo, root directory `website`
 - **FTP na claude.gizmax.cz** — viz globální CLAUDE.md upload command
 
-### FTP deploy (pflanzer.cz/method)
+### Web v3 (vícejazyčný, aktuální)
+
+Zdroje: `website/v3/<jazyk>.html` (cs, en, de, es, fr, it, pl), fonty `website/v3/fonts/`.
+Build do `website/dist/method/` (canonical, hreflang, sitemap, JSON-LD, OG obrázky, favicon):
+
+```bash
+python3 website/v3/build.py
+NODE_PATH=<složka s playwright> node website/v3/og.cjs
+```
+
+Nahrání: obsah `website/dist/method/` na FTP do `public_html/method/` (heslo z Keychain
+`pflanzer-ftp`, nikdy do souboru). Do kořenového `robots.txt` patří řádek
+`Sitemap: https://pflanzer.cz/method/sitemap.xml`, sekce metody v `llms.txt` je v
+`website/v3/llms-method.md`.
+
+### FTP deploy (starý web, bold-hybrid)
 
 ```bash
 # Heslo z env proměnné, NIKDY natvrdo do souboru
