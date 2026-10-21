@@ -74,9 +74,9 @@ Použij kaskádově, první „ano" je doporučená metoda.
 2. **3 soutěžní varianty** téhož zadání paralelně na reálném repu
    (worktrees, ADR-0009) — rozhoduje se mezi možnostmi, ne o jedné.
 3. **Rozhodnutí s anti-HiPPO protokolem:** silent voting, Decider poslední,
-   Go jen s vítězem, critical na vítězi blokuje Go, Iterate max 1×,
+   Go jen s vítězem, Kritické na vítězi blokuje Go, Iterate max 1×,
    decision log v repu.
-4. **Cesta do produkce přes automat:** gates jen na vítěze, skóre X/100,
+4. **Cesta do produkce přes automat:** gates jen na vítěze, skóre ze 100,
    checkpointy, PR s AI provenance (§ AI code provenance v [`07`](07-handoff-do-vyvoje.md)).
 5. **Měření outcome** (`/pm retro`): % LOC vítěze v produkci, days-to-prod,
    T+7/30/60/90. Důkazy o účinnosti metody dnes nemá nikdo, Pflanzer

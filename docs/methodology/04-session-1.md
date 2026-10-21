@@ -15,7 +15,7 @@ Za jedno sezení jádra vzniknou **3 běžící varianty** téhož zadání
 (ve 3 worktrees target repa, ADR-0009), každá s kontrolami lint/typy/
 testy/build, na preview URL se štítkem „Varianta X — k rozhodnutí, ne
 produkt". Hlasuje se až po diff walkthrough. Build nerozhoduje; shortlist
-a zápis jdou do Async a Rozhodnutí.
+a zápis jdou do Sběru feedbacku (Async) a Rozhodnutí.
 
 ## Kdo
 
@@ -90,7 +90,7 @@ Podpis (bez podpisu Ship pilotu/production neprojde):
 `pflanzer checkpoint --slug <slug> bezpecnost --by "<jméno>" --note "…"`;
 veto přidá `--blocked`. **Veto je veto, ne hlas:** varianta nejde na preview,
 dokud ji Decider výslovně nepřebije s odůvodněním do decision logu. Kdo dá
-critical bez důkazu (STRIDE, a11y, právní tvrzení), je facilitátorem
+Kritická připomínka bez důkazu (STRIDE, a11y, právní tvrzení), je facilitátorem
 downgradován na varování. `doctor` a gates kontrolu doplňují, nenahrazují.
 
 ## Diff walkthrough (před hlasováním)
@@ -103,16 +103,19 @@ by chybělo); volitelně kolik scénářů z `tests/acceptance/<slug>.feature`
 projelo. Výsledek jde do `diff_summary` zápisu. Dimenze effort a risk se
 skórují až po walkthrough.
 
-## Silent voting a zápis
+## Tiché hlasování a zápis
 
 - Hlasy jsou **tiché**, výsledek se zveřejní až po hlasování (1-2-4-All).
   Hlasují přítomní; nepřítomní přes Async. **Decider hlasuje vždy poslední,
   a to až v Rozhodnutí.**
 - Dimenze: hodnota pro uživatele, effort, risk, strategická vazba; u každého
   hlasu rationale (1 věta) a commitment 0–3 pro Async.
-- Zápis: `pflanzer quick_session vote --spec …` (nebo plný `pflanzer
-  session --spec …`): varianty (branch, preview URL), preference, výsledek
-  checkpointu, veto registr, parking lot.
+- Zápis: `pflanzer record --spec …` (dřív `vote`; šablonu založí
+  `worktree setup` do `.pflanzer/specs/<slug>-vote.json`): varianty (branch,
+  preview URL), preference, výsledek checkpointu, veto registr, parking lot.
+  Bez zápisu hub varianty neukáže. Hlasování je informativní, rozhoduje
+  Decider. Dál `pflanzer share --slug <slug>` (preview i hub na jedné
+  adrese, heslo zvlášť; `share down` ukončí).
 - Push a preview: větve `pflanzer/<slug>-A|B|C` do target repa, preview URL
   z CI (nebo draft PR / Playwright záznam — [`postup.md`](../postup.md)
   § Kde varianty fyzicky jsou). Žádná placeholder URL.
@@ -121,7 +124,7 @@ skórují až po walkthrough.
 
 Konflikt pojmenuj v 5. minutě výskytu, ne na konci.
 
-- **Veto bezpečnosti vs tlak zadavatele:** critical = pivot na jinou
+- **Veto bezpečnosti vs tlak zadavatele:** Kritické = pivot na jinou
   variantu, ne pokračování v zablokované. Reálná PII v promptu = okamžité
   přerušení, incident playbook, 72h GDPR hodiny. Detail
   [`08`](08-edge-cases-a-rizika.md) § 2.
@@ -196,7 +199,7 @@ Ano: vývojář sdílí **jednu obrazovku** (jeho Claude Code + běžící varia
 
 Každá role skóruje variantu 1–5 (Likert) s **povinným rationale**; skóre
 se zveřejní až po hlasování. **AI-only feedback má váhu max 0,5** z 1,0.
-Hierarchie: **critical = blocker** (STRIDE Critical, AI Act High-risk bez
+Hierarchie: **Kritické (`critical`) = blocker** (STRIDE Critical, AI Act High-risk bez
 DPIA, WCAG Critical/Serious na veřejném rozhraní, breaking change bez
 konzumentů) · **varování bez veta** (UX dluh, testovatelnost, zátěž
 podpory) · **skóre** = váha pro zbytek. Chronicky nízké skóre bez důkazu

@@ -1,5 +1,5 @@
 ---
-description: Handoff (/pm handoff) — balíček per role (PR-ready) + metriky pilotu (čas Kickoff→merge, gate score, Iterate kola, přežití kódu).
+description: Handoff (/pm handoff) — balíček per role (PR-ready) + metriky pilotu (dny od Go do merge, gate score, Iterate kola, přežití kódu).
 ---
 
 # Handoff (`/pm handoff`)
@@ -36,7 +36,7 @@ jsou záměr — doplní tým podle kontextu.
 
 Ukaž, co tool sesbíral — slouží k vylepšení metody:
 
-- čas Kickoff → merge
+- dny od Go do merge
 - gate score vítěze
 - počet kol Iterate
 - kolik kódu vítěze přežije 30 dní v `main` (doměř po 30 dnech)
@@ -44,7 +44,7 @@ Ukaž, co tool sesbíral — slouží k vylepšení metody:
 ## Krok 4 — Další krok
 
 > Další krok: po merge vítěze `/pm retro <slug>` — změří % LOC vítěze
-> v produkci a days-to-prod, hned nastaví připomínky T+7/30/60/90.
+> v produkci a dny od Go do merge, hned nastaví připomínky T+7/30/60/90.
 
 Reinforcement podle zadání z Kickoffu (T+7/30/90) drží Decider. Retro je
 pod povrchem: hlavní cesta končí Shipem a Handoffem.

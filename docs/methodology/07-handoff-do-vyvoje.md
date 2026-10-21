@@ -13,9 +13,12 @@
 Předpoklad: Rozhodnutí skončilo Go s vítězem a krok Provoz má jméno.
 
 1. **Ověř worktree** vítěze v target repu (`pflanzer worktree verify`).
-2. **Quality gates jen na vítěze** (`pflanzer session_3 --slug <slug>`):
-   lint, typy, testy, security, a11y, build, observability → **skóre X/100**.
-   Práh **pilot 80 / production 85** (podle risk profilu ze zadání);
+2. **Quality gates jen na vítěze** (`pflanzer ship --slug <slug>`; sám vyrobí `SHIP.md` a text PR a na konci
+   vypíše příkaz `gh pr create`):
+   lint, typy, testy, security, a11y, build, observability → **skóre** jako
+   věta „Skóre X ze 100 z N automatických kontrol“ (částečné, když část
+   kontrol neproběhla; neměří splnění zadání).
+   Práh **pilot 80 / production 85** (ADR-0024) (podle risk profilu ze zadání);
    security a testy mají dvojnásobnou váhu. Poražené varianty se nehodnotí.
    - Příkazy gates bere **adaptér `pflanzer.gates.yml` z base branche**
      target repa — varianta ho nepřepíše (report to hlásí). Bez adaptéru
@@ -65,7 +68,7 @@ Název příkazu je stabilní rozhraní, význam je **předání vítěze do bě
 vývojového procesu přes PR**, ne re-implementace (ADR-0010). Generuje:
 
 - **`SHIP.md`** — primární výstup, **1 stránka**: vítěz (větev + SHA),
-  skóre X/100 vs práh, odpovědnosti (Decider, vlastník větve), příkaz
+  skóre ze 100 vs práh, odpovědnosti (Decider, vlastník větve), příkaz
   `gh pr create`, checkpoint provozu, sekce „Změř po 30 dnech",
   viditelnost AI nákladů a kontrola trailerů.
 - **Balíček per role** (doplněk pro audit, *sign-off package*): každý

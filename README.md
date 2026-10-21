@@ -51,7 +51,7 @@ sběr feedbacku → `decide` → `ship` → `retro`) je na jedné stránce v
 Kickoff            /pm start     15 min, Decider + jádro     zadání na 1 stránku + jména 6 kroků
 Build              /pm build     3 h, jádro                  3 varianty paralelně, kontroly průběžně,
                                                              20min checkpoint bezpečnost & právo
-Sběr feedbacku     /pm feedback  3–5 dní, všichni            klikání na preview URL (Async)
+Sběr feedbacku     /pm feedback  3–5 dní, všichni            record + share, klikání na preview URL (Async)
 Rozhodnutí         /pm decide    60–90 min, Decider + jádro  Go / Iterate (max 1×) / Kill
 Ship               /pm ship      1–2 dny, vývojáři + provoz  kontroly jen na vítěze, SHIP.md + text PR
 ```
@@ -76,8 +76,8 @@ a Build do 60–90 min, **Full** je pro regulované prostředí
 
 ## Stav
 
-Metoda a tool v0.5 jsou hotové end-to-end: Kickoff, Build, Async, Rozhodnutí,
-Ship, měření po nasazení (`/pm retro`), AI náklady a AI náhrada chybějícího
+Metoda a tool v0.6 jsou hotové end-to-end: Kickoff (jedna otázka „Jak vážné
+to je?“), Build, Sběr feedbacku (Async), Rozhodnutí, Ship, měření po nasazení (`/pm retro`), AI náklady a AI náhrada chybějícího
 zástupce. Čísla z reálných pilotů zatím chybí; tool je sbírá (dny od Go do merge,
 skóre kontrol, přežití kódu). Podrobný stav a historie:
 [`docs/dev.md`](docs/dev.md#stav-implementace), [`CHANGELOG.md`](CHANGELOG.md).

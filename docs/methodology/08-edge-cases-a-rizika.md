@@ -25,7 +25,7 @@ nebo provozu, nedostupný.
 
 ## 2. Veto bezpečnosti v Buildu
 
-**Situace.** Bezpečnost označí variantu jako critical (token v URL, PII
+**Situace.** Bezpečnost označí variantu jako Kritickou (token v URL, PII
 v event property, únik mezi tenanty, reálná PII v promptu).
 
 **Co dělat.**
@@ -134,10 +134,10 @@ jen priorizuje. „Production by stealth" je organizační chyba, ne technická;
 
 ## 9. Hodnocení se stane politickým nástrojem
 
-**Situace.** Oddělení dá variantě nejnižší skóre / critical, aby se zbavilo
+**Situace.** Oddělení dá variantě nejnižší skóre / Kritické, aby se zbavilo
 práce, nebo naopak nafoukne skóre kvůli agendě.
 
-**Co dělat.** Rationale povinné (záznam bez něj je neplatný); critical bez
+**Co dělat.** Rationale povinné (záznam bez něj je neplatný); Kritické bez
 důkazu (STRIDE, a11y, kapacita, právo) facilitátor sníží na varování;
 hlasy jsou v decision logu s jmény; chronicky podezřelý vzorec ukaž jako
 samostatný bod Rozhodnutí.
@@ -157,13 +157,13 @@ jako signál udržitelnosti.
 
 **Kdo rozhoduje.** EM (přidělení buddy) + PdM.
 
-## 11. Zástupci nestíhají Async okno
+## 11. Zástupci nestíhají Sběr feedbacku (Async)
 
 **Situace.** V okně jsou někteří zástupci na dovolené, v uzávěrce nebo mimo
 dosah.
 
 **Co dělat.**
-1. Async sběr je výchozí: hub nebo offline `pflanzer feedback add`, hlasování
+1. Sběr feedbacku (Async) je výchozí: hub nebo offline `pflanzer feedback add`, hlasování
    do termínu; krátké video preview (≤ 10 min) pro nepřítomné.
 2. **Kvórum:** pokud do termínu odpoví méně než 60 % povinných zástupců,
    Rozhodnutí se posune o nejvýš 5 dní. Při ≥ 60 % a chybějící **nevetovací**

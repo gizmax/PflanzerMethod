@@ -1,8 +1,8 @@
 # Glossary — Pflanzer terminologie
 
-> **v0.5 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Terminologie v0.5: Kickoff → Build → Async → Rozhodnutí → Ship; „Session 1/2“ = synonyma Build/Rozhodnutí. Glossary je rozšířená reference; kde se liší, platí 1-pager.
+> **v0.6 (ADR-0021):** Default průběh a sestavu definuje `00-lean-pflanzer.md` — malá skupina (jádro 3–4 + okna pro zástupce kroků cesty, max 5 naráz). Terminologie v0.6: Kickoff → Build → Sběr feedbacku (Async) → Rozhodnutí → Ship; „Session 1/2“ = synonyma Build/Rozhodnutí. Glossary je rozšířená reference; kde se liší, platí 1-pager.
 
-> Definice termínů, kde panovala nejednoznačnost. **v0.4, 2026-05-28.**
+> Definice termínů, kde panovala nejednoznačnost. **v0.4, 2026-05-28; pojmy v0.6 doplněny 2026-10-21.**
 > Updated po dual-track design (`docs/research/dual-track-design/`)
 > a output consistency audit (`docs/research/output-consistency/`).
 
@@ -13,13 +13,19 @@ Tyto termíny se ve výstupech toolu (CLI, hub, PR, SHIP.md, decision log) použ
 | Termín | Význam |
 |---|---|
 | **brána** | Jedna automatická kontrola kvality (např. testy, lint, bezpečnost). |
-| **skóre bran** | Souhrn všech bran jako číslo `X/100`. |
+| **skóre bran** | Souhrn všech bran jako číslo 0–100, ve výstupech jako věta „Skóre X ze 100 z N automatických kontrol“. Neměří splnění zadání. |
+| **částečné skóre** | Skóre, když část kontrol neproběhla (chybí nástroj, typová kontrola, pokrytí). Věta to řekne hned („Skóre 100 ze 100, ale neproběhlo N kontrol“) a práh se nepotvrdí, dokud nejsou aspoň build a testy. ADR-0024. |
 | **práh** | Minimální skóre bran, od kterého Ship projde (pilot 80, production 85). |
 | **podpis okna** | Okno = krátká kontrola jedné role (příkaz `checkpoint`); podpis okna říká, že role výsledek viděla a souhlasí. |
 | **zástupce kroku** | Člověk, který zastupuje jeden krok cesty (Produkt, Design, Vývoj, Bezpečnost & právo, Provoz). |
 | **Rozhodnutí** | Setkání Decidera: **Go** (jde se do Shipu), **Iterate** (jedno další kolo), **Kill** (konec). |
 | **závaznost** | Jak moc se tým za variantu postaví, stupnice 0–3 (v datech `commitment_level`); na Go stačí 60 %. |
-| **Sběr feedbacku** | Fáze Async: zástupci píší připomínky k variantám (hub nebo offline). |
+| **Sběr feedbacku** | Fáze Async (3–5 dní): zástupci píší připomínky k variantám (hub nebo offline `feedback add --by`); souhrn a kdo mlčí dá `feedback_pull`. |
+| **record** | `pflanzer record` (dřív `vote`): zápis hodnocení Buildu (varianty, preference, rozhodnutí o shortlistu). Bez něj hub varianty neukáže. |
+| **share** | `pflanzer share`: jedním příkazem pustí preview variant i hub na jedné adrese, heslo se pošle zvlášť, vypíše zprávu kolegům s termínem (`--deadline`). `share down` vše ukončí. |
+| **report** | `pflanzer report summary --slug S` (stránka pro vedení: rozhodnutí, náklad, kvalita, rizika) a `report portfolio` (tabulka přes projekty, `--csv`). |
+| **sloučené okno** | Okno **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`): u pilotu bez osobních dat nahrazuje zvlášť Bezpečnost & právo a Provoz. S osobními daty zůstávají okna zvlášť; Právo (DPIA) samostatně jen u Full, když triage DPIA odložil. |
+| **Jak vážné to je?** | Jediná otázka Kickoffu (demo / pilot / ostré + osobní údaje); odvodí stupeň Quick / Lean / Full, okna a prahy. `personal_data: true` = třída dat aspoň L3. |
 | **závažnost** | Tři úrovně: **Kritické** (blokuje nasazení), **Důležité**, **Drobné**. |
 
 Mapování závažnosti: CLI vstup `critical` = Kritické; `major` / `high` = Důležité; `minor` / `medium` / `low` = Drobné.
@@ -195,7 +201,7 @@ Iterační rozhodovací session po Iterate (ADR-0001 Scenario B/C) se jmenuje
 Míra rituálů kolem stejného jádra metody (vývojář u klávesnice, 3 paralelní
 varianty, anti-HiPPO, Decider). **Quick** = `/pm live`, Kickoff + Build
 v jednom, 60–90 min, okno 3 dny, jen `throwaway` / `pilot`. **Lean** =
-**v0.5 default**, Build 3 h, Async 3–5 dní. **Full** = governance /
+**v0.6 default**, Build 3 h, Sběr feedbacku (Async) 3–5 dní. **Full** = governance /
 regulované, rozšířená agenda 5–6 h (`04-session-1.md`), 4 triage tracky,
 okno 5–7 dní. Rozhodnutí je ve všech stupních stejné. Autoritativní tabulka:
 `00-lean-pflanzer.md` § Tři stupně jedné metody (ADR-0017). Tool ukládá
@@ -226,20 +232,21 @@ není.
 ### Override triage
 
 Vědomé převzetí rizika Deciderem, když bezpečnost & právo nikdo nepodepsal:
-`pflanzer session_3 --slug S --override-triage --rationale "…"`. Do decision
+`pflanzer ship --slug S --override-triage --rationale "…"`. Do decision
 logu se zapíše jeho jméno; u pilotu bez osobních dat.
 
 ### Checkpoint
 
 20minutové okno nad konkrétním artefaktem (bezpečnost & právo u Buildu,
 provoz u Shipu), které končí podpisem: `pflanzer checkpoint --slug <slug>
-bezpecnost|provoz --by <jméno> --note …`. Checkpoint zapsaný AI (`--ai`) je
+bezpecnost|provoz|bezpecnost-provoz --by <jméno> --note …`
+(`bezpecnost-provoz` = sloučené okno u pilotu bez osobních dat; aliasy `bezpecnost`/`provoz` v něm fungují stejně). Zadání podepisuje Decider, při Kickoffu s metrikou a kill kritériem samo; AI návrh podpis člověka nikdy nepřepíše (ADR-0023). Checkpoint zapsaný AI (`--ai`) je
 jen návrh, dokud ho nepodepíše člověk.
 
 ### Quality gate
 
 Automatická kontrola (lint, typy, testy, bezpečnost, přístupnost, build)
-puštěná jen na vítěze. Výsledkem je skóre X/100; práh pilot 80 / production 85.
+puštěná jen na vítěze. Výsledkem je skóre ze 100 („Skóre X ze 100 z N automatických kontrol“); práh pilot 80 / production 85 (ADR-0024).
 
 ### Worktree
 
@@ -269,7 +276,7 @@ v češtině neskloňuje, takže sedí do vět beze změny tvaru.
 | „dev team picks up the prototype" | „dev team byl v room, kód jde do prod" | Contradicts core claim |
 | „Prototype-to-Prod (P2P) checklist" | „Production readiness checklist" | Naming |
 | „extract code" (Ship) | „polish + observability" | „Extract" implies code wasn't prod-ready |
-| „Session 3" / „3 sezení" | „Ship" / „Kickoff, Build, Async, Rozhodnutí, Ship" | Ship je pipeline, ne setkání |
+| „Session 3" / „3 sezení" | „Ship" / „Kickoff, Build, Sběr feedbacku (Async), Rozhodnutí, Ship" | Ship je pipeline, ne setkání |
 | „re-implementation" | (don't mention; not part of cycle) | Antithesis Pflanzer |
 | „PM" pro produkt manažera | „PdM" (nebo „produkt manažer") | „PM" je vyhrazeno pro Pflanzer Method a smí být jen v názvu commandu `/pm` |
 

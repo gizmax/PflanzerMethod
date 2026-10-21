@@ -1,5 +1,5 @@
 ---
-description: Retro (/pm retro) — měření outcome po Ship: % LOC vítěze v produkci, days-to-prod, T+7/30/60/90 readouty a připomínky.
+description: Retro (/pm retro) — měření outcome po Ship: % LOC vítěze v produkci, dny od Go do merge, T+7/30/60/90 readouty a připomínky.
 ---
 
 # Retro (`/pm retro`) — měření outcome po Ship
@@ -31,15 +31,15 @@ Metoda tvrdí **„≥ 80 % LOC vítěze jde do produkce beze změny, prod deplo
 do 14 dnů"**. Tento command to měří z target repa a ukládá do tabulky
 `outcomes` (`data/pflanzer.db`), takže PflanzerIndex (ADR-0014) a sekce
 „Co měřit" v `docs/zacni.md` stojí na datech, ne na dojmech. Tohle je
-čtvrtá metrika vedle čtyř, které zapisuje Handoff (čas Kickoff → merge, gate
-score vítěze, kola Iterate, přežití kódu 30 dní): **kolik kódu vítěze
+čtvrtá metrika vedle čtyř, které zapisuje Handoff (dny od Go do merge, skóre
+vítěze, kola Iterate, přežití kódu 30 dní): **kolik kódu vítěze
 opravdu žije v produkci a co se s ním stalo za 7 / 30 / 60 / 90 dní.**
 
 | Podpříkaz | Co udělá | Milník |
 |-----------|----------|--------|
 | `measure` | Najde vítěze (stejné pravidlo jako SHIP.md), lokalizuje clone target repa (`$(pflanzer data)/targets/<repo>/`), `git fetch`, spočítá `loc_winner`, `loc_merged_unchanged`, `loc_reused_pct`, `days_to_prod`, `winner_commits` | `ship` |
 | `record` | Ruční readout (bugy, leading/lagging metrika, rework, verdikt) | `t7` / `t30` / `t60` / `t90` |
-| `report` | `data/retro/<slug>-retro.md` + porovnání s cíli (reuse ≥ 80 %, days-to-prod ≤ 14 → jinak FLAG) | — |
+| `report` | `data/retro/<slug>-retro.md` + porovnání s cíli (reuse ≥ 80 %, dny od Go do merge ≤ 14 → jinak FLAG) | — |
 | `reminders` | T+7/30/60/90 od Go v Rozhodnutí s ownery z Charteru jako `.ics` (`--format ics`), Markdown checklist (`--format md`, default) nebo `gh issue create` příkazy (`--format gh-issues`) | — |
 
 Doporučené názvy metrik pro `record`:
@@ -163,7 +163,7 @@ další krok ve tvaru `/pm retro <slug>` s termínem nejbližšího milníku.
   neodhaduj — čísla se berou jen z `outcomes`.
 - **Nespouštět `gh issue create` automaticky** — `reminders --format gh-issues`
   příkazy jen vypíše; spouští je tým.
-- **Nepřepisovat FLAG na úspěch.** Reuse < 80 % nebo days-to-prod > 14 je
+- **Nepřepisovat FLAG na úspěch.** Reuse < 80 % nebo dny od Go do merge > 14 je
   kalibrační data pro metodu, ne selhání týmu — nezaokrouhlovat, nemazat.
 - **Neměřit proti meta-repu.** `measure` čte target repo (worktree cache nebo
   `--repo-path`), nikdy PflanzerMethod.

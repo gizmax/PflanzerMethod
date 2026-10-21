@@ -26,7 +26,9 @@ Za zhruba týden:
 
 1. **Mandát říct Go i Kill.** Když nemůžete zastavit, nejste Decider.
 2. **15 minut na začátku** (Kickoff): odsouhlasíte problém v jedné větě,
-   jedno číslo úspěchu a kdy to zabalíme.
+   jedno číslo úspěchu a kdy to zabalíme, a odpovíte na otázku „Jak vážné
+   to je?“ (demo / pilot / ostré, jsou-li v datech osobní údaje). Tím se
+   zadání za vás podepíše a odvodí se, kolik oken bude potřeba.
 3. **90 minut na konci** (Rozhodnutí): uvidíte varianty běžet, vyslechnete
    tři největší spory a rozhodnete. Hlasujete **poslední**, aby tým
    neříkal to, co chcete slyšet.
@@ -41,9 +43,9 @@ v závěrečném zápisu.
 
 | Obava | Co ji hlídá |
 |-------|-------------|
-| „AI napíše nebezpečný kód" | 20minutový **checkpoint** bezpečnosti & práva nad běžícími variantami; bez podpisu se nic nenasadí |
+| „AI napíše nebezpečný kód" | 20minutový **checkpoint** bezpečnosti & práva nad běžícími variantami (u pilotu bez osobních dat jedno sloučené okno Bezpečnost a provoz); bez podpisu se nic nenasadí |
 | „Nikdo za to neručí" | rozhodnutí a podpisy s **jmény** v `.pflanzer/decisions/` (git) |
-| „Kód nebude dost dobrý" | **automatické kontroly** (lint, testy, build, bezpečnost) jen na vítěze; pod skóre 80 (pilot) / 85 (produkce) nejde dál bez vaší výslovné výjimky |
+| „Kód nebude dost dobrý" | **automatické kontroly** (lint, testy, build, bezpečnost) jen na vítěze; pod skóre 80 (pilot) / 85 (produkce) ze 100 nejde dál bez vaší výslovné výjimky |
 | „Utratíme víc, než čekáme" | strop nákladů na AI se potvrzuje v checkpointu a spotřeba je v zápisu |
 | „Bude to nekonečné" | Iterate jen jednou; potom Go nebo Kill |
 | „Chybí nám specialista" | AI připraví předkontrolu, ale u pilotu a produkce **podepisuje vždy člověk**; vás (Decidera) a vývoj AI nenahrazuje nikdy |
