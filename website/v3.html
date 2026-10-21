@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pflanzer Method – vibe coding ve firmě až do produkce</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Metoda pro AI vývoj ve firmě. Byznys, bezpečnost i provoz u jednoho stolu, tři běžící varianty, rozhodnutí do týdne a kód až v produkci. Open source.">
+<link rel="canonical" href="https://pflanzer.cz/method/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:site_name" content="Pflanzer Method">
+<meta property="og:title" content="Dostaňte vibe coding do produkce. Se všemi u stolu od prvního dne.">
+<meta property="og:description" content="Všichni u stolu. Kód v produkci. Open source metoda a nástroj pro AI vývoj ve firmě.">
+<meta property="og:url" content="https://pflanzer.cz/method/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#EDF1EA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://pflanzer.cz/method/#web",
+      "url": "https://pflanzer.cz/method/",
+      "name": "Pflanzer Method",
+      "inLanguage": "cs"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Pflanzer Method",
+      "applicationCategory": "DeveloperApplication",
+      "description": "Metoda a nástroj pro AI vývoj ve firmě: společné sessions zástupců všech kroků cesty, tři běžící varianty, rozhodnutí nad kódem a předání do vývoje s podpisy a automatickými kontrolami.",
+      "license": "https://opensource.org/licenses/MIT",
+      "url": "https://pflanzer.cz/method/",
+      "codeRepository": "https://github.com/gizmax/PflanzerMethod",
+      "softwareVersion": "0.6",
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "CZK"},
+      "author": {"@type": "Person", "name": "Tomáš Pflanzer"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "Čím se Pflanzer Method liší od design sprintu nebo hackathonu?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Výstupem je běžící kód ve vašem repozitáři a u společných sessions sedí i bezpečnost, právo a provoz. Nástroj vede podpisy oken, automatické kontroly a předání vítězné varianty do vývoje jako pull request."}},
+        {"@type": "Question", "name": "Musíme používat Claude Code?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Ne. Příkaz pflanzer funguje z terminálu, od Kickoffu přes pflanzer start až po Ship. Claude Code přidá jediný vstupní příkaz /pm a AI buildera."}},
+        {"@type": "Question", "name": "Co když nemáme bezpečáka, designéra nebo člověka z provozu?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Chybějící roli může zastoupit AI návrhem. Okno vždy podepisuje člověk a AI návrh jeho podpis nikdy nepřepíše. Decider a vývojář jsou vždy lidé."}},
+        {"@type": "Question", "name": "Co když bezpečnost stejně řekne ne?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Řekne to v okně během cesty, ne po týdnech nad hotovou věcí. Podmínky z podpisu se propíšou do textu PR. Přebít chybějící podpis může jen Decider, vědomě a s důvodem v decision logu."}},
+        {"@type": "Question", "name": "Musíme měnit, jak vyvíjíme?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Ne. Vítěz jde jako pull request do vašeho repozitáře a dál běžnou pipeline. Metoda mění, kdo u rozhodnutí sedí a kdy, ne váš vývojový proces."}},
+        {"@type": "Question", "name": "Kolik času pilot zabere?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Kickoff 15 minut, Build 3 hodiny, sběr feedbacku 3 až 5 dní, Rozhodnutí 60 až 90 minut. Pilot vyjde zhruba na 6 až 8 člověkodnů, demo na 5, ostré nasazení na 14."}},
+        {"@type": "Question", "name": "Kdy metodu nepoužít?",
+         "acceptedAnswer": {"@type": "Answer", "text": "U plateb a platebních flow, u AI Act High-risk a regulovaných systémů bez governance vrstvy, u nativních mobilních aplikací, u silných externích závislostí, když chybí Decider s mandátem říct Go i Kill a když v týmu chybí vývojář."}},
+        {"@type": "Question", "name": "Kolik metoda stojí?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Metoda i nástroj jsou open source pod licencí MIT. Platíte jen čas lidí a AI, kterou používáte; nástroj AI náklad ukáže v reportu."}}
+      ]
+    }
+  ]
+}
+</script>
+<style>
+/* Layout: wide, left-aligned, Swiss scale contrast. One relay element – the branch – crosses the hero and then carries the scroll story (silos → one table → three variants → one bloom → production). Everything else stays quiet. */
+:root{
+  --paper:#EDF1EA;      /* greenhouse glass */
+  --surface:#F7F9F4;
+  --ink:#13221A;
+  --muted:#55665B;
+  --line:#C6D1C5;
+  --leaf:#1E7A46;       /* brand: winner, Go */
+  --bud:#D6E7D2;
+  --dim:#A7B5A8;
+  --warn:#9A5B12;       /* late veto */
+  --display:"Bricolage Grotesque", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --t-1:.875rem; --t0:1rem; --t1:1.1875rem; --t2:1.5rem; --t3:clamp(1.9rem, 3.6vw, 2.75rem); --t4:clamp(2.5rem, 5.2vw, 4.9rem);
+  --ease:cubic-bezier(.65,0,.2,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:400 var(--t0)/1.6 var(--body);margin:0;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:80rem;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.025em}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px;border-radius:4px}
+code{font-family:var(--mono);font-size:.9em}
+.muted{color:var(--muted)}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding-block:1.25rem;flex-wrap:wrap}
+.lockup{font:700 var(--t0)/1 var(--display);display:flex;gap:.55rem;align-items:center;text-decoration:none}
+.lockup svg{width:24px;height:24px}
+.lockup span{color:var(--muted);font-weight:400}
+header nav{display:flex;gap:1.5rem;font-size:var(--t-1);flex-wrap:wrap}
+header nav a{text-decoration:none;color:var(--muted)}
+header nav a:hover{color:var(--ink)}
+
+/* buttons */
+.ctas{display:flex;gap:.75rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;padding:.9rem 1.25rem;border-radius:999px;font:600 var(--t0)/1 var(--body);text-decoration:none;border:1.5px solid var(--ink);transition:background .25s, color .25s, border-color .25s}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.primary:hover{background:var(--leaf);border-color:var(--leaf)}
+.btn.ghost:hover{border-color:var(--leaf);color:var(--leaf)}
+
+/* hero */
+.hero{padding-block:clamp(1.5rem, 4vw, 3rem) 0}
+.kicker{font:500 var(--t1)/1.3 var(--display);color:var(--muted);margin-bottom:1.25rem}
+.hero h1{font-size:var(--t4);font-weight:800;line-height:.98}
+.hero h1 .ln{display:block;overflow:hidden;padding-bottom:.06em}
+.hero h1 .ln > span{display:block;animation:rise .9s var(--ease) both}
+.hero h1 .ln:nth-child(2) > span{animation-delay:.12s;font-weight:300}
+@keyframes rise{from{transform:translateY(105%)}to{transform:none}}
+.hero-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:2rem 4rem;align-items:end;margin-top:2rem}
+.hero .lead{font-size:var(--t1);color:var(--muted);max-width:52ch;line-height:1.55;animation:fadein .8s .45s both}
+.hero .ctas{justify-content:flex-end;animation:fadein .8s .6s both}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.proof{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;margin-top:2rem;font-size:var(--t-1);color:var(--muted);list-style:none;padding:0}
+.proof li::before{content:"";display:inline-block;width:.45rem;height:.45rem;border-radius:50%;background:var(--leaf);margin-right:.5rem;vertical-align:.1em}
+
+/* hero branch: full-bleed relay line */
+.band{position:relative;margin-top:1.25rem}
+.band svg{display:block;width:100%;height:auto}
+.replay{position:absolute;right:max(16px, env(safe-area-inset-right, 0px));bottom:.25rem;font:500 var(--t-1)/1 var(--body);background:var(--paper);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:.45rem .85rem;cursor:pointer}
+.replay:hover{color:var(--ink);border-color:var(--ink)}
+.r-line{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
+.r-line.in{stroke:var(--muted);stroke-width:1.5}
+.r-line.win{stroke:var(--leaf);stroke-width:3}
+.r-node{fill:var(--surface);stroke:var(--ink);stroke-width:2}
+.r-lab{font:500 15px var(--body);fill:var(--muted)}
+.r-var{font:700 15px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.r-dot{fill:var(--leaf)}
+.r-petal{fill:var(--leaf)}
+.r-heart{fill:var(--surface)}
+.r-go{font:800 22px var(--display);fill:var(--leaf)}
+.lose .r-line,.lose .r-node{stroke:var(--dim)}
+.lose .r-var{fill:var(--dim)}
+.band svg *{transform-box:fill-box;transform-origin:center}
+.play .r-line.in{animation:draw .7s var(--ease) both}
+.play .s-trunk{animation:draw .6s .55s var(--ease) both}
+.play .s-br{animation:draw .7s 1.05s var(--ease) both}
+.play .r-node,.play .r-var{animation:pop .35s 1.6s both}
+.play .r-dot{animation:pop .3s both}
+.play .lose .s-br{animation:draw .7s 1.05s var(--ease) both, fadeline .6s 3.1s both}
+.play .lose .r-node{animation:pop .35s 1.6s both, fadeline .6s 3.1s both}
+.play .lose .r-var{animation:pop .35s 1.6s both, fadetext .6s 3.1s both}
+.play .s-win{animation:draw .8s 3.3s var(--ease) both}
+.play .r-petal{animation:bloom .55s cubic-bezier(.3,1.6,.5,1) both}
+.play .r-heart,.play .r-go,.play .r-end{animation:pop .4s 4.5s both}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:none}}
+@keyframes bloom{from{transform:scale(0) rotate(-50deg)}to{transform:none}}
+@keyframes fadeline{from{stroke:var(--ink)}to{stroke:var(--dim)}}
+@keyframes fadetext{from{fill:var(--ink)}to{fill:var(--dim)}}
+
+/* sections */
+section{padding-block:clamp(3.5rem, 7vw, 6rem);border-top:1px solid var(--line)}
+.head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:end;margin-bottom:2.5rem}
+.head h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.head p{color:var(--muted);max-width:52ch;font-size:var(--t1)}
+
+/* why */
+.why{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:2rem 4rem;align-items:start}
+.why .quote{font:700 clamp(1.7rem, 3.4vw, 2.6rem)/1.08 var(--display);letter-spacing:-.02em}
+.why .quote small{display:block;font:400 var(--t1)/1.5 var(--body);color:var(--muted);letter-spacing:0;margin-top:1.25rem;max-width:44ch}
+.why .story{display:flex;flex-direction:column;gap:1rem;font-size:1.0625rem;max-width:56ch}
+.why .story strong{font-weight:600}
+
+/* scrolly */
+.scrolly{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:2rem 3rem}
+.stage{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 1.5rem);align-self:start;height:min(78vh, 640px);display:flex;align-items:center}
+.stage svg{width:100%;height:auto;max-height:100%;overflow:visible}
+.steps{display:flex;flex-direction:column}
+.step{min-height:62vh;display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding-block:2rem;opacity:.35;transition:opacity .4s}
+.step.on{opacity:1}
+.step .when{font:600 var(--t-1)/1 var(--body);color:var(--leaf)}
+.step h3{font-size:var(--t2);font-weight:700;line-height:1.1}
+.step p{color:var(--muted);max-width:44ch}
+.step code{color:var(--ink)}
+.step:first-child{min-height:48vh}
+.step:last-child{min-height:56vh}
+
+/* stage drawing */
+.seat rect{fill:var(--surface);stroke:var(--ink);stroke-width:1.5;transition:stroke .6s, fill .6s}
+.seat text{font:500 13px var(--body);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.seat{transform:translate(var(--x0), var(--y0));transition:transform 1s var(--ease)}
+[data-step="0"] .seat.late rect{stroke:var(--warn)}
+[data-step="0"] .seat.late text{fill:var(--warn)}
+.handoff{fill:none;stroke:var(--dim);stroke-width:1.5;stroke-dasharray:4 6;transition:opacity .5s}
+.veto{font:600 13px var(--body);fill:var(--warn);transition:opacity .5s}
+.table{fill:var(--bud);stroke:none;transform-box:fill-box;transform-origin:center;transform:scale(.4);opacity:0;transition:transform .9s var(--ease), opacity .6s}
+.tlabel{font:600 14px var(--body);fill:var(--ink);text-anchor:middle;opacity:0;transition:opacity .5s .4s}
+.br{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease), stroke .6s}
+.vn{fill:var(--surface);stroke:var(--ink);stroke-width:2;opacity:0;transition:opacity .4s .6s, stroke .6s}
+.vl{font:700 14px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central;opacity:0;transition:opacity .4s .6s, fill .6s}
+.fb{fill:var(--leaf);opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .4s cubic-bezier(.3,1.6,.5,1), opacity .3s}
+.petal{fill:var(--leaf);transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .55s cubic-bezier(.3,1.6,.5,1)}
+.heart{fill:var(--surface);opacity:0;transition:opacity .3s .4s}
+.prod{fill:none;stroke:var(--leaf);stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease)}
+.sig{opacity:0;transform:translateX(-8px);transition:opacity .4s, transform .4s}
+.sig circle{fill:var(--leaf)}
+.sig path{fill:none;stroke:var(--surface);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sig text{font:500 13px var(--body);fill:var(--ink);dominant-baseline:central}
+.plabel{font:700 16px var(--display);fill:var(--leaf);opacity:0;transition:opacity .4s .5s}
+
+.scrolly [data-step]:not([data-step="0"]) .seat{transform:translate(var(--x1), var(--y1))}
+.scrolly [data-step]:not([data-step="0"]) .handoff,.scrolly [data-step]:not([data-step="0"]) .veto{opacity:0}
+.scrolly [data-step]:not([data-step="0"]) .table{transform:none;opacity:1}
+.scrolly [data-step]:not([data-step="0"]) .tlabel{opacity:1}
+.scrolly [data-step="2"] .br,.scrolly [data-step="3"] .br,.scrolly [data-step="4"] .br,.scrolly [data-step="5"] .br{stroke-dashoffset:0}
+.scrolly [data-step="2"] :is(.vn,.vl),.scrolly [data-step="3"] :is(.vn,.vl),.scrolly [data-step="4"] :is(.vn,.vl),.scrolly [data-step="5"] :is(.vn,.vl){opacity:1}
+.scrolly [data-step="3"] .fb,.scrolly [data-step="4"] .fb,.scrolly [data-step="5"] .fb{opacity:1;transform:none}
+.scrolly [data-step="4"] .lose :is(.br,.vn),.scrolly [data-step="5"] .lose :is(.br,.vn){stroke:var(--dim)}
+.scrolly [data-step="4"] .lose .vl,.scrolly [data-step="5"] .lose .vl{fill:var(--dim)}
+.scrolly [data-step="4"] .lose .fb,.scrolly [data-step="5"] .lose .fb{opacity:.35}
+.scrolly [data-step="4"] .petal,.scrolly [data-step="5"] .petal{transform:none}
+.scrolly [data-step="4"] .heart,.scrolly [data-step="5"] .heart{opacity:1}
+.scrolly [data-step="5"] .prod{stroke-dashoffset:0}
+.scrolly [data-step="5"] .sig{opacity:1;transform:none}
+.scrolly [data-step="5"] .plabel{opacity:1}
+.scrolly [data-step="5"] .sig:nth-of-type(2){transition-delay:.15s}
+.scrolly [data-step="5"] .sig:nth-of-type(3){transition-delay:.3s}
+
+/* one question */
+.ask{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:2rem 4rem;align-items:start}
+.choices{display:flex;flex-direction:column;gap:.6rem}
+.q{font:700 var(--t2)/1.15 var(--display);margin-bottom:.5rem}
+.opt{display:flex;gap:1rem;align-items:baseline;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1.5px solid var(--line);border-radius:14px;padding:1rem 1.2rem;cursor:pointer;transition:border-color .25s, background .25s}
+.opt:hover{border-color:var(--ink)}
+.opt[aria-pressed="true"]{border-color:var(--leaf);background:var(--surface)}
+.opt b{font:700 var(--t1)/1 var(--display);min-width:4rem}
+.opt span{color:var(--muted);font-size:var(--t-1)}
+.pd{display:flex;align-items:center;gap:.6rem;margin-top:.75rem;font-size:var(--t-1);color:var(--muted)}
+.pd input{accent-color:var(--leaf);width:1.1rem;height:1.1rem}
+.derive{background:var(--surface);border-radius:20px;padding:clamp(1.25rem, 3vw, 2rem)}
+.derive dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.1rem 2rem;margin:0;align-items:baseline}
+.derive dt{font-size:var(--t-1);color:var(--muted)}
+.derive dd{margin:0;font-weight:500}
+.derive dd.big{font:800 clamp(2.2rem, 5vw, 3.4rem)/1 var(--display);letter-spacing:-.03em}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{font-size:var(--t-1);padding:.3rem .7rem;border-radius:999px;background:var(--bud);color:var(--ink);animation:chip .35s var(--ease) both}
+.chip.none{background:none;border:1px dashed var(--line);color:var(--muted)}
+@keyframes chip{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+.flip{animation:flip .45s var(--ease)}
+@keyframes flip{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.derive .note{margin-top:1.25rem;font-size:var(--t-1);color:var(--muted)}
+
+/* gains */
+.gains{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2rem}
+.gains div{border-top:2px solid var(--ink);padding-top:1rem}
+.gains h3{font-size:var(--t1);font-weight:700;margin-bottom:.5rem;line-height:1.2}
+.gains p{color:var(--muted);font-size:.9375rem}
+
+/* outputs */
+.outs{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.5rem}
+.doc{background:var(--surface);border-radius:20px;overflow:hidden;min-width:0}
+.doc .bar{display:flex;justify-content:space-between;gap:1rem;padding:.8rem 1.25rem;border-bottom:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+.doc .bar code{color:var(--ink)}
+.doc .body{padding:1.25rem 1.4rem;display:flex;flex-direction:column;gap:.75rem}
+.doc .body h3{font:700 var(--t1)/1.25 var(--display)}
+.doc .score{font-weight:600}
+.doc .score b{color:var(--leaf)}
+.doc ul{margin:0;padding-left:1.1rem;color:var(--muted)}
+.rows div{display:flex;justify-content:space-between;gap:1rem;padding:.9rem 1.25rem;border-bottom:1px solid var(--line)}
+.rows div:last-child{border-bottom:0}
+.rows span:first-child{color:var(--muted)}
+.rows span:last-child{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+
+/* rules */
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2rem 3rem}
+.rules h3{font-size:var(--t2);font-weight:700;line-height:1.1;margin-bottom:.6rem}
+.rules p{color:var(--muted)}
+
+/* kill band */
+.kill{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:center}
+.kill h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.kill p{color:var(--muted);font-size:var(--t1);max-width:50ch}
+
+/* fit */
+.fit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem 4rem}
+.fit h3{font-size:var(--t1);font-weight:700;margin-bottom:.9rem}
+.fit ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.5rem;color:var(--muted)}
+.fit .no h3{color:var(--warn)}
+
+/* faq */
+.faq{border-top:1px solid var(--line);max-width:58rem}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;list-style:none;padding:1.2rem 3rem 1.2rem 0;font:700 var(--t1)/1.3 var(--display);position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";position:absolute;right:.4rem;top:50%;width:.9rem;height:.9rem;margin-top:-.45rem;
+  background:linear-gradient(var(--leaf),var(--leaf)) center/100% 2px no-repeat, linear-gradient(var(--leaf),var(--leaf)) center/2px 100% no-repeat;transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(135deg)}
+.faq details p{padding-bottom:1.3rem;color:var(--muted);max-width:64ch;animation:fadein .35s both}
+
+/* start */
+.start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2rem 4rem;align-items:center}
+.start h2{font-size:var(--t4);font-weight:800;line-height:.95;max-width:12ch}
+.start .muted{margin-block:1.25rem 1.75rem;max-width:44ch;font-size:var(--t1)}
+.term{background:var(--ink);color:var(--paper);border-radius:20px;padding:1.25rem 1.4rem;font:400 .9rem/1.85 var(--mono);min-width:0;position:relative}
+.term pre{margin:0;overflow-x:auto;white-space:pre;padding-top:1.8rem}
+.term .c{opacity:.6}
+.copy{position:absolute;top:.75rem;right:.75rem;font:500 var(--t-1)/1 var(--body);background:transparent;color:var(--paper);border:1px solid var(--dim);border-radius:999px;padding:.4rem .8rem;cursor:pointer}
+footer{display:flex;justify-content:space-between;gap:.75rem 2rem;flex-wrap:wrap;padding-block:2rem 2.75rem;border-top:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+footer a{color:var(--ink)}
+footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
+
+@media (max-width:900px){
+  .hero-row,.head,.why,.ask,.outs,.start,.kill,.fit{grid-template-columns:minmax(0,1fr)}
+  .hero .ctas{justify-content:flex-start}
+  .gains{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rules{grid-template-columns:minmax(0,1fr)}
+  .scrolly{grid-template-columns:minmax(0,1fr)}
+  .stage{top:env(safe-area-inset-top, 0px);height:auto;background:var(--paper);z-index:2;padding-block:.5rem;border-bottom:1px solid var(--line)}
+  .stage svg{max-height:42vh}
+  .step{min-height:50vh}
+}
+@media (max-width:560px){ .gains{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  html{scroll-behavior:auto}
+  .replay{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="lockup" href="#top" aria-label="Pflanzer Method, pflanzer.cz/method">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h7M9 12c3 0 3-6 7-6M9 12h7M9 12c3 0 3 6 7 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19.5" cy="12" r="2.6" fill="var(--leaf)"/></svg>
+    Pflanzer Method <span>|</span> <span>pflanzer.cz/method</span>
+  </a>
+  <nav aria-label="Sekce stránky">
+    <a href="#proc">Proč</a>
+    <a href="#jak">Jak to funguje</a>
+    <a href="#vystupy">Výstupy</a>
+    <a href="#otazky">Otázky</a>
+    <a href="#start">Začít</a>
+  </nav>
+</header>
+
+<main id="top">
+<div class="hero">
+  <p class="kicker">AI zrychlila psaní kódu. Schvalování ne.</p>
+  <h1><span class="ln"><span>Dostaňte vibe coding do produkce.</span></span><span class="ln"><span>Se všemi u&nbsp;stolu od prvního dne.</span></span></h1>
+  <div class="hero-row">
+    <p class="lead">Pflanzer Method posadí byznys, produkt, design, vývoj, bezpečnost i&nbsp;provoz ke společným sessions. AI během tříhodinového Buildu postaví tři běžící varianty, o&nbsp;Go, Iterate nebo Kill rozhodnete do týdne a&nbsp;vítěz jde s&nbsp;podpisy jako pull request do vývoje.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#start">Spustit první pilot</a>
+      <a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md">Stránka pro Decidera</a>
+    </div>
+  </div>
+  <ul class="proof" aria-label="Fakta o metodě">
+    <li>Open source, licence MIT</li>
+    <li>955 automatických testů</li>
+    <li><a href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/research/srovnani-metod-2026.md">Srovnání 13 metod AI vývoje</a></li>
+  </ul>
+</div>
+</main>
+
+<div class="band">
+  <svg id="relay" class="play" viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="relay-t">
+    <title id="relay-t">Šest oddělených linek se spojí do jedné. Ta se rozvětví na varianty A, B a C, zástupci dají feedback, B vykvete a pokračuje jako Go do produkce.</title>
+    <g aria-hidden="true">
+      <path class="r-line in" pathLength="1" d="M0 30 C120 30 150 115 250 115" style="animation-delay:0s"/>
+      <path class="r-line in" pathLength="1" d="M0 64 C120 64 150 115 250 115" style="animation-delay:.05s"/>
+      <path class="r-line in" pathLength="1" d="M0 98 C120 98 150 115 250 115" style="animation-delay:.1s"/>
+      <path class="r-line in" pathLength="1" d="M0 132 C120 132 150 115 250 115" style="animation-delay:.15s"/>
+      <path class="r-line in" pathLength="1" d="M0 166 C120 166 150 115 250 115" style="animation-delay:.2s"/>
+      <path class="r-line in" pathLength="1" d="M0 200 C120 200 150 115 250 115" style="animation-delay:.25s"/>
+    </g>
+    <text class="r-lab" x="268" y="92">Kickoff</text>
+    <path class="r-line s-trunk" pathLength="1" d="M250 115 H460"/>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 40 650 40"/>
+      <circle class="r-node" cx="668" cy="40" r="18"/><text class="r-var" x="668" y="40">A</text>
+    </g>
+    <g>
+      <path class="r-line s-br" pathLength="1" d="M460 115 H650"/>
+      <circle class="r-node" cx="668" cy="115" r="18"/><text class="r-var" x="668" y="115">B</text>
+    </g>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 190 650 190"/>
+      <circle class="r-node" cx="668" cy="190" r="18"/><text class="r-var" x="668" y="190">C</text>
+    </g>
+    <text class="r-lab" x="478" y="222">Build</text>
+    <g aria-hidden="true">
+      <circle class="r-dot" cx="708" cy="28" r="4.5" style="animation-delay:2.0s"/>
+      <circle class="r-dot" cx="722" cy="52" r="4.5" style="animation-delay:2.25s"/>
+      <circle class="r-dot" cx="708" cy="103" r="4.5" style="animation-delay:2.1s"/>
+      <circle class="r-dot" cx="724" cy="121" r="4.5" style="animation-delay:2.35s"/>
+      <circle class="r-dot" cx="710" cy="136" r="4.5" style="animation-delay:2.55s"/>
+      <circle class="r-dot" cx="710" cy="186" r="4.5" style="animation-delay:2.45s"/>
+    </g>
+    <text class="r-lab" x="740" y="222">Sběr feedbacku</text>
+    <path class="r-line win s-win" pathLength="1" d="M686 115 H1080"/>
+    <text class="r-go" x="760" y="98">Go</text>
+    <g transform="translate(1110 115)">
+      <g transform="rotate(0)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.0s"/></g>
+      <g transform="rotate(72)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.1s"/></g>
+      <g transform="rotate(144)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.2s"/></g>
+      <g transform="rotate(216)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.3s"/></g>
+      <g transform="rotate(288)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.4s"/></g>
+      <circle class="r-heart" cx="0" cy="0" r="9"/>
+    </g>
+    <text class="r-lab r-end" x="1050" y="168">Produkce</text>
+  </svg>
+  <button class="replay" id="replay" type="button">Přehrát znovu</button>
+</div>
+
+<section id="proc" aria-labelledby="proc-h">
+  <div class="why">
+    <div>
+      <h2 id="proc-h" class="quote">Vibe coding narazil na hranici sila.<small>Vibe coding zrychlí firmu, jen když u&nbsp;stolu sedí všichni. Proto vznikla Pflanzer Method.</small></h2>
+    </div>
+    <div class="story">
+      <p>Viděli jsme, jak firmy zkoušejí vibe coding, aby zrychlily pomalé procesy. Tým s&nbsp;AI postaví prototyp za pár hodin. Pak ho poprvé uvidí bezpečnost, právo a&nbsp;provoz a&nbsp;začnou otázky: kde jsou data, kdo to bude provozovat, prošlo to kontrolou? Otázky, které šly vyřešit první den, přicházejí po týdnech a&nbsp;prototyp čeká ve frontě.</p>
+      <p><strong>AI zrychlila psaní kódu. Předávky mezi odděleními zůstaly stejné.</strong> Lidé, kteří s&nbsp;vibe codingem začnou, narazí na hranici svého sila. Dál jejich práce nedosáhne, a&nbsp;tak ke zrychlení nedojde.</p>
+      <p>Pflanzer Method sila bourá tím, že zástupci všech šesti kroků cesty jsou u&nbsp;společných sessions od prvního dne. Bezpečnost a&nbsp;provoz neposuzují hotovou věc na konci. Podepisují ji během cesty, v&nbsp;krátkých oknech po 20 minutách.</p>
+    </div>
+  </div>
+</section>
+
+<section id="jak" aria-labelledby="jak-h">
+  <div class="head">
+    <h2 id="jak-h">Jak Pflanzer Method sila bourá</h2>
+    <p>Šest kroků cesty, každý se jménem člověka. Pod nimi nástroj hlídá podpisy, kontroly kvality, předání do vývoje i&nbsp;měření po nasazení.</p>
+  </div>
+  <div class="scrolly">
+    <div class="stage" aria-hidden="true">
+      <svg id="stage" data-step="0" viewBox="0 0 800 520">
+        <ellipse class="table" cx="230" cy="270" rx="165" ry="100"/>
+        <text class="tlabel" x="230" y="275">Jeden stůl</text>
+        <path class="handoff" d="M79 78 L189 148 L299 218 L409 288 L519 358 L629 428"/>
+        <text class="veto" x="470" y="470">pozdní veto</text>
+        <g class="seat" style="--x0:20px;--y0:60px;--x1:171px;--y1:152px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Byznys</text></g>
+        <g class="seat" style="--x0:130px;--y0:130px;--x1:314px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Produkt</text></g>
+        <g class="seat" style="--x0:240px;--y0:200px;--x1:314px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Design</text></g>
+        <g class="seat" style="--x0:350px;--y0:270px;--x1:171px;--y1:352px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Vývoj</text></g>
+        <g class="seat late" style="--x0:460px;--y0:340px;--x1:28px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Bezpečnost</text></g>
+        <g class="seat late" style="--x0:570px;--y0:410px;--x1:28px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Provoz</text></g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 110 584 110"/>
+          <circle class="vn" cx="600" cy="110" r="16"/><text class="vl" x="600" y="110">A</text>
+          <circle class="fb" cx="636" cy="98" r="4.5"/><circle class="fb" cx="646" cy="120" r="4.5"/>
+        </g>
+        <g>
+          <path class="br" pathLength="1" d="M400 270 H584"/>
+          <g transform="translate(600 270)">
+            <g transform="rotate(0)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(72)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(144)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(216)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(288)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+          </g>
+          <circle class="vn" cx="600" cy="270" r="16"/><text class="vl" x="600" y="270">B</text>
+          <circle class="heart" cx="600" cy="270" r="9"/>
+          <circle class="fb" cx="638" cy="248" r="4.5"/><circle class="fb" cx="650" cy="268" r="4.5"/><circle class="fb" cx="638" cy="290" r="4.5"/>
+        </g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 430 584 430"/>
+          <circle class="vn" cx="600" cy="430" r="16"/><text class="vl" x="600" y="430">C</text>
+          <circle class="fb" cx="638" cy="422" r="4.5"/>
+        </g>
+        <path class="prod" pathLength="1" d="M622 270 H790"/>
+        <text class="plabel" x="700" y="252">Produkce</text>
+        <g class="sig"><circle cx="672" cy="322" r="10"/><path d="M667 322 l3.5 3.5 l6 -7"/><text x="690" y="322">Zadání</text></g>
+        <g class="sig"><circle cx="672" cy="352" r="10"/><path d="M667 352 l3.5 3.5 l6 -7"/><text x="690" y="352">Bezpečnost</text></g>
+        <g class="sig"><circle cx="672" cy="382" r="10"/><path d="M667 382 l3.5 3.5 l6 -7"/><text x="690" y="382">Provoz</text></g>
+      </svg>
+    </div>
+    <div class="steps">
+      <div class="step on" data-n="0"><span class="when">Dnes</span><h3>Předávky v&nbsp;řadě</h3><p>Byznys předá produktu, produkt vývoji, vývoj bezpečnosti. Bezpečnost, právo a&nbsp;provoz vidí prototyp poprvé na konci a&nbsp;každá předávka přidá výklad a&nbsp;pozdní veto.</p></div>
+      <div class="step" data-n="1"><span class="when">Kickoff, 15 min</span><h3>Všichni u&nbsp;jednoho stolu</h3><p>Zástupci šesti kroků cesty sedí u&nbsp;společných sessions od prvního dne. Jádro tvoří 3–4 lidé, ostatní přijdou na okna po 20 minutách. <code>/pm start</code></p></div>
+      <div class="step" data-n="2"><span class="when">Build, 3 h</span><h3>Tři běžící varianty</h3><p>AI postaví varianty A, B a&nbsp;C ve vašem repozitáři. Jádro sedí u&nbsp;jedné obrazovky. <code>/pm build</code></p></div>
+      <div class="step" data-n="3"><span class="when">Sběr feedbacku, 3–5 dní</span><h3>Zástupci klikají a&nbsp;píšou</h3><p>Jedna adresa, heslo zvlášť. Každý napíše, co funguje a&nbsp;co ne, přímo k&nbsp;obrazovce. <code>pflanzer share</code></p></div>
+      <div class="step" data-n="4"><span class="when">Rozhodnutí, 60–90 min</span><h3>Rozhoduje se nad běžícím kódem</h3><p>Decider řekne Go, Iterate nebo Kill a&nbsp;hlasuje poslední. Kill je platný výsledek. <code>/pm decide</code></p></div>
+      <div class="step" data-n="5"><span class="when">Ship, 1–2 dny</span><h3>Do produkce s&nbsp;podpisy</h3><p>Vítěz projde automatickými kontrolami. Zadání, bezpečnost a&nbsp;provoz jsou podepsané během cesty a&nbsp;jejich podmínky jsou v&nbsp;textu PR. Po 30 dnech retro změří, kolik kódu v&nbsp;produkci zůstalo. <code>/pm ship</code></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="otazka" aria-labelledby="otazka-h">
+  <div class="head">
+    <h2 id="otazka-h">Na začátku jedna otázka</h2>
+    <p>Stupeň metody, okna k&nbsp;podpisu i&nbsp;práh kvality se z&nbsp;odpovědi odvodí. Nikdo nemusí znát Quick, Lean ani Full. Kdo chce, výchozí hodnoty přebije.</p>
+  </div>
+  <div class="ask">
+    <div>
+      <p class="q">Jak vážné to je?</p>
+      <div class="choices" role="group" aria-label="Jak vážné to je">
+        <button class="opt" type="button" id="o-demo" data-k="demo" aria-pressed="false"><b>Demo</b><span>ukázka k&nbsp;rozhodnutí, nic do produkce</span></button>
+        <button class="opt" type="button" id="o-pilot" data-k="pilot" aria-pressed="true"><b>Pilot</b><span>5–20 skutečných uživatelů</span></button>
+        <button class="opt" type="button" id="o-ostre" data-k="ostre" aria-pressed="false"><b>Ostré</b><span>běžný provoz pro všechny</span></button>
+      </div>
+      <label class="pd" for="pd"><input type="checkbox" id="pd"> V&nbsp;datech jsou osobní údaje</label>
+    </div>
+    <div class="derive" aria-live="polite">
+      <dl id="derived">
+        <dt>Stupeň</dt><dd class="big" id="d-tier">Lean</dd>
+        <dt>Okna k&nbsp;podpisu</dt><dd><div class="chips" id="d-win"><span class="chip">Zadání</span><span class="chip">Bezpečnost a&nbsp;provoz</span></div></dd>
+        <dt>Práh Shipu</dt><dd id="d-thr">80 ze 100</dd>
+        <dt>Kapacita</dt><dd id="d-cap">~6–8 člověkodnů</dd>
+      </dl>
+      <p class="note" id="d-note">Pilot bez osobních údajů má jedno společné okno na 20 minut.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="zisk-h">
+  <div class="head">
+    <h2 id="zisk-h">Rychlost, která vydrží až do produkce</h2>
+    <p>Čtyři věci, které se změní.</p>
+  </div>
+  <div class="gains">
+    <div><h3>Bez překvapení na konci</h3><p>Bezpečnost, právo a&nbsp;provoz podepisují během cesty. Jejich podmínky se propíšou do textu PR, takže se nečeká na pozdní veto.</p></div>
+    <div><h3>Spory se řeší kliknutím</h3><p>Tým porovnává tři běžící varianty, ne tři výklady jednoho dokumentu. Feedback míří na konkrétní obrazovku.</p></div>
+    <div><h3>Méně lidí na schůzkách</h3><p>Jádro tvoří 3–4 lidé. Decider přijde na Kickoff a&nbsp;Rozhodnutí, bezpečnost a&nbsp;provoz na okna po 20 minutách.</p></div>
+    <div><h3>Vedení dostane jednu stránku</h3><p>Rozhodnutí, náklad, skóre kvality, rizika a&nbsp;podpisy na jedné stránce. Přehled všech projektů jedním příkazem.</p></div>
+  </div>
+</section>
+
+<section id="vystupy" aria-labelledby="vystupy-h">
+  <div class="head">
+    <h2 id="vystupy-h">Výstupy čte i&nbsp;vedení</h2>
+    <p>Skóre je věta, ne číslo bez kontextu. Řekne, z&nbsp;kolika kontrol vzniklo, co neproběhlo a&nbsp;že splnění zadání ověřují lidé.</p>
+  </div>
+  <div class="outs">
+    <article class="doc" aria-labelledby="doc1">
+      <div class="bar"><code>SHIP.md</code><span>ukázka, fiktivní projekt</span></div>
+      <div class="body">
+        <h3 id="doc1">Vítěz B: Rezervace stolu na dva kliky</h3>
+        <p class="score"><b>Skóre 87 ze 100 z&nbsp;8 automatických kontrol</b>, splňuje práh 80.</p>
+        <p class="muted">Skóre měří technickou kvalitu, ne to, jestli varianta splní zadání. To ověřuje feedback zástupců a&nbsp;Decider.</p>
+        <ul>
+          <li>Neověřeno: pokrytí testy (nástroj na měření chybí)</li>
+          <li>1 otevřená připomínka na vítězi: Důležité, krok Provoz</li>
+          <li>Podepsáno: Zadání, Bezpečnost a&nbsp;provoz</li>
+        </ul>
+      </div>
+    </article>
+    <article class="doc" aria-labelledby="doc2">
+      <div class="bar"><code id="doc2">pflanzer report summary</code><span>co report měří</span></div>
+      <div class="rows">
+        <div><span>Dny od Go do merge</span><span>cíl ≤ 14</span></div>
+        <div><span>Kód vítěze, který přežil</span><span>cíl ≥ 80 %</span></div>
+        <div><span>AI náklad na Go</span><span>tokeny a&nbsp;odhad v&nbsp;Kč</span></div>
+        <div><span>Kroky zastoupené AI</span><span>podíl z&nbsp;6</span></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="pravidla-h">
+  <div class="head">
+    <h2 id="pravidla-h">Tři pravidla, která se neohýbají</h2>
+    <p>Jednoduchost navenek drží pár pevných bodů uvnitř.</p>
+  </div>
+  <div class="rules">
+    <div><h3>AI připraví, člověk podepíše</h3><p>AI může zastoupit chybějící roli návrhem. Decider i&nbsp;vývojář jsou vždy lidé a&nbsp;jejich podpis AI nepřepíše.</p></div>
+    <div><h3>Rozhoduje se nad běžícím kódem</h3><p>Tři funkční varianty ve vašem repozitáři místo dokumentu nebo mockupu.</p></div>
+    <div><h3>Kill je platný výsledek</h3><p>Když varianta nesplní metriku, projekt skončí s&nbsp;poučením. Poučení se propíše do přehledu všech projektů.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="riziko-h">
+  <div class="kill">
+    <h2 id="riziko-h">Nejhorší výsledek je Kill po týdnu</h2>
+    <p>Když nápad nefunguje, zjistíte to nad běžícím kódem dřív, než se začne vyvíjet. Projekt skončí s&nbsp;poučením a&nbsp;to se propíše do přehledu všech projektů. Kill je v&nbsp;metodě platný výsledek a&nbsp;tým se z&nbsp;něj učí.</p>
+  </div>
+</section>
+
+<section aria-labelledby="fit-h">
+  <div class="head">
+    <h2 id="fit-h">Pro koho metoda je a&nbsp;kdy ne</h2>
+    <p>Metoda se hodí na nové funkce a&nbsp;interní nástroje, které se dají postavit a&nbsp;ukázat za odpoledne.</p>
+  </div>
+  <div class="fit">
+    <div>
+      <h3>Hodí se, když</h3>
+      <ul>
+        <li>máte Decidera s&nbsp;mandátem říct Go i&nbsp;Kill,</li>
+        <li>v&nbsp;týmu je aspoň jeden vývojář,</li>
+        <li>funkci jde postavit ve vašem repozitáři a&nbsp;ukázat v&nbsp;prohlížeči,</li>
+        <li>zkoušíte vibe coding a&nbsp;nic se nezrychlilo.</li>
+      </ul>
+    </div>
+    <div class="no">
+      <h3>Nepoužívejte ji na</h3>
+      <ul>
+        <li>platby a&nbsp;platební flow,</li>
+        <li>systémy v&nbsp;AI Act High-risk nebo v&nbsp;DORA bez governance vrstvy,</li>
+        <li>nativní mobilní aplikace s&nbsp;release cyklem přes store,</li>
+        <li>projekty se silnou externí závislostí, kterou nejde nasimulovat.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="otazky" aria-labelledby="otazky-h">
+  <div class="head">
+    <h2 id="otazky-h">Časté otázky</h2>
+    <p>Odpovědi na to, na co se ptají týmy před prvním pilotem.</p>
+  </div>
+  <div class="faq">
+    <details><summary>Čím se to liší od design sprintu nebo hackathonu?</summary><p>Výstupem je běžící kód ve vašem repozitáři a&nbsp;u&nbsp;společných sessions sedí i&nbsp;bezpečnost, právo a&nbsp;provoz. Nástroj vede podpisy oken, automatické kontroly a&nbsp;předání vítězné varianty do vývoje jako pull request.</p></details>
+    <details><summary>Musíme používat Claude Code?</summary><p>Ne. Příkaz <code>pflanzer</code> funguje z&nbsp;terminálu, od <code>pflanzer start</code> až po Ship. Claude Code přidá jediný vstupní příkaz <code>/pm</code> a&nbsp;AI buildera.</p></details>
+    <details><summary>Co když nemáme bezpečáka, designéra nebo člověka z&nbsp;provozu?</summary><p>Chybějící roli může zastoupit AI návrhem. Okno vždy podepisuje člověk a&nbsp;AI návrh jeho podpis nikdy nepřepíše. Decider a&nbsp;vývojář jsou vždy lidé.</p></details>
+    <details><summary>Co když bezpečnost stejně řekne ne?</summary><p>Řekne to v&nbsp;okně během cesty, ne po týdnech nad hotovou věcí. Podmínky z&nbsp;podpisu se propíšou do textu PR. Přebít chybějící podpis může jen Decider, vědomě a&nbsp;s&nbsp;důvodem v&nbsp;decision logu.</p></details>
+    <details><summary>Musíme měnit, jak vyvíjíme?</summary><p>Ne. Vítěz jde jako pull request do vašeho repozitáře a&nbsp;dál běžnou pipeline. Metoda mění, kdo u&nbsp;rozhodnutí sedí a&nbsp;kdy, ne váš vývojový proces.</p></details>
+    <details><summary>Kolik času pilot zabere?</summary><p>Kickoff 15 minut, Build 3 hodiny, sběr feedbacku 3–5 dní, Rozhodnutí 60–90 minut. Pilot vyjde zhruba na 6–8 člověkodnů, demo na 5, ostré nasazení na 14.</p></details>
+    <details><summary>Máte výsledky z&nbsp;reálných firem?</summary><p>Zatím ne. Metoda prošla 28 zkušebními průchody celou cestou na fiktivních projektech. Nástroj od prvního pilotu měří dny od Go do merge a&nbsp;podíl kódu, který přežil v&nbsp;produkci. Ta čísla zveřejníme, až budou.</p></details>
+    <details><summary>Kolik metoda stojí?</summary><p>Metoda i&nbsp;nástroj jsou open source pod licencí MIT. Platíte čas lidí a&nbsp;AI, kterou používáte. Nástroj AI náklad ukáže v&nbsp;reportu.</p></details>
+  </div>
+</section>
+
+<section id="start" aria-labelledby="start-h">
+  <div class="start">
+    <div>
+      <h2 id="start-h">Všichni u&nbsp;stolu. Kód v&nbsp;produkci.</h2>
+      <p class="muted">Začněte prvním pilotem. Instalace jednou na stroj, pak v&nbsp;repozitáři projektu <code>/pm</code>, nebo bez Claude Code <code>pflanzer start</code>.</p>
+      <div class="ctas"><a class="btn primary" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/zacni.md">Spustit první pilot</a><a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod">Zdrojový kód na GitHubu</a></div>
+    </div>
+    <div class="term">
+      <button class="copy" id="copy" type="button">Kopírovat</button>
+<pre id="cmd"><span class="c"># jednou na stroj</span>
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash
+<span class="c"># v repozitáři projektu</span>
+pflanzer init &amp;&amp; pflanzer doctor
+/pm</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="claim">Všichni u&nbsp;stolu. Kód v&nbsp;produkci.</span>
+  <span><b>Pflanzer Method</b> | pflanzer.cz/method</span>
+  <span>Metodu vyvíjí Tomáš Pflanzer, <a href="https://wiseguys.co">Wiseguys</a></span>
+  <span>Verze 0.6, licence MIT</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  var DATA = {
+    demo:  {tier:"Quick", win:[], thr:"informativní, neblokuje", cap:"~5 člověkodnů",
+            note:"Demo nejde přes triage. Před pilotem stačí nový Kickoff s odpovědí Pilot."},
+    pilot: {tier:"Lean", win:["Zadání","Bezpečnost a provoz"], thr:"80 ze 100", cap:"~6–8 člověkodnů",
+            note:"Pilot bez osobních údajů má jedno společné okno na 20 minut."},
+    ostre: {tier:"Lean", win:["Zadání","Bezpečnost & právo","Provoz"], thr:"85 ze 100", cap:"~14 člověkodnů",
+            note:"Provoz u ostrého nasazení podepisuje člověk z provozu. AI smí připravit návrh."}
+  };
+  var cur = "pilot", pd = document.getElementById("pd");
+  function flip(el){ el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip"); }
+  function render(){
+    var d = JSON.parse(JSON.stringify(DATA[cur]));
+    if (pd.checked && cur === "pilot") { d.win = ["Zadání","Bezpečnost & právo","Provoz"]; d.note = "Osobní údaje znamenají vyšší třídu dat, proto oddělená okna."; }
+    if (pd.checked && cur === "ostre") { d.tier = "Full"; d.win = ["Zadání","Bezpečnost & právo","Provoz","Právo (DPIA), když ji triage odloží"]; d.note = "Ostré nasazení s osobními údaji jde přes plný triage."; }
+    if (pd.checked && cur === "demo") { d.note = "Demo s osobními údaji? Používejte jen testovací data."; }
+    var t = document.getElementById("d-tier");
+    if (t.textContent !== d.tier) { t.textContent = d.tier; flip(t); }
+    var w = document.getElementById("d-win"); w.innerHTML = "";
+    if (!d.win.length) { var n = document.createElement("span"); n.className = "chip none"; n.textContent = "žádná"; w.appendChild(n); }
+    d.win.forEach(function(x, i){ var c = document.createElement("span"); c.className = "chip"; c.style.animationDelay = (i * 60) + "ms"; c.textContent = x; w.appendChild(c); });
+    ["d-thr","d-cap","d-note"].forEach(function(id, i){ var el = document.getElementById(id); var v = [d.thr, d.cap, d.note][i]; if (el.textContent !== v) { el.textContent = v; flip(el); } });
+  }
+  document.querySelectorAll(".opt").forEach(function(b){
+    b.addEventListener("click", function(){
+      cur = b.getAttribute("data-k");
+      document.querySelectorAll(".opt").forEach(function(o){ o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      render();
+    });
+  });
+  pd.addEventListener("change", render);
+
+  var relay = document.getElementById("relay");
+  document.getElementById("replay").addEventListener("click", function(){
+    relay.classList.remove("play"); void relay.getBoundingClientRect(); relay.classList.add("play");
+  });
+
+  var stage = document.getElementById("stage");
+  var steps = Array.prototype.slice.call(document.querySelectorAll(".step"));
+  function setStep(n){
+    stage.setAttribute("data-step", n);
+    steps.forEach(function(s){ s.classList.toggle("on", s.getAttribute("data-n") === String(n)); });
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting) setStep(e.target.getAttribute("data-n")); });
+    }, {rootMargin:"-45% 0px -45% 0px"});
+    steps.forEach(function(s){ io.observe(s); });
+  } else { setStep(5); steps.forEach(function(s){ s.classList.add("on"); }); }
+
+  var copy = document.getElementById("copy");
+  copy.addEventListener("click", function(){
+    var text = "curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash";
+    var done = function(){ copy.textContent = "Zkopírováno"; setTimeout(function(){ copy.textContent = "Kopírovat"; }, 1600); };
+    try { navigator.clipboard.writeText(text).then(done, selectCmd); } catch (e) { selectCmd(); }
+  });
+  function selectCmd(){
+    var r = document.createRange(); r.selectNodeContents(document.getElementById("cmd"));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    copy.textContent = "Označeno, zkopírujte";
+  }
+})();
+</script>
+</body>
+</html>
