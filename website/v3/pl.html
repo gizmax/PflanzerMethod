@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pflanzer Method – vibe coding w firmie do produkcji</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Rozwój z AI w firmie: biznes, bezpieczeństwo i utrzymanie przy jednym stole, trzy działające warianty i decyzja w tydzień. Open source.">
+<!--ALT-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pflanzer Method">
+<meta property="og:title" content="Vibe coding na produkcję. Ze wszystkimi przy stole od pierwszego dnia.">
+<meta property="og:description" content="Wszyscy przy stole. Kod na produkcji. Metoda i narzędzie open source do rozwoju z AI w firmie.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#EDF1EA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://pflanzer.cz/method/#web",
+      "url": "https://pflanzer.cz/method/",
+      "name": "Pflanzer Method",
+      "inLanguage": "pl"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Pflanzer Method",
+      "applicationCategory": "DeveloperApplication",
+      "description": "Metoda i narzędzie do rozwoju z AI w firmie: wspólne sesje przedstawicieli wszystkich kroków ścieżki, trzy działające warianty, decyzja na podstawie kodu i przekazanie do zespołu rozwoju z podpisami oraz automatycznymi kontrolami.",
+      "license": "https://opensource.org/licenses/MIT",
+      "url": "https://pflanzer.cz/method/",
+      "codeRepository": "https://github.com/gizmax/PflanzerMethod",
+      "softwareVersion": "0.6",
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "CZK"},
+      "author": {"@type": "Person", "name": "Tomáš Pflanzer"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "Czym Pflanzer Method różni się od design sprintu albo hackathonu?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Efektem jest działający kod w Państwa repozytorium, a przy wspólnych sesjach zasiadają też bezpieczeństwo, prawo i utrzymanie. Narzędzie prowadzi podpisy okien, automatyczne kontrole i przekazanie zwycięskiego wariantu do rozwoju jako pull request."}},
+        {"@type": "Question", "name": "Czy musimy używać Claude Code?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Nie. Polecenie pflanzer działa z terminala, od Kickoffu przez pflanzer start aż po Ship. Claude Code dodaje jedno polecenie wejściowe /pm oraz AI buildera."}},
+        {"@type": "Question", "name": "Co, jeśli nie mamy specjalisty od bezpieczeństwa, designera ani osoby z utrzymania?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Brakującą rolę może zastąpić AI propozycją. Okno zawsze podpisuje człowiek, a propozycja AI nigdy nie nadpisuje jego podpisu. Decider i programista są zawsze ludźmi."}},
+        {"@type": "Question", "name": "Co, jeśli bezpieczeństwo i tak powie nie?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Powie to w oknie, w trakcie ścieżki, a nie po tygodniach nad gotową rzeczą. Warunki z podpisu trafiają do opisu PR. Brakujący podpis może przebić tylko Decider, świadomie i z uzasadnieniem w decision logu."}},
+        {"@type": "Question", "name": "Czy musimy zmieniać sposób, w jaki rozwijamy produkt?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Nie. Zwycięzca trafia jako pull request do Państwa repozytorium i dalej idzie zwykłym pipeline. Metoda zmienia to, kto i kiedy zasiada przy decyzji, a nie Państwa proces wytwórczy."}},
+        {"@type": "Question", "name": "Ile czasu zajmuje pilot?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Kickoff 15 minut, Build 3 godziny, zbieranie feedbacku 3–5 dni, Decyzja 60–90 minut. Pilot to około 6–8 osobodni, demo 5, wdrożenie produkcyjne 14."}},
+        {"@type": "Question", "name": "Kiedy nie stosować metody?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Przy płatnościach i procesach płatniczych, w systemach AI Act High-risk i regulowanych bez warstwy governance, w natywnych aplikacjach mobilnych, przy silnych zależnościach zewnętrznych, gdy brakuje Decidera z mandatem na Go i Kill oraz gdy w zespole nie ma programisty."}},
+        {"@type": "Question", "name": "Ile kosztuje metoda?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Metoda i narzędzie są open source na licencji MIT. Płacą Państwo tylko za czas ludzi i używaną AI; koszt AI narzędzie pokazuje w raporcie."}}
+      ]
+    }
+  ]
+}
+</script>
+<style>
+/* Layout: wide, left-aligned, Swiss scale contrast. One relay element – the branch – crosses the hero and then carries the scroll story (silos → one table → three variants → one bloom → production). Everything else stays quiet. */
+:root{
+  --paper:#EDF1EA;      /* greenhouse glass */
+  --surface:#F7F9F4;
+  --ink:#13221A;
+  --muted:#55665B;
+  --line:#C6D1C5;
+  --leaf:#1E7A46;       /* brand: winner, Go */
+  --bud:#D6E7D2;
+  --dim:#A7B5A8;
+  --warn:#9A5B12;       /* late veto */
+  --display:"Bricolage Grotesque", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --t-1:.875rem; --t0:1rem; --t1:1.1875rem; --t2:1.5rem; --t3:clamp(1.9rem, 3.6vw, 2.75rem); --t4:clamp(2.5rem, 5.2vw, 4.9rem);
+  --ease:cubic-bezier(.65,0,.2,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#0E1712; --surface:#15201A; --ink:#E5EEE6; --muted:#9AAB9F; --line:#28382E;
+  --leaf:#4DC481; --bud:#1C3125; --dim:#3D4F44; --warn:#E3A75C; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:400 var(--t0)/1.6 var(--body);margin:0;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:80rem;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.025em}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px;border-radius:4px}
+code{font-family:var(--mono);font-size:.9em}
+.muted{color:var(--muted)}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding-block:1.25rem;flex-wrap:wrap}
+.lockup{font:700 var(--t0)/1 var(--display);display:flex;gap:.55rem;align-items:center;text-decoration:none}
+.lockup svg{width:24px;height:24px}
+.lockup span{color:var(--muted);font-weight:400}
+header nav{display:flex;gap:1.5rem;font-size:var(--t-1);flex-wrap:wrap}
+header nav a{text-decoration:none;color:var(--muted)}
+header nav a:hover{color:var(--ink)}
+.langs{display:flex;gap:.15rem;font-size:var(--t-1)}
+.langs a{text-decoration:none;color:var(--muted);padding:.2rem .45rem;border-radius:999px}
+.langs a:hover{color:var(--ink)}
+.langs a[aria-current="page"]{background:var(--ink);color:var(--paper)}
+
+/* buttons */
+.ctas{display:flex;gap:.75rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;padding:.9rem 1.25rem;border-radius:999px;font:600 var(--t0)/1 var(--body);text-decoration:none;border:1.5px solid var(--ink);transition:background .25s, color .25s, border-color .25s}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.primary:hover{background:var(--leaf);border-color:var(--leaf)}
+.btn.ghost:hover{border-color:var(--leaf);color:var(--leaf)}
+
+/* hero */
+.hero{padding-block:clamp(1.5rem, 4vw, 3rem) 0}
+.kicker{font:500 var(--t1)/1.3 var(--display);color:var(--muted);margin-bottom:1.25rem}
+.hero h1{font-size:var(--t4);font-weight:800;line-height:.98}
+.hero h1 .ln{display:block;overflow:hidden;padding-bottom:.06em}
+.hero h1 .ln > span{display:block;animation:rise .9s var(--ease) both}
+.hero h1 .ln:nth-child(2) > span{animation-delay:.12s;font-weight:300}
+@keyframes rise{from{transform:translateY(105%)}to{transform:none}}
+.hero-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:2rem 4rem;align-items:end;margin-top:2rem}
+.hero .lead{font-size:var(--t1);color:var(--muted);max-width:52ch;line-height:1.55;animation:fadein .8s .45s both}
+.hero .ctas{justify-content:flex-end;animation:fadein .8s .6s both}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.proof{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;margin-top:2rem;font-size:var(--t-1);color:var(--muted);list-style:none;padding:0}
+.proof li::before{content:"";display:inline-block;width:.45rem;height:.45rem;border-radius:50%;background:var(--leaf);margin-right:.5rem;vertical-align:.1em}
+
+/* hero branch: full-bleed relay line */
+.band{position:relative;margin-top:1.25rem}
+.band svg{display:block;width:100%;height:auto}
+.replay{position:absolute;right:max(16px, env(safe-area-inset-right, 0px));bottom:.25rem;font:500 var(--t-1)/1 var(--body);background:var(--paper);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:.45rem .85rem;cursor:pointer}
+.replay:hover{color:var(--ink);border-color:var(--ink)}
+.r-line{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
+.r-line.in{stroke:var(--muted);stroke-width:1.5}
+.r-line.win{stroke:var(--leaf);stroke-width:3}
+.r-node{fill:var(--surface);stroke:var(--ink);stroke-width:2}
+.r-lab{font:500 15px var(--body);fill:var(--muted)}
+.r-var{font:700 15px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.r-dot{fill:var(--leaf)}
+.r-petal{fill:var(--leaf)}
+.r-heart{fill:var(--surface)}
+.r-go{font:800 22px var(--display);fill:var(--leaf)}
+.lose .r-line,.lose .r-node{stroke:var(--dim)}
+.lose .r-var{fill:var(--dim)}
+.band :is(.r-node,.r-var,.r-dot,.r-petal,.r-heart,.r-go,.r-end){transform-box:fill-box;transform-origin:center}
+.r-dot{opacity:0}
+.play .r-line.in{animation:draw .7s var(--ease) both}
+.play .s-trunk{animation:draw .6s .55s var(--ease) both}
+.play .s-br{animation:draw .7s 1.05s var(--ease) both}
+.play .r-node,.play .r-var{animation:pop .35s 1.6s both}
+.play .r-dot{animation:pop .3s var(--d,2s) both, gone .5s 3.1s forwards}
+@keyframes gone{to{opacity:0}}
+.play .lose .s-br{animation:draw .7s 1.05s var(--ease) both, fadeline .6s 3.1s both}
+.play .lose .r-node{animation:pop .35s 1.6s both, fadeline .6s 3.1s both}
+.play .lose .r-var{animation:pop .35s 1.6s both, fadetext .6s 3.1s both}
+.play .s-win{animation:draw .8s 3.3s var(--ease) both}
+.play .r-petal{animation:bloom .55s cubic-bezier(.3,1.6,.5,1) both}
+.play .r-heart,.play .r-go,.play .r-end{animation:pop .4s 4.5s both}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:none}}
+@keyframes bloom{from{transform:scale(0) rotate(-50deg)}to{transform:none}}
+@keyframes fadeline{from{stroke:var(--ink)}to{stroke:var(--dim)}}
+@keyframes fadetext{from{fill:var(--ink)}to{fill:var(--dim)}}
+
+/* sections */
+section{padding-block:clamp(3.5rem, 7vw, 6rem);border-top:1px solid var(--line)}
+.head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:end;margin-bottom:2.5rem}
+.head h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.head p{color:var(--muted);max-width:52ch;font-size:var(--t1)}
+
+/* why */
+.why{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:2rem 4rem;align-items:start}
+.why .quote{font:700 clamp(1.7rem, 3.4vw, 2.6rem)/1.08 var(--display);letter-spacing:-.02em}
+.why .quote small{display:block;font:400 var(--t1)/1.5 var(--body);color:var(--muted);letter-spacing:0;margin-top:1.25rem;max-width:44ch}
+.why .story{display:flex;flex-direction:column;gap:1rem;font-size:1.0625rem;max-width:56ch}
+.why .story strong{font-weight:600}
+
+/* scrolly */
+.scrolly{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:2rem 3rem}
+.stage{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 1.5rem);align-self:start;height:min(78vh, 640px);display:flex;align-items:center}
+.stage svg{width:100%;height:auto;max-height:100%;overflow:visible}
+.steps{display:flex;flex-direction:column}
+.step{min-height:62vh;display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding-block:2rem;opacity:.35;transition:opacity .4s}
+.step.on{opacity:1}
+.step .when{font:600 var(--t-1)/1 var(--body);color:var(--leaf)}
+.step h3{font-size:var(--t2);font-weight:700;line-height:1.1}
+.step p{color:var(--muted);max-width:44ch}
+.step code{color:var(--ink)}
+.step:first-child{min-height:48vh}
+.step:last-child{min-height:56vh}
+
+/* stage drawing */
+.seat rect{fill:var(--surface);stroke:var(--ink);stroke-width:1.5;transition:stroke .6s, fill .6s}
+.seat text{font:500 13px var(--body);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.seat{transform:translate(var(--x0), var(--y0));transition:transform 1s var(--ease)}
+[data-step="0"] .seat.late rect{stroke:var(--warn)}
+[data-step="0"] .seat.late text{fill:var(--warn)}
+.handoff{fill:none;stroke:var(--dim);stroke-width:1.5;stroke-dasharray:4 6;transition:opacity .5s}
+.veto{font:600 13px var(--body);fill:var(--warn);transition:opacity .5s}
+.table{fill:var(--bud);stroke:none;transform-box:fill-box;transform-origin:center;transform:scale(.4);opacity:0;transition:transform .9s var(--ease), opacity .6s}
+.tlabel{font:600 14px var(--body);fill:var(--ink);text-anchor:middle;opacity:0;transition:opacity .5s .4s}
+.br{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease), stroke .6s}
+.vn{fill:var(--surface);stroke:var(--ink);stroke-width:2;opacity:0;transition:opacity .4s .6s, stroke .6s}
+.vl{font:700 14px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central;opacity:0;transition:opacity .4s .6s, fill .6s}
+.fb{fill:var(--leaf);opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .4s cubic-bezier(.3,1.6,.5,1), opacity .3s}
+.petal{fill:var(--leaf);transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .55s cubic-bezier(.3,1.6,.5,1)}
+.heart{fill:var(--surface);opacity:0;transition:opacity .3s .4s}
+.prod{fill:none;stroke:var(--leaf);stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s var(--ease)}
+.sig{opacity:0;transform:translateX(-8px);transition:opacity .4s, transform .4s}
+.sig circle{fill:var(--leaf)}
+.sig path{fill:none;stroke:var(--surface);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sig text{font:500 13px var(--body);fill:var(--ink);dominant-baseline:central}
+.plabel{font:700 16px var(--display);fill:var(--leaf);opacity:0;transition:opacity .4s .5s}
+
+.scrolly [data-step]:not([data-step="0"]) .seat{transform:translate(var(--x1), var(--y1))}
+.scrolly [data-step]:not([data-step="0"]) .handoff,.scrolly [data-step]:not([data-step="0"]) .veto{opacity:0}
+.scrolly [data-step]:not([data-step="0"]) .table{transform:none;opacity:1}
+.scrolly [data-step]:not([data-step="0"]) .tlabel{opacity:1}
+.scrolly [data-step="2"] .br,.scrolly [data-step="3"] .br,.scrolly [data-step="4"] .br,.scrolly [data-step="5"] .br{stroke-dashoffset:0}
+.scrolly [data-step="2"] :is(.vn,.vl),.scrolly [data-step="3"] :is(.vn,.vl),.scrolly [data-step="4"] :is(.vn,.vl),.scrolly [data-step="5"] :is(.vn,.vl){opacity:1}
+.scrolly [data-step="3"] .fb{opacity:1;transform:none}
+.scrolly [data-step="4"] .lose :is(.br,.vn),.scrolly [data-step="5"] .lose :is(.br,.vn){stroke:var(--dim)}
+.scrolly [data-step="4"] .lose .vl,.scrolly [data-step="5"] .lose .vl{fill:var(--dim)}
+.scrolly [data-step="4"] .petal,.scrolly [data-step="5"] .petal{transform:none}
+.scrolly [data-step="4"] .heart,.scrolly [data-step="5"] .heart{opacity:1}
+.scrolly [data-step="5"] .prod{stroke-dashoffset:0}
+.scrolly [data-step="5"] .sig{opacity:1;transform:none}
+.scrolly [data-step="5"] .plabel{opacity:1}
+.scrolly [data-step="5"] .sig:nth-of-type(2){transition-delay:.15s}
+.scrolly [data-step="5"] .sig:nth-of-type(3){transition-delay:.3s}
+
+/* one question */
+.ask{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:2rem 4rem;align-items:start}
+.choices{display:flex;flex-direction:column;gap:.6rem}
+.q{font:700 var(--t2)/1.15 var(--display);margin-bottom:.5rem}
+.opt{display:flex;gap:1rem;align-items:baseline;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1.5px solid var(--line);border-radius:14px;padding:1rem 1.2rem;cursor:pointer;transition:border-color .25s, background .25s}
+.opt:hover{border-color:var(--ink)}
+.opt[aria-pressed="true"]{border-color:var(--leaf);background:var(--surface)}
+.opt b{font:700 var(--t1)/1 var(--display);min-width:4rem}
+.opt span{color:var(--muted);font-size:var(--t-1)}
+.pd{display:flex;align-items:center;gap:.6rem;margin-top:.75rem;font-size:var(--t-1);color:var(--muted)}
+.pd input{accent-color:var(--leaf);width:1.1rem;height:1.1rem}
+.derive{background:var(--surface);border-radius:20px;padding:clamp(1.25rem, 3vw, 2rem)}
+.derive dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.1rem 2rem;margin:0;align-items:baseline}
+.derive dt{font-size:var(--t-1);color:var(--muted)}
+.derive dd{margin:0;font-weight:500}
+.derive dd.big{font:800 clamp(2.2rem, 5vw, 3.4rem)/1 var(--display);letter-spacing:-.03em}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{font-size:var(--t-1);padding:.3rem .7rem;border-radius:999px;background:var(--bud);color:var(--ink);animation:chip .35s var(--ease) both}
+.chip.none{background:none;border:1px dashed var(--line);color:var(--muted)}
+@keyframes chip{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+.flip{animation:flip .45s var(--ease)}
+@keyframes flip{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.derive .note{margin-top:1.25rem;font-size:var(--t-1);color:var(--muted)}
+
+/* gains */
+.gains{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2rem}
+.gains div{border-top:2px solid var(--ink);padding-top:1rem}
+.gains h3{font-size:var(--t1);font-weight:700;margin-bottom:.5rem;line-height:1.2}
+.gains p{color:var(--muted);font-size:.9375rem}
+
+/* outputs */
+.outs{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.5rem}
+.doc{background:var(--surface);border-radius:20px;overflow:hidden;min-width:0}
+.doc .bar{display:flex;justify-content:space-between;gap:1rem;padding:.8rem 1.25rem;border-bottom:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+.doc .bar code{color:var(--ink)}
+.doc .body{padding:1.25rem 1.4rem;display:flex;flex-direction:column;gap:.75rem}
+.doc .body h3{font:700 var(--t1)/1.25 var(--display)}
+.doc .score{font-weight:600}
+.doc .score b{color:var(--leaf)}
+.doc ul{margin:0;padding-left:1.1rem;color:var(--muted)}
+.rows div{display:flex;justify-content:space-between;gap:1rem;padding:.9rem 1.25rem;border-bottom:1px solid var(--line)}
+.rows div:last-child{border-bottom:0}
+.rows span:first-child{color:var(--muted)}
+.rows span:last-child{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+
+/* rules */
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2rem 3rem}
+.rules h3{font-size:var(--t2);font-weight:700;line-height:1.1;margin-bottom:.6rem}
+.rules p{color:var(--muted)}
+
+/* kill band */
+.kill{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:1.5rem 4rem;align-items:center}
+.kill h2{font-size:var(--t3);font-weight:800;line-height:1.02}
+.kill p{color:var(--muted);font-size:var(--t1);max-width:50ch}
+
+/* fit */
+.fit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem 4rem}
+.fit h3{font-size:var(--t1);font-weight:700;margin-bottom:.9rem}
+.fit ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.5rem;color:var(--muted)}
+.fit .no h3{color:var(--warn)}
+
+/* faq */
+.faq{border-top:1px solid var(--line);max-width:58rem}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;list-style:none;padding:1.2rem 3rem 1.2rem 0;font:700 var(--t1)/1.3 var(--display);position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";position:absolute;right:.4rem;top:50%;width:.9rem;height:.9rem;margin-top:-.45rem;
+  background:linear-gradient(var(--leaf),var(--leaf)) center/100% 2px no-repeat, linear-gradient(var(--leaf),var(--leaf)) center/2px 100% no-repeat;transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(135deg)}
+.faq details p{padding-bottom:1.3rem;color:var(--muted);max-width:64ch;animation:fadein .35s both}
+
+/* start */
+.start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2rem 4rem;align-items:center}
+.start h2{font-size:var(--t4);font-weight:800;line-height:.95;max-width:12ch}
+.start .muted{margin-block:1.25rem 1.75rem;max-width:44ch;font-size:var(--t1)}
+.term{background:var(--ink);color:var(--paper);border-radius:20px;padding:1.25rem 1.4rem;font:400 .9rem/1.85 var(--mono);min-width:0;position:relative}
+.term pre{margin:0;overflow-x:auto;white-space:pre;padding-top:1.8rem}
+.term .c{opacity:.6}
+.copy{position:absolute;top:.75rem;right:.75rem;font:500 var(--t-1)/1 var(--body);background:transparent;color:var(--paper);border:1px solid var(--dim);border-radius:999px;padding:.4rem .8rem;cursor:pointer}
+footer{display:flex;justify-content:space-between;gap:.75rem 2rem;flex-wrap:wrap;padding-block:2rem 2.75rem;border-top:1px solid var(--line);font-size:var(--t-1);color:var(--muted)}
+footer a{color:var(--ink)}
+footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
+
+@media (max-width:900px){
+  .hero-row,.head,.why,.ask,.outs,.start,.kill,.fit{grid-template-columns:minmax(0,1fr)}
+  .hero .ctas{justify-content:flex-start}
+  .gains{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rules{grid-template-columns:minmax(0,1fr)}
+  .scrolly{grid-template-columns:minmax(0,1fr)}
+  .stage{top:env(safe-area-inset-top, 0px);height:auto;background:var(--paper);z-index:2;padding-block:.5rem;border-bottom:1px solid var(--line)}
+  .stage svg{max-height:42vh}
+  .step{min-height:50vh}
+}
+@media (max-width:560px){ .gains{grid-template-columns:minmax(0,1fr)} header > nav:not(.langs){display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  html{scroll-behavior:auto}
+  .replay{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="lockup" href="#top" aria-label="Pflanzer Method, pflanzer.cz/method">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h7M9 12c3 0 3-6 7-6M9 12h7M9 12c3 0 3 6 7 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19.5" cy="12" r="2.6" fill="var(--leaf)"/></svg>
+    Pflanzer Method <span>|</span> <span>pflanzer.cz/method</span>
+  </a>
+  <nav aria-label="Sekcje strony">
+    <a href="#proc">Dlaczego</a>
+    <a href="#jak">Jak to działa</a>
+    <a href="#vystupy">Wyniki</a>
+    <a href="#otazky">Pytania</a>
+    <a href="#start">Start</a>
+  </nav>
+  <!--LANGS-->
+</header>
+
+<main id="top">
+<div class="hero">
+  <p class="kicker">AI przyspieszyła pisanie kodu. Zatwierdzanie nie.</p>
+  <h1><span class="ln"><span>Vibe coding na produkcję.</span></span><span class="ln"><span>Ze wszystkimi przy stole od pierwszego dnia.</span></span></h1>
+  <div class="hero-row">
+    <p class="lead">Pflanzer Method to otwarta metoda i&nbsp;narzędzie do rozwoju z&nbsp;AI w&nbsp;firmie. Łączy biznes, produkt, design, rozwój, bezpieczeństwo i&nbsp;utrzymanie na wspólnych sesjach. Podczas trzygodzinnego Buildu AI buduje trzy działające warianty, o&nbsp;Go, Iterate lub Kill decydują Państwo w&nbsp;tydzień, a&nbsp;zwycięzca idzie z&nbsp;podpisami jako pull request do rozwoju.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#start">Uruchom pierwszy pilot</a>
+      <a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md">Strona dla Decidera</a>
+    </div>
+  </div>
+  <ul class="proof" aria-label="Fakty o metodzie">
+    <li>Open source, licencja MIT</li>
+    <li>955 testów automatycznych</li>
+    <li><a href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/research/srovnani-metod-2026.md">Porównanie 13 metod rozwoju z AI</a></li>
+  </ul>
+</div>
+</main>
+
+<div class="band">
+  <svg id="relay" class="play" viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="relay-t">
+    <title id="relay-t">Sześć oddzielnych linii łączy się w jedną. Ta rozgałęzia się na warianty A, B i C, przedstawiciele dają feedback, B rozkwita i jako Go idzie na produkcję.</title>
+    <g aria-hidden="true">
+      <path class="r-line in" pathLength="1" d="M0 30 C120 30 150 115 250 115" style="animation-delay:0s"/>
+      <path class="r-line in" pathLength="1" d="M0 64 C120 64 150 115 250 115" style="animation-delay:.05s"/>
+      <path class="r-line in" pathLength="1" d="M0 98 C120 98 150 115 250 115" style="animation-delay:.1s"/>
+      <path class="r-line in" pathLength="1" d="M0 132 C120 132 150 115 250 115" style="animation-delay:.15s"/>
+      <path class="r-line in" pathLength="1" d="M0 166 C120 166 150 115 250 115" style="animation-delay:.2s"/>
+      <path class="r-line in" pathLength="1" d="M0 200 C120 200 150 115 250 115" style="animation-delay:.25s"/>
+    </g>
+    <text class="r-lab" x="268" y="92">Kickoff</text>
+    <path class="r-line s-trunk" pathLength="1" d="M250 115 H460"/>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 40 650 40"/>
+      <circle class="r-node" cx="668" cy="40" r="18"/><text class="r-var" x="668" y="40">A</text>
+    </g>
+    <g>
+      <path class="r-line s-br" pathLength="1" d="M460 115 H650"/>
+      <circle class="r-node" cx="668" cy="115" r="18"/><text class="r-var" x="668" y="115">B</text>
+    </g>
+    <g class="lose">
+      <path class="r-line s-br" pathLength="1" d="M460 115 C540 115 560 190 650 190"/>
+      <circle class="r-node" cx="668" cy="190" r="18"/><text class="r-var" x="668" y="190">C</text>
+    </g>
+    <text class="r-lab" x="478" y="222">Build</text>
+    <g aria-hidden="true">
+      <circle class="r-dot" cx="708" cy="28" r="4.5" style="--d:2.0s"/>
+      <circle class="r-dot" cx="722" cy="52" r="4.5" style="--d:2.25s"/>
+      <circle class="r-dot" cx="708" cy="103" r="4.5" style="--d:2.1s"/>
+      <circle class="r-dot" cx="724" cy="121" r="4.5" style="--d:2.35s"/>
+      <circle class="r-dot" cx="710" cy="136" r="4.5" style="--d:2.55s"/>
+      <circle class="r-dot" cx="710" cy="186" r="4.5" style="--d:2.45s"/>
+    </g>
+    <text class="r-lab" x="740" y="222">Zbieranie feedbacku</text>
+    <path class="r-line win s-win" pathLength="1" d="M686 115 H1080"/>
+    <text class="r-go" x="760" y="98">Go</text>
+    <g transform="translate(1110 115)">
+      <g transform="rotate(0)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.0s"/></g>
+      <g transform="rotate(72)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.1s"/></g>
+      <g transform="rotate(144)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.2s"/></g>
+      <g transform="rotate(216)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.3s"/></g>
+      <g transform="rotate(288)"><ellipse class="r-petal" cx="0" cy="-19" rx="10" ry="17" style="animation-delay:4.4s"/></g>
+      <circle class="r-heart" cx="0" cy="0" r="9"/>
+    </g>
+    <text class="r-lab r-end" x="1050" y="168">Produkcja</text>
+  </svg>
+  <button class="replay" id="replay" type="button">Odtwórz ponownie</button>
+</div>
+
+<section id="proc" aria-labelledby="proc-h">
+  <div class="why">
+    <div>
+      <h2 id="proc-h" class="quote">Vibe coding dotarł do granicy silosu.<small>Vibe coding przyspiesza firmę tylko wtedy, gdy przy stole siedzą wszyscy. Dlatego powstała Pflanzer Method.</small></h2>
+    </div>
+    <div class="story">
+      <p>Widzieliśmy, jak firmy próbują vibe codingu, by przyspieszyć powolne procesy. Zespół z&nbsp;AI buduje prototyp w&nbsp;kilka godzin. Potem po raz pierwszy widzą go bezpieczeństwo, prawo i&nbsp;utrzymanie i&nbsp;zaczynają się pytania: gdzie są dane, kto to będzie utrzymywać, czy przeszło kontrolę? Pytania, które dało się rozstrzygnąć pierwszego dnia, przychodzą po tygodniach, a&nbsp;prototyp czeka w&nbsp;kolejce.</p>
+      <p><strong>AI przyspieszyła pisanie kodu. Przekazania między działami zostały takie same.</strong> Ludzie, którzy zaczynają od vibe codingu, trafiają na granicę własnego silosu. Ich praca nie sięga dalej, więc przyspieszenia nie ma.</p>
+      <p>Pflanzer Method rozbija silosy, bo przedstawiciele wszystkich sześciu kroków ścieżki uczestniczą we wspólnych sesjach od pierwszego dnia. Bezpieczeństwo i&nbsp;utrzymanie nie oceniają gotowej rzeczy na końcu. Podpisują ją w&nbsp;trakcie ścieżki, w&nbsp;krótkich oknach po 20 minut.</p>
+    </div>
+  </div>
+</section>
+
+<section id="jak" aria-labelledby="jak-h">
+  <div class="head">
+    <h2 id="jak-h">Jak Pflanzer Method rozbija silosy</h2>
+    <p>Sześć kroków ścieżki, każdy z&nbsp;imieniem i&nbsp;nazwiskiem. Pod spodem narzędzie pilnuje podpisów, kontroli jakości, przekazania do rozwoju i&nbsp;pomiarów po wdrożeniu.</p>
+  </div>
+  <div class="scrolly">
+    <div class="stage" aria-hidden="true">
+      <svg id="stage" data-step="0" viewBox="0 0 800 520">
+        <ellipse class="table" cx="230" cy="270" rx="165" ry="100"/>
+        <text class="tlabel" x="230" y="275">Jeden stół</text>
+        <path class="handoff" d="M79 78 L189 148 L299 218 L409 288 L519 358 L629 428"/>
+        <text class="veto" x="470" y="470">późne weto</text>
+        <g class="seat" style="--x0:20px;--y0:60px;--x1:171px;--y1:152px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Biznes</text></g>
+        <g class="seat" style="--x0:130px;--y0:130px;--x1:314px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Produkt</text></g>
+        <g class="seat" style="--x0:240px;--y0:200px;--x1:314px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Design</text></g>
+        <g class="seat" style="--x0:350px;--y0:270px;--x1:171px;--y1:352px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Rozwój</text></g>
+        <g class="seat late" style="--x0:460px;--y0:340px;--x1:28px;--y1:302px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Bezpieczeństwo</text></g>
+        <g class="seat late" style="--x0:570px;--y0:410px;--x1:28px;--y1:202px"><rect width="118" height="36" rx="18"/><text x="59" y="18">Utrzymanie</text></g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 110 584 110"/>
+          <circle class="vn" cx="600" cy="110" r="16"/><text class="vl" x="600" y="110">A</text>
+          <circle class="fb" cx="636" cy="98" r="4.5"/><circle class="fb" cx="646" cy="120" r="4.5"/>
+        </g>
+        <g>
+          <path class="br" pathLength="1" d="M400 270 H584"/>
+          <g transform="translate(600 270)">
+            <g transform="rotate(0)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(72)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(144)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(216)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+            <g transform="rotate(288)"><ellipse class="petal" cx="0" cy="-19" rx="10" ry="17"/></g>
+          </g>
+          <circle class="vn" cx="600" cy="270" r="16"/><text class="vl" x="600" y="270">B</text>
+          <circle class="heart" cx="600" cy="270" r="9"/>
+          <circle class="fb" cx="638" cy="248" r="4.5"/><circle class="fb" cx="650" cy="268" r="4.5"/><circle class="fb" cx="638" cy="290" r="4.5"/>
+        </g>
+        <g class="lose">
+          <path class="br" pathLength="1" d="M400 270 C480 270 500 430 584 430"/>
+          <circle class="vn" cx="600" cy="430" r="16"/><text class="vl" x="600" y="430">C</text>
+          <circle class="fb" cx="638" cy="422" r="4.5"/>
+        </g>
+        <path class="prod" pathLength="1" d="M622 270 H790"/>
+        <text class="plabel" x="700" y="252">Produkcja</text>
+        <g class="sig"><circle cx="672" cy="322" r="10"/><path d="M667 322 l3.5 3.5 l6 -7"/><text x="690" y="322">Brief</text></g>
+        <g class="sig"><circle cx="672" cy="352" r="10"/><path d="M667 352 l3.5 3.5 l6 -7"/><text x="690" y="352">Bezpieczeństwo</text></g>
+        <g class="sig"><circle cx="672" cy="382" r="10"/><path d="M667 382 l3.5 3.5 l6 -7"/><text x="690" y="382">Utrzymanie</text></g>
+      </svg>
+    </div>
+    <div class="steps">
+      <div class="step on" data-n="0"><span class="when">Dziś</span><h3>Przekazania w&nbsp;kolejce</h3><p>Biznes przekazuje produktowi, produkt rozwojowi, rozwój bezpieczeństwu. Bezpieczeństwo, prawo i&nbsp;utrzymanie widzą prototyp dopiero na końcu, a&nbsp;każde przekazanie dokłada interpretację i&nbsp;późne weto.</p></div>
+      <div class="step" data-n="1"><span class="when">Kickoff, 15 min</span><h3>Wszyscy przy jednym stole</h3><p>Przedstawiciele sześciu kroków ścieżki uczestniczą we wspólnych sesjach od pierwszego dnia. Rdzeń tworzą 3–4 osoby, pozostali dołączają na okna po 20 minut. <code>/pm start</code></p></div>
+      <div class="step" data-n="2"><span class="when">Build, 3 h</span><h3>Trzy działające warianty</h3><p>AI buduje warianty A, B i&nbsp;C w&nbsp;Państwa repozytorium. Rdzeń siedzi przy jednym ekranie. <code>/pm build</code></p></div>
+      <div class="step" data-n="3"><span class="when">Zbieranie feedbacku, 3–5 dni</span><h3>Przedstawiciele klikają i&nbsp;piszą</h3><p>Jeden adres, hasło osobno. Każdy pisze, co działa, a&nbsp;co nie, wprost przy ekranie. <code>pflanzer share</code></p></div>
+      <div class="step" data-n="4"><span class="when">Decyzja, 60–90 min</span><h3>Decyzja zapada nad działającym kodem</h3><p>Decider mówi Go, Iterate lub Kill i&nbsp;głosuje jako ostatni. Kill jest pełnoprawnym wynikiem. <code>/pm decide</code></p></div>
+      <div class="step" data-n="5"><span class="when">Ship, 1–2 dni</span><h3>Na produkcję z&nbsp;podpisami</h3><p>Zwycięzca przechodzi automatyczne kontrole. Brief, bezpieczeństwo i&nbsp;utrzymanie są podpisane w&nbsp;trakcie ścieżki, a&nbsp;ich warunki trafiają do opisu PR. Po 30 dniach retro mierzy, ile kodu zostało na produkcji. <code>/pm ship</code></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="otazka" aria-labelledby="otazka-h">
+  <div class="head">
+    <h2 id="otazka-h">Na początku jedno pytanie</h2>
+    <p>Stopień metody, okna do podpisu i&nbsp;próg jakości wynikają z&nbsp;odpowiedzi. Nikt nie musi znać Quick, Lean ani Full. Kto chce, może nadpisać wartości domyślne.</p>
+  </div>
+  <div class="ask">
+    <div>
+      <p class="q">Jak poważna jest sprawa?</p>
+      <div class="choices" role="group" aria-label="Jak poważna jest sprawa">
+        <button class="opt" type="button" id="o-demo" data-k="demo" aria-pressed="false"><b>Demo</b><span>przykład do decyzji, nic na produkcję</span></button>
+        <button class="opt" type="button" id="o-pilot" data-k="pilot" aria-pressed="true"><b>Pilot</b><span>5–20 prawdziwych użytkowników</span></button>
+        <button class="opt" type="button" id="o-ostre" data-k="ostre" aria-pressed="false"><b>Produkcja</b><span>zwykła praca dla wszystkich</span></button>
+      </div>
+      <label class="pd" for="pd"><input type="checkbox" id="pd"> W&nbsp;danych są dane osobowe</label>
+    </div>
+    <div class="derive" aria-live="polite">
+      <dl id="derived">
+        <dt>Stopień</dt><dd class="big" id="d-tier">Lean</dd>
+        <dt>Okna do podpisu</dt><dd><div class="chips" id="d-win"><span class="chip">Brief</span><span class="chip">Bezpieczeństwo i&nbsp;utrzymanie</span></div></dd>
+        <dt>Próg Shipu</dt><dd id="d-thr">80 na 100</dd>
+        <dt>Pojemność</dt><dd id="d-cap">~6–8 osobodni</dd>
+      </dl>
+      <p class="note" id="d-note">Pilot bez danych osobowych ma jedno wspólne okno na 20 minut.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="zisk-h">
+  <div class="head">
+    <h2 id="zisk-h">Szybkość, która wytrzyma aż do produkcji</h2>
+    <p>Cztery rzeczy, które się zmienią.</p>
+  </div>
+  <div class="gains">
+    <div><h3>Bez niespodzianek na końcu</h3><p>Bezpieczeństwo, prawo i&nbsp;utrzymanie podpisują w&nbsp;trakcie ścieżki. Ich warunki trafiają do opisu PR, więc nie czeka się na późne weto.</p></div>
+    <div><h3>Spory rozstrzyga kliknięcie</h3><p>Zespół porównuje trzy działające warianty, a&nbsp;nie trzy interpretacje jednego dokumentu. Feedback trafia na konkretny ekran.</p></div>
+    <div><h3>Mniej ludzi na spotkaniach</h3><p>Rdzeń tworzą 3–4 osoby. Decider przychodzi na Kickoff i&nbsp;Decyzję, bezpieczeństwo i&nbsp;utrzymanie na okna po 20 minut.</p></div>
+    <div><h3>Zarząd dostaje jedną stronę</h3><p>Decyzja, koszt, wynik jakości, ryzyka i&nbsp;podpisy na jednej stronie. Przegląd wszystkich projektów jednym poleceniem.</p></div>
+  </div>
+</section>
+
+<section id="vystupy" aria-labelledby="vystupy-h">
+  <div class="head">
+    <h2 id="vystupy-h">Wyniki czyta też zarząd</h2>
+    <p>Wynik to zdanie, a&nbsp;nie liczba bez kontekstu. Mówi, z&nbsp;ilu kontroli powstał, co się nie odbyło i&nbsp;że spełnienie briefu weryfikują ludzie.</p>
+  </div>
+  <div class="outs">
+    <article class="doc" aria-labelledby="doc1">
+      <div class="bar"><code>SHIP.md</code><span>przykład, projekt fikcyjny</span></div>
+      <div class="body">
+        <h3 id="doc1">Zwycięzca B: Rezerwacja stolika w&nbsp;dwóch kliknięciach</h3>
+        <p class="score"><b>Wynik 87 na 100 z&nbsp;8 kontroli automatycznych</b>, spełnia próg 80.</p>
+        <p class="muted">Wynik mierzy jakość techniczną, a&nbsp;nie to, czy wariant spełnia brief. To weryfikuje feedback przedstawicieli i&nbsp;Decider.</p>
+        <ul>
+          <li>Niezweryfikowane: pokrycie testami (brak narzędzia do pomiaru)</li>
+          <li>1 otwarta uwaga do zwycięzcy: Ważna, krok Utrzymanie</li>
+          <li>Podpisano: Brief, Bezpieczeństwo i&nbsp;utrzymanie</li>
+        </ul>
+      </div>
+    </article>
+    <article class="doc" aria-labelledby="doc2">
+      <div class="bar"><code id="doc2">pflanzer report summary</code><span>co mierzy raport</span></div>
+      <div class="rows">
+        <div><span>Dni od Go do merge</span><span>cel ≤ 14</span></div>
+        <div><span>Kod zwycięzcy, który przetrwał</span><span>cel ≥ 80%</span></div>
+        <div><span>Koszt AI na Go</span><span>tokeny i&nbsp;szacunek kosztów</span></div>
+        <div><span>Kroki zastąpione przez AI</span><span>odsetek z&nbsp;6</span></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="pravidla-h">
+  <div class="head">
+    <h2 id="pravidla-h">Trzy zasady, które się nie uginają</h2>
+    <p>Prostotę na zewnątrz utrzymuje kilka sztywnych punktów w&nbsp;środku.</p>
+  </div>
+  <div class="rules">
+    <div><h3>AI przygotowuje, człowiek podpisuje</h3><p>AI może zastąpić brakującą rolę propozycją. Decider i&nbsp;programista są zawsze ludźmi, a&nbsp;AI nie nadpisuje ich podpisu.</p></div>
+    <div><h3>Decyzja zapada nad działającym kodem</h3><p>Trzy funkcjonalne warianty w&nbsp;Państwa repozytorium zamiast dokumentu lub makiety.</p></div>
+    <div><h3>Kill jest pełnoprawnym wynikiem</h3><p>Gdy wariant nie spełnia metryki, projekt kończy się wnioskami. Wnioski trafiają do przeglądu wszystkich projektów.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="riziko-h">
+  <div class="kill">
+    <h2 id="riziko-h">Najgorszy wynik to Kill po tygodniu</h2>
+    <p>Jeśli pomysł nie działa, widać to nad działającym kodem, zanim ruszy rozwój. Projekt kończy się wnioskami, które trafiają do przeglądu wszystkich projektów. Kill jest w&nbsp;metodzie pełnoprawnym wynikiem, a&nbsp;zespół się z&nbsp;niego uczy.</p>
+  </div>
+</section>
+
+<section aria-labelledby="fit-h">
+  <div class="head">
+    <h2 id="fit-h">Dla kogo jest metoda, a&nbsp;kiedy nie</h2>
+    <p>Metoda pasuje do nowych funkcji i&nbsp;narzędzi wewnętrznych, które da się zbudować i&nbsp;pokazać w&nbsp;jedno popołudnie.</p>
+  </div>
+  <div class="fit">
+    <div>
+      <h3>Pasuje, gdy</h3>
+      <ul>
+        <li>mają Państwo Decidera z&nbsp;mandatem na Go i&nbsp;Kill,</li>
+        <li>w&nbsp;zespole jest co najmniej jeden programista,</li>
+        <li>funkcję da się zbudować w&nbsp;Państwa repozytorium i&nbsp;pokazać w&nbsp;przeglądarce,</li>
+        <li>próbują Państwo vibe codingu i&nbsp;nic się nie przyspieszyło.</li>
+      </ul>
+    </div>
+    <div class="no">
+      <h3>Nie stosować do</h3>
+      <ul>
+        <li>płatności i&nbsp;procesów płatniczych,</li>
+        <li>systemów w&nbsp;AI Act High-risk lub w&nbsp;DORA bez warstwy governance,</li>
+        <li>natywnych aplikacji mobilnych z&nbsp;cyklem wydań przez sklepy z&nbsp;aplikacjami,</li>
+        <li>projektów z&nbsp;silną zależnością zewnętrzną, której nie da się zasymulować.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="otazky" aria-labelledby="otazky-h">
+  <div class="head">
+    <h2 id="otazky-h">Częste pytania</h2>
+    <p>Odpowiedzi na to, o&nbsp;co zespoły pytają przed pierwszym pilotem.</p>
+  </div>
+  <div class="faq">
+    <details><summary>Czym to się różni od design sprintu albo hackathonu?</summary><p>Efektem jest działający kod w&nbsp;Państwa repozytorium, a&nbsp;przy wspólnych sesjach zasiadają też bezpieczeństwo, prawo i&nbsp;utrzymanie. Narzędzie prowadzi podpisy okien, automatyczne kontrole i&nbsp;przekazanie zwycięskiego wariantu do rozwoju jako pull request.</p></details>
+    <details><summary>Czy musimy używać Claude Code?</summary><p>Nie. Polecenie <code>pflanzer</code> działa z&nbsp;terminala, od <code>pflanzer start</code> aż po Ship. Claude Code dodaje jedno polecenie wejściowe <code>/pm</code> oraz AI buildera.</p></details>
+    <details><summary>Co, jeśli nie mamy specjalisty od bezpieczeństwa, designera ani osoby z&nbsp;utrzymania?</summary><p>Brakującą rolę może zastąpić AI propozycją. Okno zawsze podpisuje człowiek, a&nbsp;propozycja AI nigdy nie nadpisuje jego podpisu. Decider i&nbsp;programista są zawsze ludźmi.</p></details>
+    <details><summary>Co, jeśli bezpieczeństwo i&nbsp;tak powie nie?</summary><p>Powie to w&nbsp;oknie, w&nbsp;trakcie ścieżki, a&nbsp;nie po tygodniach nad gotową rzeczą. Warunki z&nbsp;podpisu trafiają do opisu PR. Brakujący podpis może przebić tylko Decider, świadomie i&nbsp;z&nbsp;uzasadnieniem w&nbsp;decision logu.</p></details>
+    <details><summary>Czy musimy zmieniać sposób, w&nbsp;jaki rozwijamy produkt?</summary><p>Nie. Zwycięzca trafia jako pull request do Państwa repozytorium i&nbsp;dalej idzie zwykłym pipeline. Metoda zmienia to, kto i&nbsp;kiedy zasiada przy decyzji, a&nbsp;nie Państwa proces wytwórczy.</p></details>
+    <details><summary>Ile czasu zajmuje pilot?</summary><p>Kickoff 15 minut, Build 3 godziny, zbieranie feedbacku 3–5 dni, Decyzja 60–90 minut. Pilot to około 6–8 osobodni, demo 5, wdrożenie produkcyjne 14.</p></details>
+    <details><summary>Czy są wyniki z&nbsp;prawdziwych firm?</summary><p>Jeszcze nie. Metoda przeszła 28 przebiegów testowych całej ścieżki na projektach fikcyjnych. Od pierwszego pilota narzędzie mierzy dni od Go do merge i&nbsp;odsetek kodu, który przetrwał na produkcji. Te liczby opublikujemy, gdy będą.</p></details>
+    <details><summary>Ile kosztuje metoda?</summary><p>Metoda i&nbsp;narzędzie są open source na licencji MIT. Płacą Państwo za czas ludzi i&nbsp;używaną AI. Koszt AI narzędzie pokazuje w&nbsp;raporcie.</p></details>
+  </div>
+</section>
+
+<section id="start" aria-labelledby="start-h">
+  <div class="start">
+    <div>
+      <h2 id="start-h">Wszyscy przy stole. Kod na produkcji.</h2>
+      <p class="muted">Proszę zacząć od pierwszego pilota. Instalacja raz na maszynę, potem w&nbsp;repozytorium projektu <code>/pm</code>, a&nbsp;bez Claude Code <code>pflanzer start</code>.</p>
+      <div class="ctas"><a class="btn primary" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/zacni.md">Uruchom pierwszy pilot</a><a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod">Kod źródłowy na GitHubie</a></div>
+    </div>
+    <div class="term">
+      <button class="copy" id="copy" type="button">Kopiuj</button>
+<pre id="cmd"><span class="c"># raz na maszynę</span>
+curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash
+<span class="c"># w repozytorium projektu</span>
+pflanzer init &amp;&amp; pflanzer doctor
+/pm</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="claim">Wszyscy przy stole. Kod na produkcji.</span>
+  <span><b>Pflanzer Method</b> | pflanzer.cz/method</span>
+  <span>Metodę rozwija Tomáš Pflanzer, <a href="https://wiseguys.co">Wiseguys</a></span>
+  <span>Wersja 0.6, licencja MIT</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  var DATA = {
+    demo:  {tier:"Quick", win:[], thr:"informacyjnie, nie blokuje", cap:"~5 osobodni",
+            note:"Demo nie przechodzi przez triage. Przed pilotem wystarczy nowy Kickoff z odpowiedzią Pilot."},
+    pilot: {tier:"Lean", win:["Brief","Bezpieczeństwo i utrzymanie"], thr:"80 na 100", cap:"~6–8 osobodni",
+            note:"Pilot bez danych osobowych ma jedno wspólne okno na 20 minut."},
+    ostre: {tier:"Lean", win:["Brief","Bezpieczeństwo i prawo","Utrzymanie"], thr:"85 na 100", cap:"~14 osobodni",
+            note:"Utrzymanie przy wdrożeniu produkcyjnym podpisuje osoba z utrzymania. AI może przygotować propozycję."}
+  };
+  var cur = "pilot", pd = document.getElementById("pd");
+  function flip(el){ el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip"); }
+  function render(){
+    var d = JSON.parse(JSON.stringify(DATA[cur]));
+    if (pd.checked && cur === "pilot") { d.win = ["Brief","Bezpieczeństwo i prawo","Utrzymanie"]; d.note = "Dane osobowe oznaczają wyższą klasę danych, dlatego okna są oddzielne."; }
+    if (pd.checked && cur === "ostre") { d.tier = "Full"; d.win = ["Brief","Bezpieczeństwo i prawo","Utrzymanie","Prawo (DPIA), gdy triage ją odroczy"]; d.note = "Wdrożenie produkcyjne z danymi osobowymi przechodzi pełny triage."; }
+    if (pd.checked && cur === "demo") { d.note = "Demo z danymi osobowymi? Proszę używać tylko danych testowych."; }
+    var t = document.getElementById("d-tier");
+    if (t.textContent !== d.tier) { t.textContent = d.tier; flip(t); }
+    var w = document.getElementById("d-win"); w.innerHTML = "";
+    if (!d.win.length) { var n = document.createElement("span"); n.className = "chip none"; n.textContent = "brak"; w.appendChild(n); }
+    d.win.forEach(function(x, i){ var c = document.createElement("span"); c.className = "chip"; c.style.animationDelay = (i * 60) + "ms"; c.textContent = x; w.appendChild(c); });
+    ["d-thr","d-cap","d-note"].forEach(function(id, i){ var el = document.getElementById(id); var v = [d.thr, d.cap, d.note][i]; if (el.textContent !== v) { el.textContent = v; flip(el); } });
+  }
+  document.querySelectorAll(".opt").forEach(function(b){
+    b.addEventListener("click", function(){
+      cur = b.getAttribute("data-k");
+      document.querySelectorAll(".opt").forEach(function(o){ o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      render();
+    });
+  });
+  pd.addEventListener("change", render);
+
+  var relay = document.getElementById("relay");
+  document.getElementById("replay").addEventListener("click", function(){
+    relay.classList.remove("play"); void relay.getBoundingClientRect(); relay.classList.add("play");
+  });
+
+  var stage = document.getElementById("stage");
+  var steps = Array.prototype.slice.call(document.querySelectorAll(".step"));
+  function setStep(n){
+    stage.setAttribute("data-step", n);
+    steps.forEach(function(s){ s.classList.toggle("on", s.getAttribute("data-n") === String(n)); });
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting) setStep(e.target.getAttribute("data-n")); });
+    }, {rootMargin:"-45% 0px -45% 0px"});
+    steps.forEach(function(s){ io.observe(s); });
+  } else { setStep(5); steps.forEach(function(s){ s.classList.add("on"); }); }
+
+  var copy = document.getElementById("copy");
+  copy.addEventListener("click", function(){
+    var text = "curl -fsSL https://raw.githubusercontent.com/gizmax/PflanzerMethod/main/install.sh | bash";
+    var done = function(){ copy.textContent = "Skopiowano"; setTimeout(function(){ copy.textContent = "Kopiuj"; }, 1600); };
+    try { navigator.clipboard.writeText(text).then(done, selectCmd); } catch (e) { selectCmd(); }
+  });
+  function selectCmd(){
+    var r = document.createRange(); r.selectNodeContents(document.getElementById("cmd"));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    copy.textContent = "Zaznaczono, skopiuj";
+  }
+})();
+</script>
+</body>
+</html>

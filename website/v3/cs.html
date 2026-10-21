@@ -6,13 +6,11 @@
 <title>Pflanzer Method – vibe coding ve firmě až do produkce</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Metoda pro AI vývoj ve firmě. Byznys, bezpečnost i provoz u jednoho stolu, tři běžící varianty, rozhodnutí do týdne a kód až v produkci. Open source.">
-<link rel="canonical" href="https://pflanzer.cz/method/">
+<!--ALT-->
 <meta property="og:type" content="website">
-<meta property="og:locale" content="cs_CZ">
 <meta property="og:site_name" content="Pflanzer Method">
 <meta property="og:title" content="Dostaňte vibe coding do produkce. Se všemi u stolu od prvního dne.">
 <meta property="og:description" content="Všichni u stolu. Kód v produkci. Open source metoda a nástroj pro AI vývoj ve firmě.">
-<meta property="og:url" content="https://pflanzer.cz/method/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#EDF1EA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -110,6 +108,10 @@ header{display:flex;justify-content:space-between;align-items:center;gap:1rem;pa
 header nav{display:flex;gap:1.5rem;font-size:var(--t-1);flex-wrap:wrap}
 header nav a{text-decoration:none;color:var(--muted)}
 header nav a:hover{color:var(--ink)}
+.langs{display:flex;gap:.15rem;font-size:var(--t-1)}
+.langs a{text-decoration:none;color:var(--muted);padding:.2rem .45rem;border-radius:999px}
+.langs a:hover{color:var(--ink)}
+.langs a[aria-current="page"]{background:var(--ink);color:var(--paper)}
 
 /* buttons */
 .ctas{display:flex;gap:.75rem;flex-wrap:wrap}
@@ -330,7 +332,7 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
   .stage svg{max-height:42vh}
   .step{min-height:50vh}
 }
-@media (max-width:560px){ .gains{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:560px){ .gains{grid-template-columns:minmax(0,1fr)} header > nav:not(.langs){display:none} }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   html{scroll-behavior:auto}
@@ -352,6 +354,7 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
     <a href="#otazky">Otázky</a>
     <a href="#start">Začít</a>
   </nav>
+  <!--LANGS-->
 </header>
 
 <main id="top">
@@ -359,7 +362,7 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
   <p class="kicker">AI zrychlila psaní kódu. Schvalování ne.</p>
   <h1><span class="ln"><span>Dostaňte vibe coding do produkce.</span></span><span class="ln"><span>Se všemi u&nbsp;stolu od prvního dne.</span></span></h1>
   <div class="hero-row">
-    <p class="lead">Pflanzer Method posadí byznys, produkt, design, vývoj, bezpečnost i&nbsp;provoz ke společným sessions. AI během tříhodinového Buildu postaví tři běžící varianty, o&nbsp;Go, Iterate nebo Kill rozhodnete do týdne a&nbsp;vítěz jde s&nbsp;podpisy jako pull request do vývoje.</p>
+    <p class="lead">Pflanzer Method je open source metoda a&nbsp;nástroj pro AI vývoj ve firmě. Posadí byznys, produkt, design, vývoj, bezpečnost i&nbsp;provoz ke společným sessions. AI během tříhodinového Buildu postaví tři běžící varianty, o&nbsp;Go, Iterate nebo Kill rozhodnete do týdne a&nbsp;vítěz jde s&nbsp;podpisy jako pull request do vývoje.</p>
     <div class="ctas">
       <a class="btn primary" href="#start">Spustit první pilot</a>
       <a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md">Stránka pro Decidera</a>
