@@ -150,12 +150,14 @@ header nav a:hover{color:var(--ink)}
 .r-go{font:800 22px var(--display);fill:var(--leaf)}
 .lose .r-line,.lose .r-node{stroke:var(--dim)}
 .lose .r-var{fill:var(--dim)}
-.band svg *{transform-box:fill-box;transform-origin:center}
+.band :is(.r-node,.r-var,.r-dot,.r-petal,.r-heart,.r-go,.r-end){transform-box:fill-box;transform-origin:center}
+.r-dot{opacity:0}
 .play .r-line.in{animation:draw .7s var(--ease) both}
 .play .s-trunk{animation:draw .6s .55s var(--ease) both}
 .play .s-br{animation:draw .7s 1.05s var(--ease) both}
 .play .r-node,.play .r-var{animation:pop .35s 1.6s both}
-.play .r-dot{animation:pop .3s both}
+.play .r-dot{animation:pop .3s var(--d,2s) both, gone .5s 3.1s forwards}
+@keyframes gone{to{opacity:0}}
 .play .lose .s-br{animation:draw .7s 1.05s var(--ease) both, fadeline .6s 3.1s both}
 .play .lose .r-node{animation:pop .35s 1.6s both, fadeline .6s 3.1s both}
 .play .lose .r-var{animation:pop .35s 1.6s both, fadetext .6s 3.1s both}
@@ -224,10 +226,9 @@ section{padding-block:clamp(3.5rem, 7vw, 6rem);border-top:1px solid var(--line)}
 .scrolly [data-step]:not([data-step="0"]) .tlabel{opacity:1}
 .scrolly [data-step="2"] .br,.scrolly [data-step="3"] .br,.scrolly [data-step="4"] .br,.scrolly [data-step="5"] .br{stroke-dashoffset:0}
 .scrolly [data-step="2"] :is(.vn,.vl),.scrolly [data-step="3"] :is(.vn,.vl),.scrolly [data-step="4"] :is(.vn,.vl),.scrolly [data-step="5"] :is(.vn,.vl){opacity:1}
-.scrolly [data-step="3"] .fb,.scrolly [data-step="4"] .fb,.scrolly [data-step="5"] .fb{opacity:1;transform:none}
+.scrolly [data-step="3"] .fb{opacity:1;transform:none}
 .scrolly [data-step="4"] .lose :is(.br,.vn),.scrolly [data-step="5"] .lose :is(.br,.vn){stroke:var(--dim)}
 .scrolly [data-step="4"] .lose .vl,.scrolly [data-step="5"] .lose .vl{fill:var(--dim)}
-.scrolly [data-step="4"] .lose .fb,.scrolly [data-step="5"] .lose .fb{opacity:.35}
 .scrolly [data-step="4"] .petal,.scrolly [data-step="5"] .petal{transform:none}
 .scrolly [data-step="4"] .heart,.scrolly [data-step="5"] .heart{opacity:1}
 .scrolly [data-step="5"] .prod{stroke-dashoffset:0}
@@ -399,12 +400,12 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
     </g>
     <text class="r-lab" x="478" y="222">Build</text>
     <g aria-hidden="true">
-      <circle class="r-dot" cx="708" cy="28" r="4.5" style="animation-delay:2.0s"/>
-      <circle class="r-dot" cx="722" cy="52" r="4.5" style="animation-delay:2.25s"/>
-      <circle class="r-dot" cx="708" cy="103" r="4.5" style="animation-delay:2.1s"/>
-      <circle class="r-dot" cx="724" cy="121" r="4.5" style="animation-delay:2.35s"/>
-      <circle class="r-dot" cx="710" cy="136" r="4.5" style="animation-delay:2.55s"/>
-      <circle class="r-dot" cx="710" cy="186" r="4.5" style="animation-delay:2.45s"/>
+      <circle class="r-dot" cx="708" cy="28" r="4.5" style="--d:2.0s"/>
+      <circle class="r-dot" cx="722" cy="52" r="4.5" style="--d:2.25s"/>
+      <circle class="r-dot" cx="708" cy="103" r="4.5" style="--d:2.1s"/>
+      <circle class="r-dot" cx="724" cy="121" r="4.5" style="--d:2.35s"/>
+      <circle class="r-dot" cx="710" cy="136" r="4.5" style="--d:2.55s"/>
+      <circle class="r-dot" cx="710" cy="186" r="4.5" style="--d:2.45s"/>
     </g>
     <text class="r-lab" x="740" y="222">Sběr feedbacku</text>
     <path class="r-line win s-win" pathLength="1" d="M686 115 H1080"/>
