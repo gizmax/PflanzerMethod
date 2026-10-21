@@ -1,5 +1,5 @@
 ---
-description: Ship (/pm ship) — quality gates jen na vítěze, skóre X/100 (práh pilot 80 / production 85; throwaway: skóre informativně, Ship neblokuje), checkpoint provozu, PR do target repa.
+description: Ship (/pm ship) — quality gates jen na vítěze, skóre ze 100 (práh pilot 80 / production 85; throwaway: skóre informativně, Ship neblokuje), checkpoint provozu, PR do target repa.
 ---
 
 # Ship (`/pm ship`) — 1–2 dny
@@ -40,7 +40,7 @@ decision logu). Ukaž lidský výstup a předej jeho **Doporučení**.
 
 Poražené varianty se nehodnotí ani nehardenují. Tool pustí gates (lint,
 typy, testy, security, a11y, build, observability) v branchi vítěze
-a vrátí **skóre X/100**.
+a vrátí **skóre** jako větu „Skóre X ze 100 z N automatických kontrol“ (částečné, když část kontrol neproběhla; neměří splnění zadání).
 
 Práh: **pilot 80, production 85** (podle risk profilu z Kickoffu).
 Security a testy mají dvojnásobnou váhu.
@@ -99,7 +99,11 @@ pflanzer checkpoint --slug <slug> --list    # stav všech oken
 ```
 
 Ship pilotu/production blokuje, dokud nejsou podepsaná všechna okna
-(zadání podepisuje Kickoff sám). Plný triage (`/pm triage`) jen regulované;
+(zadání podepisuje Kickoff sám). Pilot bez osobních dat má místo oken
+Bezpečnost & právo a Provoz jedno sloučené okno Bezpečnost a provoz
+(`checkpoint … bezpecnost-provoz`); s osobními daty jsou okna zvlášť, Právo
+(DPIA) samostatně jen u Full, když triage DPIA odložil. AI návrh podpis
+člověka nikdy nepřepíše. Plný triage (`/pm triage`) jen regulované;
 u Lean ho podpisy oken nahrazují.
 
 Podepisuje-li okno s výhradami, zapiš je jako podmínky — přenesou se do

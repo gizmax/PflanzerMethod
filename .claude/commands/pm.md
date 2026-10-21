@@ -75,7 +75,7 @@ v toolu `pflanzer`; `pflanzer-*` commandy jsou interní implementace kroků.
 | `decide` | `pflanzer-session-2` | **Rozhodnutí** 60–90 min — Go / Iterate / Kill |
 | `ship` | `pflanzer-session-3` | **Ship** — gates jen na vítěze, checkpoint provozu, SHIP.md |
 | `handoff` | `pflanzer-handoff` | balíček per role + metriky pilotu |
-| `retro` | `pflanzer-retro` | **Retro** — měření outcome: % LOC vítěze v produkci, days-to-prod, T+7/30/60/90 |
+| `retro` | `pflanzer-retro` | **Retro** — měření outcome: % LOC vítěze v produkci, dny od Go do merge, T+7/30/60/90 |
 
 Pokročilé (mimo hlavní cestu, jen regulované/větší projekty — stupeň Full):
 `roles` (`pflanzer-roles`; vedle výběru rolí rozešle role cards), `triage`
@@ -174,7 +174,7 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
 (po merge vítěze `measure`, hned `reminders`, pak T+7/30/60/90 readouty).
 `killed` → jen oznám; nový projekt = `start`.
 
-**Dva stavy, které router nesmí splést (pilot Ponk):**
+**Dva stavy, které router nesmí splést :**
 
 - **Quick projekt (`/pm live`) s blokovaným Kickoffem** (CONSTITUTION vs. zadání,
   nezabookovaná okna, chybějící podpis): po odblokování doporuč **tentýž mód**
@@ -185,7 +185,7 @@ Mapování stavu na další krok (pro orientaci; rozhoduje `pflanzer status`):
 - **Build už proběhl, chybí jen zápis** (v target repu worktrees s commity
   `pflanzer/<slug>-…`, preview případně běží, `pflanzer status` hlásí „Build
   běží“ / další krok `pflanzer record`): nikdy neříkej „stavba neproběhla“ a
-  nenabízej restart Buildu. Nabídni **zápis hlasování** — šablona je v
+  nenabízej restart Buildu. Nabídni **zápis hodnocení Buildu (`record`)** — šablona je v
   `.pflanzer/specs/<slug>-vote.json` (vytvořil ji `worktree setup`) — a jako
   další krok `pflanzer record --spec .pflanzer/specs/<slug>-vote.json`.
 

@@ -20,49 +20,49 @@ další varianty, je to signál špatného zadání: vrať se ke Kickoffu.
 
 **Decider + jádro**, max 5 lidí. Decider u Buildu nebyl, proto začíná
 demo. Zástupce bezpečnosti & práva nebo provozu přizvi jen při otevřeném
-critical v jejich kroku. **Bez Decidera Rozhodnutí neprobíhá** (ADR-0001).
+Kritickém v jejich kroku. **Bez Decidera Rozhodnutí neprobíhá** (ADR-0001).
 
 ## Agenda (60–90 min)
 
 | Čas | Blok | Poznámka |
 |-----|------|----------|
 | 0–10 | **Demo** běžících variant na preview | Decider je vidí poprvé „naostro"; vývojářský pár řekne reuse/nové/mock |
-| 10–25 | **Agregovaný feedback** | `pflanzer session_2 prep`: commitment index, počet critical, verdikt debtu, mlčící role (zapsané jako „no objection") — AI fakta neutrálně, bez interpretace |
-| 25–40 | **Critical** | každý otevřený critical: opraveno / varianta ven / Decider override s rationale |
+| 10–25 | **Agregovaný feedback** | `pflanzer decide prep`: commitment index, počet Kritických, verdikt debtu, mlčící role (zapsané jako „no objection") — AI fakta neutrálně, bez interpretace |
+| 25–40 | **Kritické** | každé otevřené Kritické: opraveno / varianta ven / Decider override s rationale |
 | 40–65 | **Top 3 spory** | 5 min kontext → 5 min návrh řešení → 5 min hlasování → zápis nebo eskalace |
-| 65–75 | **Silent voting** | jádro tiše, výsledek se zveřejní až po hlasování; **Decider hlasuje poslední** |
+| 65–75 | **Tiché hlasování** (informativní) | jádro tiše, výsledek se zveřejní až po hlasování; **Decider hlasuje poslední** |
 | 75–90 | **Rozhodnutí Decidera** | Go / Iterate / Kill + rationale (1–2 věty, povinné) |
 
 Příkazy:
 
 ```bash
-pflanzer session_2 prep --slug <slug>
-pflanzer session_2 decide --slug <slug> go --winner A --rationale "…"
-pflanzer session_2 decide --slug <slug> iterate --rationale "…" --iterate-focus "…"
-pflanzer session_2 decide --slug <slug> kill --rationale "…"
-pflanzer session_2 resolve --slug <slug> --feedback-id <id> --by "<jméno>" --note "<jak>"
+pflanzer decide prep --slug <slug>
+pflanzer decide --slug <slug> go --winner A --rationale "…"
+pflanzer decide --slug <slug> iterate --rationale "…" --iterate-focus "…"
+pflanzer decide --slug <slug> kill --rationale "…"
+pflanzer decide resolve --slug <slug> --feedback-id <id> --by "<jméno>" --note "<jak>"
 ```
 
 ## Pravidla rozhodnutí
 
 - **Go vyžaduje vítěze** (`--winner`). Poražené varianty se smažou po
   mergi.
-- **Otevřený critical na vítězi blokuje Go** — tool jej odmítne zapsat.
+- **Otevřené Kritické (`critical`) na vítězi blokuje Go** — tool jej odmítne zapsat.
   Cesty: vyřešit (`resolve`), nebo Decider override s rationale
   (`--override-critical`). Iterate je povolen (opraví ho).
 - **Iterate = jedno další kolo Buildu, max 1×** s úzce definovaným
   zaměřením (`--iterate-focus`). Druhý Iterate tool odmítne: třetí kolo
   znamená špatně zadaný problém, zpět ke Kickoffu.
 - **Kill** má rationale a stručné retro do decision logu.
-- **Decider hlasuje poslední.** Přebije-li výsledek silent voting, dělá to
-  **veřejně s rationale do decision logu** (ADR-0001). Critical od
+- **Decider hlasuje poslední.** Přebije-li výsledek tiché hlasování, dělá to
+  **veřejně s rationale do decision logu** (ADR-0001). Kritické od
   bezpečnosti/práva se hlasem přebít nedá, jen mitigací nebo pivotem.
 - **Mlčení:** nevetovací role = „no objection"; vetovací role bez
   vyjádření = Rozhodnutí je jen review (ADR-0017).
 
 ## Top 3 spory
 
-`session_2 prep` vybere tři nejostřejší osy (typicky mezi kroky cesty).
+`decide prep` vybere tři nejostřejší osy (typicky mezi kroky cesty).
 AI navrhuje řešení, nerozhoduje; neznámý spor rozhodne Decider
 s rationale. Opakující se vzorce:
 
@@ -74,7 +74,7 @@ s rationale. Opakující se vzorce:
 | FE vs BE kontrakt | contract-first, OpenAPI diff, breaking-change registr s vlastníkem |
 | „už to skoro běží, pošleme to zákazníkovi" | vítěz jde do produkce **přes Ship**; sdílení preview před gates je incident ([`08`](08-edge-cases-a-rizika.md) § 8) |
 
-**Hierarchie závaznosti:** critical = blocker (STRIDE Critical, AI Act
+**Hierarchie závaznosti:** Kritické = blocker (STRIDE Critical, AI Act
 High-risk bez DPIA, WCAG Critical/Serious na veřejném rozhraní, breaking
 change bez konzumentů) · varianta s varováním = viditelné v decision logu,
 bez veta · skóre = váha pro zbytek (AI-only max 0,5).
@@ -95,7 +95,7 @@ Eskalační kontakt a případný záložní Decider se zapisují v Kickoffu.
 
 ## Výstup
 
-- Rozhodnutí + rationale, vítěz, počet a stav critical, decision log
+- Rozhodnutí + rationale, vítěz, počet a stav Kritických, decision log
   v repu (commit).
 - Go → `/pm ship <slug>` ([`07`](07-handoff-do-vyvoje.md)) — vývojáři +
   provoz; Iterate → `/pm build <slug>` (jen to, co se mění); Kill → hotovo.

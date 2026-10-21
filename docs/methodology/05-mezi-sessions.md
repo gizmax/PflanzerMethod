@@ -1,4 +1,4 @@
-# 05 — Async
+# 05 — Sběr feedbacku (Async)
 
 **Pflanzer Method | pflanzer.cz/method**
 
@@ -63,21 +63,21 @@ ho facilitátor za něj podle jeho slov:
 
 ```bash
 pflanzer feedback add --slug <slug> --variant A --role <krok/role> \
-  --severity critical|major|minor --text "<co a proč>"
+  --by "<kdo to řekl>" --severity critical|major|minor --text "<co a proč>"
 pflanzer feedback list --slug <slug>
 ```
 
 Minimum každého záznamu: **varianta, krok cesty/role, závažnost, text s
 důvodem** (bez rationale záznam nic neříká). Závažnosti:
 
-- **critical** — brání nasazení: bezpečnost, právo, data, rozbitý hlavní
+- **Kritické** (`critical`) — brání nasazení: bezpečnost, právo, data, rozbitý hlavní
   tok, WCAG Critical/Serious na veřejném rozhraní, breaking change bez
-  konzumentů. Kdo dává critical, píše proč; critical bez důkazu se
+  konzumentů. Kdo dává Kritické, píše proč; Kritické bez důkazu se
   downgraduje.
-- **major** — zásadní výhrada, nebrání nasazení; viditelné v Rozhodnutí.
-- **minor** — nit, zapracuje builder.
+- **Důležité** (`major`) — zásadní výhrada, nebrání nasazení; viditelné v Rozhodnutí.
+- **Drobné** (`minor`) — nit, zapracuje builder.
 
-**Otevřený critical na vítězi blokuje Go** (Iterate ho může opravit).
+**Otevřené Kritické na vítězi blokuje Go** (Iterate ho může opravit).
 Řešení: opravit hned, varianta ven ze shortlistu, nebo nechat na Decidera
 (override vyžaduje rationale v decision logu).
 
@@ -105,10 +105,10 @@ uzel OST. Skóre 0–10: ≤ 2 OK · 3–6 varování (výstupy jen exploratory)
 
 ## Eskalace
 
-**Svolat Rozhodnutí dřív:** všichni dali feedback a nic není critical, nebo
+**Svolat Rozhodnutí dřív:** všichni dali feedback a nic není Kritické, nebo
 Decider potřebuje Go k pevnému termínu.
 
-**Odložit Rozhodnutí:** critical bez návrhu řešení (posun o 3–5 dní na
+**Odložit Rozhodnutí:** Kritické bez návrhu řešení (posun o 3–5 dní na
 opravu) · nové vysoké riziko · debt ≥ 7 · Decider nedostupný (ADR-0001) ·
 vetovací role bez vyjádření.
 
@@ -127,6 +127,6 @@ odmítá discovery.
 
 ## Výstup do Rozhodnutí (24 h předem)
 
-Agregovaný feedback per krok a variantu · seznam critical a jejich stav ·
+Agregovaný feedback per krok a variantu · seznam Kritických a jejich stav ·
 top 3 sporné body · veto registr · verdikt debtu · u Full triage updates.
 Další krok: `/pm decide <slug>` ([`06`](06-session-2.md)) — přizvi Decidera.

@@ -8,15 +8,20 @@
 > (`/pm live`, Kickoff + Build v jednom, 60–90 min), delší **Full** pro
 > regulované prostředí — viz § Tři stupně v 1-pageru.
 > Kolik to stojí a co říct šéfovi: [`zacni.md`](zacni.md#kolik-to-stojí).
+> Stupeň a okna se odvodí z jedné otázky v Kickoffu **„Jak vážné to je?“**
+> (demo / pilot / ostré + jsou v datech osobní údaje?): demo = žádná okna,
+> pilot bez osobních dat = Zadání + jedno okno **Bezpečnost a provoz**,
+> s osobními daty Zadání + Bezpečnost & právo + Provoz. Tabulka:
+> [`zacni.md`](zacni.md#jak-vážné-to-je).
 
 ## Diagram průběhu
 
 ```mermaid
 flowchart LR
     K["<b>1. Kickoff</b><br/>15 min<br/>Decider + jádro<br/><i>/pm start</i>"]
-    B["<b>2. Build</b><br/>3 h<br/>jádro, AI staví A/B/C<br/><i>/pm live</i>"]
-    S{{"Checkpoint<br/>bezpečnost & právo<br/>20 min"}}
-    A["<b>3. Sběr feedbacku</b><br/>3–5 dní<br/>všichni klikají a komentují<br/><i>/pm feedback</i>"]
+    B["<b>2. Build</b><br/>3 h<br/>jádro, AI staví A/B/C<br/><i>/pm build</i>"]
+    S{{"Okno bezpečnost & právo<br/>(u pilotu bez osobních dat<br/>sloučené s provozem)<br/>20 min"}}
+    A["<b>3. Sběr feedbacku (Async)</b><br/>3–5 dní<br/>všichni klikají a komentují<br/><i>pflanzer record, share · /pm feedback</i>"]
     R{"<b>4. Rozhodnutí</b><br/>60–90 min<br/>Decider hlasuje poslední<br/><i>/pm decide</i>"}
     P{{"Checkpoint<br/>provoz<br/>20 min"}}
     SH["<b>5. Ship</b><br/>1–2 dny<br/>vývojáři + provoz<br/><i>/pm ship</i>"]
@@ -69,16 +74,23 @@ gantt
    převezme riziko (`--override-triage`) → autor kódu jen jako poslední
    možnost (varování). Podpis s výhradami: `--conditions "CSRF; rate limit"`
    — podmínky skončí v SHIP.md a v checklistu PR.
-3. **Sběr feedbacku (Async), 3–5 dní** — všichni zástupci klikají na sandbox URL a komentují.
-   Vývojář zapracovává.
+3. **Sběr feedbacku (Async), 3–5 dní** — builder zapíše hodnocení Buildu
+   (`pflanzer record`) a sdílí (`pflanzer share`: varianty i hub na jedné
+   adrese, heslo zvlášť; skončí `pflanzer share down`). Všichni zástupci
+   proklikají varianty a komentují (hub nebo `pflanzer feedback add --by`);
+   hub ukazuje pohled podle role, kdo ještě chybí a termín feedbacku.
+   Vývojář zapracovává. Souhrn: `pflanzer feedback_pull`.
 4. **Rozhodnutí (60–90 min)** — Decider + jádro. 10 min demo, top 3 spory,
-   tiché hlasování, Decider poslední → **Go / Iterate / Kill**.
-   Iterate (s výběrem variant `--variants A,B`) = ještě jeden Build, pak už jen Go nebo Kill. Po Kill tool vypíše úklid (náhled, worktrees). Otevřený
-   critical na vítězi blokuje Go. Decision log jde do repa
+   tiché hlasování (informativní, rozhoduje Decider), Decider poslední →
+   **Go / Iterate / Kill** (`pflanzer decide`, před ním `decide prep`).
+   Iterate (s výběrem variant `--variants A,B`) = ještě jeden Build, pak už jen Go nebo Kill. Po Kill tool vypíše úklid (náhled, worktrees). Otevřená
+   Kritická připomínka (`critical`) na vítězi blokuje Go. Decision log jde do repa
    (`.pflanzer/decisions/<slug>.md`).
 5. **Ship (1–2 dny)** — vývojáři + provoz. Quality gates jen na vítěze,
    práh pilot 80 / production 85 ze 100 (throwaway: skóre informativně,
-   Ship neblokuje),
+   Ship neblokuje; skóre je věta „Skóre X ze 100 z N automatických kontrol“,
+   částečné, když část kontrol neproběhla, a neměří splnění zadání),
+   `pflanzer ship` sám vyrobí `SHIP.md` a text PR a vypíše `gh pr create`,
    20 min checkpoint provozu (rollback, kdo je na telefonu, první hodina),
    PR do repa produktu, deploy. U pilotu a production blokuje Ship
    nepodepsané okno (u Lean podpisy oken nahrazují plný triage; ten běží
@@ -138,7 +150,8 @@ Prakticky:
    přes tunel ale jde přes Cloudflare (zapsat na checkpointu bezpečnosti).
    Příkaz aplikace: `.pflanzer/project.toml` → `[preview] command = "… {port}"`,
    jinak autodetekce (`npm run dev`/`npm start`, `make run`, `python -m`).
-   Počítač buildera musí běžet po dobu sběru feedbacku; `pflanzer preview status|down`.
+   Počítač buildera musí běžet po dobu sběru feedbacku; `pflanzer preview status|down`
+   (hub a varianty naráz zastaví `pflanzer share down`).
    Vhodné, když interní GitHub nejde napojit na Vercel a kód nemá opustit firmu.
 2. **Preview deploy firmy** — push branchí, preview URL z CI (výše). Vercel
    a podobné jsou volitelné, ne default.

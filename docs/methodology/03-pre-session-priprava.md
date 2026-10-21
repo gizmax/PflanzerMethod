@@ -29,7 +29,7 @@ Bez těchto pěti věcí Kickoff nesvolávej.
    provozu 20 min. Délky podle stupně: kanonická tabulka v 00-lean.
 5. **Preview prostředí domluvené s provozem** — to, co firma už má
    (Vercel/Netlify preview, review apps, preview namespace), bez
-   produkčních dat a bez přístupu do produkční sítě. Bez URL nemá Async na
+   produkčních dat a bez přístupu do produkční sítě. Bez URL nemá Sběr feedbacku (Async) na
    co klikat.
 
 Pak **Kickoff** (`/pm start`, 15 min, Decider + jádro): zadání na 1
@@ -50,7 +50,10 @@ stupeň a risk profil (`throwaway | pilot | production`).
 | Rozpočet | odhad PD jádra a oken; default profil ~6–8 PD |
 
 Zadání je povinný vstup Buildu (ADR-0004). Tool ho zakládá jedinou cestou
-(`pflanzer quick_session bootstrap`); `/pm start` je provede. **Zastavovací
+(`pflanzer start`, v Claude Code `/pm start`; bez Claude Code
+`pflanzer start --spec kickoff.json`). Kickoff se ptá jednou otázkou
+**„Jak vážné to je?“** (demo / pilot / ostré + osobní údaje) a z odpovědi
+odvodí stupeň, okna a prahy; krátký slug vypíše sám. **Zastavovací
 pravidla:** data L4 (reálné PII, platby, zdraví) nebo AI Act „unacceptable"
 → projekt se nezačíná, patří do plného SDLC; zapiš do decision logu.
 

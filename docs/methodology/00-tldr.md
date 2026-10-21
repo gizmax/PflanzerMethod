@@ -25,6 +25,14 @@ Povrch je jednoduchý: jeden vstup `/pm`, pět kroků
 Složitost je pod povrchem: v toolu (`pflanzer`), v ADR a v referenčních
 dokumentech níže. Effort ~6–8 PD, kalendářně ~8 dní.
 
+Cesta v příkazech (stejná jako v [`../zacni.md`](../zacni.md)):
+`start` → `build` → `record` → `share` → sběr feedbacku (`feedback add`,
+`feedback_pull`) → `decide` → `ship` → `retro measure` → `report summary`.
+Kickoff se ptá jednou otázkou **„Jak vážné to je?“** (demo / pilot / ostré
++ osobní údaje) a z ní odvodí stupeň Quick / Lean / Full a okna: demo žádná,
+pilot bez osobních dat Zadání + jedno okno Bezpečnost a provoz, s osobními
+daty Zadání + Bezpečnost & právo + Provoz. Retro měří dny od Go do merge.
+
 ## Kam dál
 
 | Chci… | Čti |

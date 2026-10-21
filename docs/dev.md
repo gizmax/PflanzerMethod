@@ -92,7 +92,7 @@ malé skupiny, jen víc příprav a podpisů (viz `docs/governance/`):
   tato repa“ a příkaz `claude --add-dir <sekundární repa>`. „CONTRACT-FIRST“
   (OpenAPI) se uvede jen u backendu, který má `openapi.*`. `acceptance_feature`
   v `--json` je nastaven, když `.feature` existuje v kterémkoli repu.
-- **Preview:** `preview up` spustí pro každou variantu všechna repa. Sekundární
+- **Preview:** `share` (pod ním `preview up`) spustí pro každou variantu všechna repa. Sekundární
   běží na portu `app + 1000 + idx` (idx = pořadí repa, primární 0); primární dostane
   env `<ROLE>_URL` a `PFLANZER_<ROLE>_URL` (server, `API_URL=http://127.0.0.1:<port>`)
   a pro prohlížeč `VITE_<ROLE>_URL`, `NEXT_PUBLIC_<ROLE>_URL`, `REACT_APP_<ROLE>_URL`
@@ -239,11 +239,14 @@ GitHub Actions (`.github/workflows/ci.yml`, push + PR): `tool` (ruff + pytest),
 - Slice 7 ✅ Session 2 (decisional) + conflict resolver
 - Slice 8 ✅ Handoff package generator (8 per-role artefakty)
 - **`/pflanzer` quick wizard** ✅ — single-entry pro in-room session
-- **Production path** ✅ — extract.py + quality_gates.py + /pflanzer-session-3
-  → kód po Ship ready k mergi (gate_score 0-100)
+- **Production path** ✅ — extract.py + quality_gates.py + `/pm ship`
+  → kód po Ship ready k mergi (skóre 0–100 z N automatických kontrol)
 - **Testy a CI** ✅ — `tests/` (pytest, hermetické), ruff, GitHub Actions
   (`.github/workflows/ci.yml`); viz „Testy a CI" níže
-- **Měření** ✅ — `/pm retro` (outcome T+7/30/60/90), AI provenance v SHIP.md, AI náklady
+- **Měření** ✅ — `/pm retro` (outcome T+7/30/60/90, dny od Go do merge), AI provenance v SHIP.md, AI náklady
+- **v0.6** ✅ — Kickoff jednou otázkou „Jak vážné to je?“, `start --spec`, `record`,
+  `share`, `report summary|portfolio`, `ship` vyrobí SHIP.md a text PR, hub podle role
+  (PR #27–#38, viz `CHANGELOG.md`)
 
 
 ## Struktura repa

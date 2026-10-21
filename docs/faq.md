@@ -40,7 +40,7 @@ než si myslíte.
 |-----|-----------|
 | Celkem lidé | **~6–8 člověkodnů** za pilot Lean (~8 dní kalendářně); demo Quick ~5, ostré nasazení ~14 (plán z Kickoffu, `report summary` ho uvádí se zdrojem) |
 | Decider (sponzor) | **15 min** Kickoff + **90 min** Rozhodnutí |
-| Bezpečnost & právo | **20 min** (checkpoint nad běžícími variantami) |
+| Bezpečnost & právo | **20 min** (checkpoint nad běžícími variantami); u pilotu bez osobních dat jedno sloučené okno **Bezpečnost a provoz** |
 | Provoz | **20 min** checkpoint + domluva preview a Ship s vývojáři |
 | Jádro (produkt, design, 1–2 vývojáři) | celý Build (3 h), ~15 min denně ve sběru feedbacku, Ship |
 
@@ -158,7 +158,7 @@ Určete konkrétního člověka (zástupce provozu) a termín, kdy preview
 zprovozní; „domluvíme s provozem“ nestačí.
 
 Build jede lokálně (3 dev servery), ale sběr feedbacku tak nemá na co klikat. Nejrychlejší
-je `pflanzer preview up --slug <slug>`: spustí varianty s heslem, přes
+je `pflanzer share --slug <slug>` (po `pflanzer record`): spustí varianty s heslem, přes
 `cloudflared` i s veřejnou URL, a vypíše zprávu k přeposlání zástupcům (kód
 neopouští firmu; provoz přes tunel jde přes Cloudflare — řekněte to
 bezpečnosti). Vercel? Volitelné, ne default; interní GitHub se na něj často
@@ -192,7 +192,7 @@ nenastavujete:
   Měnit se smí jen repa projektu.
 - **Příprava:** `pflanzer init` patří do **každého** repa projektu; `/pm start`
   (a ostatní `/pm` kroky) spouštějte z **primárního** (web) repa.
-- **Preview:** `pflanzer preview up` spustí u každé varianty všechna repa. Adresu
+- **Preview:** `pflanzer share` (pod ním `preview up`) spustí u každé varianty všechna repa. Adresu
   API nikdy nehardcodujte (ani port); aplikace ji bere z proměnné
   (obecně `<ROLE>_URL`):
   - **v prohlížeči** (kód UI): `import.meta.env.VITE_API_URL` (Vite),
@@ -301,7 +301,10 @@ Pro skripty a automatizaci (hub musí běžet, `pflanzer hub` / `pflanzer share`
 
 - `GET /api/projects/<slug>/missing` — co v projektu ještě chybí,
 - `GET /api/projects/<slug>/windows` — stav oken k podpisu,
-- `GET` / `POST /api/projects/<slug>/votes` — hlasy jádra.
+- `GET` / `POST /api/projects/<slug>/votes` — tiché hlasování jádra (informativní, rozhoduje Decider).
+
+Hub sám ukazuje pohled podle role (co má kdo posoudit), kdo ještě chybí,
+okna k podpisu s hotovým příkazem a termín feedbacku.
 
 Cesty jsou pod `/api/projects/`, **ne** pod `/method/` (to je webové rozhraní).
 Přihlášení heslem hubu přes HTTP Basic, jméno je libovolné (např.
@@ -358,7 +361,7 @@ Metoda zatím nemá vlastní data, tak je sbírejte. Tool je zapisuje do handoff
 - podíl kroků cesty, které zastoupila AI.
 
 Po merge vítěze **`/pm retro <slug>`** změří, kolik kódu vítěze žije
-v produkci beze změny (cíl ≥ 80 %), za jak dlouho se dostal do produkce
+v produkci beze změny (cíl ≥ 80 %), za kolik dní od Go se dostal do merge
 (cíl ≤ 14 dní) a nastaví připomínky za 7, 30, 60 a 90 dní. Hlavní cesta
 končí Shipem, ale bez těchto čísel se metoda nedá zlepšovat.
 

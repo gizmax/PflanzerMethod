@@ -81,7 +81,7 @@ audit design systému ano, integrita flow s podpisem (Režim 2).
 
 ### 7. Security / Compliance — povinná při triggeru
 Trigger: auth, osobní data, integrace, platby, nový AI use case. Zastupuje
-krok Bezpečnost & právo na checkpointu: **veto na varianty s critical
+krok Bezpečnost & právo na checkpointu: **veto na varianty s Kritickou připomínkou (`critical`)
 rizikem** (veto je veto, ne hlas), data classification, threat model,
 SBOM/secret scan. Podpis: `pflanzer checkpoint … bezpecnost`. AI proxy:
 STRIDE draft a scany ano, veto podepisuje člověk (Režim 1).

@@ -1,4 +1,4 @@
-# Lean Pflanzer — default profil (1-pager, v0.5)
+# Lean Pflanzer — default profil (1-pager, v0.6)
 
 **Pflanzer Method | pflanzer.cz/method**
 
@@ -17,7 +17,8 @@ tak dlouho, jak je potřeba.
 Šéfovi stačí [`../pro-decidera.md`](../pro-decidera.md), kolik to stojí je
 v [`../zacni.md`](../zacni.md#kolik-to-stojí).
 
-Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
+Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok; bez Claude Code
+stejnou cestu vede CLI `pflanzer`, viz [`../zacni.md`](../zacni.md)). Tři pravidla:
 
 1. **Celá cesta je zastoupena.** Každý ze 6 kroků cesty má jednoho
    pojmenovaného zástupce s mandátem. Krok bez jména = nesvolávat.
@@ -37,6 +38,22 @@ Jediný vstup: `/pm` (`/pm status` ukáže fázi a další krok). Tři pravidla:
 | Vývoj | 1–2 vývojáři (FE / BE) = buildeři | **jádro** |
 | Bezpečnost & právo | Security nebo Legal / DPO (jeden stačí) | okno: checkpoint 20 min |
 | Provoz | DevOps / Platform nebo EM | okno: checkpoint 20 min u Ship |
+
+### Jak vážné to je? — jedna otázka v Kickoffu
+
+Stupeň, okna a prahy se neodvozují z žargonu, ale z jedné otázky:
+**demo / pilot / ostré**, plus zda jsou v datech osobní údaje
+(`personal_data: true` znamená třídu dat aspoň L3, `false` aspoň L2).
+
+| Odpověď | Stupeň | Okna k podpisu |
+|---|---|---|
+| demo | Quick | žádná (triage se nespouští; před pilotem nový Kickoff) |
+| pilot bez osobních dat | Lean | Zadání + jedno sloučené okno **Bezpečnost a provoz** (`checkpoint … bezpecnost-provoz`) |
+| pilot s osobními daty | Lean | Zadání, Bezpečnost & právo, Provoz |
+| ostré | Lean (s osobními daty Full) | Zadání, Bezpečnost & právo, Provoz; u Full samostatné Právo (DPIA) jen když triage DPIA odloží |
+
+**Zadání** podepisuje Decider; při Kickoffu s metrikou a kill kritériem se
+podepíše samo. AI návrh podpis člověka nikdy nepřepíše (ADR-0023).
 
 Jeden člověk smí krýt víc kroků (vývojář = vývoj + provoz je běžné).
 Chybí-li člověk, smí některé kroky v omezené míře zastoupit AI (design,
@@ -63,12 +80,12 @@ pro konkrétní projekt se jmény a stupněm `pflanzer roles cards --slug <slug>
 
 | Stupeň | Build | Bezpečnost & právo | Async okno | Kdy použít | Command |
 |--------|-------|--------------------|------------|------------|---------|
-| **Quick** | Kickoff + Build v jednom, 60–90 min, 1 kolo × 30 min stavby → silent vote → shortlist | checkpoint odložený (před pilotem se doběhne `/pm triage`) | 3 pracovní dny | Rychlé ověření směru, první kontakt týmu s metodou; **jen risk profil `throwaway` / `pilot`** (pro `production` upgrade na Lean) | `/pm live` |
-| **Lean** (**v0.5 default**) | 3 h, jádro; stavba s průběžnými kontrolami a mid-checkpointem → diff walkthrough → silent vote | checkpoint 20 min + lehký 1-pager checklist | 3–5 pracovních dní | Default — interní tool, SaaS feature, non-regulated projekt s vývojářem v jádru | `/pm start` → `/pm build` |
+| **Quick** | Kickoff + Build v jednom, 60–90 min, 1 kolo × 30 min stavby → tiché hlasování → shortlist | checkpoint odložený (před pilotem se doběhne `/pm triage`) | 3 pracovní dny | Rychlé ověření směru, první kontakt týmu s metodou; **jen risk profil `throwaway` / `pilot`** (pro `production` upgrade na Lean); odpověď „demo“ | `/pm live` |
+| **Lean** (**v0.6 default**) | 3 h, jádro; stavba s průběžnými kontrolami a mid-checkpointem → diff walkthrough → tiché hlasování | checkpoint 20 min + lehký 1-pager checklist | 3–5 pracovních dní | Default — interní tool, SaaS feature, non-regulated projekt s vývojářem v jádru | `/pm start` → `/pm build` |
 | **Full** (governance / regulované) | 5–6 h, kompletní agenda `04-session-1.md` (VoC, pre-mortem, Crazy 8s, shadow agenti, A11y quickscan) | 4 triage tracky povinné (Discovery + Security + Legal + Platform) | 5–7 pracovních dní | AI Act High-risk, DORA, public sector, rollout metody napříč organizací (viz § Kdy default NEstačí) | `/pm roles` → `/pm triage` → `/pm build` |
 
 Všechny tři stupně mají **stejné jádro**: vývojář u klávesnice od minuty 0,
-3 paralelní varianty, anti-HiPPO (silent vote, Decider hlasuje poslední)
+3 paralelní varianty, anti-HiPPO (tiché hlasování je informativní, Decider hlasuje poslední)
 a Decider s mandátem — liší se jen množstvím rituálů kolem. **Rozhodnutí je
 ve všech stupních stejné** (`/pm decide`, 60–90 min; Full smí využít 3h
 rozšířenou agendu). **Po Rozhodnutí následuje Ship, ne další setkání:**
@@ -84,7 +101,9 @@ Před     pflanzer doctor — repo připravené? (testy, CI, preview, CONSTITUTI
 Den 0    KICKOFF        15 min     Decider + jádro
          → zadání na 1 stránku: problém (1 věta), metrika úspěchu,
            kill kritérium, jména zástupců všech 6 kroků, zabookovaná okna
-         /pm start   (nebo rovnou /pm live)
+         /pm start   (nebo rovnou /pm live; bez Claude Code
+                      pflanzer start --spec kickoff.json)
+         → jedna otázka „Jak vážné to je?“ určí stupeň a okna
 
 Den 1–5  BUILD          3 h        jádro
          → AI staví 3 varianty paralelně (Claude Code ve 3 worktrees
@@ -93,22 +112,25 @@ Den 1–5  BUILD          3 h        jádro
            nad datovým tokem, data classification, egress limitem, stropem
            tokenů/nákladů a rizikem prompt injection (worktree není izolace)
          /pm live  nebo  /pm build
+         pflanzer record  — zápis hodnocení Buildu (dřív „vote“)
 
          ASYNC          3–5 dní    všichni zástupci
+         pflanzer share  — varianty i hub na jedné adrese, heslo zvlášť
          → klikají na preview URL (štítek „k rozhodnutí, ne produkt"),
-           komentují; builder zapracovává
-         /pm feedback
+           komentují (hub ukazuje pohled podle role, kdo ještě chybí
+           a termín); builder zapracovává
+         /pm feedback   (pflanzer share down po Rozhodnutí)
 
 Den ~7   ROZHODNUTÍ     60–90 min  Decider + jádro
          → 10 min demo, agregovaný feedback, top 3 spory,
-           silent voting, Decider hlasuje POSLEDNÍ → Go / Iterate / Kill
+           tiché hlasování, Decider hlasuje POSLEDNÍ → Go / Iterate / Kill
          /pm decide
 
 Den ~8   SHIP           1–2 dny    vývojáři + provoz
          → quality gates jen na vítěze, práh pilot 80 / production 85,
-           CHECKPOINT provozu (20 min), PR do
-           target repa, deploy, monitoring
-         /pm ship  →  /pm handoff
+           CHECKPOINT provozu (20 min); nástroj vyrobí SHIP.md a text PR,
+           PR do target repa otevře vlastník repa (gh pr create), deploy
+         /pm ship  →  /pm handoff  →  /pm retro
 ```
 
 Pod povrchem platí tato pravidla (rozšířená reference v 04–07):
@@ -118,7 +140,7 @@ Pod povrchem platí tato pravidla (rozšířená reference v 04–07):
   u klávesnice sedí vývojář, ne facilitátor (N10). Preview per varianta:
   draft PR s preview URL nebo Playwright záznam (`docs/postup.md`
   § Kde varianty fyzicky jsou).
-- **Async:** technické role (vývoj, QA, provoz) projdou PR diff a ke každému
+- **Sběr feedbacku (Async):** technické role (vývoj, QA, provoz) projdou PR diff a ke každému
   souboru napíšou **keep / fix / kill**; ostatní hodnotí preview. Mlčení
   nevetovací role po deadline = „no objection“ v decision logu, mlčení
   vetovací role souhlas není (ADR-0017). Připomínka 48 h a 24 h před deadline.
@@ -126,9 +148,13 @@ Pod povrchem platí tato pravidla (rozšířená reference v 04–07):
   target repa (varianta ho nepřepíše); verdikt potřebuje aspoň build
   a testy. Commity nesou trailery `Pflanzer-Variant` / `AI-Assisted`
   a PR labely `pflanzer` / `ai-generated` (**AI provenance**, N11); SHIP.md
-  ukazuje i **AI náklady** (tokeny per varianta a za cyklus).
-- **Retro:** po merge vítěze `/pm retro` změří % LOC vítěze v produkci
-  a days-to-prod a nastaví readouty T+7/30/60/90 — viz `docs/zacni.md`
+  ukazuje i **AI náklady** (tokeny per varianta a za cyklus). Skóre je věta
+  „Skóre X ze 100 z N automatických kontrol“ (částečné, když část kontrol
+  neproběhla; neměří splnění zadání), prahy viz ADR-0024. Závažnost
+  připomínek: Kritické / Důležité / Drobné.
+- **Retro:** po merge vítěze `/pm retro` (`pflanzer retro measure --pr-url`
+  / `--merge-commit`) změří % LOC vítěze v produkci a **dny od Go do merge**
+  a nastaví readouty T+7/30/60/90 — viz `docs/zacni.md`
   § Co měřit.
 - **Iterate** = jedno další Build kolo (max 1×), pak Go nebo Kill.
   Třetí kolo = problém je špatně zadaný, vrať se ke Kickoffu.
