@@ -47,3 +47,6 @@ website/qwen38-m5max.html
 
 # AI usage price list (tool/cli/ai_usage.py) — local, prices change
 /pflanzer.prices.json
+
+# build výstup webu (website/v3/build.py)
+website/dist/
