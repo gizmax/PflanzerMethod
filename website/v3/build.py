@@ -9,6 +9,7 @@ favicon.svg and og-<lang>.png / apple-touch-icon.png (rendered by og.cjs).
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from datetime import date
@@ -36,6 +37,8 @@ AUTHOR = {"@type": "Person", "@id": "https://pflanzer.cz/#tomas-pflanzer", "name
           "worksFor": {"@type": "Organization", "@id": "https://wiseguys.co/#org", "name": "Wiseguys",
                        "url": "https://wiseguys.co"}}
 REPO = "https://github.com/gizmax/PflanzerMethod"
+# Cookieless analytics: set GOATCOUNTER=<site code> when building; CTAs already carry data-goatcounter-click.
+GOATCOUNTER = os.environ.get("GOATCOUNTER", "").strip()
 SWITCH_LABEL = {"cs": "Jazyk", "en": "Language", "de": "Sprache", "es": "Idioma",
                 "fr": "Langue", "it": "Lingua", "pl": "Język"}
 
@@ -179,6 +182,9 @@ def build() -> dict[str, dict[str, str]]:
         out = fix_jsonld(out, lang)
         out = localize(out, lang)
         out = self_host_fonts(out)
+        if GOATCOUNTER:
+            out = out.replace("</body>", f'<script data-goatcounter="https://{GOATCOUNTER}.goatcounter.com/count" '
+                              'async src="//gc.zgo.at/count.js"></script>\n</body>', 1)
         target = DIST / ("index.html" if lang == "cs" else f"{lang}/index.html")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(out, encoding="utf-8")
