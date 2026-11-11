@@ -27,6 +27,10 @@ NATIVE = {"cs": "Čeština", "en": "English", "de": "Deutsch", "es": "Español",
 UPDATED = {"cs": "Aktualizováno", "en": "Updated", "de": "Aktualisiert", "es": "Actualizado",
            "fr": "Mis à jour le", "it": "Aggiornato il", "pl": "Zaktualizowano"}
 CS_DOCS = {"cs": "", "en": " (CS)", "de": " (CS)", "es": " (CS)", "fr": " (CS)", "it": " (CS)", "pl": " (CS)"}
+# Docs with an English version: non-cs pages link there instead of the Czech original.
+EN_DOCS = {"docs/zacni.md": "docs/en/getting-started.md",
+           "docs/pro-decidera.md": "docs/en/for-decision-makers.md",
+           "docs/research/srovnani-metod-2026.md": "docs/en/method-comparison-2026.md"}
 AUTHOR = {"@type": "Person", "@id": "https://pflanzer.cz/#tomas-pflanzer", "name": "Tomáš Pflanzer",
           "url": "https://pflanzer.cz/", "jobTitle": "CEO",
           "worksFor": {"@type": "Organization", "@id": "https://wiseguys.co/#org", "name": "Wiseguys",
@@ -61,6 +65,12 @@ def head_block(lang: str, og_alt: str) -> str:
         f'<link rel="apple-touch-icon" href="{BASE}apple-touch-icon.png">',
     ]
     return "\n".join(lines)
+
+
+def twitter_text(html: str) -> str:
+    """twitter:title/description mirror og:* (X ignores og:* for some clients)."""
+    og = dict(re.findall(r'<meta property="og:(title|description)" content="([^"]*)">', html))
+    return "".join(f'\n<meta name="twitter:{k}" content="{og[k]}">' for k in ("title", "description") if k in og)
 
 
 def switcher(lang: str) -> str:
@@ -132,6 +142,14 @@ def fix_jsonld(html: str, lang: str) -> str:
     return html[:m.start()] + block + html[m.end():]
 
 
+def doc_link(m: re.Match, lang: str) -> str:
+    tag, doc, text = m.group(1), m.group(2), m.group(3)
+    if doc in EN_DOCS:
+        tag = tag.replace(doc, EN_DOCS[doc]).replace("<a ", '<a hreflang="en" ', 1)
+        return tag + text + ("" if lang == "en" else " (EN)") + "</a>"
+    return tag.replace("<a ", '<a hreflang="cs" ', 1) + text + CS_DOCS[lang] + "</a>"
+
+
 def localize(html: str, lang: str) -> str:
     """Updated date in the footer, (CS) on links to Czech docs, FAQ questions as headings."""
     d = date.today()
@@ -139,9 +157,8 @@ def localize(html: str, lang: str) -> str:
         d.strftime("%-d %b %Y") if lang == "en" else f"{d.day}/{d.month}/{d.year}")
     html = html.replace("</footer>", f'  <span>{UPDATED[lang]} <time datetime="{d.isoformat()}">{shown}</time></span>\n</footer>', 1)
     if CS_DOCS[lang]:
-        html = re.sub(r'(<a [^>]*href="https://github\.com/gizmax/PflanzerMethod/blob/main/docs/[^"]+"[^>]*>)(.*?)</a>',
-                      lambda m: m.group(1).replace("<a ", '<a hreflang="cs" ', 1) + m.group(2) + CS_DOCS[lang] + "</a>",
-                      html, flags=re.S)
+        html = re.sub(r'(<a [^>]*href="https://github\.com/gizmax/PflanzerMethod/blob/main/(docs/[^"]+)"[^>]*>)(.*?)</a>',
+                      lambda m: doc_link(m, lang), html, flags=re.S)
     html = re.sub(r"<details><summary>(.*?)</summary>", r'<details><summary><h3 class="fq">\1</h3></summary>', html)
     html = html.replace(".faq summary::-webkit-details-marker{display:none}",
                         ".faq summary::-webkit-details-marker{display:none}\n.faq .fq{font:inherit;letter-spacing:inherit;margin:0}")
@@ -157,7 +174,7 @@ def build() -> dict[str, dict[str, str]]:
         claim = text_of(r'<span class="claim">(.*?)</span>', src)
         meta[lang] = {"h1a": h1[0], "h1b": h1[1], "claim": claim}
         out = src.replace('<html lang="cs">', f'<html lang="{lang}">', 1)
-        out = out.replace("<!--ALT-->", head_block(lang, claim))
+        out = out.replace("<!--ALT-->", head_block(lang, claim) + twitter_text(src))
         out = out.replace("<!--LANGS-->", switcher(lang))
         out = fix_jsonld(out, lang)
         out = localize(out, lang)
