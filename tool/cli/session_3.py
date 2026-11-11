@@ -1209,7 +1209,8 @@ def _attach_ship_md(out: dict[str, Any], slug: str) -> None:
 
 
 def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str], str]:
-    """(řádek o SHIP.md, další krok) — jeden krok: `gh pr create`, nebo PR ručně bez `gh`."""
+    """(řádek o SHIP.md, další krok) — jeden krok: `gh pr create` (nebo `gh pr edit` + `gh pr ready`,
+    když draft PR z Buildu už existuje), nebo PR ručně bez `gh`."""
     path = out.get("ship_path")
     if not path:
         if out.get("ship_error"):
@@ -1219,7 +1220,7 @@ def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str],
     cmd = out.get("pr_command")
     w = out["winner"]
     if out.get("production_readiness_target", 0) <= 0 and out.get("risk_profile") == "throwaway":
-        # Demo: podpisy ani PR se nevyžadují; `gh pr create` jen volitelně.
+        # Demo: podpisy ani PR se nevyžadují; příkaz s PR jen volitelně.
         if cmd and shutil.which("gh"):
             opt = f" Volitelně, pokud chcete demo zachovat v repu: `{cmd}`."
         else:
@@ -1235,8 +1236,9 @@ def _ship_md_lines(out: dict[str, Any], slug: str, nxt: str) -> tuple[list[str],
         return [f"SHIP.md (text PR): {path}"], nxt
     if shutil.which("gh"):
         where = f"ve složce vítěze (`cd {tilde(w['local_path'])}`) " if w.get("local_path") else ""
+        verb = "Povýš existující draft PR" if "gh pr edit" in cmd else "Otevři PR"
         return [f"SHIP.md (text PR): {path}"], (
-            f"Otevři PR {where}příkazem `{cmd}` (celý postup je na konci {path}).")
+            f"{verb} {where}příkazem `{cmd}` (celý postup je na konci {path}).")
     return [f"SHIP.md (text PR): {path}"], (
         f"`gh` není k dispozici: otevřete PR ručně, text je v {path}.")
 

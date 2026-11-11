@@ -14,7 +14,8 @@ Předpoklad: Rozhodnutí skončilo Go s vítězem a krok Provoz má jméno.
 
 1. **Ověř worktree** vítěze v target repu (`pflanzer worktree verify`).
 2. **Quality gates jen na vítěze** (`pflanzer ship --slug <slug>`; sám vyrobí `SHIP.md` a text PR a na konci
-   vypíše příkaz `gh pr create`):
+   vypíše příkaz `gh pr create`; když už z Buildu existuje draft PR vítězné větve, místo něj
+   `gh pr edit` + `gh pr ready`):
    lint, typy, testy, security, a11y, build, observability → **skóre** jako
    věta „Skóre X ze 100 z N automatických kontrol“ (částečné, když část
    kontrol neproběhla; neměří splnění zadání).

@@ -1464,7 +1464,7 @@ def main() -> None:
     emit(out, title=f"Předání hotové: {args.slug}", lines=lines,
          next_step=("otevři `SHIP.md` a `README.md`; throwaway jde jen jako demo"
                     if out.get("throwaway") else
-                    "otevři `SHIP.md`, branch owner spustí `gh pr create` z jeho konce; "
+                    "otevři `SHIP.md`, branch owner spustí `gh pr create` (nebo `gh pr edit`, když draft PR už existuje) z jeho konce; "
                     "kontrolní seznamy před nasazením jsou v `qa.md` a `platform.md`"),
          tips=tips(args.slug, "handoff", {}), as_json=args.json)
 

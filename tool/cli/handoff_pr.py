@@ -20,7 +20,7 @@ Ship (audit N5 + N11 + N16):
   „Výjimka z prahu“ (důvod, Decider) a PR je draft,
 - AI code provenance (07-handoff-do-vyvoje.md § AI code provenance): trailery
   `Pflanzer-Variant` / `Pflanzer-Session: ship` / `AI-Assisted`, PR labely `ai-generated`
-  + `pflanzer:<slug>`, sekce „Původ kódu a podíl AI“ v PR body a read-only kontrola
+  + `pflanzer:<slug>`, sekce „AI provenance“ v PR body a read-only kontrola
   `base..pflanzer/<slug>-<W>` (historie se nepřepisuje; autor commitu je vždy člověk),
 - sekce "AI náklady (viditelnost)" z transcriptů Claude Code (`ai_usage.py`); jen viditelnost,
   nikdy brána,
@@ -115,6 +115,7 @@ from tool.cli.triage import (  # noqa: E402
     ship_triage_gate,
 )
 from tool.cli.ux import CzechArgumentParser, die, emit, severity_label  # noqa: E402
+from tool.cli.worktree import label_create_shell  # noqa: E402
 
 SHIP_DIR = DATA_ROOT / "handoffs"
 TEMPLATES_DIR = REPO_ROOT / "tool" / "templates" / "handoff"
@@ -312,6 +313,7 @@ def check_provenance(
     missing_variant: list[str] = []
     wrong_variant: list[str] = []
     missing_ai: list[str] = []
+    unexpected_ai: list[str] = []
     ai_coauthors: list[str] = []
     bot_authors: list[str] = []
     authors: list[str] = []
@@ -329,10 +331,13 @@ def check_provenance(
             wrong_variant.append(f"{sha} ({pv})")
         if builder != "manual" and not ai:
             missing_ai.append(sha)
+        if builder == "manual" and ai:
+            unexpected_ai.append(f"{sha} ({ai})")
         for co in filter(None, (c.strip() for c in coauth.split(";"))):
             if AI_IDENTITY_RE.search(co):
                 ai_coauthors.append(f"{sha}: {co}")
     out["authors"] = authors
+    out["ai_trailer_commits"] = len(unexpected_ai)
 
     def _few(items: list[str]) -> str:
         return ", ".join(items[:5]) + (f" (+{len(items) - 5})" if len(items) > 5 else "")
@@ -346,6 +351,11 @@ def check_provenance(
         w.append(f"Trailer `Pflanzer-Variant` ≠ `{expected_variant}`: {_few(wrong_variant)}")
     if missing_ai:
         w.append(f"{len(missing_ai)} commit(ů) bez traileru `AI-Assisted`: {_few(missing_ai)}")
+    if unexpected_ai:
+        w.append(
+            f"{len(unexpected_ai)} commit(ů) má trailer `AI-Assisted`, ale builder je `manual` — "
+            "PR by neměl `ai-generated` label; srovnejte builder (`pflanzer worktree setup "
+            f"--slug {slug} --builder <nástroj>`) nebo trailery: {_few(unexpected_ai)}")
     if ai_coauthors:
         w.append(
             "`Co-Authored-By` s AI identitou (AI nesmí být spoluautor — vypni atribuci "
@@ -740,13 +750,15 @@ def _criticals_md(ctx: dict[str, Any], winner_name: str | None) -> list[str]:
 
 
 _OPEN_SECTIONS = ("Co selhalo", "Výjimka z prahu", "Vědomě přebité riziko")
+# Never wrapped in <details>: reviewers must see provenance without clicking.
+_PLAIN_SECTIONS = ("AI provenance",)
 
 
 def _collapse_sections(lines: list[str]) -> list[str]:
     """Každou `## Sekci` zabalí do `<details><summary>Sekce</summary>` (GitHub markdown).
 
     Úvod před první sekcí a patička od `---` zůstávají mimo. Rizikové sekce (selhání, výjimka,
-    přebité riziko) jsou rozbalené, ostatní sbalené.
+    přebité riziko) jsou rozbalené, ostatní sbalené; „AI provenance“ není sbalená vůbec.
     """
     out: list[str] = []
     cur: list[str] | None = None
@@ -758,6 +770,9 @@ def _collapse_sections(lines: list[str]) -> list[str]:
         body = list(cur)
         while body and not body[-1].strip():
             body.pop()
+        if title in _PLAIN_SECTIONS:
+            out.extend([f"## {title}", "", *body, ""])
+            return
         op = " open" if title in _OPEN_SECTIONS else ""
         out.extend([f"<details{op}><summary>{title}</summary>", "", *body, "", "</details>", ""])
 
@@ -1074,6 +1089,10 @@ def build_pr(slug: str, repo: str | None = None,
             warnings.append(
                 f"Repo {b['role']}: nový kód bez testů ({nt['new_source_files']} nových "
                 "zdrojových souborů, žádný nový ani změněný test).")
+    if prov and builder == "manual" and prov.get("ai_trailer_commits"):
+        warnings.append(
+            f"Builder je `manual`, ale {prov['ai_trailer_commits']} commit(ů) nese trailer "
+            "`AI-Assisted` — PR dostane label bez `ai-generated`; srovnejte builder nebo trailery.")
     if loc_added is not None and loc_added > 20000:
         warnings.append(
             "⚠ Rozsah vypadá nesmyslně — nejsou v commitu node_modules/ nebo build výstup?")
@@ -1165,7 +1184,7 @@ def build_pr(slug: str, repo: str | None = None,
                           f"do PR jde vítěz {w[0] if w else '—'}")
     if keyboard:
         prov_lines.append(f"- U klávesnice: {', '.join(keyboard)}")
-    body_lines += ["## Původ kódu a podíl AI", *prov_lines, "",
+    body_lines += ["## AI provenance", *prov_lines, "",
                    "---", "*Vygenerováno Pflanzer Method (`/pm handoff`).*"]
     if state["threshold_override"]:
         at = body_lines.index("## Decider") if "## Decider" in body_lines else len(body_lines) - 3
@@ -1321,15 +1340,79 @@ def _winner_description(w: Any) -> str | None:
     return trim_words(" ".join(first.lstrip("# ").split()), 300)
 
 
+_GH_HANDLE_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9_-]+)?$")
+_PR_URL_RE = re.compile(r"^https?://[^/\s]+/[^/\s]+/[^/\s]+/pull/(\d+)(?:[/?#].*)?$")
+
+
+def github_handle(value: Any) -> str | None:
+    """`@jan-novak` / `jan-novak` / `org/team` -> handle bez `@`; jméno s mezerou nebo placeholder -> None."""
+    text = real(value)
+    if not text:
+        return None
+    text = text.strip().lstrip("@")
+    return text if _GH_HANDLE_RE.match(text) else None
+
+
+def existing_pr_number(winner: Any) -> int | None:
+    """Číslo PR, který už pro větev vítěze existuje (draft preview z Buildu uložený do
+    `variants.prototype_url`); None, když URL chybí nebo to není GitHub PR."""
+    url = real(winner[2]) if winner else None
+    m = _PR_URL_RE.match(url) if url else None
+    return int(m.group(1)) if m else None
+
+
+def _publish_cmd(*, pipe: str, number: int | None, title: str, base: str, labels: list[str],
+                 reviewer: str | None, draft: bool, indent: str, var: str | None = None) -> str:
+    """`gh pr create` (PR ještě není), nebo `gh pr edit N` + `gh pr ready N` (draft preview už je).
+
+    `pipe` = příkaz, který na stdout dá tělo PR; `var` = proměnná shellu pro URL výsledného PR.
+    """
+    t = shlex.quote(title)
+    if number is None:
+        flags = [f"--title {t} --body-file -", f"--base {base}"]
+        if reviewer:
+            flags.append(f"--reviewer {reviewer}")
+        flags.append(" ".join(f'--label "{lbl}"' for lbl in labels) + (" \\\n" + indent + "--draft" if draft else ""))
+        body = f" \\\n{indent}".join(flags)
+        cmd = f"{pipe} | gh pr create \\\n{indent}{body}"
+        return f"{var}=$({cmd})" if var else cmd
+    flags = [f"--title {t} --body-file -", f"--base {base}"]
+    if reviewer:
+        flags.append(f"--add-reviewer {reviewer}")
+    flags.append(" ".join(f'--add-label "{lbl}"' for lbl in labels))
+    cmd = f"{pipe} | gh pr edit {number} \\\n{indent}" + f" \\\n{indent}".join(flags)
+    if not draft:
+        cmd += f"\ngh pr ready {number}"
+    if var:
+        cmd += f"\n{var}=$(gh pr view {number} --json url -q .url)"
+    return cmd
+
+
+def _reviewer_sentence(slug: str, reviewer: str | None, number: int | None) -> str:
+    flag = "--add-reviewer" if number is not None else "--reviewer"
+    if reviewer:
+        return (f"Reviewer: `{reviewer}` (branch owner, `{flag}` je v příkazu); GitHub žádost o review "
+                f"od autora PR ignoruje, takže pokud PR otevíráte vy, přidejte jiného reviewera. "
+                f"{reviewer_hint(slug)}")
+    return f"Reviewera přidejte ručně (`{flag} <github-handle>`). {reviewer_hint(slug)}"
+
+
+def _existing_pr_sentence(number: int | None, repo: str | None = None) -> str:
+    if number is None:
+        return ""
+    where = f" v repu {repo}" if repo else ""
+    return (f" Draft PR #{number}{where} z Buildu už na větev vítěze existuje, proto se nevytváří nový: "
+            "příkaz ho přepíše tělem z Shipu, přidá labely a (není-li draft) označí jako ready.")
+
+
 def _pr_command_multi_md(slug: str, parts: dict[str, Any]) -> str:
     """Vícerepo: per repo blok (commit, push větve, PR do base toho repa), PR se vzájemně odkazují."""
     wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
     repos = pr["repos"]
-    label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
-    label_create = "\n".join(
-        f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
-        for lbl in wb["labels"])
-    draft_flag = " \\\n    --draft" if (state["blocked_by"] or state["threshold_override"]) else ""
+    label_create = "\n".join(label_create_shell(lbl) for lbl in wb["labels"])
+    draft = bool(state["blocked_by"] or state["threshold_override"])
+    reviewer = github_handle(parts.get("branch_owner"))
+    number = existing_pr_number(parts.get("w"))   # uložené URL patří primárnímu repu
     commit_msg = "\n".join(wb["trailers"])
     blocks: list[str] = []
     prev: list[tuple[str, str]] = []  # (role, proměnná s URL už otevřeného PR)
@@ -1339,6 +1422,10 @@ def _pr_command_multi_md(slug: str, parts: dict[str, Any]) -> str:
         wd = tilde(b["path"]) if b.get("path") else f"(worktree repa {role} chybí: `pflanzer worktree setup --slug {slug}`)"
         title = f"{pr['title_base']} ({role})"
         related = "".join(f' --related "{r}=${v}"' for r, v in prev)
+        publish = _publish_cmd(
+            pipe=f"pflanzer handoff_pr --slug {slug} --pr-body --repo {role}{related}",
+            number=number if i == 1 else None, title=title, base=b["base"], labels=wb["labels"],
+            reviewer=reviewer, draft=draft, indent="    ", var=var)
         blocks.append(f"""### {i}. Repo `{role}` (base `{b['base']}`, větev `{b['branch']}`)
 
 ```bash
@@ -1351,10 +1438,7 @@ git diff --cached --quiet || git commit -F - <<'COMMITMSG'
 COMMITMSG
 git push -u origin {b['branch']}
 {label_create}
-{var}=$(pflanzer handoff_pr --slug {slug} --pr-body --repo {role}{related} | gh pr create \\
-    --title {shlex.quote(title)} --body-file - \\
-    --base {b['base']} \\
-    {label_flags}{draft_flag})
+{publish}
 ```
 """)
         prev.append((role, var))
@@ -1368,8 +1452,8 @@ git push -u origin {b['branch']}
 
 Projekt má {len(repos)} repa ({', '.join(b['role'] for b in repos)}); PR se otevírají v každém repu
 a v těle se odkazují jako „Související PR v <repo> repu“. Autor commitu = dev u klávesnice;
-AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně
-(`--reviewer <github-handle>`). {reviewer_hint(slug)} Mergujte společně.
+AI nikdy jako author ani `Co-Authored-By` (jen trailery).{_existing_pr_sentence(number, first)}
+{_reviewer_sentence(slug, reviewer, None)} Mergujte společně.
 
 ### 0. Decision log
 
@@ -1388,22 +1472,22 @@ Do dřív otevřených PR doplň odkazy na pozdější (repo `{first}` ještě n
 
 
 def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
-    """Krátký copy-paste blok: commit s trailery, push, labely, `gh pr create` (tělo z --pr-body)."""
+    """Krátký copy-paste blok: commit s trailery, push, labely, `gh pr create` / `gh pr edit` + `ready`."""
     wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
     if len(pr.get("repos") or []) > 1:
         return _pr_command_multi_md(slug, parts)
-    # Review dělá někdo, kdo u Buildu nebyl — ne branch owner/builder.
-    reviewer = None
-    label_flags = " ".join(f'--label "{lbl}"' for lbl in wb["labels"])
-    label_create = "\n".join(
-        f'gh label create "{lbl}" --force --color {"D93F0B" if lbl == "ai-generated" else "5319E7"}'
-        for lbl in wb["labels"])
+    reviewer = github_handle(parts.get("branch_owner"))
+    number = existing_pr_number(parts.get("w"))
+    label_create = "\n".join(label_create_shell(lbl) for lbl in wb["labels"])
     commit_msg = f"{pr['title']}\n\n" + "\n".join(wb["trailers"])
-    draft_flag = " \\\n  --draft" if (state["blocked_by"] or state["threshold_override"]) else ""
-    reviewer_flag = f"  --reviewer {reviewer} \\\n" if reviewer else ""
+    draft = bool(state["blocked_by"] or state["threshold_override"])
+    publish = _publish_cmd(
+        pipe=f"pflanzer handoff_pr --slug {slug} --pr-body", number=number, title=pr["title"],
+        base=parts["target_branch"], labels=wb["labels"], reviewer=reviewer, draft=draft,
+        indent="  ")
     return f"""## Otevři PR
 
-Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery). Reviewera přidejte ručně (`--reviewer <github-handle>`). {reviewer_hint(slug)}
+Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).{_existing_pr_sentence(number)} {_reviewer_sentence(slug, reviewer, number)}
 
 ```bash
 {decision_log_lines(slug)}cd {wb['work_dir']}
@@ -1413,10 +1497,7 @@ git diff --cached --quiet || git commit -F - <<'COMMITMSG'
 COMMITMSG
 git push -u origin {pr['branch']}
 {label_create}
-pflanzer handoff_pr --slug {slug} --pr-body | gh pr create \\
-  --title {shlex.quote(pr['title'])} --body-file - \\
-  --base {parts['target_branch']} \\
-{reviewer_flag}  {label_flags}{draft_flag}
+{publish}
 ```
 """
 
@@ -1631,7 +1712,7 @@ def render_ship_detail_md(slug: str, parts: dict[str, Any] | None = None) -> str
 
 {adapter_md}
 
-## Původ kódu a podíl AI
+## AI provenance
 
 {ai_md}- **Nástroj (builder)**: `{builder}`{f" · **Model**: {pr['model']}" if pr['model'] else ''}
 - **Varianty**: {_variants_line(pr['variants'])}, do PR jde {'tato varianta' if len(pr['variants']) <= 1 else 'vítěz ' + w[0]}
@@ -1703,21 +1784,28 @@ def write_ship(slug: str) -> Path:
 
 
 def pr_create_command(ship_path: Path) -> str | None:
-    """Jednořádkový `pflanzer handoff_pr … | gh pr create …` z konce SHIP.md (první blok)."""
+    """Jednořádkový `pflanzer handoff_pr … | gh pr create …` z konce SHIP.md (první blok).
+
+    Když na větev vítěze už existuje draft PR, je tam `… | gh pr edit N …` a za ním
+    `gh pr ready N`; vrátí se obojí spojené `&&` (jeden příkaz k vložení).
+    """
     try:
         text = Path(ship_path).read_text(encoding="utf-8")
     except OSError:
         return None
     lines = text.splitlines()
     for i, ln in enumerate(lines):
-        if "gh pr create" in ln:
+        if "gh pr create" in ln or ("--pr-body" in ln and re.search(r"gh pr edit \d+", ln)):
             parts = [ln.rstrip()]
             j = i
             while parts[-1].endswith("\\") and j + 1 < len(lines):
                 parts[-1] = parts[-1][:-1].rstrip()
                 j += 1
                 parts.append(lines[j].strip())
-            return " ".join(x for x in parts if x)
+            cmd = " ".join(x for x in parts if x)
+            if "gh pr edit" in cmd and j + 1 < len(lines) and lines[j + 1].startswith("gh pr ready "):
+                cmd += " && " + lines[j + 1].strip()
+            return cmd
     return None
 
 
@@ -1740,8 +1828,10 @@ def _human_ship_md(slug: str, path: Path) -> dict[str, Any]:
     if state["blocked_by"] and not human:
         warnings.append("PR půjde jako draft: " + ", ".join(state["blocked_by"]))
     multi = len(pr.get("repos") or []) > 1
+    verb = ("aktualizuje existující draft PR (`gh pr edit` + `gh pr ready`)"
+            if existing_pr_number(ctx.get("winner")) is not None else "spustí `gh pr create`")
     nxt = ("Ukaž SHIP.md týmu a " + (f"{owner} (branch owner) " if owner else "branch owner ")
-           + "spustí `gh pr create` z konce SHIP.md ("
+           + f"{verb} z konce SHIP.md ("
            + ("z worktree vítěze v každém repu: " + ", ".join(b["role"] for b in pr["repos"])
               if multi else "z worktree vítěze") + ").")
     return {"lines": lines[:7], "warnings": warnings, "next_step": nxt,

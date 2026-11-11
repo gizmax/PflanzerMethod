@@ -343,6 +343,56 @@ def _git(cwd: Path, *args: str, timeout: int = 120) -> tuple[int, str, str]:
     return _run(["git", *args], cwd=cwd, timeout=timeout)
 
 
+# GitHub label colours/descriptions: single source for `preview --run` and SHIP.md.
+LABEL_COLOR_DEFAULT = "5319E7"
+LABEL_COLORS: dict[str, str] = {"ai-generated": "D93F0B"}
+LABEL_DESCRIPTIONS: dict[str, str] = {
+    "pflanzer": "Vytvořeno metodou Pflanzer Method",
+    "ai-generated": "Kód vznikl s pomocí AI (viz AI provenance v PR)",
+}
+
+
+def label_color(label: str) -> str:
+    return LABEL_COLORS.get(label, LABEL_COLOR_DEFAULT)
+
+
+def label_description(label: str) -> str:
+    if label.startswith("pflanzer:"):
+        return f"Projekt {label.split(':', 1)[1]} (Pflanzer Method)"
+    return LABEL_DESCRIPTIONS.get(label, "Pflanzer Method")
+
+
+def label_create_args(label: str) -> list[str]:
+    """`gh label create` without `--force`: an existing label keeps its colour."""
+    return ["gh", "label", "create", label, "--color", label_color(label),
+            "--description", label_description(label)]
+
+
+def label_create_shell(label: str) -> str:
+    """Copy-paste form for SHIP.md; `|| true` because an existing label is fine."""
+    return (f'gh label create "{label}" --color {label_color(label)} '
+            f'--description "{label_description(label)}" || true')
+
+
+def label_create_failed(rc: int, out: str, err: str) -> bool:
+    """True when `gh label create` really failed (an already existing label is not a failure)."""
+    return rc != 0 and "already exists" not in f"{out}\n{err}".lower()
+
+
+class GitAccessError(RuntimeError):
+    """git clone/fetch of the target repo failed (typically auth); carries a Czech hint."""
+
+    def __init__(self, url: str, detail: str, action: str = "clone") -> None:
+        super().__init__(f"git {action} failed: {detail}")
+        self.url, self.detail, self.action = url, detail, action
+
+    def human(self) -> str:
+        return (f"Nepodařilo se stáhnout target repo `{self.url}` (git {self.action}). "
+                f"Nejspíš chybí přihlášení k GitHubu pro git: spusťte `gh auth setup-git` "
+                f"(po `gh auth login`), nebo použijte ssh remote (`git@github.com:org/repo.git`) "
+                f"a nastavte ho v Kickoffu. Detail gitu: {self.detail[-300:] or 'bez výstupu'}")
+
+
 def _git_common_dir(repo: Path) -> Path:
     rc, out, err = _git(repo, "rev-parse", "--git-common-dir")
     if rc != 0:
@@ -376,14 +426,14 @@ def _ensure_target_clone(target_repo_url: str, target_branch: str) -> Path:
     if clone_path.exists() and (clone_path / ".git").exists():
         rc, out, err = _run(["git", "fetch", "origin", "--prune"], cwd=clone_path, timeout=120)
         if rc != 0:
-            raise RuntimeError(f"git fetch failed in {clone_path}: {err}")
+            raise GitAccessError(target_repo_url, err.strip(), "fetch")
         return clone_path
 
     TARGETS_CACHE.mkdir(parents=True, exist_ok=True)
     # Full clone (not --depth=1) — AI needs history for context understanding
     rc, out, err = _run(["git", "clone", target_repo_url, str(clone_path)], timeout=600)
     if rc != 0:
-        raise RuntimeError(f"git clone failed: {err.strip()}")
+        raise GitAccessError(target_repo_url, err.strip(), "clone")
 
     rc, out, err = _run(["git", "checkout", target_branch], cwd=clone_path)
     if rc != 0:
@@ -1449,6 +1499,7 @@ def init_pr(slug: str) -> list[dict[str, Any]]:
             "worktree": str(wt), "branch": branch, "pr_body": str(body),
             "commands": [
                 f"git -C {wt} push -u origin {branch}",
+                *[f"cd {wt} && {label_create_shell(lb)}" for lb in ("pflanzer", f"pflanzer:{slug}")],
                 f"cd {wt} && gh pr create --base {repo.branch} --head {branch} "
                 f"--title \"[Pflanzer] {slug}: AI-readiness (INTEGRATION_GUIDE + CLAUDE.md)\" "
                 f"--label pflanzer --label \"pflanzer:{slug}\" --body-file {body}",
@@ -1576,13 +1627,15 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                 f"- **Builder**: {builder}\n"
                 "- **Model family**: " + ("Claude" if builder == "claude-code" else builder) + "\n"
                 f"- **Varianta**: {variant} (branch `{branch}`)\n"
-                f"- **U klávesnice**: {_keyboard_name(proj)} (git author commitů)\n"
-                f"- **Decision log**: `data/sessions/{slug}/_summary.md`\n",
+                f"- **U klávesnice**: {_keyboard_line(proj, wt, base_ref)}\n"
+                f"- **Decision log**: `.pflanzer/decisions/{slug}.md` "
+                "(do repa přibude při Ship, ne dřív)\n",
                 encoding="utf-8",
             )
             title = f"[Pflanzer] {slug} variant {variant}" + ("" if idx == 0 else f" ({repo.role})")
             labels = ["pflanzer", f"pflanzer:{slug}"] + (["ai-generated"] if builder != "manual" else [])
             label_args = " ".join(f"--label \"{lb}\"" for lb in labels)
+            label_cmds = [label_create_shell(lb) for lb in labels]
             push_cmd = ["git", "-C", str(wt), "push", "-u", "origin", branch]
             pr_cmd = ["gh", "pr", "create", "--draft", "--base", repo.branch, "--head", branch,
                       "--title", title, "--body-file", str(body)]
@@ -1593,6 +1646,7 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                 "commits_ahead": ahead, "preview_env": envs,
                 "commands": [
                     " ".join(push_cmd),
+                    *[f"cd {wt} && {c}" for c in label_cmds],
                     f"cd {wt} && gh pr create --draft --base {repo.branch} --head {branch} "
                     f"--title \"{title}\" {label_args} --body-file {body}",
                 ],
@@ -1617,8 +1671,11 @@ def preview_draft_pr(slug: str, *, run: bool = False) -> list[dict[str, Any]]:
                     res["status"] = f"push failed: {err.strip()[-200:]}"
                     results.append(res)
                     continue
-                for lb in labels:  # gh pr create fails on unknown labels
-                    _run(["gh", "label", "create", lb, "--force"], cwd=wt, timeout=60)
+                for lb in labels:  # gh pr create fails on unknown labels; keep existing colours
+                    lrc, lout, lerr = _run(label_create_args(lb), cwd=wt, timeout=60)
+                    if label_create_failed(lrc, lout, lerr):
+                        res.setdefault("warnings", []).append(
+                            f"label `{lb}` se nepodařilo vytvořit: {(lerr or lout).strip()[-200:]}")
                 rc, out, err = _run(pr_cmd, cwd=wt, timeout=120)
                 if rc != 0:
                     res["status"] = f"gh pr create failed: {(err or out).strip()[-300:]}"
@@ -1781,6 +1838,15 @@ def _keyboard_name(proj: dict[str, Any]) -> str:
         owners = {}
     owner = owners.get("vyvoj")
     return owner if owner and str(owner).strip().lower() != "ai" else "<jméno>"
+
+
+def _keyboard_line(proj: dict[str, Any], wt: Path, base_ref: str) -> str:
+    """Skutečný autor posledního commitu varianty; bez commitů vývojář z Kickoffu."""
+    rc, out, _ = _git(wt, "log", "-1", "--format=%an", f"{base_ref}..HEAD")
+    author = out.strip() if rc == 0 else ""
+    if author:
+        return f"{author} (autor posledního commitu na větvi)"
+    return f"{_keyboard_name(proj)} (vývojář z Kickoffu)"
 
 
 def _tilde(path: str | Path) -> str:
@@ -2015,6 +2081,10 @@ def main() -> None:
         _dispatch(args)
     except ValueError as exc:
         die(str(exc))
+    except GitAccessError as exc:
+        die(exc.human())
+    except RuntimeError as exc:
+        die(f"Git příkaz selhal: {str(exc)[-300:]}")
 
 
 def _dispatch(args: argparse.Namespace) -> None:
@@ -2073,6 +2143,9 @@ def _dispatch(args: argparse.Namespace) -> None:
             who = r.get("variant", "?")
             extra = r.get("pr_url") or r.get("report") or "; ".join(r.get("missing", [])) or ""
             lines.append(f"Varianta {who}: {r.get('status', '?')}" + (f" — {extra}" if extra else ""))
+            if args.mode == "draft-pr" and not args.run:
+                lines += [f"  $ {c}" for c in r.get("commands", [])]
+            lines += [f"  ! {w}" for w in r.get("warnings", [])]
         hint = next((r["how_to_store"] for r in res if r.get("how_to_store")), None)
         nxt = (hint or (f"`pflanzer worktree preview --slug {args.slug} --run`"
                         if args.mode == "draft-pr" and not args.run

@@ -515,6 +515,21 @@ def _has_make_build(path: Path) -> bool:
     return _has_make_target(path, "build")
 
 
+def _make_gate(gate: str, path: Path, target: str, timeout: int = 300) -> GateResult | None:
+    """Brána přes Makefile cíl (`make test|lint|build`); None, když cíl nebo `make` chybí."""
+    if not (_has_make_target(path, target) and _has("make")):
+        return None
+    started = time.monotonic()
+    rc, out, err = _run(["make", target], path, timeout=timeout)
+    dur = round(time.monotonic() - started, 2)
+    if rc == 0:
+        count = _count_tests(out + err) if gate == "tests" else None
+        note = f"`make {target}` OK" + (f", {count} testů prošlo" if count else "")
+        return GateResult(gate, "pass", note, metric=count, duration_s=dur)
+    return GateResult(gate, "fail", f"`make {target}` exit {rc}\n{_tail(out + err, 500)}",
+                      duration_s=dur)
+
+
 def _python_build(ctx: Ctx) -> GateResult:
     """`make build`, když Makefile má cíl build; jinak `compileall` jako ekvivalent."""
     started = time.monotonic()
@@ -557,7 +572,8 @@ def gate_build(ctx: Ctx) -> GateResult:
         return _gate_other_stack("build", ctx.path, st.other)
     if st.node:
         if "build" not in st.scripts:
-            return _skip("build", "package.json nemá build script")
+            return (_make_gate("build", ctx.path, "build")
+                    or _skip("build", "package.json nemá build script"))
         if (s := _needs_deps(ctx, "build")):
             return s
         if not _has("npm"):
@@ -591,7 +607,8 @@ def gate_build(ctx: Ctx) -> GateResult:
         return GateResult("build", "fail", _tail(out + err, 500))
     if st.python:
         return _python_build(ctx)
-    return _skip("build", "neznámý stack (bez package.json / pyproject.toml)")
+    return (_make_gate("build", ctx.path, "build")
+            or _skip("build", "neznámý stack (bez package.json / pyproject.toml / Makefile cíle build)"))
 
 
 def _node_types(ctx: Ctx) -> GateResult:
@@ -654,7 +671,8 @@ def gate_lint(ctx: Ctx) -> GateResult:
         return _gate_other_stack("lint", ctx.path, st.other)
     if st.node:
         if "lint" not in st.scripts:
-            return _skip("lint", "package.json nemá lint script")
+            return (_make_gate("lint", ctx.path, "lint", timeout=180)
+                    or _skip("lint", "package.json nemá lint script"))
         if (s := _needs_deps(ctx, "lint")):
             return s
         rc, out, err = _run(["npm", "run", "lint"], ctx.path, timeout=120)
@@ -688,7 +706,7 @@ def gate_lint(ctx: Ctx) -> GateResult:
             return _skip("lint", "ruff není nainstalovaný (`pip install ruff` do .venv projektu); "
                                  "nástroj chybí, kód se nehodnotil")
         return GateResult("lint", "pass" if rc == 0 else "fail", _tail(text, 500) or "OK")
-    return _skip("lint", "neznámý stack")
+    return _make_gate("lint", ctx.path, "lint", timeout=180) or _skip("lint", "neznámý stack")
 
 
 _NO_MODULE_RE = re.compile(r"No module named ['\"]?([\w.\-]+)")
@@ -872,8 +890,9 @@ def gate_tests(ctx: Ctx) -> GateResult:
     if st.node:
         script = st.scripts.get("test")
         if not script or _PLACEHOLDER_TEST.search(script):
-            return GateResult("tests", "fail", "žádné testy - package.json nemá test script",
-                              metric=0)
+            return (_make_gate("tests", ctx.path, "test", timeout=180)
+                    or GateResult("tests", "fail", "žádné testy - package.json nemá test script",
+                                  metric=0))
         if (s := _needs_deps(ctx, "tests")):
             return s
         rc, out, err = _run(["npm", "test"], ctx.path, timeout=180)
@@ -887,6 +906,8 @@ def gate_tests(ctx: Ctx) -> GateResult:
         note = f"{count} testů prošlo" if count is not None else "testy prošly (počet nezjištěn)"
         return GateResult("tests", "pass", note, metric=count)
     if st.python:
+        if (mk := _make_gate("tests", ctx.path, "test", timeout=180)) is not None:
+            return mk   # shodně s lint/build: Makefile cíl má přednost před výchozím pytestem
         py = _python_cmd(ctx.path)
         if not _has(py):
             return _skip("tests", _no_python(py))
@@ -903,7 +924,8 @@ def gate_tests(ctx: Ctx) -> GateResult:
         found = summarize_test_failures(out + err, ctx.path) if parse_test_failures(out + err) else ""
         return GateResult("tests", "fail",
                           found or _pysummarize_test_failures(out + err), metric=count)
-    return GateResult("tests", "fail", "žádné testy - neznámý stack, nic ke spuštění", metric=0)
+    return (_make_gate("tests", ctx.path, "test", timeout=180)
+            or GateResult("tests", "fail", "žádné testy - neznámý stack, nic ke spuštění", metric=0))
 
 
 def gate_security(ctx: Ctx) -> GateResult:
