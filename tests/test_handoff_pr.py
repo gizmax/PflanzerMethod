@@ -41,10 +41,10 @@ def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     assert len(md.splitlines()) <= 60
     assert md.count("pflanzer retro measure") == 1
     assert "SHIP-detail.md" in md and "u stolu" not in md
-    assert "## Původ kódu a podíl AI" not in md and "## AI náklady" not in md
+    assert "## AI provenance" not in md and "## AI náklady" not in md
     # Detaily (AI provenance, náklady, kdo a proč vybral vítěze) jsou v SHIP-detail.md.
     detail = handoff_pr.render_ship_detail_md(slug)
-    assert "## Původ kódu a podíl AI" in detail
+    assert "## AI provenance" in detail
     assert "## AI náklady (viditelnost)" in detail  # N16: always present, never fails
     assert "**Vybrán podle**: Ship -" in detail
     assert "má trailery, autor = člověk" in detail  # čistá provenance na větvi vítěze

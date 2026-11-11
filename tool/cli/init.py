@@ -40,7 +40,12 @@ GATES_FILENAME = "pflanzer.gates.yml"
 
 sys.path.insert(0, str(PLUGIN_ROOT))
 from tool.cli.apprun import workspace_packages  # noqa: E402
-from tool.cli.quality_gates import GATE_TYPES, STACK_LABELS, detect_stack  # noqa: E402
+from tool.cli.quality_gates import (  # noqa: E402
+    GATE_TYPES,
+    STACK_LABELS,
+    _has_make_target,
+    detect_stack,
+)
 from tool.cli.ux import CzechArgumentParser, die, emit, tips_for  # noqa: E402
 
 FRONTEND_DEPS = ("react", "vue", "svelte", "next", "vite", "@angular/core", "nuxt", "solid-js", "preact")
@@ -377,7 +382,33 @@ def _python_presets(target: Path) -> dict[str, dict[str, Any]]:
     return out
 
 
+# Makefile cíl -> brána; shodně s autodetekcí v quality_gates (`make test|lint|build`).
+MAKE_GATES = (("tests", "test"), ("lint", "lint"), ("build", "build"))
+
+
+def _with_make_targets(stack: str | None, target: Path,
+                       presets: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Doplní brány z Makefile cílů. Node/Python: cíl přebije jen to, co není aktivní (Python: i výchozí
+    nástroj, stejně jako autodetekce); původní řádek zůstane jako `# alternative`. JVM/.NET/Go beze změny."""
+    if stack in ("maven", "gradle", "dotnet", "go"):
+        return presets
+    for gate, tgt in MAKE_GATES:
+        if not _has_make_target(target, tgt):
+            continue
+        active = presets.get(gate)
+        if active is not None and stack != "python":
+            continue   # Node & spol.: aktivní brána ze skriptů zůstává
+        if active is not None:
+            presets[f"#{gate}"] = active   # výchozí nástroj Pythonu zůstane jako alternativa
+        presets[gate] = {"cmd": f"make {tgt}"}
+    return presets
+
+
 def _gate_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
+    return _with_make_targets(stack, target, _stack_presets(stack, target))
+
+
+def _stack_presets(stack: str | None, target: Path) -> dict[str, dict[str, Any]]:
     """Per-stack gate specs. `gate` = active entry, `#gate` = commented example."""
     security = {"security": {"builtin": True}}
     if stack == "node":
@@ -612,7 +643,7 @@ target_branch = "main"
 # Default risk profile per nový projekt v tomto repu
 default_risk_profile = "pilot"  # throwaway | pilot | production
 
-# Owner GitHub handles (pre-populated do SHIP.md gh pr create --reviewer)
+# Owner GitHub handle (SHIP.md ho použije jako --reviewer / --add-reviewer v příkazu pro PR)
 target_branch_owner = "<@github-handle>"
 shadow_pm = "<jméno PdM>"
 
