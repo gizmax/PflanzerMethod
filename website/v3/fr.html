@@ -310,9 +310,48 @@ section{padding-block:clamp(3.5rem, 7vw, 6rem);border-top:1px solid var(--line)}
 .faq details[open] summary::after{transform:rotate(135deg)}
 .faq details p{padding-bottom:1.3rem;color:var(--muted);max-width:64ch;animation:fadein .35s both}
 
+/* pilot */
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem}
+.tier{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:1.5rem;display:flex;flex-direction:column;gap:.75rem;
+  opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease), transform .6s var(--ease), border-color .25s}
+.tiers.seen .tier{opacity:1;transform:none}
+.tiers.seen .tier:nth-child(2){transition-delay:.12s}
+.tiers.seen .tier:nth-child(3){transition-delay:.24s}
+.tier:hover{border-color:var(--leaf)}
+.tier .n{font:600 var(--t-1)/1 var(--mono);color:var(--leaf)}
+.tier h3{font-size:var(--t2);font-weight:800;line-height:1.1}
+.tier p{color:var(--muted);font-size:.9375rem;flex:1}
+.tier a:not(.btn){color:var(--ink)}
+.tier .btn{align-self:flex-start}
+.tier.on{border-color:var(--ink)}
+.lead-form{margin-top:4rem;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:2rem 4rem;align-items:start}
+.lead-form h3{font-size:var(--t3);font-weight:800;line-height:1}
+.lead-form .side p{color:var(--muted);margin-top:1rem;max-width:40ch}
+.lead-form .mail{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:1.25rem;font:600 var(--t1)/1.2 var(--body)}
+.lead-form .mail button{font:500 var(--t-1)/1 var(--body);background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:.4rem .8rem;cursor:pointer}
+form.ask-pilot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+form.ask-pilot label{display:flex;flex-direction:column;gap:.35rem;font:600 var(--t-1)/1.2 var(--body);color:var(--muted);min-width:0}
+form.ask-pilot .wide{grid-column:1 / -1}
+form.ask-pilot input,form.ask-pilot select,form.ask-pilot textarea{font:400 var(--t0)/1.4 var(--body);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:.7rem .85rem;width:100%;min-width:0}
+form.ask-pilot input:focus,form.ask-pilot select:focus,form.ask-pilot textarea:focus{outline:none;border-color:var(--leaf)}
+form.ask-pilot fieldset{border:0;padding:0;margin:0;display:flex;gap:.5rem;flex-wrap:wrap}
+form.ask-pilot legend{font:600 var(--t-1)/1.2 var(--body);color:var(--muted);margin-bottom:.35rem;width:100%}
+form.ask-pilot .pick{flex-direction:row;align-items:center;gap:.45rem;border:1.5px solid var(--line);border-radius:999px;padding:.55rem .9rem;color:var(--ink);cursor:pointer;font-weight:500}
+form.ask-pilot .pick:has(input:checked){border-color:var(--leaf);background:var(--bud)}
+form.ask-pilot .pick input{width:auto;accent-color:var(--leaf)}
+form.ask-pilot .foot{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+form.ask-pilot .foot small{color:var(--muted);max-width:44ch}
+form.ask-pilot button[type=submit]{cursor:pointer;font:600 var(--t0)/1 var(--body)}
+.sent{color:var(--leaf);font-weight:600}
+@media (max-width:900px){ .tiers,.lead-form{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:560px){ form.ask-pilot{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion:reduce){ .tier{opacity:1;transform:none;transition:none} }
+
 /* start */
 .start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2rem 4rem;align-items:center}
 .start h2{font-size:var(--t4);font-weight:800;line-height:.95;max-width:12ch}
+.start .alt{margin-top:1.25rem;color:var(--muted)}
+.start .alt a{color:var(--ink)}
 .start .muted{margin-block:1.25rem 1.75rem;max-width:44ch;font-size:var(--t1)}
 .term{background:var(--ink);color:var(--paper);border-radius:20px;padding:1.25rem 1.4rem;font:400 .9rem/1.85 var(--mono);min-width:0;position:relative}
 .term pre{margin:0;overflow-x:auto;white-space:pre;padding-top:1.8rem}
@@ -351,6 +390,7 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
     <a href="#proc">Pourquoi</a>
     <a href="#jak">Fonctionnement</a>
     <a href="#vystupy">Livrables</a>
+    <a href="#pilot">Pilote avec nous</a>
     <a href="#otazky">Questions</a>
     <a href="#start">Démarrer</a>
   </nav>
@@ -364,8 +404,8 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
   <div class="hero-row">
     <p class="lead">Pflanzer Method est une méthode et un outil open source pour le développement IA en entreprise. Elle réunit le métier, le produit, le design, le développement, la sécurité et l’exploitation dans des sessions communes. Pendant un Build de trois heures, l’IA construit trois variantes fonctionnelles. Vous tranchez entre Go, Iterate et Kill en une semaine, et la gagnante part en pull request, signatures à l’appui.</p>
     <div class="ctas">
-      <a class="btn primary" href="#start">Lancer le premier pilote</a>
-      <a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md">Page pour le Decider</a>
+      <a class="btn primary" href="#start" data-goatcounter-click="cta-hero-start">Lancer le premier pilote</a>
+      <a class="btn ghost" href="#pilot" data-goatcounter-click="cta-hero-pilot">Discuter du pilote</a>
     </div>
   </div>
   <ul class="proof" aria-label="Faits sur la méthode">
@@ -615,6 +655,58 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
   </div>
 </section>
 
+<section id="pilot" aria-labelledby="pilot-h">
+  <div class="head">
+    <h2 id="pilot-h">En 30 minutes, vous saurez si un pilote vous convient</h2>
+    <p>La méthode est gratuite et vous pouvez mener le premier pilote seuls. Si vous voulez passer votre projet en revue avec l’auteur de la méthode ou mener le pilote accompagné, écrivez-nous.</p>
+  </div>
+  <div class="tiers">
+    <div class="tier">
+      <span class="n">01</span>
+      <h3>Démarrer seul</h3>
+      <p>Le guide, l’outil et les modèles sont sur GitHub sous licence MIT. Un développeur et un Decider avec mandat suffisent. Envoyez à votre direction <a href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/pro-decidera.md" data-goatcounter-click="cta-pilot-decider">la page pour le Decider</a>.</p>
+      <a class="btn ghost" href="#start" data-goatcounter-click="cta-pilot-self">Lancer le premier pilote</a>
+    </div>
+    <div class="tier" data-want="call">
+      <span class="n">02</span>
+      <h3>Discuter du pilote</h3>
+      <p>30 minutes avec Tomáš Pflanzer. Vous passez en revue votre projet, qui doit s’asseoir à la table et si la méthode vous convient. Sans engagement.</p>
+      <a class="btn primary" href="#chci" data-goatcounter-click="cta-pilot-call">Réserver un appel</a>
+    </div>
+    <div class="tier" data-want="guided">
+      <span class="n">03</span>
+      <h3>Pilote accompagné</h3>
+      <p>Wiseguys mène le pilote avec vous&nbsp;: il prépare le Kickoff, anime le Build et la Décision. Le périmètre et le prix sont fixés lors de l’appel, selon le projet.</p>
+      <a class="btn ghost" href="#chci" data-goatcounter-click="cta-pilot-guided">Je veux un pilote accompagné</a>
+    </div>
+  </div>
+  <div class="lead-form" id="chci">
+    <div class="side">
+      <h3>Dites-nous ce qui coince chez vous</h3>
+      <p>Le formulaire n’envoie ni ne conserve rien. Il compose un e-mail que vous envoyez depuis votre propre messagerie. Tomáš Pflanzer vous répondra.</p>
+      <div class="mail"><span id="mail-addr">chci@wiseguys.co</span><button type="button" id="mail-copy">Copier l’adresse</button></div>
+    </div>
+    <form class="ask-pilot" id="ask" data-to="chci@wiseguys.co" data-subject="Pflanzer Method – pilote" data-l-name="Nom" data-l-company="Entreprise" data-l-role="Poste" data-l-stuck="Ce qui coince" data-l-want="Intérêt" data-l-note="Remarque" data-sent="L’e-mail est prêt dans votre messagerie. Il ne reste qu’à l’envoyer." data-copied="Copié" data-copy="Copier l’adresse">
+      <label>Nom<input name="name" autocomplete="name" required></label>
+      <label>Entreprise<input name="company" autocomplete="organization" required></label>
+      <label>Poste<input name="role" autocomplete="organization-title" placeholder="p. ex. responsable développement"></label>
+      <label>Ce qui coince chez vous<select name="stuck">
+        <option>Sécurité et validations</option>
+        <option>Exploitation et déploiement</option>
+        <option>Passations entre équipes</option>
+        <option>Les prototypes n’arrivent pas en production</option>
+        <option>Je ne sais pas encore</option>
+      </select></label>
+      <fieldset class="wide"><legend>Intérêt</legend>
+        <label class="pick"><input type="radio" name="want" value="Appel de 30 minutes" data-k="call" checked>Appel de 30 minutes</label>
+        <label class="pick"><input type="radio" name="want" value="Pilote accompagné" data-k="guided">Pilote accompagné</label>
+      </fieldset>
+      <label class="wide">Remarque (facultatif)<textarea name="note" rows="3" placeholder="Ce que vous voulez construire, quand, qui serait à la table"></textarea></label>
+      <div class="foot wide"><button class="btn primary" type="submit">Préparer l’e-mail</button><small id="ask-msg" aria-live="polite">Peu importe si vous hésitez encore. Pendant l’appel, nous verrons si la méthode convient à votre projet.</small></div>
+    </form>
+  </div>
+</section>
+
 <section id="otazky" aria-labelledby="otazky-h">
   <div class="head">
     <h2 id="otazky-h">Questions fréquentes</h2>
@@ -637,7 +729,8 @@ footer .claim{font:700 var(--t0)/1.3 var(--display);color:var(--ink)}
     <div>
       <h2 id="start-h">Tous à la table. Le code en production.</h2>
       <p class="muted">Commencez par un premier pilote. Installation une fois par machine, puis <code>/pm</code> dans le dépôt du projet, ou <code>pflanzer start</code> sans Claude Code.</p>
-      <div class="ctas"><a class="btn primary" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/zacni.md">Lancer le premier pilote</a><a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod">Code source sur GitHub</a></div>
+      <div class="ctas"><a class="btn primary" href="https://github.com/gizmax/PflanzerMethod/blob/main/docs/zacni.md" data-goatcounter-click="cta-start-guide">Lancer le premier pilote</a><a class="btn ghost" href="https://github.com/gizmax/PflanzerMethod" data-goatcounter-click="cta-start-github">Code source sur GitHub</a></div>
+      <p class="alt">Plutôt accompagné&nbsp;? <a href="#chci" data-goatcounter-click="cta-start-pilot">Réservez 30 minutes</a>.</p>
     </div>
     <div class="term">
       <button class="copy" id="copy" type="button">Copier</button>
@@ -720,6 +813,38 @@ pflanzer init &amp;&amp; pflanzer doctor
     var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
     copy.textContent = "Sélectionné, copiez";
   }
+  // pilot: reveal tiers, preselect interest, compose e-mail (nothing is sent or stored)
+  var tiers = document.querySelector(".tiers");
+  if ("IntersectionObserver" in window) {
+    var tio = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting) { tiers.classList.add("seen"); tio.disconnect(); } }); }, {threshold:.2});
+    tio.observe(tiers);
+  } else { tiers.classList.add("seen"); }
+  var ask = document.getElementById("ask");
+  document.querySelectorAll(".tier[data-want] a").forEach(function(a){
+    a.addEventListener("click", function(){
+      var k = a.closest(".tier").getAttribute("data-want");
+      var r = ask.querySelector('input[data-k="' + k + '"]'); if (r) r.checked = true;
+      setTimeout(function(){ ask.querySelector("input[name=name]").focus({preventScroll:true}); }, 400);
+    });
+  });
+  ask.addEventListener("submit", function(ev){
+    ev.preventDefault();
+    var f = new FormData(ask), d = ask.dataset;
+    var rows = [["name", d.lName], ["company", d.lCompany], ["role", d.lRole], ["stuck", d.lStuck], ["want", d.lWant], ["note", d.lNote]]
+      .map(function(x){ return x[1] + ": " + (f.get(x[0]) || "–"); });
+    var subj = d.subject + (f.get("company") ? " – " + f.get("company") : "");
+    var url = "mailto:" + d.to + "?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(rows.join("\n") + "\n\n" + location.href);
+    if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({path:"pilot-form-submit", title:f.get("want"), event:true});
+    var msg = document.getElementById("ask-msg"); msg.textContent = d.sent; msg.className = "sent";
+    location.href = url;
+  });
+  var mc = document.getElementById("mail-copy");
+  mc.addEventListener("click", function(){
+    var addr = document.getElementById("mail-addr").textContent;
+    var ok = function(){ mc.textContent = ask.dataset.copied; setTimeout(function(){ mc.textContent = ask.dataset.copy; }, 1600); };
+    var sel = function(){ var r = document.createRange(); r.selectNodeContents(document.getElementById("mail-addr")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+    if (navigator.clipboard) navigator.clipboard.writeText(addr).then(ok, sel); else sel();
+  });
 })();
 </script>
 </body>
