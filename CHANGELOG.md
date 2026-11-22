@@ -5,6 +5,17 @@
 Formát: [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/), verze metody
 a toolu jsou společné.
 
+## [Unreleased]
+
+### Návrhy (zatím neplatí)
+- Rešerše [`docs/research/vylepseni-2026-11.md`](docs/research/vylepseni-2026-11.md):
+  co z výzkumu roku 2026 plyne pro metodu. U každého zdroje je uvedeno,
+  co bylo přečteno.
+- Čtyři ADR ve stavu **Proposed**: ADR-0025 (review vítěze jako plánovaný
+  krok), ADR-0026 (AI nesmí naklánět Rozhodnutí), ADR-0027 (porozumění
+  vítězi před Shipem), ADR-0028 (základna a nestabilita v retru).
+  Metodika ani tool se tímto nemění.
+
 ## [0.6.0] — 2026-10-21
 
 Kickoff jednou otázkou a cesta, kterou jde projít celou z terminálu.
