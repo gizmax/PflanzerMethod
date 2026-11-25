@@ -72,6 +72,7 @@ a Build do 60–90 min, **Full** je pro regulované prostředí
 - [`docs/methodology/00-lean-pflanzer.md`](docs/methodology/00-lean-pflanzer.md) — 1-pager metody
 - [`docs/governance/`](docs/governance/README.md) — vrstva pro regulované prostředí (běžný projekt ji nepotřebuje)
 - [`docs/research/srovnani-metod-2026.md`](docs/research/srovnani-metod-2026.md) — srovnání s AI-DLC, Spec Kit, Kiro a dalšími
+- [`docs/research/vylepseni-2026-11.md`](docs/research/vylepseni-2026-11.md) — co z výzkumu roku 2026 plyne pro metodu (ADR-0025 až 0028)
 - [`docs/dev.md`](docs/dev.md) — pro vývojáře toolu: builder, instalace, dev setup, hub, testy, struktura repa
 
 ## Stav
