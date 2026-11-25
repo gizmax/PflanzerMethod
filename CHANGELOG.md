@@ -33,6 +33,12 @@ a toolu jsou společné.
   takhle“ (`pflanzer why add`) a vysvětlení vítěze zpět
   (`pflanzer explain-back record`; doporučený krok, Ship neblokuje).
 
+### Návrhy (zatím neplatí)
+- Rešerše [`docs/research/vibe-coding-ve-firmach-2026.md`](docs/research/vibe-coding-ve-firmach-2026.md):
+  studie o vibe codingu ve firmách a pět návrhů pro metodu (vstup
+  „prototyp z byznysu“, zadání variant vlastními slovy, plán před stavbou,
+  pravidlo dvou pokusů, dvě bezpečnostní položky).
+
 ## [0.6.0] — 2026-10-21
 
 Kickoff jednou otázkou a cesta, kterou jde projít celou z terminálu.
