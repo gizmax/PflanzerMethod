@@ -272,7 +272,7 @@ def test_vote_warns_on_dead_localhost_url(project: dict[str, Any]) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_prep_recommends_leading_variant(project: dict[str, Any]) -> None:
+def test_prep_does_not_recommend_leading_variant(project: dict[str, Any]) -> None:
     votes = []
     for name, uv in (("A", 0.4), ("B", 0.9)):
         votes.append({"name": name, "builder": "claude-code", "description": name,
@@ -283,13 +283,16 @@ def test_prep_recommends_leading_variant(project: dict[str, Any]) -> None:
                   decider_call={"shortlist": ["A", "B"], "rationale": "r",
                                 "veto_register": [], "parking_lot": []})
     out = session_2.prep(project["slug"])
-    assert out["recommended_winner"] == "B"
+    assert "recommended_winner" not in out   # ADR-0026: AI nedoporučuje vítěze
+    # pevné pořadí, ne podle skóre
+    assert [v["variant"] for v in out["variants"]] == ["A", "B"]
     title, lines, warns, nxt, _ctx = session_2._prep_view(out)
-    assert "--winner B" in nxt or "feedback" in nxt   # Go návrh jen když je tým připraven
+    assert "--winner B" not in nxt
     out["ready_for_decision"] = True
     out["open_critical"] = []
     _t, _l, _w, nxt2, _c = session_2._prep_view(out)
-    assert "--winner B" in nxt2
+    assert "--winner A|B " in nxt2   # všechny varianty stejně, bez favorita
+    assert not any("vede" in ln or "0.90" in ln for ln in _l)
 
 
 # --------------------------------------------------------------------------

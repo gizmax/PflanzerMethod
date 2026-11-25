@@ -210,3 +210,82 @@ def test_cli_resolve_human_output(voted: dict[str, Any], monkeypatch: pytest.Mon
     out = capsys.readouterr().out
     assert f"Vyřešeno: #{fid} (Ondra: Opraveno v PR)" in out
     assert not out.lstrip().startswith("{")
+
+
+# --------------------------------------------------------------------------
+# ADR-0026: prep bez doporučení, pro a proti, AI vstup v decision logu
+# --------------------------------------------------------------------------
+
+
+def _add_feedback(slug: str, variant: str, severity: str, text: str, score: float = 0.5,
+                  who: str = "Test") -> None:
+    with transaction() as conn:
+        vid = conn.execute(
+            "SELECT v.id FROM variants v JOIN sessions s ON s.id = v.session_id "
+            "JOIN projects p ON p.id = s.project_id WHERE p.slug = ? AND v.name = ?",
+            (slug, variant)).fetchone()[0]
+        conn.execute(
+            "INSERT INTO feedback (variant_id, severity, department, category, score, "
+            "rationale, submitted_by) VALUES (?, ?, 'design', 'ux', ?, ?, ?)",
+            (vid, severity, score, text, who))
+
+
+def test_prep_arguments_fixed_order_equal_space(voted: dict[str, Any]) -> None:
+    slug = voted["slug"]
+    _add_feedback(slug, "C", "high", "Pomalé načítání", who="Petr")
+    _add_feedback(slug, "C", "medium", "Drobnost", who="Jana")
+    out = session_2.prep(slug)
+    assert "recommended_winner" not in out
+    assert [a["variant"] for a in out["arguments"]] == ["A", "B", "C"]
+    c = out["arguments"][2]
+    assert c["against"]["text"] == "Pomalé načítání"   # nejvyšší závažnost
+    assert c["for"]["source"] == "vote"
+    _t, lines, _w, nxt, _c = session_2._prep_view(out)
+    arg_lines = [ln for ln in lines if ln.startswith("Varianta ")]
+    assert len(arg_lines) == 6   # 2 řádky na každou variantu
+    assert [ln[:10] for ln in arg_lines[::2]] == ["Varianta A", "Varianta B", "Varianta C"]
+    assert session_2.NO_ARGUMENT_AGAINST in arg_lines[1]   # A nemá nic proti
+    assert "--winner A|B|C" in nxt or "feedback" in nxt or "Iterate" in nxt or "kritické" in nxt
+
+
+def test_prep_order_lines_and_tier(voted: dict[str, Any]) -> None:
+    slug = voted["slug"]
+    out = session_2.prep(slug)
+    _t, lines, *_ = session_2._prep_view(out)
+    assert lines[0].startswith("Pořadí Rozhodnutí: demo")
+    assert "Druhé tiché kolo má jen stupeň Full" in lines[1]
+    out["tier"] = "full"
+    _t, lines_full, *_ = session_2._prep_view(out)
+    assert "Stupeň Full: po sporech proběhne druhé tiché kolo" in lines_full[1]
+
+
+def test_prep_empty_side_uses_placeholder(project: dict[str, Any]) -> None:
+    out = session_2.prep(project["slug"])
+    _t, lines, *_ = session_2._prep_view(out)
+    assert all(not ln.startswith("Varianta ") or "žádný zapsaný argument" in ln for ln in lines)
+
+
+def test_decision_log_ai_input_section(voted: dict[str, Any]) -> None:
+    slug = voted["slug"]
+    session_2.prep(slug)
+    out = session_2.record_decision(
+        slug=slug, decision="go", winner="A", rationale="A stačí",
+        ai_input="draft konvergence", ai_deviation="Souhlasím, nic proti nebylo")
+    assert out["ai_deviation"] == "Souhlasím, nic proti nebylo"
+    assert any("souhrn feedbacku" in i for i in out["ai_input"])
+    assert "draft konvergence" in out["ai_input"]
+    with transaction() as conn:
+        body = conn.execute("SELECT body_md FROM decisions WHERE type = 'handoff' "
+                            "ORDER BY id DESC LIMIT 1").fetchone()[0]
+    assert "### AI vstup" in body
+    assert "**Odchylka Decidera od AI vstupu:** Souhlasím, nic proti nebylo" in body
+
+
+def test_decision_log_ai_deviation_missing_does_not_block(voted: dict[str, Any]) -> None:
+    out = session_2.record_decision(slug=voted["slug"], decision="go", winner="A",
+                                    rationale="A stačí")
+    assert out["ai_deviation"] is None
+    with transaction() as conn:
+        body = conn.execute("SELECT body_md FROM decisions WHERE type = 'handoff' "
+                            "ORDER BY id DESC LIMIT 1").fetchone()[0]
+    assert "neuvedeno" in body and "- nic nezapsáno" in body
