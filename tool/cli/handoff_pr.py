@@ -1,6 +1,6 @@
 """Handoff — SHIP.md + podklady pro `gh pr create` (v0.5).
 
-SHIP.md je primární handoff artefakt: 1 stránka (≤ ~60 řádků) s vítězem a popisem, tím, co se
+SHIP.md je primární handoff artefakt: 1 stránka (≤ ~65 řádků) s vítězem a popisem, tím, co se
 mění, skóre quality gates ("X/100, práh Y" jednou větou), podpisy a AI náhradou, copy-paste
 příkazem pro PR a tím, co měřit za 30 dní (`pflanzer retro …`, jednou). Detaily (brány, původ
 kódu a podíl AI, AI náklady, critical poražených, Co selhalo, triage) jsou v `SHIP-detail.md`.
@@ -393,7 +393,7 @@ def _fetch_ship_context(slug: str) -> dict[str, Any]:
                    shadow_pm, kill_criteria, throwaway_or_evolve,
                    ai_act_tier, data_class, gate_score_latest,
                    production_readiness_target, acceptance_criteria_md,
-                   primary_lagging_metric, leading_metric, guardrail_metric
+                   primary_lagging_metric, leading_metric, guardrail_metric, reviewer
             FROM projects WHERE slug = ?
             """, (slug,),
         ).fetchone()
@@ -1000,6 +1000,25 @@ def _repo_size(b: dict[str, Any]) -> str | None:
     return text + (f" v {b['files']} souborech" if b.get("files") is not None else "")
 
 
+# Orientační hranice velikosti PR vítěze (přidané + odebrané řádky). HYPOTÉZA, kterou má
+# zkalibrovat retro (velikost PR proti době review, ADR-0025 bod 3 a ADR-0028); není to
+# brána: Ship nikdy neblokuje a skóre nemění.
+ADVISORY_PR_LINES = 400
+
+
+def pr_size_advice(loc_added: int | None, loc_removed: int | None) -> str | None:
+    """Věta doporučující rozřezat PR, když diff vítěze přesáhne `ADVISORY_PR_LINES`; jinak None.
+    Jen rada: neblokuje Ship a nemění skóre."""
+    if loc_added is None:
+        return None
+    total = int(loc_added) + int(loc_removed or 0)
+    if total <= ADVISORY_PR_LINES:
+        return None
+    return (f"Diff má {total} řádků, přes orientačních {ADVISORY_PR_LINES}: doporučuji rozřezat PR "
+            "na navazující části, ať ho reviewer projde za jedno sezení. Je to rada, Ship ani "
+            "skóre to neovlivní.")
+
+
 def plural_word(n: int, one: str, few: str, many: str) -> str:
     """Jen tvar slova bez čísla (podle čísla `n`)."""
     return count(int(n), one, few, many).split(" ", 1)[1]
@@ -1064,6 +1083,8 @@ def build_pr(slug: str, repo: str | None = None,
         sized = [(b["role"], _repo_size(b), b["added"]) for b in repos if b.get("added") is not None]
         size_line = "; ".join(f"{role}: {txt}" for role, txt, _a in sized)
         loc_added = sum(a for _r, _t, a in sized) if sized else loc_added
+        loc_removed = (sum(b["removed"] for b in repos if b.get("removed") is not None)
+                       if sized else loc_removed)
 
     wt = _winner_worktree(slug, w[0], e) if (w and e) else None
     prov = check_provenance(
@@ -1243,6 +1264,7 @@ def build_pr(slug: str, repo: str | None = None,
         "title_base": pr_title_base,
         "ctx": ctx, "state": state, "title": pr_title, "body": "\n".join(body_lines),
         "branch": branch, "head_sha": head_sha, "loc_added": loc_added,
+        "loc_removed": loc_removed, "diff_files": diff_files,
         "gate_score": gate_score, "target": target, "badges": badges,
         "gates_summary": summary,
         "metrics": (metric_primary, metric_leading, metric_guardrail),
@@ -1267,6 +1289,7 @@ def _ship_parts(slug: str) -> dict[str, Any]:
         "pr": pr, "ctx": ctx, "state": state, "p": p, "w": w, "e": e,
         "target_repo": public_repo_ref(p[6]), "target_branch": target_branch,
         "branch_owner": real(p[8]),
+        "reviewer": real(p[20]) if len(p) > 20 else None,   # ADR-0025: jméno z Kickoffu
         "shadow_pm": real(p[9]) or real(ctx["path_owners"].get("produkt")),
         "triage": ctx["triage"], "winner_block": None,
     }
@@ -1388,8 +1411,25 @@ def _publish_cmd(*, pipe: str, number: int | None, title: str, base: str, labels
     return cmd
 
 
-def _reviewer_sentence(slug: str, reviewer: str | None, number: int | None) -> str:
+def _resolve_reviewer(parts: dict[str, Any]) -> tuple[str | None, str | None]:
+    """(github handle pro příkaz, jméno reviewera z Kickoffu). Kickoff má přednost před branch ownerem
+    (ADR-0025); jméno bez GitHub handlu se do příkazu nedosazuje, jen se pojmenuje ve větě."""
+    kickoff = real(parts.get("reviewer"))
+    if kickoff:
+        return github_handle(kickoff), kickoff
+    return github_handle(parts.get("branch_owner")), None
+
+
+def _reviewer_sentence(slug: str, reviewer: str | None, number: int | None,
+                       kickoff: str | None = None) -> str:
     flag = "--add-reviewer" if number is not None else "--reviewer"
+    if kickoff and reviewer:
+        return (f"Reviewer z Kickoffu: `{reviewer}` (`{flag}` je v příkazu); GitHub žádost o review "
+                f"od autora PR ignoruje, reviewer tedy nesmí být ten, kdo PR otevírá. "
+                f"{reviewer_hint(slug)}")
+    if kickoff:
+        return (f"Reviewer z Kickoffu: {kickoff}. Jeho GitHub handle přidejte do příkazu "
+                f"(`{flag} <github-handle>`); nesmí to být autor PR. {reviewer_hint(slug)}")
     if reviewer:
         return (f"Reviewer: `{reviewer}` (branch owner, `{flag}` je v příkazu); GitHub žádost o review "
                 f"od autora PR ignoruje, takže pokud PR otevíráte vy, přidejte jiného reviewera. "
@@ -1411,7 +1451,7 @@ def _pr_command_multi_md(slug: str, parts: dict[str, Any]) -> str:
     repos = pr["repos"]
     label_create = "\n".join(label_create_shell(lbl) for lbl in wb["labels"])
     draft = bool(state["blocked_by"] or state["threshold_override"])
-    reviewer = github_handle(parts.get("branch_owner"))
+    reviewer, kickoff_reviewer = _resolve_reviewer(parts)
     number = existing_pr_number(parts.get("w"))   # uložené URL patří primárnímu repu
     commit_msg = "\n".join(wb["trailers"])
     blocks: list[str] = []
@@ -1453,7 +1493,7 @@ git push -u origin {b['branch']}
 Projekt má {len(repos)} repa ({', '.join(b['role'] for b in repos)}); PR se otevírají v každém repu
 a v těle se odkazují jako „Související PR v <repo> repu“. Autor commitu = dev u klávesnice;
 AI nikdy jako author ani `Co-Authored-By` (jen trailery).{_existing_pr_sentence(number, first)}
-{_reviewer_sentence(slug, reviewer, None)} Mergujte společně.
+{_reviewer_sentence(slug, reviewer, None, kickoff_reviewer)} Mergujte společně.
 
 ### 0. Decision log
 
@@ -1476,7 +1516,7 @@ def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
     wb, pr, state = parts["winner_block"], parts["pr"], parts["state"]
     if len(pr.get("repos") or []) > 1:
         return _pr_command_multi_md(slug, parts)
-    reviewer = github_handle(parts.get("branch_owner"))
+    reviewer, kickoff_reviewer = _resolve_reviewer(parts)
     number = existing_pr_number(parts.get("w"))
     label_create = "\n".join(label_create_shell(lbl) for lbl in wb["labels"])
     commit_msg = f"{pr['title']}\n\n" + "\n".join(wb["trailers"])
@@ -1487,7 +1527,7 @@ def _pr_command_md(slug: str, parts: dict[str, Any]) -> str:
         indent="  ")
     return f"""## Otevři PR
 
-Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).{_existing_pr_sentence(number)} {_reviewer_sentence(slug, reviewer, number)}
+Autor commitu = dev u klávesnice; AI nikdy jako author ani `Co-Authored-By` (jen trailery).{_existing_pr_sentence(number)} {_reviewer_sentence(slug, reviewer, number, kickoff_reviewer)}
 
 ```bash
 {decision_log_lines(slug)}cd {wb['work_dir']}
@@ -1538,7 +1578,7 @@ def _cond_word(n: int) -> str:
 
 
 def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
-    """SHIP.md — jedna stránka (≤ ~60 řádků). Detaily jsou v SHIP-detail.md."""
+    """SHIP.md — jedna stránka (≤ ~65 řádků). Detaily jsou v SHIP-detail.md."""
     parts = parts or _ship_parts(slug)
     pr, state, p, w = parts["pr"], parts["state"], parts["p"], parts["w"]
     name, decider = p[1], p[5]
@@ -1589,10 +1629,13 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
     changes_md = "## Co se mění\n\n" + "\n\n".join(changes) + "\n"
 
     score_line = pr["gates_summary"] or _no_gates_score(score, target, verdict)
-    if len(pr.get("repos") or []) > 1 and pr.get("size_line"):
+    if pr.get("size_line"):      # řádky přidané / odebrané a počet souborů (u více repí per repo)
         score_line += f" Rozsah: {pr['size_line']}."
     elif pr["loc_added"] is not None:
         score_line += f" Rozsah: {_lines_added(pr['loc_added'])}."
+    size_advice = pr_size_advice(pr["loc_added"], pr.get("loc_removed"))
+    if size_advice:
+        score_line += " " + size_advice
     if pr.get("failures"):
         score_line += " " + _failed_gates_text(_failed_gates(pr["failures"])).capitalize() + "."
     if pr.get("gate_notes"):
@@ -1618,6 +1661,11 @@ def render_ship_md(slug: str, parts: dict[str, Any] | None = None) -> str:
                       + "\n\n")
     else:       # krátce, ať se SHIP.md vejde na stránku
         score_line += "\nOtevřené připomínky: žádné."
+
+    if w:    # ADR-0027: věty „proč“ a vysvětlení zpět (doporučené kroky, Ship neblokují)
+        from tool.cli import understanding
+        people_md += (understanding.render_why_md(slug)
+                      + understanding.render_understanding_md(slug) + "\n")
 
     pr_command = _pr_command_md(slug, parts) if parts["winner_block"] else ""
     md = f"""{BRAND}

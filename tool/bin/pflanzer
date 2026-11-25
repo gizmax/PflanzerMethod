@@ -50,6 +50,8 @@ case "$SUB" in
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/quick_session.py" bootstrap "$@" ;;
   ship)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/session_3.py" "$@" ;;
+  why|explain-back)  # ADR-0027: věty „proč“ a vysvětlení vítěze zpět (tool/cli/understanding.py)
+    PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/understanding.py" "$SUB" "$@" ;;
   decide)
     PYTHONPATH="$ROOT" exec python3 "$ROOT/tool/cli/session_2.py" decide "$@" ;;
   record|vote)  # `vote` = skrytý kompatibilní alias (zápis hodnocení Buildu)
@@ -94,6 +96,8 @@ case "$SUB" in
     echo "  pflanzer feedback add --slug S --variant A --role R --by JMÉNO --severity … --text …   # 5. feedback (Async)"
     echo "  pflanzer feedback_pull --slug S   #    souhrn feedbacku + kdo ještě mlčí (= /pm feedback)"
     echo "  pflanzer decide --slug S go --winner A --rationale …   # 6. Rozhodnutí"
+    echo "  pflanzer why add --slug S --what \"…\" --why \"…\"   #    věty „proč“ k návrhu vítěze (do SHIP.md)"
+    echo "  pflanzer explain-back record --slug S --by JMÉNO --change \"…\" --minutes N   #    vysvětlení vítěze zpět (doporučené)"
     echo "  pflanzer ship --slug S         # 7. Ship: quality gates + SHIP.md + text PR (PR otevře vlastník repa)"
     echo "  pflanzer retro measure --slug S --pr-url URL   # 8. Retro (bez gh: --merge-commit SHA)"
     echo "  pflanzer checkpoint --slug S zadani|bezpecnost-provoz|bezpecnost|pravo|provoz|design --by JMÉNO --note …"
@@ -116,7 +120,7 @@ case "$SUB" in
   *)
     SCRIPT="$ROOT/tool/cli/${SUB}.py"
     if [ ! -f "$SCRIPT" ]; then
-      CMDS="root db data update help start ship decide record prompts build $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
+      CMDS="root db data update help start ship decide record prompts build why explain-back $(ls "$ROOT/tool/cli/"*.py | xargs -n1 basename | sed 's/\.py$//' | grep -v -e '^_' -e '^db$' | tr '\n' ' ')"
       # shellcheck disable=SC2086
       NEAR="$(python3 -c 'import difflib,sys; m=difflib.get_close_matches(sys.argv[1], sys.argv[2:], n=1, cutoff=0.6); print(m[0] if m else "")' "$SUB" $CMDS)"
       echo "Pflanzer Method | pflanzer.cz/method" >&2

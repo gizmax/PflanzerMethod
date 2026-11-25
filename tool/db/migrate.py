@@ -37,6 +37,8 @@ ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("session_mode", "TEXT DEFAULT 'parallel'"),
         # Okna z Kickoffu (kdy je Build, checkpointy, Rozhodnutí): JSON list [{okno, kdy}]
         ("windows_json", "TEXT"),
+        # ADR-0025: reviewer vítěze pojmenovaný v Kickoffu (jméno nebo GitHub handle)
+        ("reviewer", "TEXT"),
         # v0.5 (ADR-0021): jména 6 kroků cesty + jádro (3–4 lidé, max 5 naráz)
         ("path_owners_json", "TEXT"),
         ("core_json", "TEXT"),
@@ -90,6 +92,9 @@ ADDITIVE_TABLES: tuple[str, ...] = (
     "ai_usage",
     # Tiché hlasování zástupců v hubu (tool/web/backend/api/expert.py)
     "decision_votes",
+    # ADR-0027: věty „proč“ a vysvětlení vítěze zpět (tool/cli/understanding.py)
+    "design_rationale",
+    "explain_back",
 )
 
 

@@ -333,3 +333,34 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_snapshot ON ai_usage(project_id, variant, model);
+
+-- ==========================================================================
+-- design_rationale (ADR-0027 bod 3): věty „proč“ k návrhu vítěze → SHIP.md
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS design_rationale (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  what TEXT NOT NULL,
+  why TEXT NOT NULL,
+  added_by TEXT,
+  added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_design_rationale_project ON design_rationale(project_id);
+
+-- ==========================================================================
+-- explain_back (ADR-0027 body 1, 2, 5): kdo vítěze vysvětlil zpět, co změnil
+-- ručně a jak dlouho to trvalo. Doporučený krok, Ship ho neblokuje.
+-- ==========================================================================
+CREATE TABLE IF NOT EXISTS explain_back (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  explained_by TEXT NOT NULL,
+  change_md TEXT NOT NULL,
+  minutes INTEGER NOT NULL CHECK (minutes > 0),
+  note TEXT,
+  recorded_by TEXT,
+  recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_explain_back_project ON explain_back(project_id);

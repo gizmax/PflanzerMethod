@@ -75,7 +75,7 @@ def test_failed_gate_in_pr_risks_and_ship_head(shipped: dict[str, Any]) -> None:
                      "WHERE gate_type = 'a11y'")
     md = handoff_pr.render_ship_md(slug)
     assert "selhala: přístupnost" in md.split("## Skóre")[1].split("##")[0]
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
     body = handoff_pr.build_pr(slug)["body"]
     rizika = next(x for x in body.splitlines() if x.startswith("**Rizika:**"))
     assert "selhala: přístupnost" in rizika

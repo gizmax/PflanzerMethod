@@ -72,7 +72,7 @@ def test_pr_body_labels_for_reviewer(shipped: dict[str, Any]) -> None:
 
 def test_ship_md_stays_short_and_plain(shipped: dict[str, Any]) -> None:
     md = handoff_pr.render_ship_md(shipped["slug"])
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
     assert "WCAG" not in md and "pytest-cov" not in md
 
 

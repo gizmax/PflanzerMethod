@@ -58,7 +58,7 @@ def test_ship_md_and_pr_show_gate_warnings(shipped: dict[str, Any]) -> None:
     _force_warn(slug, ("a11y", "observability"))
     md = handoff_pr.render_ship_md(slug)
     assert "Varování: přístupnost (WCAG), observabilita (logy a metriky pro provoz)" in md
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
     body = handoff_pr.build_pr(slug)["body"]
     rizika = next(x for x in body.splitlines() if x.startswith("**Rizika:**"))
     assert "Varování: přístupnost (WCAG), observabilita (logy a metriky pro provoz)" in rizika
