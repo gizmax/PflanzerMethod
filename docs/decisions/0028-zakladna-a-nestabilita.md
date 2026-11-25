@@ -61,3 +61,7 @@ Navrhuje se varianta **B**.
   § Co měřit a `07` § Retro se přepíší.
 - Základna z historie repa má zkreslení (jiné úkoly, jiné období).
   Je to nejlevnější dostupné srovnání, ne důkaz účinnosti.
+- **Stav implementace (2026-11-25):** `retro baseline`, úseky review
+  v `retro measure` a `retro instability` jsou v nástroji; cíl 80 % je
+  zrušen. Zápis důvodu přepsaných řádků na T+60 (bod 3) zatím není;
+  zapisuje se ručně přes `retro record`.

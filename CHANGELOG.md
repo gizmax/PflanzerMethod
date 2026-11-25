@@ -15,8 +15,23 @@ a toolu jsou společné.
   velikosti PR zatím jen doporučení), ADR-0026 (AI nesmí naklánět
   Rozhodnutí; druhé kolo hlasování jen u Full), ADR-0027 (porozumění vítězi
   před Shipem; věty „proč“ hned, vysvětlení zpět jako doporučený krok),
-  ADR-0028 (základna a nestabilita v retru). Úprava dokumentů metodiky
-  a toolu následuje v samostatném PR.
+  ADR-0028 (základna a nestabilita v retru).
+- **Rozhodnutí:** jádro hlasuje tiše dřív, než uvidí AI souhrn; AI vítěze
+  nedoporučuje a varianty neřadí. Decision log má část „AI vstup“.
+- **Retro:** cíl „≥ 80 % LOC vítěze beze změny“ zrušen (údaj zůstává);
+  srovnává se se základnou repa před pilotem.
+
+### Tool
+- `pflanzer retro baseline` (základna z target repa před Kickoffem),
+  `pflanzer retro instability` (reverty a opravy na T+7 / T+30),
+  `retro measure --pr-url` nově měří tři úseky: Go → PR, PR → první
+  review, první review → merge.
+- `pflanzer decide prep`: nejsilnější argument pro a proti ke každé
+  variantě, bez doporučení vítěze; `decide … --ai-input`, `--ai-deviation`.
+- Kickoff spec: pole `reviewer` (reviewer vítěze). SHIP.md: rozsah diffu
+  s radou rozřezat PR nad 400 změněných řádků, část „Proč je to navržené
+  takhle“ (`pflanzer why add`) a vysvětlení vítěze zpět
+  (`pflanzer explain-back record`; doporučený krok, Ship neblokuje).
 
 ## [0.6.0] — 2026-10-21
 

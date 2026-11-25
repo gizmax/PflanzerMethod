@@ -21,8 +21,11 @@ Bez těchto pěti věcí Kickoff nesvolávej.
    testy, lint, build, CI a **preview deploy větví**. Ověř
    `pflanzer doctor` → „připraveno ke Kickoffu: ano". Při „ne" nezačínej,
    pokud chybějící věc vědomě nepřijmeš jako riziko (ADR-0022).
+   Před Kickoffem si ulož **základnu** (`pflanzer retro baseline`): jak
+   dlouho v repu trvala cesta PR do merge před pilotem (ADR-0028).
 3. **Jména ke všem 6 krokům cesty** (byznys/Decider, produkt, design,
-   vývoj, bezpečnost & právo, provoz). Kdo může který krok zastoupit:
+   vývoj, bezpečnost & právo, provoz) **a jméno reviewera vítěze**: kdo
+   má v target repu právo approve a není autorem (ADR-0025). Kdo může který krok zastoupit:
    [`02-role-catalog.md`](02-role-catalog.md). Krok bez jména = nesvolávat.
 4. **Okna v kalendáři najednou, ne ad hoc:** Kickoff 15 min · Build 3 h ·
    checkpoint bezpečnost & právo 20 min · Rozhodnutí 60–90 min · checkpoint

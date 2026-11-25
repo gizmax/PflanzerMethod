@@ -1,20 +1,30 @@
 """Retro — outcome measurement for the method's core claim (audit N4).
 
-The method claims "≥ 80 % LOC of the winner merged without modification,
-prod deploy D11–14". This module makes that claim measurable and records
-the reinforcement track (T+7/30/60/90) as data instead of Charter prose.
+The method claims "prod deploy D11–14". This module makes that claim
+measurable and records the reinforcement track (T+7/30/60/90) as data
+instead of Charter prose. Per ADR-0028 the share of winner LOC that survived
+unchanged (`loc_reused_pct`) is reported as a plain number with no target
+and no FLAG; speed-ups are never stated as an impression, only as measured
+segments next to the repo baseline.
 
 Subcommands:
+- `baseline`  — median PR open→merge / open→first review of the target repo
+                over the last 180 days (via `gh`), stored before the pilot
+                (ADR-0028). Stored as `baseline_*` rows (milestone 'ship':
+                the `outcomes` CHECK does not allow a separate milestone).
 - `measure`   — reads the target repo (winner branch vs merge commit) and
-                writes milestone='ship' rows into `outcomes`.
+                writes milestone='ship' rows into `outcomes`; with `--pr-url`
+                also the three review segments (ADR-0025 point 4).
+- `instability` — reverts and fix commits touching the winner's files after
+                the merge (T+7 / T+30, ADR-0028 point 2).
 - `record`    — manual T+7/30/60/90 readouts (bugs, leading/lagging metric).
 - `report`    — renders `data/retro/<slug>-retro.md` + target checks.
 - `reminders` — T+7/30/60/90 reminders as .ics, markdown checklist or
                 `gh issue create` commands (printed, never executed).
 - `lesson`    — poučení (hlavně po Kill): do DB (audit `retro.lesson`) a decision logu.
 
-Stdlib + sqlite + git only. `gh` is optional (merge commit lookup) with a
-fallback to an explicit `--merge-commit`.
+Stdlib + sqlite + git only. `gh` is optional (merge commit lookup, PR times,
+baseline) with a fallback to an explicit `--merge-commit`.
 """
 from __future__ import annotations
 
@@ -24,6 +34,7 @@ import re
 import shlex
 import shutil
 import sqlite3
+import statistics
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -49,9 +60,19 @@ RETRO_DIR = DATA_ROOT / "retro"
 CHARTER_DIR = DATA_ROOT / "charters"
 BRAND_LINE = "Pflanzer Method | pflanzer.cz/method"
 
-# Method targets (README / 07-handoff-do-vyvoje.md, audit N4).
-TARGET_REUSE_PCT = 80.0
+# Method target (README / 07-handoff-do-vyvoje.md, audit N4). LOC survival has
+# no target since ADR-0028.
 TARGET_DAYS_TO_PROD = 14
+
+# ADR-0028 point 1: baseline window and the minimum PR count for it to count.
+BASELINE_DAYS = 180
+BASELINE_MIN_PRS = 10
+BASELINE_METRICS = ("baseline_open_to_merge_h", "baseline_open_to_first_review_h",
+                    "baseline_pr_count", "baseline_after_go")
+# Review segments recorded by `measure --pr-url` (hours; ADR-0025 point 4).
+SEGMENT_METRICS = ("go_to_pr_open_h", "pr_open_to_first_review_h",
+                   "first_review_to_merge_h", "pr_open_to_merge_h")
+INSTABILITY_MILESTONES = ("t7", "t30")
 
 MILESTONES = ("t7", "t30", "t60", "t90")
 MILESTONE_DAYS = {"t7": 7, "t30": 30, "t60": 60, "t90": 90}
@@ -289,6 +310,188 @@ def _gh_merge_info(pr_url: str) -> tuple[str, str | None] | None:
     if not sha:
         return None
     return sha, data.get("mergedAt")
+
+
+def _gh_pr_list(repo: Path) -> list[dict[str, Any]]:
+    """Merged PRs of the target repo via `gh` (createdAt, mergedAt, reviews); raises RuntimeError.
+
+    Kept as one small function so tests can monkeypatch it (no network in tests).
+    """
+    if not shutil.which("gh"):
+        raise RuntimeError("`gh` není nainstalované")
+    res = subprocess.run(
+        ["gh", "pr", "list", "--state", "merged", "--limit", "200",
+         "--json", "number,createdAt,mergedAt,reviews"],
+        cwd=repo, capture_output=True, text=True, timeout=120,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(f"`gh pr list` selhal: {res.stderr.strip() or res.returncode}")
+    try:
+        data = json.loads(res.stdout or "[]")
+    except ValueError as exc:
+        raise RuntimeError(f"`gh pr list` vrátil neplatný JSON: {exc}") from exc
+    return data if isinstance(data, list) else []
+
+
+def _gh_pr_times(pr_url: str) -> dict[str, Any]:
+    """createdAt, mergedAt and reviews of one PR via `gh`; raises RuntimeError (patchable in tests)."""
+    if not shutil.which("gh"):
+        raise RuntimeError("`gh` není nainstalované")
+    res = subprocess.run(
+        ["gh", "pr", "view", pr_url, "--json", "createdAt,mergedAt,reviews"],
+        capture_output=True, text=True, timeout=60,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(f"`gh pr view` selhal: {res.stderr.strip() or res.returncode}")
+    try:
+        return json.loads(res.stdout or "{}")
+    except ValueError as exc:
+        raise RuntimeError(f"`gh pr view` vrátil neplatný JSON: {exc}") from exc
+
+
+def _hours(a: datetime, b: datetime) -> float:
+    return round((b - a).total_seconds() / 3600, 1)
+
+
+def _first_review_dt(pr: dict[str, Any]) -> datetime | None:
+    """Earliest submitted review at or after the PR was opened, else None."""
+    opened = _parse_ts(pr.get("createdAt"))
+    times = [t for t in (_parse_ts(r.get("submittedAt")) for r in pr.get("reviews") or []
+                         if isinstance(r, dict)) if t and (opened is None or t >= opened)]
+    return min(times) if times else None
+
+
+def compute_baseline(prs: list[dict[str, Any]], now: datetime | None = None) -> dict[str, Any]:
+    """Medians over PRs merged in the last BASELINE_DAYS (pure function, no I/O)."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=BASELINE_DAYS)
+    to_merge: list[float] = []
+    to_review: list[float] = []
+    for pr in prs:
+        opened, merged = _parse_ts(pr.get("createdAt")), _parse_ts(pr.get("mergedAt"))
+        if not opened or not merged or merged < cutoff or merged < opened:
+            continue
+        to_merge.append(_hours(opened, merged))
+        first = _first_review_dt(pr)
+        if first:
+            to_review.append(_hours(opened, first))
+    return {
+        "pr_count": len(to_merge),
+        "review_pr_count": len(to_review),
+        "open_to_merge_h": round(statistics.median(to_merge), 1) if to_merge else None,
+        "open_to_first_review_h": round(statistics.median(to_review), 1) if to_review else None,
+    }
+
+
+def _baseline_rows(conn: sqlite3.Connection, project_id: int) -> dict[str, Any]:
+    """Stored baseline: {metric: value} (numeric only) plus `missing_reason` when marked absent."""
+    out: dict[str, Any] = {}
+    for metric, value, notes in conn.execute(
+        "SELECT metric, value, notes FROM outcomes WHERE project_id = ? AND milestone = 'ship' "
+        "AND metric LIKE 'baseline\\_%' ESCAPE '\\' ORDER BY recorded_at, id", (project_id,),
+    ).fetchall():
+        if value is None:
+            out["missing_reason"] = notes
+            out.pop(metric, None)
+        else:
+            out[metric] = float(value)
+            out.pop("missing_reason", None)
+    return out
+
+
+def baseline(*, slug: str, repo_path: str | None = None) -> dict[str, Any]:
+    """Spočítá základnu z historie target repa (ADR-0028 bod 1) a uloží ji k projektu.
+
+    Medián hodin od otevření PR do merge a do prvního review za posledních 180 dní
+    (`gh pr list --state merged`). Méně než 10 PR nebo `gh` nedostupné → neukládá se nic
+    číselného, jen značka „základna není“ s důvodem. Je-li už Go zapsané, uloží se i to
+    (pre-registrace, ADR-0013); dříve uloženou základnu po Go nepřepisuje.
+    """
+    with transaction() as conn:
+        _ensure_outcomes_table(conn)
+        project = _load_project(conn, slug)
+        project_id = int(project["id"])
+        go_dt, _src = _go_date(conn, project_id)
+        existing = _baseline_rows(conn, project_id)
+    after_go = go_dt is not None
+
+    if after_go and existing.get("baseline_pr_count") and not existing.get("baseline_after_go"):
+        return {"slug": slug, "stored": False, "kept_existing": True, "baseline": existing,
+                "after_go": False, "reason": "základna z doby před Go už je uložená, nepřepisuji ji"}
+
+    reason: str | None = None
+    result: dict[str, Any] | None = None
+    try:
+        repo = _resolve_repo(project, repo_path)
+        result = compute_baseline(_gh_pr_list(repo))
+    except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
+        reason = str(exc)
+    if result is not None and result["pr_count"] < BASELINE_MIN_PRS:
+        reason = (f"v repu je za posledních {BASELINE_DAYS} dní jen "
+                  f"{count(result['pr_count'], 'mergnuté PR', 'mergnuté PR', 'mergnutých PR')} "
+                  f"(potřeba aspoň {BASELINE_MIN_PRS})")
+
+    actor = current_actor()
+    window = f"posledních {BASELINE_DAYS} dní, medián"
+    with transaction() as conn:
+        conn.execute(
+            f"DELETE FROM outcomes WHERE project_id = ? AND milestone = 'ship' "
+            f"AND metric IN ({','.join('?' * len(BASELINE_METRICS))})",
+            (project_id, *BASELINE_METRICS),
+        )
+        ins = ("INSERT INTO outcomes (project_id, milestone, metric, value, unit, "
+               "evidence_url, notes, recorded_by) VALUES (?, 'ship', ?, ?, ?, NULL, ?, ?)")
+        if reason or result is None:
+            conn.execute(ins, (project_id, "baseline_open_to_merge_h", None, "h",
+                               f"základna není: {reason}", actor))
+        else:
+            conn.execute(ins, (project_id, "baseline_open_to_merge_h",
+                               result["open_to_merge_h"], "h", window, actor))
+            if result["open_to_first_review_h"] is not None:
+                conn.execute(ins, (project_id, "baseline_open_to_first_review_h",
+                                   result["open_to_first_review_h"], "h",
+                                   f"{window}; z {result['review_pr_count']} PR s review", actor))
+            conn.execute(ins, (project_id, "baseline_pr_count", float(result["pr_count"]),
+                               "PR", f"mergnuté za posledních {BASELINE_DAYS} dní", actor))
+            if after_go:
+                conn.execute(ins, (project_id, "baseline_after_go", 1.0, None,
+                                   "základna změřena až po Go — nesplňuje pre-registraci "
+                                   "(ADR-0013)", actor))
+        audit(conn, action="retro.baseline", target_type="project", target_id=project_id,
+              payload={"slug": slug, "reason": reason, "after_go": after_go,
+                       "result": None if reason else result})
+    return {"slug": slug, "stored": reason is None, "reason": reason, "after_go": after_go,
+            "baseline": None if reason else result, "kept_existing": False}
+
+
+def _segments(go_dt: datetime | None, pr: dict[str, Any]) -> tuple[dict[str, float], list[str]]:
+    """Review segments in hours + Czech one-line warnings for what could not be computed."""
+    seg: dict[str, float] = {}
+    warns: list[str] = []
+    opened, merged = _parse_ts(pr.get("createdAt")), _parse_ts(pr.get("mergedAt"))
+    first = _first_review_dt(pr)
+    if not opened:
+        warns.append("PR nemá čas otevření — úseky se nezapíšou.")
+        return seg, warns
+    if go_dt is None:
+        warns.append("Datum Go chybí — úsek Go → PR otevřen se nezapíše.")
+    elif opened < go_dt:
+        warns.append("PR bylo otevřené před Go — úsek Go → PR otevřen se nezapíše.")
+    else:
+        seg["go_to_pr_open_h"] = _hours(go_dt, opened)
+    if first is None:
+        warns.append("PR nemá žádné review — úseky přes první review se nezapíšou.")
+    else:
+        seg["pr_open_to_first_review_h"] = _hours(opened, first)
+    if merged is None:
+        warns.append("PR není mergnuté — úsek první review → merge se nezapíše.")
+    else:
+        if first is not None and merged >= first:
+            seg["first_review_to_merge_h"] = _hours(first, merged)
+        elif first is not None:
+            warns.append("Merge je před prvním review — úsek první review → merge se nezapíše.")
+        seg["pr_open_to_merge_h"] = _hours(opened, merged)
+    return seg, warns
 
 
 def _numstat(repo: Path, a: str, b: str, paths: list[str] | None = None) -> dict[str, tuple[int, int]]:
@@ -561,7 +764,7 @@ def measure(
         ("loc_merged_unchanged", float(loc_unchanged), "loc",
          heuristic + (f"; součet repa ({coverage})" if multi else "")),
         ("loc_reused_pct", reuse_pct, "%",
-         f"target >= {TARGET_REUSE_PCT:.0f} %" + (f"; {coverage}" if multi else "")),
+         "údaj bez cíle (ADR-0028)" + (f"; {coverage}" if multi else "")),
         ("winner_commits", float(winner_commits), "commits",
          f"{first['fork_sha'][:10]}..{first['winner_sha'][:10]}"
          + (f"; součet repa ({coverage})" if multi else "")),
@@ -593,9 +796,28 @@ def measure(
                 rows.append((f"days_to_prod@{role}", float(r["days_to_prod"]), "days",
                              f"repo {role}"))
 
+    # ADR-0025 point 4: Go -> PR opened -> first review -> merge (hours), only with --pr-url.
+    segments: dict[str, float] = {}
+    segment_warnings: list[str] = []
+    if pr_url:
+        try:
+            segments, segment_warnings = _segments(go_dt, _gh_pr_times(pr_url))
+        except RuntimeError as exc:
+            segment_warnings.append(f"Časy PR nejsou dostupné ({exc}) — úseky review se nezapíšou.")
+        for w in segment_warnings:
+            print(f"[retro] warn: {w}", file=sys.stderr)
+        seg_notes = {
+            "go_to_pr_open_h": f"Go -> PR otevřen (hodiny); {pr_url}",
+            "pr_open_to_first_review_h": f"PR otevřen -> první review (hodiny); {pr_url}",
+            "first_review_to_merge_h": f"první review -> merge (hodiny); {pr_url}",
+            "pr_open_to_merge_h": f"PR otevřen -> merge (hodiny), srovnatelné se základnou; {pr_url}",
+        }
+        rows += [(m, segments[m], "h", seg_notes[m]) for m in SEGMENT_METRICS if m in segments]
+
     actor = current_actor()
     metrics = [r[0] for r in rows]
     with transaction() as conn:
+        baseline_now = _baseline_rows(conn, project_id)
         # measure is recomputable: replace previous ship rows for these metrics
         conn.execute(
             f"DELETE FROM outcomes WHERE project_id = ? AND milestone = 'ship' "
@@ -633,8 +855,10 @@ def measure(
         "loc_reused_pct": reuse_pct,
         "days_to_prod": days_to_prod,
         "winner_commits": winner_commits,
+        "segments_h": segments,
+        "segment_warnings": segment_warnings,
+        "baseline": baseline_now,
         "targets": {
-            "reuse_ok": reuse_pct is not None and reuse_pct >= TARGET_REUSE_PCT,
             "days_to_prod_ok": days_to_prod is not None and days_to_prod <= TARGET_DAYS_TO_PROD,
         },
         "per_file": first["per_file"] if not multi else [
@@ -685,6 +909,112 @@ def record(
         )
     return {"slug": slug, "outcome_id": cur.lastrowid, "milestone": milestone,
             "metric": metric, "value": value, "unit": unit, "recorded_by": actor}
+
+
+# --------------------------------------------------------------------------
+# instability (ADR-0028 point 2)
+# --------------------------------------------------------------------------
+
+_REVERT_RE = re.compile(r"\brevert", re.IGNORECASE)
+_FIX_RE = re.compile(r"\b(?:hotfix|fix(?:es|ed|ing)?)\b", re.IGNORECASE)
+
+
+def classify_subject(subject: str) -> str | None:
+    """`revert` | `fix` | None by the commit subject (a revert is never also counted as a fix)."""
+    if _REVERT_RE.search(subject):
+        return "revert"
+    if _FIX_RE.search(subject):
+        return "fix"
+    return None
+
+
+def _last_merge_sha(project_id: int) -> str | None:
+    """Merge commit from the latest `retro measure` of the project (audit payload)."""
+    with transaction() as conn:
+        row = conn.execute(
+            "SELECT payload_json FROM audit_log WHERE action = 'retro.measure' "
+            "AND target_type = 'project' AND target_id = ? ORDER BY id DESC LIMIT 1",
+            (project_id,)).fetchone()
+    if not row:
+        return None
+    try:
+        return str(json.loads(row[0] or "{}").get("merge_commit") or "") or None
+    except (ValueError, TypeError):
+        return None
+
+
+def instability(
+    *, slug: str, milestone: str, repo_path: str | None = None,
+    merge_commit: str | None = None, fetch: bool = True,
+) -> dict[str, Any]:
+    """Reverty a opravné commity nad soubory vítěze po merge (T+7 / T+30, ADR-0028 bod 2).
+
+    - Soubory vítěze = `git diff --name-only <merge>^1 <merge>` bez souborů nástroje.
+    - Počítají se commity (bez merge commitů) po merge commitu, které se dotýkají těchto
+      souborů a vznikly do `milestone` dnů od merge: `reverts` = předmět obsahuje „revert“,
+      `fix_commits` = předmět obsahuje fix / fixes / hotfix (revert se nepočítá dvakrát).
+    - Merge commit se bere z posledního `retro measure`, nebo z `--merge-commit`.
+    """
+    if milestone not in INSTABILITY_MILESTONES:
+        raise ValueError(f"milestone musí být jedno z {INSTABILITY_MILESTONES}")
+    with transaction() as conn:
+        _ensure_outcomes_table(conn)
+        project = _load_project(conn, slug)
+        project_id = int(project["id"])
+    repo = _resolve_repo(project, repo_path)
+    if fetch and "origin" in _git(repo, "remote", check=False).split():
+        _git(repo, "fetch", "origin", "--prune")
+    sha_in = merge_commit or _last_merge_sha(project_id)
+    if not sha_in:
+        raise ValueError("Chybí merge commit: nejdřív `pflanzer retro measure` "
+                         "nebo zadej `--merge-commit <sha>`.")
+    merge_sha = _rev(repo, sha_in)
+    if not merge_sha:
+        raise ValueError(f"Merge commit `{sha_in}` v {repo} neexistuje (fetch proběhl?).")
+
+    changed = [f for f in _git(repo, "diff", "--name-only", "--no-renames",
+                               f"{merge_sha}^1", merge_sha).splitlines()
+               if f.strip() and not is_method_file(f)]
+    merge_dt = _parse_ts(_git(repo, "log", "-1", "--format=%cI", merge_sha))
+    until = (merge_dt + timedelta(days=MILESTONE_DAYS[milestone])).isoformat() if merge_dt else None
+    head = "HEAD"
+    if _rev(repo, "origin/HEAD") and subprocess.run(
+            ["git", "merge-base", "--is-ancestor", merge_sha, "origin/HEAD"],
+            cwd=repo, capture_output=True).returncode == 0:
+        head = "origin/HEAD"
+
+    commits: dict[str, str] = {}
+    for i in range(0, len(changed), 400):  # keep the argument list short
+        args = ["log", "--no-merges", "--format=%H%x09%s", f"{merge_sha}..{head}"]
+        if until:
+            args.append(f"--until={until}")
+        out = _git(repo, *args, "--", *changed[i:i + 400])
+        for line in out.splitlines():
+            sha, _t, subject = line.partition("\t")
+            commits[sha] = subject
+    kinds = {sha: classify_subject(subj) for sha, subj in commits.items()}
+    reverts = sum(1 for k in kinds.values() if k == "revert")
+    fixes = sum(1 for k in kinds.values() if k == "fix")
+
+    actor = current_actor()
+    evidence = f"commit:{merge_sha}"
+    note = (f"po merge {merge_sha[:10]}, do {MILESTONE_DAYS[milestone]} dní, "
+            f"nad {len(changed)} soubory vítěze")
+    with transaction() as conn:
+        conn.execute("DELETE FROM outcomes WHERE project_id = ? AND milestone = ? "
+                     "AND metric IN ('reverts', 'fix_commits')", (project_id, milestone))
+        for metric, value in (("reverts", reverts), ("fix_commits", fixes)):
+            conn.execute(
+                "INSERT INTO outcomes (project_id, milestone, metric, value, unit, "
+                "evidence_url, notes, recorded_by) VALUES (?, ?, ?, ?, 'commits', ?, ?, ?)",
+                (project_id, milestone, metric, float(value), evidence, note, actor))
+        audit(conn, action="retro.instability", target_type="project", target_id=project_id,
+              payload={"slug": slug, "milestone": milestone, "reverts": reverts,
+                       "fix_commits": fixes, "merge_commit": merge_sha})
+    return {"slug": slug, "milestone": milestone, "merge_commit": merge_sha, "repo": str(repo),
+            "files": len(changed), "reverts": reverts, "fix_commits": fixes,
+            "commits": [{"sha": sha[:10], "subject": subj, "kind": kinds[sha]}
+                        for sha, subj in commits.items() if kinds[sha]]}
 
 
 def _project_killed(project: dict[str, Any]) -> bool:
@@ -870,7 +1200,7 @@ def _usd_czk_rate() -> float | None:
 def leadership_numbers(slug: str) -> dict[str, Any]:
     """4 čísla pro vedení na jednom místě (retro report, `pflanzer report`).
 
-    days-to-prod (cíl ≤ 14), % LOC vítěze, které přežilo (cíl ≥ 80), AI náklad na Go
+    days-to-prod (cíl ≤ 14), % LOC vítěze, které přežilo (údaj bez cíle, ADR-0028), AI náklad na Go
     (tokeny + odhad USD/Kč z `ai_usage`) a podíl kroků se zástupcem AI (ADR-0023).
     Co není změřené, má `None` — nikdy nic neodhadujeme.
     """
@@ -893,8 +1223,7 @@ def leadership_numbers(slug: str) -> dict[str, Any]:
     return {
         "days_to_prod": {"value": days, "target": TARGET_DAYS_TO_PROD,
                          "ok": None if days is None else days <= TARGET_DAYS_TO_PROD},
-        "loc_survival_pct": {"value": reuse, "target": TARGET_REUSE_PCT,
-                             "ok": None if reuse is None else reuse >= TARGET_REUSE_PCT},
+        "loc_survival_pct": {"value": reuse},  # údaj bez cíle (ADR-0028)
         "ai_cost": {"measured": bool(rows), "tokens": tokens if rows else None,
                     "usd": None if usd is None else round(float(usd), 2),
                     "czk": (round(float(usd) * rate) if usd is not None and rate else None)},
@@ -924,8 +1253,8 @@ def leadership_lines(nums: dict[str, Any]) -> list[str]:
     mark = {True: "cíl splněn", False: "pod cílem", None: ""}
     days = (f"{_fmt_value(d['value'], 'dní')} (cíl ≤ {d['target']}) — {mark[d['ok']]}"
             if d["value"] is not None else f"neměřeno (cíl ≤ {d['target']} dní)")
-    loc = (f"{_fmt_value(r['value'], '%')} (cíl ≥ {r['target']:.0f} %) — {mark[r['ok']]}"
-           if r["value"] is not None else f"neměřeno (cíl ≥ {r['target']:.0f} %)")
+    loc = (f"{_fmt_value(r['value'], '%')} (údaj bez cíle)"
+           if r["value"] is not None else "neměřeno")
     s = nums["ai_share"]
     if not s["total_steps"]:
         share = "kroky cesty nejsou v Kickoffu vyplněné"
@@ -969,8 +1298,7 @@ def build_report(slug: str) -> dict[str, Any]:
                 "target": target_txt, "status": "ok" if ok_fn(r["value"]) else "flag"}
 
     checks = [
-        check("loc_reused_pct", lambda v: v >= TARGET_REUSE_PCT,
-              f">= {TARGET_REUSE_PCT:.0f} %"),
+        check("loc_reused_pct", lambda v: True, "bez cíle"),
         check("days_to_prod", lambda v: v <= TARGET_DAYS_TO_PROD,
               f"<= {TARGET_DAYS_TO_PROD} dní"),
     ]
@@ -1070,6 +1398,71 @@ def render_throwaway_report_md(slug: str, data: dict[str, Any]) -> str:
 """
 
 
+def _latest_ship(rows: list[dict[str, Any]], milestone: str = "ship") -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        if r["milestone"] == milestone:
+            out[r["metric"]] = r
+    return out
+
+
+def _h(value: Any) -> str:
+    return "—" if value is None else _fmt_value(value, "h")
+
+
+def review_segments_md(rows: list[dict[str, Any]], slug: str) -> str:
+    """Úseky review vedle základny repa; bez základny se nic neporovnává (ADR-0028)."""
+    ship = _latest_ship(rows)
+    base = {m: r["value"] for m, r in ship.items() if m.startswith("baseline_")
+            and r["value"] is not None}
+    marker = ship.get("baseline_open_to_merge_h")
+    lines = ["## Úseky review a základna repa", ""]
+    if base:
+        n = int(base.get("baseline_pr_count") or 0)
+        lines.append(f"Základna repa: medián z {n} PR mergnutých za posledních {BASELINE_DAYS} dní. "
+                     "Je to historie téhož repa, ne kontrolní skupina.")
+        if "baseline_after_go" in base:
+            lines.append("⚠ Základna byla změřena až po Go, takže nesplňuje pre-registraci (ADR-0013).")
+    elif marker is not None:
+        lines.append(f"Základna není: {_md_cell(marker['notes']).removeprefix('základna není: ')}. "
+                     "Úseky se neporovnávají.")
+    else:
+        lines.append(f"Základna zatím není změřená: `pflanzer retro baseline --slug {slug}`.")
+    seg = {m: ship[m]["value"] for m in SEGMENT_METRICS if m in ship and ship[m]["value"] is not None}
+    if not seg:
+        lines += ["", "_Úseky zatím neměřeno._ "
+                  f"`pflanzer retro measure --slug {slug} --pr-url <URL PR>`"]
+    else:
+        def cmp(metric: str | None) -> str:
+            v = base.get(metric) if metric else None
+            return f"medián {_fmt_value(v, 'h')}" if v is not None else "—"
+        table = [("Go → PR otevřen", "go_to_pr_open_h", None),
+                 ("PR otevřen → první review", "pr_open_to_first_review_h",
+                  "baseline_open_to_first_review_h"),
+                 ("První review → merge", "first_review_to_merge_h", None),
+                 ("PR otevřen → merge (celkem)", "pr_open_to_merge_h", "baseline_open_to_merge_h")]
+        lines += ["", "| Úsek | Naměřeno | Základna repa |", "|------|----------|---------------|"]
+        lines += [f"| {name} | {_h(seg.get(m))} | {cmp(b)} |" for name, m, b in table]
+    lines += ["", "Zrychlení se v reportu nikdy neuvádí jako dojem týmu, jen jako naměřené "
+                  "úseky vedle základny.", ""]
+    return "\n".join(lines)
+
+
+def instability_md(rows: list[dict[str, Any]], slug: str) -> str:
+    """Reverty a opravné commity po merge na T+7 / T+30 (vedle dnů, ne místo nich)."""
+    lines = ["## Nestabilita po merge", ""]
+    for m in INSTABILITY_MILESTONES:
+        got = _latest_ship(rows, m)
+        if "reverts" in got and "fix_commits" in got:
+            lines.append(f"- {MILESTONE_LABELS[m]}: reverty {_fmt_value(got['reverts']['value'], None)}, "
+                         f"opravné commity {_fmt_value(got['fix_commits']['value'], None)} "
+                         f"({_md_cell(got['reverts']['notes'])})")
+        else:
+            lines.append(f"- {MILESTONE_LABELS[m]}: neměřeno — "
+                         f"`pflanzer retro instability --slug {slug} --milestone {m}`")
+    return "\n".join(lines) + "\n"
+
+
 def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
     data = data or build_report(slug)
     if data.get("killed"):
@@ -1081,10 +1474,12 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     status_icon = {"ok": "✅ splněno", "flag": "⚠ FLAG — pod cílem",
                    "missing": "⏳ nezměřeno"}
+    status_icon_info = {"ok": "změřeno (údaj)", "flag": "změřeno (údaj)", "missing": "⏳ nezměřeno"}
 
     check_rows = "\n".join(
         f"| `{c['metric']}` | {_fmt_value(c['value'], c.get('unit'))} | "
-        f"{c['target']} | {status_icon[c['status']]} |"
+        f"{c['target']} | "
+        f"{(status_icon_info if c['target'] == 'bez cíle' else status_icon)[c['status']]} |"
         for c in data["checks"]
     )
 
@@ -1115,6 +1510,8 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
         sections.append(f"{header}\n\n{body}")
 
     sections_md = "\n\n".join(sections)
+    review_md = review_segments_md(data["rows"], slug)
+    instability_block = instability_md(data["rows"], slug)
     flags = [c for c in data["checks"] if c["status"] == "flag"]
     flag_note = ""
     if flags:
@@ -1139,12 +1536,14 @@ def render_report_md(slug: str, data: dict[str, Any] | None = None) -> str:
 
 Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
 
-## Cíle metody
+## Cíle a údaje metody
 
 | Metrika | Hodnota | Cíl | Stav |
 |---------|---------|-----|------|
 {check_rows}
 {flag_note}
+{review_md}
+{instability_block}
 ## Outcomes per milník
 
 {sections_md}
@@ -1154,6 +1553,9 @@ Podíl kroků s AI náhradou: {_ai_stand_in_text(data['ai_stand_ins'])}
 - `loc_reused_pct` = řádky přidané winner branchí, které v merge commitu
   zůstaly beze změny (heuristika `added − removed` po cestách, které winner
   změnil; konzervativní dolní odhad — viz `pflanzer retro measure --help`).
+  Je to údaj bez cíle (ADR-0028): oprava chyby při review snižuje číslo právem.
+- `baseline_*` = medián z historie téhož repa (`pflanzer retro baseline`); úseky review
+  v hodinách z `measure --pr-url`; `reverts` / `fix_commits` z `pflanzer retro instability`.
 - U projektu přes víc repozitářů je `loc_*` / `winner_commits` / `days_to_prod` bez přípony
   součet (dny: poslední merge) za **změřená** repa (poznámka řádku říká, která) a řádky
   `metrika@role` jsou per repo.
@@ -1488,12 +1890,46 @@ def _metrics_help() -> str:
     return "\n".join(lines)
 
 
-SUBCOMMANDS = ("measure", "record", "report", "reminders", "lesson")
+SUBCOMMANDS = ("measure", "record", "report", "reminders", "lesson", "baseline", "instability")
 
 
 def _usage_help(first: str | None) -> str:
     del first  # nikdy nedosazujeme zadané slovo (překlep) jako slug
-    return "pflanzer retro report --slug <slug>   (další: measure, record, reminders, lesson)"
+    return "pflanzer retro report --slug <slug>   (další: baseline, measure, instability, record, reminders, lesson)"
+
+
+def _baseline_text(b: dict[str, Any]) -> str:
+    parts = []
+    if b.get("baseline_open_to_merge_h") is not None:
+        parts.append(f"PR → merge medián {_h(b['baseline_open_to_merge_h'])}")
+    if b.get("baseline_open_to_first_review_h") is not None:
+        parts.append(f"PR → první review medián {_h(b['baseline_open_to_first_review_h'])}")
+    return ", ".join(parts) or "bez číselných hodnot"
+
+
+def _segment_lines(seg: dict[str, float], base: dict[str, Any]) -> list[str]:
+    """Úseky review pro výstup `measure`; základna vedle, když existuje (nikdy dojem)."""
+    if not seg:
+        return []
+    def vs(metric: str, base_key: str) -> str:
+        v = base.get(base_key)
+        return (f" (základna repa: medián {_h(v)})" if v is not None else "")
+    parts = []
+    if "go_to_pr_open_h" in seg:
+        parts.append(f"Go → PR otevřen {_h(seg['go_to_pr_open_h'])}")
+    if "pr_open_to_first_review_h" in seg:
+        parts.append("PR otevřen → první review " + _h(seg["pr_open_to_first_review_h"])
+                     + vs("pr_open_to_first_review_h", "baseline_open_to_first_review_h"))
+    if "first_review_to_merge_h" in seg:
+        parts.append(f"první review → merge {_h(seg['first_review_to_merge_h'])}")
+    lines = ["Úseky review: " + "; ".join(parts)] if parts else []
+    if "pr_open_to_merge_h" in seg:
+        lines.append(f"PR otevřen → merge celkem {_h(seg['pr_open_to_merge_h'])}"
+                     + vs("pr_open_to_merge_h", "baseline_open_to_merge_h"))
+    if not base.get("baseline_pr_count"):
+        lines.append("Základna repa není, úseky se neporovnávají "
+                     "(`pflanzer retro baseline --slug <slug>`).")
+    return lines
 
 
 def main() -> None:
@@ -1526,6 +1962,25 @@ def main() -> None:
                            help="Multi-repo: merge commit sekundárního repa (opakovatelné)")
     p_measure.add_argument("--no-fetch", action="store_true", help="Nepouštět git fetch origin")
 
+    p_base = sub.add_parser(
+        "baseline", help="Základna repa: medián PR → merge a PR → první review (před Kickoffem)",
+        description=baseline.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_base.add_argument("--slug", required=True)
+    p_base.add_argument("--repo", "--repo-path", dest="repo_path",
+                        help="Lokální clone target repa (default: ~/.pflanzer/targets/<repo>)")
+
+    p_inst = sub.add_parser(
+        "instability", help="Reverty a opravné commity nad soubory vítěze po merge (T+7 / T+30)",
+        description=instability.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_inst.add_argument("--slug", required=True)
+    p_inst.add_argument("--milestone", required=True, choices=INSTABILITY_MILESTONES)
+    p_inst.add_argument("--repo", "--repo-path", dest="repo_path",
+                        help="Lokální clone target repa (default: ~/.pflanzer/targets/<repo>)")
+    p_inst.add_argument("--merge-commit", help="SHA merge commitu (default: z posledního `retro measure`)")
+    p_inst.add_argument("--no-fetch", action="store_true", help="Nepouštět git fetch origin")
+
     p_record = sub.add_parser(
         "record", help="Ruční readout T+7/30/60/90",
         epilog=_metrics_help(), formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1554,12 +2009,14 @@ def main() -> None:
     p_les.add_argument("--text", required=True, help="co jsme se dozvěděli (jedna věta)")
     p_les.add_argument("--by", default=None, help="kdo to říká (default: git user)")
 
-    for sp in (p_measure, p_record, p_report, p_rem, p_les):
+    for sp in (p_measure, p_record, p_report, p_rem, p_les, p_base, p_inst):
         sp.add_argument("--json", action="store_true", help="Výstup jako JSON (pro skripty)")
 
     args = p.parse_args()
     examples = {
         "measure": "pflanzer retro measure --slug moje-appka --pr-url https://github.com/firma/repo/pull/12",
+        "baseline": "pflanzer retro baseline --slug moje-appka --repo ~/cesta/k/repu",
+        "instability": "pflanzer retro instability --slug moje-appka --milestone t7",
         "record": ("pflanzer retro record --slug moje-appka --milestone t7 --metric t7_bugs "
                    "--value 2 --evidence https://github.com/firma/repo/issues"),
         "report": "pflanzer retro report --slug moje-appka",
@@ -1576,6 +2033,41 @@ def main() -> None:
                      next_step=kn["next_step"], tips=tips(args.slug, "after_kill", {}),
                      as_json=getattr(args, "json", False))
                 return
+        if args.cmd == "baseline":
+            out = baseline(slug=args.slug, repo_path=args.repo_path)
+            b = out["baseline"] or {}
+            if out["kept_existing"]:
+                lines = [f"Základna je už uložená z doby před Go ({_baseline_text(b)}); {out['reason']}."]
+            elif out["stored"]:
+                lines = [f"Základna z posledních {BASELINE_DAYS} dní, "
+                         f"{count(b['pr_count'], 'mergnuté PR', 'mergnuté PR', 'mergnutých PR')}:",
+                         f"medián PR otevřen → merge: {_h(b['open_to_merge_h'])}",
+                         "medián PR otevřen → první review: "
+                         + (_h(b['open_to_first_review_h']) if b["open_to_first_review_h"] is not None
+                            else "není (žádné PR s review)")]
+            else:
+                lines = [f"Základna není: {out['reason']}.",
+                         "Nic číselného se neuložilo, výsledek pilotu se s repem nebude porovnávat."]
+            warns = []
+            if out["after_go"] and out["stored"]:
+                warns.append("Základna se měří až po Go, takže nesplňuje pre-registraci (ADR-0013). "
+                             "Zapsáno u ní.")
+            emit(out, title=f"Retro: základna {args.slug}", lines=lines, warnings=warns,
+                 next_step=f"`pflanzer retro measure --slug {args.slug} --pr-url <URL PR>`",
+                 tips=tips(args.slug, "retro", {}), as_json=args.json)
+            return
+        if args.cmd == "instability":
+            out = instability(slug=args.slug, milestone=args.milestone, repo_path=args.repo_path,
+                              merge_commit=args.merge_commit, fetch=not args.no_fetch)
+            lines = [f"{MILESTONE_LABELS[args.milestone]}: reverty {out['reverts']}, "
+                     f"opravné commity {out['fix_commits']} "
+                     f"(nad {count(out['files'], 'souborem', 'soubory', 'soubory')} vítěze po merge "
+                     f"{out['merge_commit'][:10]})"]
+            lines += [f"  {c['sha']} {c['kind']}: {c['subject']}" for c in out["commits"]]
+            emit(out, title=f"Retro: nestabilita {args.slug}", lines=lines,
+                 next_step=f"`pflanzer retro report --slug {args.slug}`",
+                 tips=tips(args.slug, "retro", {}), as_json=args.json)
+            return
         if args.cmd == "measure":
             with transaction() as _c:
                 _proj = _load_project(_c, args.slug)
@@ -1599,7 +2091,7 @@ def main() -> None:
                           repo_merges=args.repo_merge)
             lines = [f"Varianta {out['winner']}: {out['loc_merged_unchanged']} z {out['loc_winner']} "
                      f"nových řádků zůstalo beze změny"
-                     + (f" ({out['loc_reused_pct']:g} %, cíl ≥ {TARGET_REUSE_PCT:.0f} %)"
+                     + (f" ({out['loc_reused_pct']:g} %, údaj bez cíle)"
                         if out["loc_reused_pct"] is not None else "")]
             if out["days_to_prod"] is not None:
                 lines.append(f"Od Go do merge: "
@@ -1618,9 +2110,8 @@ def main() -> None:
                 n_ign = len(out["ignored_files"])
                 lines.append(f"Nepočítám {count(n_ign, 'soubor', 'soubory', 'souborů')} "
                              "přidaných nástrojem (.gitignore, .pflanzer/…).")
-            warns = []
-            if not out["targets"]["reuse_ok"]:
-                warns.append("Pod cílem znovupoužití: zjisti v review, co se přepisovalo a proč.")
+            lines += _segment_lines(out["segments_h"], out["baseline"])
+            warns = list(out["segment_warnings"])
             emit(out, title=f"Retro: měření {args.slug}", lines=lines, warnings=warns,
                  next_step=f"`pflanzer retro report --slug {args.slug}`",
                  tips=tips(args.slug, "retro", {}), as_json=args.json)
@@ -1684,7 +2175,10 @@ def main() -> None:
                 status = {"ok": "splněno", "flag": "pod cílem", "missing": "zatím neměřeno"}
                 lines = [_primary_line(data["primary"])]
                 lines += [f"{c['metric']}: {_fmt_value(c['value'], c.get('unit'))} "
-                          f"(cíl {c['target']}) — {status[c['status']]}" for c in data["checks"]]
+                          + (f"(bez cíle) — {'změřeno' if c['value'] is not None else 'zatím neměřeno'}"
+                             if c["target"] == "bez cíle"
+                             else f"(cíl {c['target']}) — {status[c['status']]}")
+                          for c in data["checks"]]
                 lines.append("Podíl kroků s AI náhradou: " + _ai_stand_in_text(data["ai_stand_ins"]))
                 latest_rows: dict[tuple[str, str], dict[str, Any]] = {}
                 for r in data["rows"]:

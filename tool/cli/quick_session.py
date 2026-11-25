@@ -524,6 +524,7 @@ def bootstrap(
     title: str | None = None,
     session_mode: str | None = None,
     windows: Any = None,
+    reviewer: str | None = None,
     personal_data: Any = None,
     data_class: str | None = None,
     ai_act_tier: str | None = None,
@@ -558,6 +559,9 @@ def bootstrap(
         windows: okna z Kickoffu (kdy je Build, checkpointy, Rozhodnutí): objekt
             `{"Build": "st 21.10. 9:00-12:00"}`, nebo seznam textů / `{"okno", "kdy"}`.
             Uloží se k projektu a ukáže ve `status`.
+        reviewer: jméno nebo GitHub handle člověka, který schválí PR vítěze a není jeho autor
+            (ADR-0025). Uloží se k projektu, ukáže se po startu a SHIP.md ho dá do příkazu
+            na PR místo branch ownera. Bez něj (mimo demo) se jen vypíše upozornění.
         leading_metric / guardrail_metric: nepovinné; když chybí, uloží se None
             (do PR/SHIP se nic nedosazuje).
         target_repos: volitelně více repozitářů (audit N8) — list
@@ -587,6 +591,7 @@ def bootstrap(
     profile = RISK_PROFILES[risk_profile]
     session_mode = _normalize_session_mode(session_mode)
     windows_list = _normalize_windows(windows)
+    reviewer = re.sub(r"\s+", " ", str(reviewer or "")).strip() or None
     auto_slug_used = not slug
     slug = slug or auto_slug(hook, _existing_slugs(hook))
     path_owners, short_signers = _split_shorthand_owners(path_owners)
@@ -758,7 +763,8 @@ def bootstrap(
             "shadow_pm = COALESCE(?, shadow_pm), "
             "path_owners_json = COALESCE(?, path_owners_json), "
             "core_json = COALESCE(?, core_json), "
-            "session_mode = ?, windows_json = COALESCE(?, windows_json) "
+            "session_mode = ?, windows_json = COALESCE(?, windows_json), "
+            "reviewer = COALESCE(?, reviewer) "
             "WHERE id = ?",
             (target_repo_url, primary_branch, profile.get("production_readiness_target", 0),
              acceptance_criteria_md, target_branch_owner, shadow_pm,
@@ -766,7 +772,7 @@ def bootstrap(
              json.dumps(core, ensure_ascii=False) if core else None,
              session_mode,
              json.dumps(windows_list, ensure_ascii=False) if windows_list else None,
-             project_id),
+             reviewer, project_id),
         )
         if repos_json:
             if not _has_column(conn, "projects", "target_repos"):
@@ -788,7 +794,7 @@ def bootstrap(
                 "production_readiness_target": profile.get("production_readiness_target", 0),
                 "path_owners": owners_by_step, "ai_signers": signers_by_step,
                 "core": core, "metric": metric, "session_mode": session_mode,
-                "windows": windows_list,
+                "windows": windows_list, "reviewer": reviewer,
                 "ai_stand_ins": ai_stand_ins, "warnings": warnings,
             },
         )
@@ -830,6 +836,8 @@ def bootstrap(
         "ai_signers": signers_by_step,
         "core": core,
         "session_mode": session_mode, "windows": windows_list,
+        "reviewer": reviewer,
+        "reviewer_note": (None if reviewer or risk_profile == "throwaway" else REVIEWER_MISSING_NOTE),
         "mode_recommendation": {"mode": rec_mode, "rationale": rec_why},
         "mode_note": mode_note,
         "target_repos": [r.to_dict() for r in repos],
@@ -853,6 +861,11 @@ def bootstrap(
                       f"/pm build {slug} (v terminálu: `pflanzer build --slug {slug}`)"),
     }
 
+
+# ADR-0025 bod 1: reviewer vítěze má jméno už v Kickoffu; chybějící jméno jen upozorní.
+REVIEWER_MISSING_NOTE = ("Reviewer vítěze zatím nemá jméno (člověk s právem approve v target "
+                         "repu, který není autor). Doplníte ho ve specu polem "
+                         "`\"reviewer\": \"jméno nebo GitHub handle\"` a Kickoff pustíte znovu.")
 
 SESSION_MODES = ("parallel", "mob")
 
@@ -2231,7 +2244,7 @@ BOOTSTRAP_EXAMPLE = """pflanzer start --spec .pflanzer/specs/moje-appka-kickoff.
  "path_owners": {"byznys": "Dana", "produkt": "Petr", "design": "AI", "vyvoj": "Tomáš",
                  "bezpecnost": "Jana", "provoz": "Karel"},
  "core": ["Petr", "Tomáš"], "session_mode": "parallel",
- "windows": {"Build": "st 21.10. 9:00-12:00", "Rozhodnutí": "pá 30.10. 10:00"}}"""
+ "reviewer": "Jana", "windows": {"Build": "st 21.10. 9:00-12:00", "Rozhodnutí": "pá 30.10. 10:00"}}"""
 
 
 BOOTSTRAP_EPILOG = """Pole specu (JSON):
@@ -2246,7 +2259,9 @@ BOOTSTRAP_EPILOG = """Pole specu (JSON):
              podepíše"} — nebo zkráceně v path_owners: "AI:security-expert / Pavel Šnek",
              target_repo_url, target_repos, target_branch,
              session_mode (parallel = 3 varianty A/B/C, výchozí | mob = jedna společná varianta),
-             windows {"Build": "st 21.10. 9:00-12:00", …} — okna z Kickoffu (ukáže je `status`)
+             windows {"Build": "st 21.10. 9:00-12:00", …} — okna z Kickoffu (ukáže je `status`),
+             reviewer "jméno nebo GitHub handle" — kdo schválí PR vítěze a není jeho autor
+             (ADR-0025; bez něj mimo demo dostanete upozornění)
 
 Příklad:
 """ + BOOTSTRAP_EXAMPLE
@@ -2320,6 +2335,10 @@ def _render_bootstrap(out: dict[str, Any], as_json: bool, spec: dict[str, Any]) 
     if out.get("windows"):
         lines.append("Okna: " + " · ".join(
             w["okno"] + (f" {w['kdy']}" if w.get("kdy") else "") for w in out["windows"]))
+    if out.get("reviewer"):
+        lines.append(f"Reviewer vítěze: {out['reviewer']}")
+    elif out.get("reviewer_note"):
+        lines.append(out["reviewer_note"])
     if out.get("risk_profile") == "throwaway":
         lines.append("Demo: triage ani okna bezpečnost a provoz se nevyžadují; před pilotem "
                      "nový Kickoff s risk profilem pilot.")
@@ -2441,7 +2460,7 @@ def main() -> None:
                              "metric?, kill_criteria?, path_owners?{byznys,produkt,design,vyvoj,bezpecnost,provoz; "
                              "hodnota jméno nebo AI / AI:agent [/ podepisující]}, ai_signers?{krok: jméno}, core?[], "
                              "target_repo_url?, target_repos? (list nebo 'fe=url#branch:workspace, be=url'), tier?, "
-                             "session_mode? (parallel|mob), windows? {okno: termín}}")
+                             "session_mode? (parallel|mob), windows? {okno: termín}, reviewer?}")
     p_boot.add_argument("--json", action="store_true", help="Strojový výstup")
 
     p_prompts = sub.add_parser("prompts", prog="pflanzer prompts", help="Prompty pro buildery (Build)")

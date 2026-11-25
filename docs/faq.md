@@ -360,9 +360,14 @@ Metoda zatím nemá vlastní data, tak je sbírejte. Tool je zapisuje do handoff
 - AI náklady (tokeny za variantu a za cyklus) — součást `SHIP.md`,
 - podíl kroků cesty, které zastoupila AI.
 
-Po merge vítěze **`/pm retro <slug>`** změří, kolik kódu vítěze žije
-v produkci beze změny (cíl ≥ 80 %), za kolik dní od Go se dostal do merge
-(cíl ≤ 14 dní) a nastaví připomínky za 7, 30, 60 a 90 dní. Hlavní cesta
+Před Kickoffem si **`pflanzer retro baseline --slug <slug>`** uloží
+základnu: jak dlouho v témže repu trvala cesta od otevření PR do merge
+před pilotem. Po merge vítěze **`/pm retro <slug>`** změří, za kolik dní
+od Go se dostal do merge (cíl ≤ 14 dní), jak dlouho čekal na review, kolik
+kódu vítěze žije v produkci beze změny (údaj bez cíle: oprava chyby není
+selhání) a nastaví připomínky za 7, 30, 60 a 90 dní. Na T+7 a T+30
+`pflanzer retro instability` spočítá reverty a opravy nad soubory vítěze
+(ADR-0028). Hlavní cesta
 končí Shipem, ale bez těchto čísel se metoda nedá zlepšovat.
 
 U **throwaway** dema se kód nepředává do produkce: `pflanzer ship` vyrobí `SHIP.md`,

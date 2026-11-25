@@ -12,6 +12,7 @@ Rozhraní:
                                [--override-critical "důvod"] [--iterate-focus "…"]
                                [--variants A,B]   # jen Iterate: varianty druhého kola
                                [--checkpoint "Bezpečnost & právo: ok (Jana)"]...
+                               [--ai-input "co AI dodala"] [--ai-deviation "kde se Decider odchýlil"]
                                [--force]   # změna už zapsaného Go/Kill; Go pod prahem závaznosti
                                            # (jen s --rationale = důvod)
     pflanzer decide resolve --slug S --feedback-id N [N…] --by JMÉNO --note "…"
@@ -275,21 +276,6 @@ def focus_variants(conn: Any, project_id: int) -> list[str]:
     return [top[0]] if top else []
 
 
-def recommended_winner(conn: Any, project_id: int) -> str:
-    """Doporučený `--winner`: vedoucí varianta podle hlasů jádra.
-
-    Varianty bez otevřeného critical mají přednost; při shodě skóre vyhrává ta ze shortlistu
-    (potom abecedně). Nikdy natvrdo „B“ — bez variant padá zpět na první z focus / „A“."""
-    focus = focus_variants(conn, project_id)
-    crit = {c["variant"] for c in open_criticals(conn, project_id)}
-    ranked = sorted(_votes_summary(conn, project_id),
-                    key=lambda v: (v["variant"] in crit, -v["score"],
-                                   v["variant"] not in focus, v["variant"]))
-    if ranked:
-        return str(ranked[0]["variant"])
-    return (focus or ["A"])[0]
-
-
 def split_criticals(criticals: list[dict[str, Any]], focus: list[str]
                     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """(na vítězi / shortlistu, ostatní)."""
@@ -332,6 +318,106 @@ def _top_commitments(conn: Any, project_id: int) -> list[int]:
     return [int(c[0]) for c in rows]
 
 
+NO_ARGUMENT_FOR = "žádný zapsaný argument pro"
+NO_ARGUMENT_AGAINST = "žádný zapsaný argument proti"
+_SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _argument_text(text: str | None, limit: int = 160) -> str:
+    t = " ".join((text or "").split())
+    return t if len(t) <= limit else t[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def variant_arguments(conn: Any, project_id: int) -> list[dict[str, Any]]:
+    """Nejsilnější argument PRO a PROTI každé variantě, v pevném pořadí (A, B, C), bez AI a bez skóre.
+
+    ADR-0026: výběr je deterministický a jen z lidských zápisů. PROTI = feedback s nejvyšší
+    závažností (otevřený před vyřešeným, pak nejnovější). PRO = zdůvodnění hlasu jádra
+    s nejvyšší závazností (pak nejnovější), jinak pozitivní poznámka (Drobné, skóre >= 0,7).
+    Strana bez vstupu dostane výslovný text, ať mají všechny varianty stejný rozsah.
+    """
+    names = sorted({r[0] for r in conn.execute(
+        "SELECT v.name FROM variants v JOIN sessions s ON s.id = v.session_id "
+        "WHERE s.project_id = ? AND s.type = 1", (project_id,)).fetchall()}) or list(VALID_VARIANTS)
+    has_res = table_has_col(conn, "feedback", "resolved_at")
+    fb_rows = conn.execute(
+        "SELECT f.id, v.name, f.severity, f.score, f.rationale, f.submitted_by, "
+        + ("f.resolved_at IS NOT NULL" if has_res else "0") + " "
+        "FROM feedback f JOIN variants v ON v.id = f.variant_id "
+        "JOIN sessions s ON s.id = v.session_id WHERE s.project_id = ?", (project_id,)).fetchall()
+    vote_rows = conn.execute(
+        "SELECT rp.id, v.name, rp.commitment_level, rp.user_value, rp.rationale, r.catalog_label, "
+        "r.human_owner FROM role_preferences rp JOIN variants v ON v.id = rp.variant_id "
+        "JOIN sessions s ON s.id = v.session_id LEFT JOIN roles r ON r.id = rp.role_id "
+        "WHERE s.project_id = ?", (project_id,)).fetchall()
+    out: list[dict[str, Any]] = []
+    for name in names:
+        against = sorted((r for r in fb_rows if r[1] == name and (r[4] or "").strip()
+                          and r[2] in ("critical", "high", "medium")),
+                         key=lambda r: (_SEVERITY_RANK.get(r[2], 9), bool(r[6]), -r[0]))
+        votes = sorted((r for r in vote_rows if r[1] == name and (r[4] or "").strip()
+                        and ((r[2] or 0) >= 1 or (r[3] or 0) >= 0.5)),
+                       key=lambda r: (-(r[2] or 0), -(r[3] or 0.0), -r[0]))
+        praise = sorted((r for r in fb_rows if r[1] == name and r[2] == "low"
+                         and (r[4] or "").strip() and (r[3] or 0) >= 0.7), key=lambda r: -r[0])
+        pro: dict[str, Any] | None = None
+        if votes:
+            r = votes[0]
+            pro = {"text": _argument_text(r[4]), "by": r[6] or r[5] or "člen jádra", "source": "vote"}
+        elif praise:
+            r = praise[0]
+            pro = {"text": _argument_text(r[4]), "by": r[5] or "autor neznámý", "source": "feedback"}
+        con: dict[str, Any] | None = None
+        if against:
+            r = against[0]
+            con = {"text": _argument_text(r[4]), "by": r[5] or "autor neznámý", "source": "feedback",
+                   "severity": r[2], "feedback_id": r[0]}
+        out.append({"variant": name, "for": pro, "against": con})
+    return out
+
+
+def tier_of(conn: Any, project_id: int) -> str | None:
+    try:
+        row = conn.execute("SELECT tier FROM projects WHERE id = ?", (project_id,)).fetchone()
+    except Exception:  # noqa: BLE001 — starší DB bez sloupce tier
+        return None
+    return str(row[0]) if row and row[0] else None
+
+
+def decision_order_lines(tier: str | None) -> list[str]:
+    """Pořadí bloku Rozhodnutí (ADR-0026): hlasování jádra PŘED souhrnem, Decider poslední."""
+    lines = ["Pořadí Rozhodnutí: demo → tiché hlasování jádra, než si přečtete tenhle souhrn → "
+             "souhrn, Kritické a spory → Decider poslední."]
+    if tier == "full":
+        lines.append("Stupeň Full: po sporech proběhne druhé tiché kolo; kdo chce hlas změnit, "
+                     "řekne to nahlas a zapíše se to.")
+    else:
+        lines.append("Druhé tiché kolo má jen stupeň Full; tady se hlasuje jednou.")
+    return lines
+
+
+def ai_input_items(slug: str, *, prep_generated: bool) -> list[str]:
+    """Co AI do Rozhodnutí dodala, podle toho, co tool ví (souhrn z prep, AI náhrada role)."""
+    items: list[str] = []
+    if prep_generated:
+        items.append("souhrn feedbacku a argumenty pro a proti (`pflanzer decide prep`)")
+    try:
+        from tool.cli._compat import ai_stand_in_line
+        line = ai_stand_in_line(slug)
+    except Exception:  # noqa: BLE001 — podpisy oken nejsou k dispozici
+        line = None
+    if line:
+        items.append(f"AI náhrada role (ADR-0023): {line}")
+    return items
+
+
+def _prep_generated(conn: Any, project_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM audit_log WHERE action = 'session_2.prep' AND target_id = ? LIMIT 1",
+        (project_id,)).fetchone()
+    return bool(row)
+
+
 def prep(slug: str) -> dict[str, Any]:
     """Příprava Rozhodnutí: agregace feedbacku + konflikty. Read-only."""
     agg = pull_aggregate(slug)
@@ -359,7 +445,11 @@ def prep(slug: str) -> dict[str, Any]:
         votes = _votes_summary(conn, project_id)
         shortlist = get_shortlist(conn, project_id)
         focus = focus_variants(conn, project_id)
-        recommended = recommended_winner(conn, project_id)
+        arguments = variant_arguments(conn, project_id)
+        tier = tier_of(conn, project_id)
+        # jen auditní stopa, že souhrn vznikl (ADR-0026: „AI vstup“ v decision logu); data se nemění
+        audit(conn, action="session_2.prep", target_type="project", target_id=project_id,
+              payload={"slug": slug})
 
     commitment_index = (
         sum(commitments) / (3 * len(commitments)) if commitments else 0.0
@@ -376,7 +466,9 @@ def prep(slug: str) -> dict[str, Any]:
         "commitments_count": len(commitments),
         "commitment_threshold": COMMITMENT_THRESHOLD,
         "ready_for_decision": commitment_index >= COMMITMENT_THRESHOLD,
-        "variants": votes,
+        "tier": tier,
+        "variants": sorted(votes, key=lambda v: v["variant"]),  # pevné pořadí, ne podle skóre
+        "arguments": arguments,
         "shortlist": shortlist,
         "iterate_used": int(iterate_used),
         "iterate_available": int(iterate_used) < 1,
@@ -390,7 +482,6 @@ def prep(slug: str) -> dict[str, Any]:
         },
         "open_critical": criticals,
         "focus_variants": focus,
-        "recommended_winner": recommended,
         "winner": agg["winner"],
         "critical_on_all_variants": agg["critical_on_all_variants"],
         "top_disputes": top_disputes(agg["raw_feedback"], 3),
@@ -453,7 +544,6 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
               target_id=pid, payload={"slug": slug, "resolved": done, "by": by, "note": note})
         remaining = open_criticals(conn, pid)
         focus = focus_variants(conn, pid)
-        recommended = recommended_winner(conn, pid)
         win = get_winner(conn, pid)
         remarks_left = open_remarks(conn, pid, win) if win else open_remarks(conn, pid)
         severities = {fid: known[fid][2] for fid in done}
@@ -461,7 +551,7 @@ def resolve_feedback(*, slug: str, feedback_ids: list[int], note: str | None = N
     return {"slug": slug, "resolved": done, "not_found": [], "by": by, "note": note,
             "resolved_severity": severities, "open_remarks_left": remarks_left,
             "open_critical_left": len(remaining), "open_critical": remaining,
-            "focus_variants": focus, "recommended_winner": recommended, "winner": win,
+            "focus_variants": focus, "winner": win,
             "open_critical_on_winner": on_win,
             "open_critical_other": other}
 
@@ -480,6 +570,8 @@ def record_decision(
     checkpoints: list[str] | None = None,
     force: bool = False,
     iterate_variants: list[str] | str | None = None,
+    ai_input: str | None = None,
+    ai_deviation: str | None = None,
 ) -> dict[str, Any]:
     """Persist Decider's call (idempotentní per projekt: jedna session type=2)."""
     if decision not in VALID_DECISIONS:
@@ -634,11 +726,16 @@ def record_decision(
 
         votes = _votes_summary(conn, project_id)
         all_open = open_criticals(conn, project_id) if decision == "kill" else []
+        ai_items = ai_input_items(slug, prep_generated=_prep_generated(conn, project_id))
+        if (ai_input or "").strip():
+            ai_items.append(ai_input.strip())
+        ai_deviation = (ai_deviation or "").strip() or None
         decision_md = render_decision_md(
             slug, decision, rationale, decider, iterate_focus,
             iterate_variants=iterate_variants, winner=winner, override_critical=override_critical,
             criticals=criticals, votes=votes, checkpoints=checkpoints,
             all_criticals=all_open, remarks=remarks,
+            ai_inputs=ai_items, ai_deviation=ai_deviation,
         )
         conn.execute(
             "INSERT INTO decisions (project_id, type, body_md, atribuce_user, atribuce_ts) "
@@ -669,6 +766,8 @@ def record_decision(
                 "forced": bool(force),
                 "below_commitment": below_commitment,
                 "checkpoints": checkpoints,
+                "ai_input": ai_items,
+                "ai_deviation": ai_deviation,
             },
         )
 
@@ -687,6 +786,8 @@ def record_decision(
         "open_critical_overridden": len(criticals) if override_critical else 0,
         "open_remarks": remarks,
         "below_commitment": below_commitment,
+        "ai_input": ai_items,
+        "ai_deviation": ai_deviation,
         "summary_path": display_path(summary_path),
         "decision_log_repo": repo_log,
         "next_step": _next_step_label(decision, slug, winner),
@@ -723,6 +824,7 @@ def render_decision_md(
     votes: list[dict[str, Any]] | None = None, checkpoints: list[str] | None = None,
     all_criticals: list[dict[str, Any]] | None = None,
     remarks: list[dict[str, Any]] | None = None,
+    ai_inputs: list[str] | None = None, ai_deviation: str | None = None,
 ) -> str:
     when = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
     lines = [
@@ -756,6 +858,12 @@ def render_decision_md(
         lines.append("")
     if checkpoints:
         lines += ["### Checkpointy", ""] + [f"- {c}" for c in checkpoints] + [""]
+    lines += ["### AI vstup", "",
+              "AI nerozhoduje ani nedoporučuje vítěze (ADR-0026). Co do Rozhodnutí dodala:", ""]
+    lines += [f"- {i}" for i in (ai_inputs or [])] or ["- nic nezapsáno"]
+    lines += ["", "**Odchylka Decidera od AI vstupu:** "
+              + (ai_deviation or "neuvedeno (`--ai-deviation \"…\"`: kde se Decider odchýlil "
+                                 "nebo proč souhlasí)"), ""]
     if decision == "iterate":
         lines += ["### Iterate (max 1×)", "", (iterate_focus or rationale).strip(), ""]
         if iterate_variants:
@@ -844,12 +952,11 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
     crit = out["open_critical"]
     focus = out.get("focus_variants") or []
     on_win, other = split_criticals(crit, focus)
-    lines: list[str] = []
-    ranked = sorted(out["variants"], key=lambda v: -v["score"])
-    if ranked:
-        lines.append("Hlasy jádra: " + ", ".join(
-            f"{v['variant']} {v['score']:.2f} ({count(v['votes'], 'hlas', 'hlasy', 'hlasů')})"
-            for v in ranked[:3]))
+    lines: list[str] = decision_order_lines(out.get("tier"))
+    if out["variants"]:
+        lines.append("Zapsané hlasy: " + ", ".join(
+            f"{v['variant']} {count(v['votes'], 'hlas', 'hlasy', 'hlasů')}"
+            for v in sorted(out["variants"], key=lambda v: v["variant"])))
     if out.get("session_mode") == "mob" or [v["variant"] for v in out["variants"]] == ["mob"]:
         lines.append("Mob mode: stavěla se jedna společná varianta, takže není co porovnávat. "
                      "Decider rozhoduje, jestli výsledek jde do Shipu (Go), nebo se doladí (Iterate).")
@@ -880,6 +987,12 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
     for c in out["conflicts"][:1]:
         lines.append(f"Hlavní spor u varianty {c['variant']}: {c['role_a']['label']} vs. "
                      f"{c['role_b']['label']}")
+    for a in out.get("arguments") or []:   # stejný rozsah pro každou variantu, pořadí A, B, C
+        for key, label, empty in (("for", "pro", NO_ARGUMENT_FOR),
+                                  ("against", "proti", NO_ARGUMENT_AGAINST)):
+            arg = a.get(key)
+            lines.append(f"Varianta {a['variant']} — {label}: "
+                         + (f"{arg['text']} ({arg['by']})" if arg else empty))
     tips_out: list[str] = []
     if on_win:
         c0 = on_win[0]
@@ -896,9 +1009,9 @@ def _prep_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str, dic
                "`pflanzer record --spec …`)")
     else:
         nxt = (f"Decider rozhodne: `pflanzer decide --slug {slug} go "
-               f"--winner {out.get('recommended_winner') or (focus or ['A'])[0]} "
+               f"--winner {'|'.join(sorted(v['variant'] for v in out['variants'])) or 'A|B|C'} "
                "--rationale \"proč\"`")
-    return (f"Příprava Rozhodnutí: {slug}", lines[:12], [], nxt,
+    return (f"Příprava Rozhodnutí: {slug}", lines[:30], [], nxt,
             {"open_critical": bool(on_win), "alt_tips": tips_out})
 
 
@@ -918,6 +1031,9 @@ def _decision_view(out: dict[str, Any]) -> tuple[str, list[str], list[str], str,
     if out.get("open_remarks"):
         lines.append(remarks_line(len(out["open_remarks"])) + " — jsou v decision logu a půjdou "
                      "do SHIP.md a PR; vyřešit: `pflanzer decide resolve --feedback-id N`")
+    if not out.get("ai_deviation"):
+        lines.append("AI vstup: odchylka Decidera není zapsaná (`--ai-deviation \"…\"`); "
+                     "rozhodnutí tím neblokujeme.")
     lines.append("Zapsáno do decision logu"
                  + (f" ({out['decision_log_repo']}) — zatím jen v pracovní kopii, do originu ho "
                     "dostaneš až commitem a pushem:" if out.get("decision_log_repo")
@@ -974,6 +1090,10 @@ def main() -> None:
                        help="záznam checkpointu (opakovatelné), např. 'Bezpečnost & právo: ok (Jana)'")
     p_dec.add_argument("--force", action="store_true",
                        help="změň už zapsané Go/Kill, nebo jdi do Go pod prahem závaznosti (vždy s --rationale)")
+    p_dec.add_argument("--ai-input", default=None, metavar="TEXT",
+                       help="co AI do Rozhodnutí dodala navíc (souhrn a AI náhrada role se doplní sama)")
+    p_dec.add_argument("--ai-deviation", default=None, metavar="VĚTA",
+                       help="jednou větou: kde se Decider od AI vstupu odchýlil, nebo proč souhlasí")
     p_dec.add_argument("--json", action="store_true")
 
     p_res = sub.add_parser("resolve", prog="pflanzer decide resolve", help="Označ feedback (critical, major i minor) jako vyřešený")
@@ -1003,7 +1123,6 @@ def main() -> None:
             focus = out["focus_variants"]
             ids = ", ".join("#" + str(i) for i in out["resolved"])
             decided = bool(out.get("winner"))
-            rec = out.get("recommended_winner") or (focus or ["A"])[0]
             if on_win:
                 left_line = (f"Zbývá otevřených kritických: {len(on_win)} na "
                              + (f"vítězi ({'/'.join(focus)})" if decided
@@ -1023,12 +1142,9 @@ def main() -> None:
                              + (f"; {len(other)} ostatní na poražených variantách Go neblokuje."
                                 if other else "."))
                 nxt = (f"`pflanzer decide --slug {args.slug} go "
-                       f"--winner {rec} --rationale \"proč\"`")
+                       f"--winner {'|'.join(focus) or 'A'} --rationale \"proč\"`")
                 phase = "after_resolve"
             lines_r = [f"Vyřešeno: {ids} ({who})", left_line]
-            if not on_win and not decided and rec not in focus:
-                lines_r.append(f"Podle skóre vede varianta {rec} (shortlist z Buildu: "
-                               f"{'/'.join(focus)}); vítěze určí Decider při Go.")
             if out["open_remarks_left"]:
                 lines_r.append(f"Zbývá {remarks_line(len(out['open_remarks_left']))}.")
             if out["resolved_severity"] and all(
@@ -1057,6 +1173,7 @@ def main() -> None:
                 winner=args.winner, override_critical=args.override_critical,
                 checkpoints=args.checkpoint, force=args.force,
                 iterate_variants=args.variants,
+                ai_input=args.ai_input, ai_deviation=args.ai_deviation,
             )
             title, lines, warns, nxt, phase = _decision_view(out)
             emit(out, title=title, lines=lines, warnings=warns, next_step=nxt,

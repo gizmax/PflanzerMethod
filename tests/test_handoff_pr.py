@@ -38,7 +38,7 @@ def test_ship_md_contents(shipped: dict[str, Any]) -> None:
     assert "BLOKOVÁNO" in md
     assert "--draft" in md
     # Hlavní stránka je krátká a retro zmiňuje jen jednou.
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
     assert md.count("pflanzer retro measure") == 1
     assert "SHIP-detail.md" in md and "u stolu" not in md
     assert "## AI provenance" not in md and "## AI náklady" not in md
@@ -56,7 +56,7 @@ def test_ship_md_is_one_page_and_detail_is_written(shipped: dict[str, Any]) -> N
     detail = path.parent / "SHIP-detail.md"
     assert detail.is_file()
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert len(lines) <= 60, len(lines)
+    assert len(lines) <= 65, len(lines)
     assert "Vítěz A — " in "\n".join(lines)
     assert "Vítěz A: " not in "\n".join(lines)
 

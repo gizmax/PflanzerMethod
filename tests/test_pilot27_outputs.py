@@ -100,7 +100,7 @@ def test_ship_md_disclaimer_feedback_and_tense(worktree_project: dict[str, Any],
     assert "Chybí pole pro adresu doručení" in md and "Adresa se neukládá" in md
     assert "Spočteno nad" not in md and "branami" not in md
     assert "Ověřili jsme" not in md and "Ověříme" not in md
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
     assert "…" not in handoff_pr.build_pr(slug)["title"]
 
 
@@ -110,7 +110,7 @@ def test_ship_md_without_remarks_says_so(worktree_project: dict[str, Any],
     vote(slug, status="handoff")
     md = handoff_pr.render_ship_md(slug)
     assert "Otevřené připomínky: žádné." in md
-    assert len(md.splitlines()) <= 60
+    assert len(md.splitlines()) <= 65
 
 
 def test_pr_body_uses_same_tense_and_plurals(worktree_project: dict[str, Any],

@@ -405,7 +405,7 @@ def render_portfolio_md(rows: list[dict[str, Any]]) -> str:
             out.append(f"- `{r['slug']}`: " + ("; ".join(r["lessons"]) if r["lessons"]
                                                else "poučení zatím není zapsané"))
     out += ["", f"Projektů: {len(rows)}. Cíle: dny do produkce ≤ {retro.TARGET_DAYS_TO_PROD}, "
-            f"přežití kódu ≥ {retro.TARGET_REUSE_PCT:.0f} %. „{DASH}“ = neměřeno.", ""]
+            f"přežití kódu je údaj bez cíle (ADR-0028). „{DASH}“ = neměřeno.", ""]
     return "\n".join(out)
 
 

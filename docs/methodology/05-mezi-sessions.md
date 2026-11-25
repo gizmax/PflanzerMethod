@@ -35,7 +35,9 @@ k upgradu stupně nebo odkladu Rozhodnutí (ADR-0017).
 - **Technické role** (vývoj, QA, provoz): projdou **PR diff** varianty
   (draft PR, `pflanzer worktree preview --slug <slug>`) a ke každému
   změněnému souboru napíšou **keep / fix / kill** jako PR komentář.
-  Feedback míří přímo do kódu, ne jen do preferencí.
+  Feedback míří přímo do kódu, ne jen do preferencí. **Reviewer vítěze**
+  (jméno z Kickoffu, ADR-0025) tím dělá předreview: v Shipu pak čte jen
+  rozdíl od stavu, který viděl.
 - **Ostatní zástupci** (byznys, produkt, design, právo): klikají na
   preview a píšou feedback v hubu.
 - **Builder** zapracovává připomínky ve větvích (preview se aktualizuje),
