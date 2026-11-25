@@ -2,7 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-**Status:** Proposed · 2026-11-22
+**Status:** Accepted · 2026-11-25 (navrženo 2026-11-22)
 **Související:** ADR-0010 (SHIP.md jako primární handoff), ADR-0017 (Async
 okno), ADR-0021 (malá skupina, celá cesta), ADR-0024 (prahy),
 [`../research/vylepseni-2026-11.md`](../research/vylepseni-2026-11.md) § 1
@@ -30,7 +30,7 @@ prošly diff a napsaly keep / fix / kill.
 
 ## Rozhodnutí
 
-Navrhuje se varianta **B**.
+Varianta **B**. Strop velikosti PR je zatím jen doporučení (bod 3).
 
 1. **Reviewer vítěze má jméno v Kickoffu.** Je to člověk s právem approve
    v target repu, který není autorem (typicky druhý vývojář nebo vlastník
@@ -39,10 +39,10 @@ Navrhuje se varianta **B**.
 2. **Async je předreview.** Reviewer píše keep / fix / kill nad diffem
    vítězné varianty už v Asyncu. V Shipu čte jen rozdíl od stavu, který
    viděl, a výsledek gates.
-3. **Strop velikosti PR vítěze.** Výchozí hodnota je hypotéza, kterou
-   navrhne implementace podle dat z retra; nad stropem nástroj doporučí
-   rozřezat PR na navazující části. Přebít smí jen Decider s důvodem,
-   stejně jako prahy v ADR-0024.
+3. **Velikost PR vítěze jako doporučení, ne brána.** SHIP.md uvádí velikost
+   diffu vítěze a nad orientační hranicí doporučí rozřezat PR na navazující
+   části. Ship to neblokuje. Tvrdý strop zavede až nový ADR s daty z retra
+   (velikost PR proti době review).
 4. **Retro měří tři úseky místo jednoho:** Go → PR otevřen, PR otevřen →
    první review, první review → merge.
 5. **AI review je povolené jako doplněk**, nikdy jako approve (ADR-0023).

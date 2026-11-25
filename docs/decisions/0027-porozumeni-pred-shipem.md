@@ -2,7 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-**Status:** Proposed · 2026-11-22
+**Status:** Accepted · 2026-11-25 (navrženo 2026-11-22)
 **Související:** ADR-0005 (default evolve: vítěz jde do produkce),
 ADR-0010 (SHIP.md), ADR-0025 (review vítěze),
 [`../research/vylepseni-2026-11.md`](../research/vylepseni-2026-11.md) § 3
@@ -30,7 +30,7 @@ jen obchází). Všechny tři mají úzký záběr, viz rešerše.
 
 ## Rozhodnutí
 
-Navrhuje se varianta **B**.
+Varianta **B**, zaváděná ve dvou krocích: věty „proč“ (bod 3) hned, vysvětlení zpět a malá změna (body 1 a 2) jako doporučený krok, který Ship neblokuje.
 
 1. **Vysvětlení zpět.** Před `pflanzer ship` vítěze projde vývojář, který
    u jeho klávesnice neseděl (typicky reviewer z ADR-0025), a vlastními
@@ -46,8 +46,12 @@ Navrhuje se varianta **B**.
 4. **Jeden vývojář v jádru:** bod 1 a 2 udělá zástupce Provozu nebo
    reviewer mimo jádro; když není nikdo, zapíše se to do SHIP.md jako
    otevřené riziko, které Decider vědomě přebírá.
-5. Není to brána se skóre. Výsledek je zápis v decision logu (kdo, kdy,
-   co změnil, jak dlouho to trvalo).
+5. Není to brána se skóre a Ship to neblokuje. Výsledek je zápis v decision
+   logu (kdo, kdy, co změnil, jak dlouho to trvalo); když krok neproběhl,
+   SHIP.md to uvede jako otevřené riziko.
+6. **Přehodnocení po 5 pilotech:** podle údaje z retra (kdo opravoval první
+   chybu a jestli to zvládl bez autora) se rozhodne, zda z bodů 1 a 2
+   udělat povinný krok, nebo je zrušit.
 
 ## Důsledky
 

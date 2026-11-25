@@ -2,7 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-**Status:** Proposed · 2026-11-22
+**Status:** Accepted · 2026-11-25 (navrženo 2026-11-22)
 **Související:** ADR-0013 (pre-registrace), ADR-0014 (PflanzerIndex),
 ADR-0024 (prahy a kalibrace), ADR-0025 (úseky review),
 [`../research/vylepseni-2026-11.md`](../research/vylepseni-2026-11.md) § 4

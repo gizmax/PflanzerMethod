@@ -22,8 +22,8 @@
 - AI zvyšuje propustnost **i nestabilitu** dodávek a vlastní dojem ze
   zrychlení je nespolehlivý. Metoda měří dny a přežití kódu, neměří
   nestabilitu a nemá základnu ke srovnání.
-- Z toho čtyři návrhy ADR (0025–0028, stav Proposed) a čtyři menší úpravy
-  bez ADR.
+- Z toho čtyři ADR (0025–0028, přijatá 2026-11-25, 0026 a 0027 v lehčí
+  podobě) a čtyři menší úpravy bez ADR.
 
 Limit celé rešerše: jde o studie jiných týmů na jiných procesech. Žádná
 netestuje Pflanzer Method. Návrhy jsou hypotézy, které má ověřit retro.

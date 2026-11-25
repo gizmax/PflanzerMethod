@@ -2,7 +2,7 @@
 
 **Pflanzer Method | pflanzer.cz/method**
 
-**Status:** Proposed · 2026-11-22
+**Status:** Accepted · 2026-11-25 (navrženo 2026-11-22)
 **Související:** ADR-0001 (Decider, anti-HiPPO), ADR-0023 (AI náhrada
 chybějící role: AI nikdy není podpis), ADR-0021,
 [`../research/vylepseni-2026-11.md`](../research/vylepseni-2026-11.md) § 2
@@ -31,25 +31,27 @@ a pořadí faktů je už interpretace.
 
 ## Rozhodnutí
 
-Navrhuje se varianta **C**.
+Varianta **C** v lehčí podobě: druhé kolo hlasování jen ve stupni Full.
 
-1. **Pořadí v Rozhodnutí:** demo → tiché hlasování jádra (první, nad
-   vlastní zkušeností z Asyncu) → teprve pak AI souhrn a spory → druhé
-   tiché hlasování → Decider poslední. Rozdíl mezi prvním a druhým
-   hlasováním je vidět v zápisu.
+1. **Pořadí v Rozhodnutí:** demo → tiché hlasování jádra (nad vlastní
+   zkušeností z Asyncu, výsledek se zatím nezveřejní) → teprve pak AI
+   souhrn, Kritické a spory → Decider poslední. Kdo chce po sporech hlas
+   změnit, řekne to nahlas a zapíše se to. **Druhé tiché kolo má jen stupeň
+   Full**; u Quick a Lean by Rozhodnutí zbytečně protahovalo.
 2. **AI nikdy nedoporučuje vítěze** a neřadí varianty. `decide prep`
    pro každou variantu vypíše nejsilnější argument pro a nejsilnější proti,
    ve stejném rozsahu, v pořadí A, B, C.
 3. **Decision log dostane pole „AI vstup“:** co AI do Rozhodnutí dodala
    (souhrn, draft konvergence, zastoupená role) a jednou větou, kde se
    Decider odchýlil nebo proč souhlasí.
-4. **Draft konvergence ve stupni Full** vzniká až po prvním hlasování.
+4. **Draft konvergence ve stupni Full** vzniká až po prvním hlasování;
+   rozdíl mezi prvním a druhým kolem je vidět v zápisu.
 5. Rozšiřuje ADR-0023: AI není podpis **ani doporučení**.
 
 ## Důsledky
 
 - Agenda v `06-session-2.md` se přeskládá; délka 60–90 min zůstává cílem.
-- `pflanzer decide prep` mění výstup; `record` ukládá dvě kola hlasů.
+- `pflanzer decide prep` mění výstup (pro a proti ke každé variantě, bez
+  doporučení vítěze). Dvě kola hlasů se ukládají jen u Full.
 - Studie má úzký záběr (jeden úkol, jeden obor, zesílený sklon). Pravidlo
-  je levná pojistka, ne změřený přínos; retro má sledovat, jak často se
-  první a druhé hlasování liší.
+  je levná pojistka, ne změřený přínos; proto jen jeho levné části.

@@ -7,14 +7,16 @@ a toolu jsou společné.
 
 ## [Unreleased]
 
-### Návrhy (zatím neplatí)
+### Metoda
 - Rešerše [`docs/research/vylepseni-2026-11.md`](docs/research/vylepseni-2026-11.md):
   co z výzkumu roku 2026 plyne pro metodu. U každého zdroje je uvedeno,
   co bylo přečteno.
-- Čtyři ADR ve stavu **Proposed**: ADR-0025 (review vítěze jako plánovaný
-  krok), ADR-0026 (AI nesmí naklánět Rozhodnutí), ADR-0027 (porozumění
-  vítězi před Shipem), ADR-0028 (základna a nestabilita v retru).
-  Metodika ani tool se tímto nemění.
+- Čtyři přijatá ADR: ADR-0025 (review vítěze jako plánovaný krok; strop
+  velikosti PR zatím jen doporučení), ADR-0026 (AI nesmí naklánět
+  Rozhodnutí; druhé kolo hlasování jen u Full), ADR-0027 (porozumění vítězi
+  před Shipem; věty „proč“ hned, vysvětlení zpět jako doporučený krok),
+  ADR-0028 (základna a nestabilita v retru). Úprava dokumentů metodiky
+  a toolu následuje v samostatném PR.
 
 ## [0.6.0] — 2026-10-21
 
