@@ -73,6 +73,7 @@ a Build do 60–90 min, **Full** je pro regulované prostředí
 - [`docs/governance/`](docs/governance/README.md) — vrstva pro regulované prostředí (běžný projekt ji nepotřebuje)
 - [`docs/research/srovnani-metod-2026.md`](docs/research/srovnani-metod-2026.md) — srovnání s AI-DLC, Spec Kit, Kiro a dalšími
 - [`docs/research/vylepseni-2026-11.md`](docs/research/vylepseni-2026-11.md) — co z výzkumu roku 2026 plyne pro metodu (ADR-0025 až 0028)
+- [`docs/research/vibe-coding-ve-firmach-2026.md`](docs/research/vibe-coding-ve-firmach-2026.md) — jak se ve firmách s AI skutečně staví a pět návrhů pro metodu
 - [`docs/dev.md`](docs/dev.md) — pro vývojáře toolu: builder, instalace, dev setup, hub, testy, struktura repa
 
 ## Stav
