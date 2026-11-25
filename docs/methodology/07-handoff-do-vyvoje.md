@@ -49,6 +49,8 @@ Sjednocuje výstupy gates a oken; vlastní ho vývoj s provozem.
 [ ] secret scan a SBOM/licence scan clean (žádné Critical/High CVE)
 [ ] acceptance scénáře (Gherkin, aspoň 1 negativní) projíždějí
 [ ] AI provenance: trailery a PR labely přítomné, autor = člověk u klávesnice
+[ ] věty „proč“ k větším návrhovým rozhodnutím zapsané (pflanzer why add)
+[ ] doporučeno: vítěze vysvětlil zpět někdo mimo autory (pflanzer explain-back record)
 [ ] observability: logy, metriky, traces; dashboard se 4 golden signals
 [ ] SLO baseline a runbook; on-call a alerty nastavené
 [ ] rollback otestovaný; feature flag default OFF, postupný rollout
@@ -143,8 +145,17 @@ EM, ne limit ani gate. Strop nákladů hlídá checkpoint bezpečnost & právo.
 Pod povrchem, mimo pět kroků hlavní cesty. Spouští ho ten, kdo vlastní měření
 (zástupce Produktu nebo Provozu), po mergi vítěze:
 
-- `measure` — z target repa spočítá % LOC vítěze v produkci beze změny
-  (cíl ≥ 80 %) a days-to-prod (cíl ≤ 14); při nesplnění FLAG.
+- `baseline` — **před Kickoffem** spočítá z target repa základnu: medián
+  doby od otevření PR do merge a do prvního review za posledních 180 dní
+  (`pflanzer retro baseline --slug <slug>`, potřebuje `gh`). Pod 10 PR
+  zapíše „základna není“ a výsledek pilotu se neporovnává (ADR-0028).
+- `measure` — z target repa spočítá days-to-prod (cíl ≤ 14; při nesplnění
+  FLAG) a % LOC vítěze v produkci beze změny jako **údaj bez cíle**.
+  S `--pr-url` navíc tři úseky v hodinách: Go → PR otevřen, PR otevřen →
+  první review, první review → merge, vedle základny repa (ADR-0025).
+- `instability` — na T+7 a T+30 spočítá reverty a opravné commity nad
+  soubory vítěze (`pflanzer retro instability --slug <slug> --milestone t7`).
+  Incidenty zůstávají ručním zápisem.
 - `reminders` — nastaví readouty od Go: **T+7** bugy a hotfixy ·
   **T+30** leading metrika, přijetí handoffu vývojem · **T+60** podíl
   přepsaných LOC (rework) · **T+90** lagging metrika vs kritérium ze zadání
@@ -153,6 +164,28 @@ Pod povrchem, mimo pět kroků hlavní cesty. Spouští ho ten, kdo vlastní mě
 
 T+90 je vstup pro zlepšení samotné metody (kalibrace váhy AI-only feedbacku,
 velikosti jádra, délky oken). Bez readoutů se metoda zlepšovat nedá.
+Reporty neuvádějí zrychlení jako dojem týmu, jen naměřené úseky vedle
+základny. První pilot týmu nese režii učení; metoda se hodnotí od druhého
+až třetího pilotu.
+
+## Review vítěze a porozumění (ADR-0025, ADR-0027)
+
+- **Reviewer vítěze má jméno už v Kickoffu** (pole `reviewer` ve specu):
+  člověk s právem approve v target repu, který není autorem. Jeho
+  keep / fix / kill z Asyncu je předreview; v Shipu čte jen rozdíl
+  a výsledek kontrol. Bez jména nástroj při startu upozorní.
+- **Velikost PR je rada, ne brána.** SHIP.md uvádí rozsah diffu vítěze
+  a nad orientační hranicí 400 změněných řádků doporučí rozřezat PR na
+  navazující části. Hranice je hypotéza ke kalibraci z retra.
+- **Věty „proč“.** Ke každému většímu návrhovému rozhodnutí vítěze (nová
+  závislost, datový model, obejití existující komponenty) jedna věta:
+  `pflanzer why add --slug <slug> --what "…" --why "…"`. SHIP.md je vypíše.
+- **Vysvětlení zpět (doporučený krok, Ship neblokuje).** Vývojář, který
+  u klávesnice vítěze neseděl, ho vlastními slovy popíše a udělá v něm
+  jednu malou změnu bez AI:
+  `pflanzer explain-back record --slug <slug> --by "<jméno>" --change "…" --minutes N`.
+  Když krok neproběhl, SHIP.md ho uvede mezi otevřenými riziky.
+  Po 5 pilotech se rozhodne, zda z něj udělat povinný krok.
 
 ## Adopce a další piloty
 

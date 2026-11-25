@@ -85,7 +85,8 @@ pro konkrétní projekt se jmény a stupněm `pflanzer roles cards --slug <slug>
 | **Full** (governance / regulované) | 5–6 h, kompletní agenda `04-session-1.md` (VoC, pre-mortem, Crazy 8s, shadow agenti, A11y quickscan) | 4 triage tracky povinné (Discovery + Security + Legal + Platform) | 5–7 pracovních dní | AI Act High-risk, DORA, public sector, rollout metody napříč organizací (viz § Kdy default NEstačí) | `/pm roles` → `/pm triage` → `/pm build` |
 
 Všechny tři stupně mají **stejné jádro**: vývojář u klávesnice od minuty 0,
-3 paralelní varianty, anti-HiPPO (tiché hlasování je informativní, Decider hlasuje poslední)
+3 paralelní varianty, anti-HiPPO (tiché hlasování je informativní, Decider hlasuje poslední;
+AI nedoporučuje vítěze, ADR-0026)
 a Decider s mandátem — liší se jen množstvím rituálů kolem. **Rozhodnutí je
 ve všech stupních stejné** (`/pm decide`, 60–90 min; Full smí využít 3h
 rozšířenou agendu). **Po Rozhodnutí následuje Ship, ne další setkání:**
@@ -122,8 +123,9 @@ Den 1–5  BUILD          3 h        jádro
          /pm feedback   (pflanzer share down po Rozhodnutí)
 
 Den ~7   ROZHODNUTÍ     60–90 min  Decider + jádro
-         → 10 min demo, agregovaný feedback, top 3 spory,
-           tiché hlasování, Decider hlasuje POSLEDNÍ → Go / Iterate / Kill
+         → 10 min demo, tiché hlasování jádra PŘED AI souhrnem,
+           pro a proti ke každé variantě, top 3 spory,
+           Decider hlasuje POSLEDNÍ → Go / Iterate / Kill
          /pm decide
 
 Den ~8   SHIP           1–2 dny    vývojáři + provoz
@@ -152,10 +154,16 @@ Pod povrchem platí tato pravidla (rozšířená reference v 04–07):
   „Skóre X ze 100 z N automatických kontrol“ (částečné, když část kontrol
   neproběhla; neměří splnění zadání), prahy viz ADR-0024. Závažnost
   připomínek: Kritické / Důležité / Drobné.
-- **Retro:** po merge vítěze `/pm retro` (`pflanzer retro measure --pr-url`
-  / `--merge-commit`) změří % LOC vítěze v produkci a **dny od Go do merge**
-  a nastaví readouty T+7/30/60/90 — viz `docs/zacni.md`
-  § Co měřit.
+- **Review a porozumění:** reviewer vítěze má jméno v Kickoffu a jeho
+  keep / fix / kill z Asyncu je předreview (ADR-0025). SHIP.md nese věty
+  „proč“ k větším návrhovým rozhodnutím; doporučený krok je vysvětlení
+  vítěze zpět někým mimo autory (ADR-0027).
+- **Retro:** základna z repa se ukládá **před Kickoffem** (`pflanzer retro
+  baseline`). Po merge vítěze `/pm retro` (`pflanzer retro measure --pr-url`
+  / `--merge-commit`) změří **dny od Go do merge**, čekání na review vedle
+  základny a % LOC vítěze v produkci (údaj bez cíle), na T+7 a T+30
+  reverty a opravy (ADR-0028) a nastaví readouty T+7/30/60/90 — viz
+  `docs/zacni.md` § Co měřit.
 - **Iterate** = jedno další Build kolo (max 1×), pak Go nebo Kill.
   Třetí kolo = problém je špatně zadaný, vrať se ke Kickoffu.
 - „Session 1 / Session 2" ve starších dokumentech = Build / Rozhodnutí.

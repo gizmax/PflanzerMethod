@@ -24,8 +24,13 @@ Zástupce bezpečnosti/provozu přizvi jen při otevřeném critical v jeho krok
 pflanzer decide prep --slug <slug>
 ```
 
-Ukaž na TV: commitment index, top 3 spory (osa, hlasy per krok cesty,
-návrh řešení), počet critical. Chybí feedback? Zpět na `/pm feedback`.
+**Nejdřív tiché hlasování jádra, teprve pak souhrn** (ADR-0026): výstup
+`decide prep` ukaž na TV až poté, co jádro tiše hlasovalo nad vlastní
+zkušeností z Asyncu. Pak ukaž: ke každé variantě argument pro a proti,
+commitment index, top 3 spory (osa, hlasy per krok cesty, návrh řešení),
+počet critical. **Nikdy nedoporučuj vítěze a varianty neřaď**; na dotaz
+„která je lepší“ odpověz argumenty pro a proti u každé. Při zápisu
+rozhodnutí se zeptej Decidera na jednu větu k AI vstupu (`--ai-deviation`). Chybí feedback? Zpět na `/pm feedback`.
 
 ## Krok 2 — Critical
 

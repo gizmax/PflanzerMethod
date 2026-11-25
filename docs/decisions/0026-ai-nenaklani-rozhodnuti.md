@@ -55,3 +55,7 @@ Varianta **C** v lehčí podobě: druhé kolo hlasování jen ve stupni Full.
   doporučení vítěze). Dvě kola hlasů se ukládají jen u Full.
 - Studie má úzký záběr (jeden úkol, jeden obor, zesílený sklon). Pravidlo
   je levná pojistka, ne změřený přínos; proto jen jeho levné části.
+- **Stav implementace (2026-11-25):** `decide prep` bez doporučení, pro
+  a proti, pořadí bloků a „AI vstup“ v decision logu jsou v nástroji.
+  Ukládání dvou kol hlasů u Full zatím není: chce změnu databáze a hubu.
+  Do té doby se druhé kolo u Full zapisuje ručně do rationale.

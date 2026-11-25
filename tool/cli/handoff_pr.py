@@ -1556,8 +1556,8 @@ def _measure_md(slug: str, pr: dict[str, Any]) -> str:
                      f"--slug {slug} --format ics --out {slug}-pripominka.ics`")
         return "## Co měřit u dema\n\n" + "\n".join(lines) + "\n"
     lines = [
-        "- Kolik kódu vítěze přežilo v `main` a za kolik dní se dostal do produkce (cíl ≥ 80 %, "
-        "≤ 14 dní). Po merge, z worktree vítěze: "
+        "- Kolik kódu vítěze přežilo v `main` (údaj bez cíle) a za kolik dní se dostal do produkce "
+        "(cíl ≤ 14 dní). Po merge, z worktree vítěze: "
         f"`pflanzer retro measure --slug {slug} --pr-url \"$(gh pr view --json url -q .url)\"` "
         "(bez `gh`: `--merge-commit <sha>`)",
     ]
