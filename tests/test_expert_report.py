@@ -97,7 +97,8 @@ def test_summary_after_go_with_numbers(project: dict[str, Any], vote: Callable[.
     assert "Skóre" in md and "Neověřeno" in md
     assert "Neověřeno: akceptační testy" in md
     assert "9 dní (cíl ≤ 14) — cíl splněn" in md
-    assert "85 % (cíl ≥ 80 %) — cíl splněn" in md
+    assert "85 % (údaj bez cíle)" in md
+    assert "cíl ≥ 80" not in md
     assert len(md.splitlines()) <= 40
     assert data["outcome"]["days_to_prod"]["ok"] is True
 
@@ -148,9 +149,11 @@ def test_leadership_numbers_single_source(project: dict[str, Any]) -> None:
     _outcome(slug, "days_to_prod", 20)
     _outcome(slug, "loc_reused_pct", 60)
     nums = retro.leadership_numbers(slug)
-    assert nums["days_to_prod"]["ok"] is False and nums["loc_survival_pct"]["ok"] is False
+    assert nums["days_to_prod"]["ok"] is False
+    assert nums["loc_survival_pct"] == {"value": 60}  # ADR-0028: bez cíle, bez ok
     lines = retro.leadership_lines(nums)
     assert len(lines) == 4 and "pod cílem" in lines[0] and "AI náklad na Go: neměřeno" in lines[2]
+    assert "60 % (údaj bez cíle)" in lines[1] and "pod cílem" not in lines[1]
     with transaction() as conn:
         conn.execute("UPDATE projects SET path_owners_json = ? WHERE slug = ?",
                      (json.dumps({"byznys": "Dana", "design": "AI:ux-expert", "vyvoj": "Petr",
