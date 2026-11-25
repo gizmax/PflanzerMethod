@@ -73,7 +73,7 @@ a malé commity. Chybí výslovný krok „plán před stavbou“ (návrh 3).
   *Přečteno: abstrakt a HTML, část přes strojové shrnutí.*
 - Li a kol., arXiv 2509.10652 (CHIWORK '26), „Vibe Coding in Product
   Teams“. 22 rozhovorů (9 designérů, 4 inženýři, 2 produktoví manažeři,
-  3 výzkumníci, 4 zakladatelé), 13 z velkých firem. Designéři a PM
+  3 výzkumníci, 4 zakladatelé), 13 z velkých firem. Designéři a PdM
   stavěli funkční prototypy sami a předávky mezi rolemi se zkrátily.
   Hlavní překážka bylo napojení na backend, API a databáze; nasazení se
   rozbíjelo, kontext se ztrácel a rychlost vedla k přepisování.
